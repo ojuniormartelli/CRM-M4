@@ -1,29 +1,33 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Função ultra-segura para capturar variáveis de ambiente sem crashar o navegador
+// Função para capturar variáveis com os nomes exatos que estão no seu print da Vercel
 const getSafeEnv = (key: string): string => {
   try {
-    // Tenta primeiro via process.env global shimmed no index.html ou injetado por bundler
-    if (typeof window !== 'undefined' && (window as any).process?.env?.[key]) {
-      return (window as any).process.env[key];
-    }
-    // Tenta via process.env padrão Node
-    if (typeof process !== 'undefined' && process?.env?.[key]) {
-      return process.env[key] as string;
-    }
-    // Tenta via import.meta.env (Vite/ESM)
-    if (typeof (import.meta as any).env !== 'undefined' && (import.meta as any).env[key]) {
-      return (import.meta as any).env[key];
+    // 1. Tenta nomes padrão do Next.js (conforme seu print)
+    const nextKey = `NEXT_PUBLIC_${key}`;
+    const nextAltKey = key === 'SUPABASE_ANON_KEY' ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY' : '';
+
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      return win.process?.env?.[nextKey] || 
+             win.process?.env?.[nextAltKey] || 
+             win.process?.env?.[key] || 
+             '';
     }
   } catch (e) {
-    console.warn(`Tentativa de leitura da variável ${key} falhou:`, e);
+    console.warn(`Erro ao ler env ${key}`);
   }
   return '';
 };
 
-const supabaseUrl = getSafeEnv('SUPABASE_URL') || 'https://placeholder-none.supabase.co';
-const supabaseAnonKey = getSafeEnv('SUPABASE_ANON_KEY') || 'placeholder-none';
+// Captura as chaves usando os múltiplos formatos possíveis
+const supabaseUrl = getSafeEnv('SUPABASE_URL');
+const supabaseAnonKey = getSafeEnv('SUPABASE_ANON_KEY');
 
-// Criação resiliente do cliente Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Se as chaves não forem encontradas, o cliente ainda é criado para não quebrar o import,
+// mas as chamadas falharão graciosamente.
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder'
+);

@@ -8,18 +8,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // Shim para evitar erro fatal de 'process is not defined' no navegador
+      // Shim atualizado para aceitar os nomes exatos do seu print da Vercel
       window.process = { 
         env: { 
           NODE_ENV: 'production',
+          // O script de deploy da Vercel injeta as variáveis aqui automaticamente
+          // mas garantimos que o objeto exista para não crashar
           SUPABASE_URL: '',
           SUPABASE_ANON_KEY: '',
-          API_KEY: ''
+          NEXT_PUBLIC_SUPABASE_URL: '',
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ''
         } 
       };
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
