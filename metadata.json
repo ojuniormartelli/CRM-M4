@@ -1,0 +1,8 @@
+{
+  "name": "M4 Marketing Digital - CRM & Agency Suite",
+  "description": "A comprehensive digital marketing agency management system combining CRM, project management, tasks, finance, and AI-powered automation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
