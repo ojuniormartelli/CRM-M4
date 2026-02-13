@@ -15,7 +15,16 @@ const Automation: React.FC<AutomationProps> = ({ leads }) => {
   const handleAiCopilot = async () => {
     setIsAiLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Acesso seguro à chave API apenas no momento da execução
+      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      
+      if (!apiKey) {
+        setAiSuggestions(["API Key não configurada no ambiente."]);
+        setIsAiLoading(false);
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `Analise estes dados de leads da minha agência de marketing M4 Digital: ${JSON.stringify(leads)}. 
       Sugira 3 regras de automação específicas para otimizar meu funil comercial. Retorne apenas uma lista simples de frases curtas.`;
       
