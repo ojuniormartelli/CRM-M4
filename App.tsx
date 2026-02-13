@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSalesExpanded, setIsSalesExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // --- GLOBAL STATE ---
   const [pipelines] = useState<Pipeline[]>([
@@ -38,18 +39,30 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const { data: l } = await supabase.from('m4_leads').select('*');
-        const { data: t } = await supabase.from('m4_tasks').select('*');
-        const { data: tr } = await supabase.from('m4_transactions').select('*');
-        const { data: e } = await supabase.from('m4_emails').select('*').order('created_at', { ascending: false });
+        // Tenta buscar os dados. Se as tabelas não existirem, o Supabase retornará erro.
+        const [resLeads, resTasks, resTrans, resEmails] = await Promise.all([
+          supabase.from('m4_leads').select('*'),
+          supabase.from('m4_tasks').select('*'),
+          supabase.from('m4_transactions').select('*'),
+          supabase.from('m4_emails').select('*').order('created_at', { ascending: false })
+        ]);
         
-        if (l) setLeads(l);
-        if (t) setTasks(t);
-        if (tr) setTransactions(tr);
-        if (e) setEmails(e);
-      } catch (err) {
-        console.error("Erro Supabase:", err);
+        if (resLeads.error) console.warn("Leads não carregados:", resLeads.error.message);
+        if (resLeads.data) setLeads(resLeads.data);
+        
+        if (resTasks.data) setTasks(resTasks.data);
+        if (resTrans.data) setTransactions(resTrans.data);
+        if (resEmails.data) setEmails(resEmails.data);
+
+        // Se todos falharem criticamente (ex: URL inválida), avisamos o usuário
+        if (resLeads.error && resLeads.error.message.includes('fetch')) {
+          setError("Falha na conexão com o Supabase. Verifique suas chaves.");
+        }
+      } catch (err: any) {
+        console.error("Erro crítico na inicialização:", err);
+        setError("Erro ao inicializar o CRM. Verifique o console para mais detalhes.");
       } finally {
         setLoading(false);
       }
@@ -111,6 +124,26 @@ const App: React.FC = () => {
       <div className="h-screen flex items-center justify-center bg-white flex-col gap-4">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="font-black text-slate-400 uppercase tracking-widest text-[10px] animate-pulse">Sincronizando Cloud M4...</p>
+      </div>
+    );
+  }
+
+  // Fallback de Erro / Configuração
+  if (error && activeTab !== 'settings') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl border border-red-100 text-center space-y-6">
+          <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto text-3xl">⚠️</div>
+          <h2 className="text-2xl font-black text-slate-900">Configuração Necessária</h2>
+          <p className="text-slate-500 font-medium">{error}</p>
+          <p className="text-sm text-slate-400">É provável que você ainda não tenha criado as tabelas no Supabase ou as credenciais estejam incorretas.</p>
+          <button 
+            onClick={() => { setActiveTab('settings'); setError(null); }}
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-blue-700 transition-all"
+          >
+            Ir para Configurações de SQL
+          </button>
+        </div>
       </div>
     );
   }

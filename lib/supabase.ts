@@ -1,9 +1,18 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Substitua estas strings pelas suas credenciais do Supabase
-// Se estiver usando variáveis de ambiente: process.env.SUPABASE_URL
-const supabaseUrl = process.env.SUPABASE_URL || 'https://sua-url.supabase.co';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sua-anon-key';
+// Função para obter variáveis de ambiente de forma segura no navegador
+const getEnv = (key: string) => {
+  try {
+    return (window as any).process?.env?.[key] || (import.meta as any).env?.[key] || '';
+  } catch {
+    return '';
+  }
+};
 
+const supabaseUrl = getEnv('SUPABASE_URL') || 'https://placeholder.supabase.co';
+const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || 'placeholder';
+
+// O cliente é criado mesmo com placeholders para evitar erros de importação, 
+// mas as chamadas falharão graciosamente.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
