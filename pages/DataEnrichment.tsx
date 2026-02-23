@@ -26,6 +26,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   });
   const [importedLeads, setImportedLeads] = useState<Partial<Lead>[]>([]);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+  const [editingLead, setEditingLead] = useState<Partial<Lead> | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -261,16 +262,18 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
 
   const handleEditLead = (index: number) => {
     setSelectedLeadIndex(index);
+    setEditingLead({ ...importedLeads[index] });
     setIsEditModalOpen(true);
   };
 
-  const saveEditedLead = (updatedLead: Partial<Lead>) => {
-    if (selectedLeadIndex !== null) {
+  const saveEditedLead = () => {
+    if (selectedLeadIndex !== null && editingLead) {
       const updated = [...importedLeads];
-      updated[selectedLeadIndex] = updatedLead;
+      updated[selectedLeadIndex] = editingLead;
       setImportedLeads(updated);
       setIsEditModalOpen(false);
       setSelectedLeadIndex(null);
+      setEditingLead(null);
     }
   };
 
@@ -520,7 +523,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
       )}
 
       {/* Edit Modal */}
-      {isEditModalOpen && selectedLeadIndex !== null && (
+      {isEditModalOpen && editingLead && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-start mb-10">
@@ -539,12 +542,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Completo</label>
                   <input 
                     type="text" 
-                    value={importedLeads[selectedLeadIndex].name || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], name: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.name || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -552,12 +551,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
                   <input 
                     type="text" 
-                    value={importedLeads[selectedLeadIndex].company || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], company: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.company || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -565,12 +560,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
                   <input 
                     type="text" 
-                    value={importedLeads[selectedLeadIndex].cnpj || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], cnpj: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.cnpj || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -578,12 +569,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sócios</label>
                   <textarea 
                     rows={3}
-                    value={importedLeads[selectedLeadIndex].partners || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], partners: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.partners || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, partners: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
                   />
                 </div>
@@ -594,12 +581,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Principal</label>
                   <input 
                     type="email" 
-                    value={importedLeads[selectedLeadIndex].email || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], email: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.email || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -607,12 +590,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp / Telefone</label>
                   <input 
                     type="text" 
-                    value={importedLeads[selectedLeadIndex].phone || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], phone: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.phone || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -621,12 +600,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <textarea 
                     rows={2}
                     placeholder="Emails ou telefones extras"
-                    value={`${importedLeads[selectedLeadIndex].additionalEmails || ''} ${importedLeads[selectedLeadIndex].additionalPhones || ''}`.trim()} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], additionalEmails: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={`${editingLead.additionalEmails || ''} ${editingLead.additionalPhones || ''}`.trim()} 
+                    onChange={(e) => setEditingLead({ ...editingLead, additionalEmails: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
                   />
                 </div>
@@ -634,12 +609,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Endereço</label>
                   <input 
                     type="text" 
-                    value={importedLeads[selectedLeadIndex].address || ''} 
-                    onChange={(e) => {
-                      const updated = [...importedLeads];
-                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], address: e.target.value };
-                      setImportedLeads(updated);
-                    }}
+                    value={editingLead.address || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, address: e.target.value })}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                   />
                 </div>
@@ -650,7 +621,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               <button onClick={() => setIsEditModalOpen(false)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm hover:bg-slate-200 transition-all active:scale-95">
                 CANCELAR
               </button>
-              <button onClick={() => setIsEditModalOpen(false)} className="flex-1 px-10 py-5 bg-blue-600 text-white rounded-[2rem] font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95">
+              <button onClick={saveEditedLead} className="flex-1 px-10 py-5 bg-blue-600 text-white rounded-[2rem] font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95">
                 SALVAR ALTERAÇÕES
               </button>
             </div>
