@@ -34,6 +34,8 @@ export interface Lead {
   stageId: string;
   value: number;
   notes: string;
+  segment?: string;
+  address?: string;
   createdAt: string;
 }
 

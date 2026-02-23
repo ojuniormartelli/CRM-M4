@@ -1,22 +1,31 @@
 
 import React from 'react';
 import { ICONS } from '../constants';
+import { Lead } from '../types';
 
-const MarketingCRM: React.FC = () => {
+interface MarketingCRMProps {
+  leads: Lead[];
+}
+
+const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads }) => {
   const campaigns = [
     { name: 'Reativação de Leads Antigos', type: 'E-mail', status: 'Enviando', sent: 1240, open: '24%', click: '3.2%' },
     { name: 'Promoção Black November', type: 'Meta Ads', status: 'Ativa', sent: '-', open: '-', click: '1.8% CTR' },
     { name: 'Lançamento Tech Solutions', type: 'WhatsApp', status: 'Agendada', sent: 0, open: '-', click: '-' },
   ];
 
+  const totalAudience = leads.length;
+  const emailAudience = leads.filter(l => l.email).length;
+  const whatsappAudience = leads.filter(l => l.phone).length;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Marketing CRM</h2>
-          <p className="text-slate-500">Crie campanhas automatizadas para sua base.</p>
+          <p className="text-slate-500">Crie campanhas automatizadas para sua base de {totalAudience} contatos.</p>
         </div>
-        <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100">
+        <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">
           Criar Campanha
         </button>
       </div>
@@ -27,8 +36,8 @@ const MarketingCRM: React.FC = () => {
             <ICONS.Mail />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">E-mails Enviados</p>
-            <h4 className="text-xl font-black text-slate-800">45.230</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Audiência E-mail</p>
+            <h4 className="text-xl font-black text-slate-800">{emailAudience}</h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -36,8 +45,8 @@ const MarketingCRM: React.FC = () => {
             <ICONS.MessageCircle />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">WhatsApp disparados</p>
-            <h4 className="text-xl font-black text-slate-800">8.940</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Audiência WhatsApp</p>
+            <h4 className="text-xl font-black text-slate-800">{whatsappAudience}</h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -45,15 +54,19 @@ const MarketingCRM: React.FC = () => {
             <ICONS.Automation />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Automações Ativas</p>
-            <h4 className="text-xl font-black text-slate-800">12</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Segmentos IA</p>
+            <h4 className="text-xl font-black text-slate-800">5</h4>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h3 className="font-bold text-slate-800">Campanhas Recentes</h3>
+          <div className="flex gap-2">
+             <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full">TODAS</span>
+             <span className="px-3 py-1 text-slate-400 text-[10px] font-bold rounded-full">ATIVAS</span>
+          </div>
         </div>
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -67,7 +80,7 @@ const MarketingCRM: React.FC = () => {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {campaigns.map((c, i) => (
-              <tr key={i} className="hover:bg-slate-50">
+              <tr key={i} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.name}</td>
                 <td className="px-6 py-4 text-xs font-medium text-slate-500">{c.type}</td>
                 <td className="px-6 py-4">

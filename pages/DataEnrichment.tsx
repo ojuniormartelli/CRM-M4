@@ -1,0 +1,353 @@
+import React, { useState, useRef } from 'react';
+import { ICONS } from '../constants';
+import { Lead, Pipeline } from '../types';
+import { GoogleGenAI } from "@google/genai";
+import { supabase } from '../lib/supabase';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
+
+interface DataEnrichmentProps {
+  pipelines: Pipeline[];
+  onImportComplete: () => void;
+}
+
+const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComplete }) => {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<any[][]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    segment: '',
+    address: ''
+  });
+  const [importedLeads, setImportedLeads] = useState<Partial<Lead>[]>([]);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzing(true);
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith('.csv')) {
+      Papa.parse(file, {
+        complete: (results) => {
+          processRawData(results.data as any[][]);
+        },
+        header: false,
+        skipEmptyLines: true
+      });
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        processRawData(json as any[][]);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert("Formato de arquivo não suportado. Use .csv ou .xlsx");
+      setIsAnalyzing(false);
+    }
+  };
+
+  const processRawData = (data: any[][]) => {
+    if (data.length > 0) {
+      const headers = data[0].map(h => String(h || '').trim());
+      const rows = data.slice(1);
+      
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+      
+      // Intelligent Auto-mapping
+      const newMapping = { ...mapping };
+      headers.forEach((h, index) => {
+        const lower = h.toLowerCase();
+        if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping.name = index.toString();
+        else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) newMapping.email = index.toString();
+        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('whatsapp') || lower.includes('tel')) newMapping.phone = index.toString();
+        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping.company = index.toString();
+        else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping.segment = index.toString();
+        else if (lower.includes('endereço') || lower.includes('address') || lower.includes('cidade') || lower.includes('local') || lower.includes('rua')) newMapping.address = index.toString();
+      });
+      
+      setMapping(newMapping);
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setStep(2);
+      }, 800);
+    } else {
+      setIsAnalyzing(false);
+      alert("O arquivo parece estar vazio.");
+    }
+  };
+
+  const handleProcessMapping = () => {
+    const parsed: Partial<Lead>[] = csvRows.map(row => {
+      const lead: Partial<Lead> = {
+        name: mapping.name ? String(row[parseInt(mapping.name)] || '') : '',
+        email: mapping.email ? String(row[parseInt(mapping.email)] || '') : '',
+        phone: mapping.phone ? String(row[parseInt(mapping.phone)] || '') : '',
+        company: mapping.company ? String(row[parseInt(mapping.company)] || '') : '',
+        segment: mapping.segment ? String(row[parseInt(mapping.segment)] || '') : '',
+        address: mapping.address ? String(row[parseInt(mapping.address)] || '') : '',
+        value: 0,
+        notes: ''
+      };
+      return lead;
+    });
+
+    setImportedLeads(parsed.filter(l => l.name || l.email));
+    setStep(3);
+  };
+
+  const handleEnrichLeads = async () => {
+    setIsEnriching(true);
+    try {
+      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      if (!apiKey) {
+        alert("API Key não configurada no ambiente.");
+        setIsEnriching(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Aqui está uma lista de leads importados (JSON): ${JSON.stringify(importedLeads)}.
+Por favor, enriqueça esses dados:
+1. Se a empresa estiver vazia, tente inferir pelo domínio do e-mail.
+2. Sugira um 'value' (valor do negócio em reais, número inteiro) com base no porte provável da empresa (ex: B2B SaaS, e-commerce).
+3. Adicione um 'notes' curto sugerindo uma estratégia de abordagem personalizada.
+4. Padronize os nomes (primeira letra maiúscula).
+5. Mantenha os campos 'segment' e 'address' se existirem.
+
+Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, email, phone, company, value, notes, segment, address.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+
+      const text = response.text || "[]";
+      const enriched = JSON.parse(text);
+      setImportedLeads(enriched);
+    } catch (error) {
+      console.error("Erro ao enriquecer:", error);
+      alert("Erro ao enriquecer leads com IA.");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  const handleSaveImported = async () => {
+    setIsSyncing(true);
+    const pipeline = pipelines.find(p => p.id === selectedPipeline) || pipelines[0];
+    const stageId = pipeline?.stages[0]?.id;
+
+    if (!stageId) {
+      alert("Pipeline inválido ou sem estágios.");
+      setIsSyncing(false);
+      return;
+    }
+
+    const toInsert = importedLeads.map(lead => ({
+      ...lead,
+      pipelineId: selectedPipeline,
+      stageId: stageId,
+      createdAt: new Date().toISOString()
+    }));
+
+    const { error } = await supabase
+      .from('m4_leads')
+      .insert(toInsert);
+
+    if (error) {
+      alert("Erro ao salvar no Supabase: " + error.message);
+    } else {
+      onImportComplete();
+    }
+    setIsSyncing(false);
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700 max-w-6xl mx-auto pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Importação & Enriquecimento</h2>
+          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mt-2">Inteligência de Dados M4 Agency</p>
+        </div>
+        <div className="flex items-center gap-4 bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-500 ${step >= s ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' : 'bg-slate-100 text-slate-400'}`}>
+                {s}
+              </div>
+              {s < 3 && <div className={`w-6 h-1 rounded-full ${step > s ? 'bg-blue-600' : 'bg-slate-100'}`}></div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {step === 1 && (
+        <div className="bg-white p-16 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 text-center relative overflow-hidden group">
+          {isAnalyzing && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-20 flex flex-col items-center justify-center gap-4">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="font-black text-blue-600 uppercase tracking-widest text-xs animate-pulse">Analisando Estrutura da Planilha...</p>
+            </div>
+          )}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
+          <div className="w-28 h-28 bg-blue-50 rounded-[2rem] flex items-center justify-center text-blue-600 mx-auto mb-8 shadow-inner">
+            <ICONS.Database width="48" height="48" />
+          </div>
+          <h3 className="text-3xl font-black text-slate-900 mb-4">Importe sua Planilha de Leads</h3>
+          <p className="text-slate-500 mb-10 max-w-md mx-auto font-medium leading-relaxed">Suporta arquivos <span className="text-blue-600 font-bold">.CSV</span> e <span className="text-blue-600 font-bold">.XLSX</span>. Nossa IA ajudará a mapear as colunas e enriquecer as informações.</p>
+          
+          <div className="flex flex-col items-center gap-4">
+            <label className="inline-flex items-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm hover:bg-blue-600 shadow-2xl transition-all cursor-pointer hover:-translate-y-1 active:scale-95">
+              <ICONS.Plus /> SELECIONAR PLANILHA
+              <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} ref={fileInputRef} />
+            </label>
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Dica: Use arquivos com cabeçalhos claros para melhor mapeamento</p>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="bg-white p-12 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+              <ICONS.Automation width="28" height="28" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900">Mapeamento Inteligente</h3>
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Relacione os campos da sua planilha aos campos do CRM</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {Object.keys(mapping).map((field) => (
+              <div key={field} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 group hover:border-blue-200 transition-all shadow-sm">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                  Campo CRM: <span className="text-blue-600">{field.toUpperCase()}</span>
+                </label>
+                <select 
+                  value={mapping[field]} 
+                  onChange={(e) => setMapping({...mapping, [field]: e.target.value})}
+                  className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">-- Ignorar --</option>
+                  {csvHeaders.map((h, i) => (
+                    <option key={i} value={i.toString()}>{h}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-4 pt-8 border-t border-slate-50">
+            <button onClick={() => setStep(1)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm hover:bg-slate-200 transition-all active:scale-95">
+              VOLTAR
+            </button>
+            <button onClick={handleProcessMapping} className="flex-1 px-10 py-5 bg-blue-600 text-white rounded-[2rem] font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95">
+              CONTINUAR PARA REVISÃO
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="bg-white p-12 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900">Revisão & Enriquecimento IA</h3>
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{importedLeads.length} contatos identificados</p>
+            </div>
+            <button 
+              onClick={handleEnrichLeads} 
+              disabled={isEnriching}
+              className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+            >
+              {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
+              {isEnriching ? "ENRIQUECENDO DADOS..." : "ENRIQUECER COM IA"}
+            </button>
+          </div>
+
+          <div className="overflow-x-auto rounded-[2rem] border border-slate-100 mb-10 shadow-inner bg-slate-50/50">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-900 border-b border-slate-800">
+                <tr>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Nome</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Empresa / Segmento</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Email / Tel</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Valor Est.</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Insights da IA</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {importedLeads.map((lead, i) => (
+                  <tr key={i} className="hover:bg-white transition-colors">
+                    <td className="px-6 py-5">
+                      <p className="font-black text-slate-900">{lead.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.address || 'Sem endereço'}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-bold text-slate-700">{lead.company || 'Pendente'}</p>
+                      <p className="text-[10px] text-blue-500 font-black uppercase">{lead.segment || 'Sem segmento'}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="text-slate-600 font-medium">{lead.email}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{lead.phone}</p>
+                    </td>
+                    <td className="px-6 py-5 font-black text-emerald-600">
+                      {lead.value ? `R$ ${lead.value.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-6 py-5 text-[11px] text-slate-400 font-bold max-w-xs truncate" title={lead.notes}>{lead.notes || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 items-end justify-between p-10 bg-slate-900 rounded-[2.5rem] shadow-2xl">
+            <div className="flex-1 w-full">
+              <label className="block text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-4">Pipeline de Destino</label>
+              <select 
+                value={selectedPipeline} 
+                onChange={(e) => setSelectedPipeline(e.target.value)}
+                className="w-full max-w-md p-5 bg-slate-800 border border-slate-700 rounded-2xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20 transition-all cursor-pointer"
+              >
+                {pipelines.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex gap-4 w-full lg:w-auto">
+              <button onClick={() => setStep(2)} className="px-10 py-5 bg-slate-800 text-slate-400 rounded-[2rem] font-black text-sm hover:bg-slate-700 transition-all active:scale-95">
+                VOLTAR
+              </button>
+              <button onClick={handleSaveImported} disabled={isSyncing} className="flex-1 lg:flex-none px-12 py-5 bg-emerald-500 text-white rounded-[2rem] font-black text-sm hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 active:scale-95">
+                {isSyncing ? "SALVANDO..." : "FINALIZAR IMPORTAÇÃO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DataEnrichment;

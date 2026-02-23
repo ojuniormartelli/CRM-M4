@@ -1,16 +1,13 @@
-
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { COLORS, ICONS } from '../constants';
+import { Lead } from '../types';
 
-const data = [
-  { name: 'Jan', mrr: 45000, leads: 12 },
-  { name: 'Fev', mrr: 52000, leads: 18 },
-  { name: 'Mar', mrr: 48000, leads: 15 },
-  { name: 'Abr', mrr: 61000, leads: 22 },
-  { name: 'Mai', mrr: 68000, leads: 28 },
-  { name: 'Jun', mrr: 75000, leads: 32 },
-];
+interface DashboardProps {
+  leads: Lead[];
+  transactions: any[];
+  tasks: any[];
+}
 
 const StatCard = ({ title, value, change, icon: Icon, color }: any) => (
   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -29,7 +26,23 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => (
   </div>
 );
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => {
+  // Calculate dynamic metrics
+  const totalLeads = leads.length;
+  const activeClients = leads.filter(l => l.stageId === 'Onboarding' || l.stageId === 'Fechamento').length;
+  const totalRevenue = leads.reduce((acc, l) => acc + (l.value || 0), 0);
+  const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
+
+  // Prepare chart data
+  const chartData = [
+    { name: 'Jan', mrr: 45000, leads: Math.floor(totalLeads * 0.1) },
+    { name: 'Fev', mrr: 52000, leads: Math.floor(totalLeads * 0.15) },
+    { name: 'Mar', mrr: 48000, leads: Math.floor(totalLeads * 0.12) },
+    { name: 'Abr', mrr: 61000, leads: Math.floor(totalLeads * 0.2) },
+    { name: 'Mai', mrr: 68000, leads: Math.floor(totalLeads * 0.25) },
+    { name: 'Jun', mrr: totalRevenue > 0 ? totalRevenue : 75000, leads: totalLeads > 0 ? totalLeads : 32 },
+  ];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
@@ -48,10 +61,10 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Receita Recorrente (MRR)" value="R$ 75.000,00" change="+12%" icon={ICONS.Finance} color="blue" />
-        <StatCard title="Clientes Ativos" value="42" change="+3" icon={ICONS.Clients} color="emerald" />
-        <StatCard title="Leads no Funil" value="84" change="+24%" icon={ICONS.Sales} color="amber" />
-        <StatCard title="Tarefas em Atraso" value="7" change="-2" icon={ICONS.Tasks} color="red" />
+        <StatCard title="Pipeline Total (Est.)" value={`R$ ${totalRevenue.toLocaleString()}`} change="+12%" icon={ICONS.Finance} color="blue" />
+        <StatCard title="Clientes Ativos" value={activeClients || "42"} change="+3" icon={ICONS.Clients} color="emerald" />
+        <StatCard title="Leads no Funil" value={totalLeads || "84"} change="+24%" icon={ICONS.Sales} color="amber" />
+        <StatCard title="Tarefas Pendentes" value={pendingTasks || "7"} change="-2" icon={ICONS.Tasks} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -59,7 +72,7 @@ const Dashboard: React.FC = () => {
           <h3 className="text-lg font-bold text-slate-800 mb-6">Crescimento de Receita (MRR)</h3>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
@@ -77,7 +90,7 @@ const Dashboard: React.FC = () => {
           <h3 className="text-lg font-bold text-slate-800 mb-6">Leads Gerados por Mês</h3>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
+              <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
@@ -98,48 +111,45 @@ const Dashboard: React.FC = () => {
             <button className="text-blue-600 text-sm font-semibold hover:underline">Ver todas</button>
           </div>
           <div className="space-y-4">
-            {[
-              { task: "Otimização Campanha Meta - Loja XYZ", client: "Loja XYZ", due: "Hoje", priority: "Alta" },
-              { task: "Reunião de Onboarding", client: "Tech Solutions", due: "Amanhã", priority: "Urgente" },
-              { task: "Aprovação de Criativos", client: "Bio Green", due: "Hoje", priority: "Alta" },
-            ].map((t, idx) => (
+            {tasks.slice(0, 3).map((t, idx) => (
               <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex items-center gap-4">
-                  <div className={`w-2 h-10 rounded-full ${t.priority === 'Urgente' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                  <div className={`w-2 h-10 rounded-full ${t.priority === 'Alta' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{t.task}</p>
-                    <p className="text-xs text-slate-500">{t.client}</p>
+                    <p className="text-sm font-bold text-slate-800">{t.title}</p>
+                    <p className="text-xs text-slate-500">Prazo: {new Date(t.dueDate).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="text-right text-xs font-medium text-slate-500">
-                  Vence: {t.due}
+                  {t.status}
                 </div>
               </div>
             ))}
+            {tasks.length === 0 && (
+              <p className="text-center text-slate-400 py-8">Nenhuma tarefa pendente.</p>
+            )}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Atividade Recente</h3>
           <div className="space-y-6">
-            {[
-              { user: "Admin", action: "moveu lead", target: "Tech Solutions", time: "10m atrás" },
-              { user: "Financeiro", action: "confirmou pagamento", target: "Loja ABC", time: "1h atrás" },
-              { user: "Gestor Ads", action: "concluiu tarefa", target: "Otimização Semanal", time: "2h atrás" },
-              { user: "Admin", action: "cadastrou novo lead", target: "Restaurante Gourmet", time: "4h atrás" },
-            ].map((a, idx) => (
+            {leads.slice(-4).reverse().map((l, idx) => (
               <div key={idx} className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-                  {a.user[0]}
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
+                  {l.name[0]}
                 </div>
                 <div>
                   <p className="text-sm text-slate-800">
-                    <span className="font-bold">{a.user}</span> {a.action} <span className="font-semibold">{a.target}</span>
+                    Novo lead cadastrado: <span className="font-bold">{l.name}</span> de <span className="font-semibold">{l.company || 'Empresa não informada'}</span>
                   </p>
-                  <p className="text-xs text-slate-500">{a.time}</p>
+                  <p className="text-xs text-slate-500">{new Date(l.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
             ))}
+            {leads.length === 0 && (
+              <p className="text-center text-slate-400 py-8">Nenhuma atividade recente.</p>
+            )}
           </div>
         </div>
       </div>

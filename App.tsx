@@ -15,6 +15,7 @@ import MarketingCRM from './pages/MarketingCRM';
 import Drive from './pages/Drive';
 import EmailModule from './pages/EmailModule';
 import Settings from './pages/Settings';
+import DataEnrichment from './pages/DataEnrichment';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -146,6 +147,9 @@ const App: React.FC = () => {
             onToggle={() => setIsSalesExpanded(!isSalesExpanded)}
             isActive={activeTab === 'sales'}
           />
+          <SidebarItem id="enrichment" icon={ICONS.Database} label="Importar Leads" isActive={activeTab === 'enrichment'} />
+          <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
+          <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
           
           <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Operações</div>
           <SidebarItem id="projects" icon={ICONS.Projects} label="Projetos & Squads" isActive={activeTab === 'projects'} />
@@ -183,11 +187,14 @@ const App: React.FC = () => {
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
           {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} leads={leads} setLeads={setLeads} />}
+          {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'collaboration' && <Collaboration />}
           {activeTab === 'clients' && <ClientManager />}
           {activeTab === 'projects' && <ProjectManagement tasks={tasks} setTasks={setTasks} />}
           {activeTab === 'tasks' && <ProjectManagement onlyTasks={true} tasks={tasks} setTasks={setTasks} />}
           {activeTab === 'finance' && <Finance transactions={transactions} setTransactions={setTransactions} />}
+          {activeTab === 'marketing' && <MarketingCRM leads={leads} />}
+          {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
           {activeTab === 'settings' && <Settings />}
         </div>

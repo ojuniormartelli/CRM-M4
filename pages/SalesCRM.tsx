@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Pipeline, Lead } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { GoogleGenAI } from "@google/genai";
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -16,6 +17,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: ''
@@ -87,6 +89,49 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
     if (!error) {
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
+    }
+  };
+
+  const handleEnrichSingleLead = async (lead: Lead) => {
+    setIsEnriching(true);
+    try {
+      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      if (!apiKey) {
+        alert("API Key não configurada.");
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Enriqueça os dados deste lead: ${JSON.stringify(lead)}.
+1. Se a empresa estiver vazia, tente inferir pelo e-mail.
+2. Sugira um 'value' (valor do negócio, número inteiro) se for 0.
+3. Adicione um 'notes' curto com uma estratégia de abordagem.
+4. Padronize o nome.
+
+Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const enriched = JSON.parse(response.text || "{}");
+      
+      const { error } = await supabase
+        .from('m4_leads')
+        .update(enriched)
+        .eq('id', lead.id);
+
+      if (!error) {
+        const updatedLead = { ...lead, ...enriched };
+        setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
+        setSelectedLead(updatedLead);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao enriquecer lead.");
+    } finally {
+      setIsEnriching(false);
     }
   };
 
@@ -192,10 +237,28 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
             </div>
             
             <div className="flex-1 overflow-y-auto p-10 space-y-12">
-               <div className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100">
-                  <p className="text-[11px] font-black text-blue-400 uppercase mb-3">Valor do Negócio</p>
-                  <p className="text-4xl font-black text-blue-700">R$ {Number(selectedLead.value).toLocaleString()}</p>
+               <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100">
+                    <p className="text-[11px] font-black text-blue-400 uppercase mb-3">Valor do Negócio</p>
+                    <p className="text-4xl font-black text-blue-700">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                  </div>
+                  <button 
+                    onClick={() => handleEnrichSingleLead(selectedLead)}
+                    disabled={isEnriching}
+                    className="flex-1 p-8 bg-indigo-600 text-white rounded-[2.5rem] font-black flex flex-col items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                  >
+                    {isEnriching ? <span className="animate-spin text-2xl">◌</span> : <ICONS.Automation width="32" height="32" />}
+                    <span className="text-xs uppercase tracking-widest">{isEnriching ? "ENRIQUECENDO..." : "ENRIQUECER COM IA"}</span>
+                  </button>
                </div>
+               
+               <div className="space-y-4">
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Notas & Insights</p>
+                  <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 text-slate-600 font-medium leading-relaxed">
+                    {selectedLead.notes || "Nenhuma nota disponível."}
+                  </div>
+               </div>
+
                <div className="grid grid-cols-1 gap-4">
                   <button onClick={() => window.open(`https://wa.me/${selectedLead.phone.replace(/\D/g, '')}`, '_blank')} className="flex items-center justify-between p-7 bg-white border border-slate-100 rounded-[2rem] hover:border-emerald-400 transition-all">
                      <div className="flex items-center gap-6">
