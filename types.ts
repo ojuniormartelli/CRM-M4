@@ -36,6 +36,7 @@ export interface Lead {
   notes: string;
   segment?: string;
   address?: string;
+  cnpj?: string;
   createdAt: string;
 }
 

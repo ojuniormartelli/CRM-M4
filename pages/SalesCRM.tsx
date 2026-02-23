@@ -95,9 +95,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
   const handleEnrichSingleLead = async (lead: Lead) => {
     setIsEnriching(true);
     try {
-      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        alert("API Key não configurada.");
+        alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
         return;
       }
       const ai = new GoogleGenAI({ apiKey });

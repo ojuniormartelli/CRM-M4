@@ -21,7 +21,8 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     phone: '',
     company: '',
     segment: '',
-    address: ''
+    address: '',
+    cnpj: ''
   });
   const [importedLeads, setImportedLeads] = useState<Partial<Lead>[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -80,6 +81,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
         else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping.company = index.toString();
         else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping.segment = index.toString();
         else if (lower.includes('endereço') || lower.includes('address') || lower.includes('cidade') || lower.includes('local') || lower.includes('rua')) newMapping.address = index.toString();
+        else if (lower.includes('cnpj')) newMapping.cnpj = index.toString();
       });
       
       setMapping(newMapping);
@@ -102,6 +104,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
         company: mapping.company ? String(row[parseInt(mapping.company)] || '') : '',
         segment: mapping.segment ? String(row[parseInt(mapping.segment)] || '') : '',
         address: mapping.address ? String(row[parseInt(mapping.address)] || '') : '',
+        cnpj: mapping.cnpj ? String(row[parseInt(mapping.cnpj)] || '') : '',
         value: 0,
         notes: ''
       };
@@ -115,9 +118,9 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const handleEnrichLeads = async () => {
     setIsEnriching(true);
     try {
-      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        alert("API Key não configurada no ambiente.");
+        alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
         setIsEnriching(false);
         return;
       }
@@ -146,6 +149,41 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
     } catch (error) {
       console.error("Erro ao enriquecer:", error);
       alert("Erro ao enriquecer leads com IA.");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  const handleBrasilAPILookup = async () => {
+    setIsEnriching(true);
+    try {
+      const enrichedLeads = await Promise.all(importedLeads.map(async (lead) => {
+        if (!lead.cnpj) return lead;
+        
+        const cleanCnpj = lead.cnpj.replace(/\D/g, '');
+        if (cleanCnpj.length !== 14) return lead;
+
+        try {
+          const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+          if (response.ok) {
+            const data = await response.json();
+            return {
+              ...lead,
+              company: data.razao_social || data.nome_fantasia || lead.company,
+              segment: data.cnae_fiscal_descricao || lead.segment,
+              address: `${data.logradouro}, ${data.numero} - ${data.bairro}, ${data.municipio} - ${data.uf}`,
+              notes: lead.notes || `Empresa: ${data.razao_social}. Capital Social: R$ ${data.capital_social}.`
+            };
+          }
+        } catch (e) {
+          console.error(`Erro ao buscar CNPJ ${cleanCnpj}:`, e);
+        }
+        return lead;
+      }));
+      setImportedLeads(enrichedLeads as Partial<Lead>[]);
+    } catch (error) {
+      console.error("Erro no BrasilAPI:", error);
+      alert("Erro ao consultar BrasilAPI.");
     } finally {
       setIsEnriching(false);
     }
@@ -275,14 +313,25 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               <h3 className="text-2xl font-black text-slate-900">Revisão & Enriquecimento IA</h3>
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{importedLeads.length} contatos identificados</p>
             </div>
-            <button 
-              onClick={handleEnrichLeads} 
-              disabled={isEnriching}
-              className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-            >
-              {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
-              {isEnriching ? "ENRIQUECENDO DADOS..." : "ENRIQUECER COM IA"}
-            </button>
+            <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={handleBrasilAPILookup} 
+                disabled={isEnriching || !importedLeads.some(l => l.cnpj)}
+                className="px-8 py-4 bg-emerald-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+                title={!importedLeads.some(l => l.cnpj) ? "Mapeie uma coluna de CNPJ para usar esta opção" : ""}
+              >
+                {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Database />}
+                {isEnriching ? "CONSULTANDO..." : "ENRIQUECER VIA BRASILAPI"}
+              </button>
+              <button 
+                onClick={handleEnrichLeads} 
+                disabled={isEnriching}
+                className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+              >
+                {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
+                {isEnriching ? "ENRIQUECENDO DADOS..." : "ENRIQUECER COM IA"}
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-[2rem] border border-slate-100 mb-10 shadow-inner bg-slate-50/50">
