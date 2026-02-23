@@ -24,6 +24,15 @@ export enum Priority {
   URGENT = 'Urgente'
 }
 
+export interface Contact {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  whatsappLink?: string;
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -42,6 +51,26 @@ export interface Lead {
   additionalPhones?: string;
   legalNature?: string;
   createdAt: string;
+  
+  // New fields for enhanced CRM
+  qualification?: string;
+  source?: string;
+  campaign?: string;
+  city?: string;
+  state?: string;
+  closingForecast?: string;
+  
+  // Company specific
+  legalName?: string;
+  instagram?: string;
+  website?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  
+  // Contacts and Responsibility
+  contacts?: Contact[];
+  responsibleName?: string;
+  responsibleId?: string;
 }
 
 export interface Task {

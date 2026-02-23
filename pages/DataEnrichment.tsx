@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ICONS } from '../constants';
-import { Lead, Pipeline } from '../types';
+import { Lead, Pipeline, Contact } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
 import Papa from 'papaparse';
@@ -94,8 +94,14 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
         else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('whatsapp') || lower.includes('tel')) newMapping.phone = index.toString();
         else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping.company = index.toString();
         else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping.segment = index.toString();
-        else if (lower.includes('endereço') || lower.includes('address') || lower.includes('cidade') || lower.includes('local') || lower.includes('rua')) newMapping.address = index.toString();
+        else if (lower.includes('endereço') || lower.includes('address') || lower.includes('rua')) newMapping.address = index.toString();
+        else if (lower.includes('cidade') || lower.includes('city')) newMapping.city = index.toString();
+        else if (lower.includes('estado') || lower.includes('state') || lower.includes('uf')) newMapping.state = index.toString();
         else if (lower.includes('cnpj')) newMapping.cnpj = index.toString();
+        else if (lower.includes('instagram')) newMapping.instagram = index.toString();
+        else if (lower.includes('site') || lower.includes('website')) newMapping.website = index.toString();
+        else if (lower.includes('fonte') || lower.includes('source')) newMapping.source = index.toString();
+        else if (lower.includes('campanha') || lower.includes('campaign')) newMapping.campaign = index.toString();
       });
       
       setMapping(newMapping);
@@ -120,11 +126,18 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
         company: mapping.company ? String(row[parseInt(mapping.company)] || '') : '',
         segment: mapping.segment ? String(row[parseInt(mapping.segment)] || '') : '',
         address: mapping.address ? String(row[parseInt(mapping.address)] || '') : '',
+        city: mapping.city ? String(row[parseInt(mapping.city)] || '') : '',
+        state: mapping.state ? String(row[parseInt(mapping.state)] || '') : '',
         cnpj: mapping.cnpj ? String(row[parseInt(mapping.cnpj)] || '') : '',
+        instagram: mapping.instagram ? String(row[parseInt(mapping.instagram)] || '') : '',
+        website: mapping.website ? String(row[parseInt(mapping.website)] || '') : '',
+        source: mapping.source ? String(row[parseInt(mapping.source)] || '') : '',
+        campaign: mapping.campaign ? String(row[parseInt(mapping.campaign)] || '') : '',
         value: 0,
         notes: '',
         additionalEmails: '',
-        additionalPhones: ''
+        additionalPhones: '',
+        contacts: []
       };
 
       // Collect all other emails and phones found in the row
@@ -215,22 +228,31 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
           if (response.ok) {
             const data = await response.json();
             
-            // Extract partners
-            const partnersList = data.qsa?.map((p: any) => `${p.nome_socio} (${p.qualificacao_socio})`).join(', ') || '';
+            // Extract partners as contacts
+            const partnersContacts: Contact[] = data.qsa?.map((p: any) => ({
+              name: p.nome_socio,
+              role: p.qualificacao_socio,
+              email: '',
+              phone: '',
+              whatsappLink: ''
+            })) || [];
             
             // Extract additional contacts
-            const additionalEmails = [data.email].filter(Boolean).join(', ');
-            const additionalPhones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean).join(', ');
+            const companyEmail = data.email || '';
+            const companyPhone = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean).join(', ');
 
             return {
               ...lead,
               company: data.razao_social || data.nome_fantasia || lead.company,
+              legalName: data.razao_social,
               segment: data.cnae_fiscal_descricao || lead.segment,
-              address: `${data.logradouro}, ${data.numero} - ${data.bairro}, ${data.municipio} - ${data.uf}`,
-              partners: partnersList,
-              additionalEmails: additionalEmails,
-              additionalPhones: additionalPhones,
+              address: `${data.logradouro}, ${data.numero} - ${data.bairro}`,
+              city: data.municipio,
+              state: data.uf,
+              companyEmail: companyEmail,
+              companyPhone: companyPhone,
               legalNature: data.natureza_juridica,
+              contacts: partnersContacts,
               notes: lead.notes || `Empresa: ${data.razao_social}. Capital Social: R$ ${data.capital_social}. Natureza: ${data.natureza_juridica}.`
             };
           }
@@ -536,85 +558,184 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Completo</label>
-                  <input 
-                    type="text" 
-                    value={editingLead.name || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
+            <div className="space-y-12 mb-12">
+              {/* Negociação */}
+              <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                    <ICONS.Sales width="20" height="20" />
+                  </div>
+                  Negociação
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Negócio</label>
+                    <input type="text" value={editingLead.name || ''} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Qualificação</label>
+                    <select value={editingLead.qualification || ''} onChange={(e) => setEditingLead({ ...editingLead, qualification: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all">
+                      <option value="">Selecionar...</option>
+                      <option value="1">1 - Muito Baixa</option>
+                      <option value="2">2 - Baixa</option>
+                      <option value="3">3 - Média</option>
+                      <option value="4">4 - Alta</option>
+                      <option value="5">5 - Muito Alta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor Total</label>
+                    <input type="number" value={editingLead.value || 0} onChange={(e) => setEditingLead({ ...editingLead, value: Number(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Previsão de Fechamento</label>
+                    <input type="date" value={editingLead.closingForecast || ''} onChange={(e) => setEditingLead({ ...editingLead, closingForecast: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fonte</label>
+                    <input type="text" value={editingLead.source || ''} onChange={(e) => setEditingLead({ ...editingLead, source: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Campanha</label>
+                    <input type="text" value={editingLead.campaign || ''} onChange={(e) => setEditingLead({ ...editingLead, campaign: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
-                  <input 
-                    type="text" 
-                    value={editingLead.company || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
-                  <input 
-                    type="text" 
-                    value={editingLead.cnpj || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sócios</label>
-                  <textarea 
-                    rows={3}
-                    value={editingLead.partners || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, partners: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
-                  />
-                </div>
-              </div>
+              </section>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Principal</label>
-                  <input 
-                    type="email" 
-                    value={editingLead.email || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
+              {/* Contatos */}
+              <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-lg font-black text-slate-900 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+                      <ICONS.Clients width="20" height="20" />
+                    </div>
+                    Contatos
+                  </h4>
+                  <button 
+                    onClick={() => {
+                      const contacts = editingLead.contacts || [];
+                      setEditingLead({ ...editingLead, contacts: [...contacts, { name: '', email: '', phone: '', role: '' }] });
+                    }}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                  >
+                    + Adicionar Contato
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp / Telefone</label>
-                  <input 
-                    type="text" 
-                    value={editingLead.phone || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
+                
+                <div className="space-y-4">
+                  {(editingLead.contacts || []).map((contact, idx) => (
+                    <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative group">
+                      <button 
+                        onClick={() => {
+                          const contacts = [...(editingLead.contacts || [])];
+                          contacts.splice(idx, 1);
+                          setEditingLead({ ...editingLead, contacts });
+                        }}
+                        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <ICONS.X width="16" height="16" />
+                      </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Nome</label>
+                          <input type="text" value={contact.name} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx].name = e.target.value;
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">E-mail</label>
+                          <input type="email" value={contact.email} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx].email = e.target.value;
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Telefone</label>
+                          <input type="text" value={contact.phone} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx].phone = e.target.value;
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Cargo</label>
+                          <input type="text" value={contact.role} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx].role = e.target.value;
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(!editingLead.contacts || editingLead.contacts.length === 0) && (
+                    <p className="text-center py-8 text-slate-400 font-bold text-sm italic bg-white rounded-2xl border border-dashed border-slate-200">Nenhum contato cadastrado.</p>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contatos Adicionais</label>
-                  <textarea 
-                    rows={2}
-                    placeholder="Emails ou telefones extras"
-                    value={`${editingLead.additionalEmails || ''} ${editingLead.additionalPhones || ''}`.trim()} 
-                    onChange={(e) => setEditingLead({ ...editingLead, additionalEmails: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
-                  />
+              </section>
+
+              {/* Empresa */}
+              <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                    <ICONS.Drive width="20" height="20" />
+                  </div>
+                  Empresa
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Fantasia</label>
+                    <input type="text" value={editingLead.company || ''} onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Razão Social</label>
+                    <input type="text" value={editingLead.legalName || ''} onChange={(e) => setEditingLead({ ...editingLead, legalName: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
+                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Corporativo</label>
+                    <input type="email" value={editingLead.companyEmail || ''} onChange={(e) => setEditingLead({ ...editingLead, companyEmail: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
+                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
+                    <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Instagram</label>
+                    <input type="text" value={editingLead.instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, instagram: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Site</label>
+                    <input type="text" value={editingLead.website || ''} onChange={(e) => setEditingLead({ ...editingLead, website: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Endereço</label>
-                  <input 
-                    type="text" 
-                    value={editingLead.address || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, address: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
-                  />
+              </section>
+
+              {/* Responsável */}
+              <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">
+                    <ICONS.Sales width="20" height="20" />
+                  </div>
+                  Responsável
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Responsável</label>
+                    <input type="text" value={editingLead.responsibleName || ''} onChange={(e) => setEditingLead({ ...editingLead, responsibleName: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
                 </div>
-              </div>
+              </section>
             </div>
 
             <div className="flex gap-4 pt-10 border-t border-slate-50">
