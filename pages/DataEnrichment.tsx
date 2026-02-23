@@ -167,12 +167,24 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
           const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
           if (response.ok) {
             const data = await response.json();
+            
+            // Extract partners
+            const partnersList = data.qsa?.map((p: any) => `${p.nome_socio} (${p.qualificacao_socio})`).join(', ') || '';
+            
+            // Extract additional contacts
+            const additionalEmails = [data.email].filter(Boolean).join(', ');
+            const additionalPhones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean).join(', ');
+
             return {
               ...lead,
               company: data.razao_social || data.nome_fantasia || lead.company,
               segment: data.cnae_fiscal_descricao || lead.segment,
               address: `${data.logradouro}, ${data.numero} - ${data.bairro}, ${data.municipio} - ${data.uf}`,
-              notes: lead.notes || `Empresa: ${data.razao_social}. Capital Social: R$ ${data.capital_social}.`
+              partners: partnersList,
+              additionalEmails: additionalEmails,
+              additionalPhones: additionalPhones,
+              legalNature: data.natureza_juridica,
+              notes: lead.notes || `Empresa: ${data.razao_social}. Capital Social: R$ ${data.capital_social}. Natureza: ${data.natureza_juridica}.`
             };
           }
         } catch (e) {
@@ -187,6 +199,18 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
     } finally {
       setIsEnriching(false);
     }
+  };
+
+  const handleGoogleSearch = (lead: Partial<Lead>) => {
+    const query = `${lead.company || ''} ${lead.address || ''} CNPJ`.trim();
+    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    window.open(url, '_blank');
+  };
+
+  const updateLeadCnpj = (index: number, cnpj: string) => {
+    const updated = [...importedLeads];
+    updated[index] = { ...updated[index], cnpj };
+    setImportedLeads(updated);
   };
 
   const handleSaveImported = async () => {
@@ -340,6 +364,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                 <tr>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Nome</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Empresa / Segmento</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">CNPJ / Sócios</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Email / Tel</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Valor Est.</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Insights da IA</th>
@@ -353,12 +378,42 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.address || 'Sem endereço'}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="font-bold text-slate-700">{lead.company || 'Pendente'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-700">{lead.company || 'Pendente'}</p>
+                        <button 
+                          onClick={() => handleGoogleSearch(lead)}
+                          className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                          title="Pesquisar no Google"
+                        >
+                          <ICONS.Search width="14" height="14" />
+                        </button>
+                      </div>
                       <p className="text-[10px] text-blue-500 font-black uppercase">{lead.segment || 'Sem segmento'}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <input 
+                        type="text" 
+                        placeholder="00.000.000/0000-00"
+                        value={lead.cnpj || ''}
+                        onChange={(e) => updateLeadCnpj(i, e.target.value)}
+                        className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 mb-2"
+                      />
+                      {lead.partners && (
+                        <div className="max-w-[200px]">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Sócios:</p>
+                          <p className="text-[10px] text-slate-500 leading-tight line-clamp-2" title={lead.partners}>{lead.partners}</p>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-slate-600 font-medium">{lead.email}</p>
                       <p className="text-[10px] text-slate-400 font-bold">{lead.phone}</p>
+                      {(lead.additionalEmails || lead.additionalPhones) && (
+                        <div className="mt-2 pt-2 border-t border-slate-100">
+                          <p className="text-[9px] font-black text-blue-400 uppercase">Contatos Extras:</p>
+                          <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{lead.additionalEmails || lead.additionalPhones}</p>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-5 font-black text-emerald-600">
                       {lead.value ? `R$ ${lead.value.toLocaleString()}` : '-'}

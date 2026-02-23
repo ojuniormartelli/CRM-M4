@@ -37,6 +37,10 @@ export interface Lead {
   segment?: string;
   address?: string;
   cnpj?: string;
+  partners?: string;
+  additionalEmails?: string;
+  additionalPhones?: string;
+  legalNature?: string;
   createdAt: string;
 }
 
