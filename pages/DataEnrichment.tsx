@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { Lead, Pipeline } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -25,11 +25,24 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     cnpj: ''
   });
   const [importedLeads, setImportedLeads] = useState<Partial<Lead>[]>([]);
+  const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const savedMapping = localStorage.getItem('m4_last_mapping');
+    if (savedMapping) {
+      try {
+        setMapping(JSON.parse(savedMapping));
+      } catch (e) {
+        console.error("Erro ao carregar mapeamento salvo:", e);
+      }
+    }
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,6 +109,8 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   };
 
   const handleProcessMapping = () => {
+    localStorage.setItem('m4_last_mapping', JSON.stringify(mapping));
+    
     const parsed: Partial<Lead>[] = csvRows.map(row => {
       const lead: Partial<Lead> = {
         name: mapping.name ? String(row[parseInt(mapping.name)] || '') : '',
@@ -106,8 +121,39 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
         address: mapping.address ? String(row[parseInt(mapping.address)] || '') : '',
         cnpj: mapping.cnpj ? String(row[parseInt(mapping.cnpj)] || '') : '',
         value: 0,
-        notes: ''
+        notes: '',
+        additionalEmails: '',
+        additionalPhones: ''
       };
+
+      // Collect all other emails and phones found in the row
+      const otherEmails: string[] = [];
+      const otherPhones: string[] = [];
+      const otherData: string[] = [];
+
+      row.forEach((cell, idx) => {
+        const value = String(cell || '').trim();
+        if (!value) return;
+
+        // Skip already mapped columns
+        const isMapped = Object.values(mapping).includes(idx.toString());
+        if (isMapped) return;
+
+        const header = csvHeaders[idx]?.toLowerCase() || '';
+        
+        if (value.includes('@') && value.includes('.')) {
+          if (value !== lead.email) otherEmails.push(value);
+        } else if (value.replace(/\D/g, '').length >= 8 && (header.includes('tel') || header.includes('cel') || header.includes('fone') || header.includes('phone'))) {
+          if (value !== lead.phone) otherPhones.push(value);
+        } else {
+          otherData.push(`${csvHeaders[idx]}: ${value}`);
+        }
+      });
+
+      if (otherEmails.length > 0) lead.additionalEmails = otherEmails.join(', ');
+      if (otherPhones.length > 0) lead.additionalPhones = otherPhones.join(', ');
+      if (otherData.length > 0) lead.notes = `Dados Adicionais: ${otherData.join(' | ')}`;
+
       return lead;
     });
 
@@ -211,6 +257,21 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
     const updated = [...importedLeads];
     updated[index] = { ...updated[index], cnpj };
     setImportedLeads(updated);
+  };
+
+  const handleEditLead = (index: number) => {
+    setSelectedLeadIndex(index);
+    setIsEditModalOpen(true);
+  };
+
+  const saveEditedLead = (updatedLead: Partial<Lead>) => {
+    if (selectedLeadIndex !== null) {
+      const updated = [...importedLeads];
+      updated[selectedLeadIndex] = updatedLead;
+      setImportedLeads(updated);
+      setIsEditModalOpen(false);
+      setSelectedLeadIndex(null);
+    }
   };
 
   const handleSaveImported = async () => {
@@ -372,16 +433,23 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {importedLeads.map((lead, i) => (
-                  <tr key={i} className="hover:bg-white transition-colors">
+                  <tr 
+                    key={i} 
+                    onClick={() => handleEditLead(i)}
+                    className="hover:bg-blue-50/30 transition-colors cursor-pointer group/row"
+                  >
                     <td className="px-6 py-5">
-                      <p className="font-black text-slate-900">{lead.name}</p>
+                      <p className="font-black text-slate-900 group-hover/row:text-blue-600 transition-colors">{lead.name}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.address || 'Sem endereço'}</p>
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-2">
                         <p className="font-bold text-slate-700">{lead.company || 'Pendente'}</p>
                         <button 
-                          onClick={() => handleGoogleSearch(lead)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGoogleSearch(lead);
+                          }}
                           className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
                           title="Pesquisar no Google"
                         >
@@ -390,7 +458,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                       </div>
                       <p className="text-[10px] text-blue-500 font-black uppercase">{lead.segment || 'Sem segmento'}</p>
                     </td>
-                    <td className="px-6 py-5">
+                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="text" 
                         placeholder="00.000.000/0000-00"
@@ -445,6 +513,145 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               </button>
               <button onClick={handleSaveImported} disabled={isSyncing} className="flex-1 lg:flex-none px-12 py-5 bg-emerald-500 text-white rounded-[2rem] font-black text-sm hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 active:scale-95">
                 {isSyncing ? "SALVANDO..." : "FINALIZAR IMPORTAÇÃO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && selectedLeadIndex !== null && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-start mb-10">
+              <div>
+                <h3 className="text-3xl font-black text-slate-900">Editar Lead</h3>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Refine os dados antes da importação</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all">
+                <ICONS.X />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={importedLeads[selectedLeadIndex].name || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], name: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Empresa</label>
+                  <input 
+                    type="text" 
+                    value={importedLeads[selectedLeadIndex].company || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], company: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
+                  <input 
+                    type="text" 
+                    value={importedLeads[selectedLeadIndex].cnpj || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], cnpj: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sócios</label>
+                  <textarea 
+                    rows={3}
+                    value={importedLeads[selectedLeadIndex].partners || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], partners: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Principal</label>
+                  <input 
+                    type="email" 
+                    value={importedLeads[selectedLeadIndex].email || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], email: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp / Telefone</label>
+                  <input 
+                    type="text" 
+                    value={importedLeads[selectedLeadIndex].phone || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], phone: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contatos Adicionais</label>
+                  <textarea 
+                    rows={2}
+                    placeholder="Emails ou telefones extras"
+                    value={`${importedLeads[selectedLeadIndex].additionalEmails || ''} ${importedLeads[selectedLeadIndex].additionalPhones || ''}`.trim()} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], additionalEmails: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Endereço</label>
+                  <input 
+                    type="text" 
+                    value={importedLeads[selectedLeadIndex].address || ''} 
+                    onChange={(e) => {
+                      const updated = [...importedLeads];
+                      updated[selectedLeadIndex] = { ...updated[selectedLeadIndex], address: e.target.value };
+                      setImportedLeads(updated);
+                    }}
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-10 border-t border-slate-50">
+              <button onClick={() => setIsEditModalOpen(false)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm hover:bg-slate-200 transition-all active:scale-95">
+                CANCELAR
+              </button>
+              <button onClick={() => setIsEditModalOpen(false)} className="flex-1 px-10 py-5 bg-blue-600 text-white rounded-[2rem] font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95">
+                SALVAR ALTERAÇÕES
               </button>
             </div>
           </div>
