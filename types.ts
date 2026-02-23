@@ -33,6 +33,12 @@ export interface Contact {
   whatsappLink?: string;
 }
 
+export enum LeadTemperature {
+  COLD = 'Frio',
+  WARM = 'Morno',
+  HOT = 'Quente'
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -59,6 +65,8 @@ export interface Lead {
   city?: string;
   state?: string;
   closingForecast?: string;
+  temperature?: LeadTemperature;
+  probability?: number;
   
   // Company specific
   legalName?: string;
@@ -71,6 +79,9 @@ export interface Lead {
   contacts?: Contact[];
   responsibleName?: string;
   responsibleId?: string;
+  
+  lastActivityAt?: string;
+  status?: 'active' | 'won' | 'lost' | 'paused';
 }
 
 export interface Task {
@@ -81,7 +92,60 @@ export interface Task {
   priority: Priority;
   assignedTo: string;
   dueDate: string;
+  leadId?: string;
   projectId?: string;
+  type: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  clientId: string;
+  leadId?: string;
+  status: 'active' | 'completed' | 'on_hold';
+  startDate: string;
+  endDate?: string;
+  value: number;
+  description?: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  cnpj?: string;
+  status: 'active' | 'inactive';
+  mrr: number;
+  contractStart: string;
+  contractEnd?: string;
+  healthScore: number; // 0-100
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  trigger: {
+    type: 'stage_change' | 'lead_created' | 'no_activity';
+    value?: string; // stageId or days
+  };
+  actions: {
+    type: 'create_task' | 'send_email' | 'create_project' | 'alert_user';
+    config: any;
+  }[];
+  isActive: boolean;
+}
+
+export interface Transaction {
+  id: string;
+  type: 'Receita' | 'Despesa';
+  category: string;
+  amount: number;
+  date: string;
+  description: string;
+  status: 'Pago' | 'Pendente';
   clientId?: string;
 }
 
@@ -96,25 +160,5 @@ export interface EmailMessage {
   is_read: boolean;
   is_starred: boolean;
   created_at: string;
-}
-
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  plan: string;
-  mrr: number;
-  status: 'Ativo' | 'Inativo' | 'Pendente';
-  contractStart: string;
-  contractEnd: string;
-}
-
-export interface Transaction {
-  id: string;
-  type: 'Receita' | 'Despesa';
-  category: string;
-  amount: number;
-  date: string;
-  description: string;
-  status: 'Pago' | 'Pendente';
+  leadId?: string;
 }

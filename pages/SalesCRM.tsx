@@ -124,8 +124,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
 2. Sugira um 'value' (valor do negócio, número inteiro) se for 0.
 3. Adicione um 'notes' curto com uma estratégia de abordagem.
 4. Padronize o nome.
+5. Sugira uma 'probability' (0-100) e 'temperature' (Frio, Morno, Quente).
+6. Sugira uma 'closingForecast' (ex: 2024-12-15).
 
-Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
+Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closingForecast.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -153,15 +155,38 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
     }
   };
 
-  const getLeadsByStage = (stageId: string) => leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId);
+  const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active') => {
+    const { error } = await supabase
+      .from('m4_leads')
+      .update({ status })
+      .eq('id', leadId);
+
+    if (!error) {
+      setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
+      if (selectedLead?.id === leadId) setSelectedLead({ ...selectedLead, status });
+    }
+  };
+
+  const getLeadsByStage = (stageId: string) => leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId && (l.status === 'active' || !l.status));
   const calculateStageTotal = (stageId: string) => getLeadsByStage(stageId).reduce((acc, curr) => acc + Number(curr.value), 0);
+
+  const isStale = (lead: Lead) => {
+    const activityDate = lead.lastActivityAt ? new Date(lead.lastActivityAt) : new Date(lead.createdAt);
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    return activityDate < fiveDaysAgo;
+  };
 
   return (
     <div className="space-y-10 h-full flex flex-col relative animate-in fade-in duration-1000">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">{activePipeline.name}</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Nuvem Sincronizada</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
+            <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+            <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
+          </div>
         </div>
 
         <div className="flex gap-4">
@@ -198,11 +223,28 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
                     draggable
                     onDragStart={(e) => onDragStart(e, lead.id)}
                     onClick={() => setSelectedLead(lead)}
-                    className="bg-white p-6 rounded-[1.75rem] border border-slate-200 shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 hover:border-blue-400"
+                    className={`bg-white p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-red-200 bg-red-50/10' : 'border-slate-200 hover:border-blue-400'}`}
                   >
-                    <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100/50 mb-4 inline-block">{lead.company}</span>
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100/50 inline-block">{lead.company}</span>
+                      {isStale(lead) && (
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Negócio parado!"></div>
+                      )}
+                    </div>
                     <h4 className="font-black text-slate-900 text-lg mb-2 group-hover:text-blue-600 transition-colors">{lead.name}</h4>
                     <p className="text-xs text-slate-400 font-bold line-clamp-2 mb-6">{lead.notes}</p>
+                    
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                        lead.temperature === 'Quente' ? 'bg-orange-100 text-orange-600' :
+                        lead.temperature === 'Morno' ? 'bg-blue-100 text-blue-600' :
+                        'bg-slate-100 text-slate-500'
+                      }`}>
+                        {lead.temperature || 'Frio'}
+                      </div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
+                    </div>
+
                     <div className="flex justify-between items-center pt-6 border-t border-slate-50">
                       <div className="font-black text-slate-900 text-base">R$ {Number(lead.value).toLocaleString()}</div>
                       <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className="w-9 h-9 rounded-2xl border-4 border-white shadow-xl" alt="Owner" />
@@ -245,7 +287,17 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
                 <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200">{selectedLead.name.charAt(0)}</div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-900 tracking-tight">{selectedLead.name}</h3>
-                  <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
+                    <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                      selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
+                      selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
+                      'bg-blue-100 text-blue-600'
+                    }`}>
+                      {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -267,6 +319,21 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
             </div>
             
             <div className="flex-1 overflow-y-auto scrollbar-none">
+              <div className="p-10 flex gap-4 bg-white border-b border-slate-100">
+                <button 
+                  onClick={() => handleStatusChange(selectedLead.id, 'won')}
+                  className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                >
+                  MARCAR COMO GANHO
+                </button>
+                <button 
+                  onClick={() => handleStatusChange(selectedLead.id, 'lost')}
+                  className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                >
+                  MARCAR COMO PERDIDO
+                </button>
+              </div>
+
               <div className="bg-white">
                 <CollapsibleSection title="Negociação">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
@@ -279,8 +346,16 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
                       <p className="text-sm font-bold text-slate-900">{selectedLead.qualification || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Criada em</p>
-                      <p className="text-sm font-bold text-slate-900">{new Date(selectedLead.createdAt).toLocaleString('pt-BR')}</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Probabilidade</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedLead.probability || 0}%</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temperatura</p>
+                      <p className={`text-sm font-bold ${
+                        selectedLead.temperature === 'Quente' ? 'text-orange-600' :
+                        selectedLead.temperature === 'Morno' ? 'text-blue-600' :
+                        'text-slate-600'
+                      }`}>{selectedLead.temperature || 'Frio'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor total</p>
@@ -297,10 +372,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes.`;
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campanha</p>
                       <p className="text-sm font-bold text-slate-900">{selectedLead.campaign || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cidade</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.city || 'N/A'}</p>
                     </div>
                   </div>
                 </CollapsibleSection>

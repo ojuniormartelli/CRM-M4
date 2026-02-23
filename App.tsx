@@ -5,14 +5,14 @@ import { Pipeline, Lead, Task, Transaction, EmailMessage } from './types';
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import SalesCRM from './pages/SalesCRM';
-import ClientManager from './pages/ClientManager';
-import ProjectManagement from './pages/ProjectManagement';
+import Clients from './pages/Clients';
+import Projects from './pages/Projects';
+import Tasks from './pages/Tasks';
 import Finance from './pages/Finance';
 import Automation from './pages/Automation';
 import Collaboration from './pages/Collaboration';
 import ContactCenter from './pages/ContactCenter';
 import MarketingCRM from './pages/MarketingCRM';
-import Drive from './pages/Drive';
 import EmailModule from './pages/EmailModule';
 import Settings from './pages/Settings';
 import DataEnrichment from './pages/DataEnrichment';
@@ -33,6 +33,8 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
 
   // Fetch Data from Supabase
@@ -40,23 +42,25 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Buscamos os dados. Se as tabelas estiverem vazias, res.data será []
-        const [resLeads, resTasks, resTrans, resEmails] = await Promise.all([
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects] = await Promise.all([
           supabase.from('m4_leads').select('*'),
           supabase.from('m4_tasks').select('*'),
           supabase.from('m4_transactions').select('*'),
-          supabase.from('m4_emails').select('*').order('created_at', { ascending: false })
+          supabase.from('m4_emails').select('*').order('created_at', { ascending: false }),
+          supabase.from('m4_clients').select('*'),
+          supabase.from('m4_projects').select('*')
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
         if (resTasks.data) setTasks(resTasks.data);
         if (resTrans.data) setTransactions(resTrans.data);
         if (resEmails.data) setEmails(resEmails.data);
+        if (resClients.data) setClients(resClients.data);
+        if (resProjects.data) setProjects(resProjects.data);
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
       } finally {
-        // Garantimos que o loading encerre sempre
         setTimeout(() => setLoading(false), 500);
       }
     };
@@ -189,9 +193,9 @@ const App: React.FC = () => {
           {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} leads={leads} setLeads={setLeads} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'collaboration' && <Collaboration />}
-          {activeTab === 'clients' && <ClientManager />}
-          {activeTab === 'projects' && <ProjectManagement tasks={tasks} setTasks={setTasks} />}
-          {activeTab === 'tasks' && <ProjectManagement onlyTasks={true} tasks={tasks} setTasks={setTasks} />}
+          {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
+          {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} />}
+          {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} />}
           {activeTab === 'finance' && <Finance transactions={transactions} setTransactions={setTransactions} />}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} />}
           {activeTab === 'contact' && <ContactCenter />}
