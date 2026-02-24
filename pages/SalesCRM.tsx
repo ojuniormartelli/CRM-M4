@@ -10,6 +10,7 @@ interface SalesCRMProps {
   activePipelineId: string;
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
+  onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active') => Promise<void>;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -30,7 +31,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads, setLeads }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads, setLeads, onStatusChange }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -155,17 +156,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     }
   };
 
-  const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active') => {
-    const { error } = await supabase
-      .from('m4_leads')
-      .update({ status })
-      .eq('id', leadId);
-
-    if (!error) {
-      setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
-      if (selectedLead?.id === leadId) setSelectedLead({ ...selectedLead, status });
-    }
-  };
 
   const getLeadsByStage = (stageId: string) => leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId && (l.status === 'active' || !l.status));
   const calculateStageTotal = (stageId: string) => getLeadsByStage(stageId).reduce((acc, curr) => acc + Number(curr.value), 0);
@@ -321,13 +311,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             <div className="flex-1 overflow-y-auto scrollbar-none">
               <div className="p-10 flex gap-4 bg-white border-b border-slate-100">
                 <button 
-                  onClick={() => handleStatusChange(selectedLead.id, 'won')}
+                  onClick={() => onStatusChange(selectedLead.id, 'won')}
                   className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
                 >
                   MARCAR COMO GANHO
                 </button>
                 <button 
-                  onClick={() => handleStatusChange(selectedLead.id, 'lost')}
+                  onClick={() => onStatusChange(selectedLead.id, 'lost')}
                   className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                 >
                   MARCAR COMO PERDIDO

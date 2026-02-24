@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ICONS } from './constants';
-import { Pipeline, Lead, Task, Transaction, EmailMessage } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project } from './types';
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import SalesCRM from './pages/SalesCRM';
@@ -66,6 +66,81 @@ const App: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active') => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) return;
+
+    const { error } = await supabase
+      .from('m4_leads')
+      .update({ status })
+      .eq('id', leadId);
+
+    if (!error) {
+      setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
+      
+      // AUTOMATION: If won, create client and project
+      if (status === 'won') {
+        const clientData = {
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          company: lead.company,
+          status: 'active',
+          mrr: lead.value || 0,
+          contractStart: new Date().toISOString(),
+          healthScore: 100
+        };
+
+        const { data: clientRes, error: clientErr } = await supabase
+          .from('m4_clients')
+          .insert([clientData])
+          .select();
+
+        if (!clientErr && clientRes) {
+          setClients([...clients, clientRes[0]]);
+          
+          const projectData = {
+            name: `Onboarding: ${lead.company}`,
+            clientId: clientRes[0].id,
+            leadId: lead.id,
+            status: 'active',
+            startDate: new Date().toISOString(),
+            value: lead.value || 0
+          };
+
+          const { data: projRes, error: projErr } = await supabase
+            .from('m4_projects')
+            .insert([projectData])
+            .select();
+
+          if (!projErr && projRes) {
+            setProjects([...projects, projRes[0]]);
+            
+            // Create standard onboarding tasks
+            const onboardingTasks = [
+              { title: 'Enviar Contrato', type: 'task', priority: 'Urgente', status: 'Pendente' },
+              { title: 'Enviar Briefing', type: 'task', priority: 'Alta', status: 'Pendente' },
+              { title: 'Criar Grupo WhatsApp', type: 'task', priority: 'Média', status: 'Pendente' },
+              { title: 'Agendar Kickoff', type: 'meeting', priority: 'Alta', status: 'Pendente' }
+            ].map(t => ({
+              ...t,
+              projectId: projRes[0].id,
+              dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+              createdAt: new Date().toISOString()
+            }));
+
+            const { data: tasksRes } = await supabase
+              .from('m4_tasks')
+              .insert(onboardingTasks)
+              .select();
+            
+            if (tasksRes) setTasks([...tasks, ...tasksRes]);
+          }
+        }
+      }
+    }
+  };
 
   const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle, isActive }: any) => (
     <div className="space-y-1">
@@ -190,7 +265,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
-          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} leads={leads} setLeads={setLeads} />}
+          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'collaboration' && <Collaboration />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
