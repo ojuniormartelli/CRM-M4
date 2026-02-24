@@ -271,7 +271,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
   };
 
   const handleGoogleSearch = (lead: Partial<Lead>) => {
-    const query = `${lead.company || ''} ${lead.address || ''} CNPJ`.trim();
+    const query = `${lead.company || ''} ${lead.city || ''} CNPJ`.trim();
     const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
     window.open(url, '_blank');
   };
