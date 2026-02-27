@@ -39,8 +39,21 @@ export enum LeadTemperature {
   HOT = 'Quente'
 }
 
+export interface Interaction {
+  id: string;
+  tenantId: string;
+  leadId: string;
+  type: 'email' | 'call' | 'meeting' | 'note' | 'status_change' | 'ai_insight';
+  title: string;
+  content: string;
+  createdAt: string;
+  createdBy?: string;
+  metadata?: any;
+}
+
 export interface Lead {
   id: string;
+  tenantId: string;
   name: string;
   company: string;
   email: string;
@@ -67,6 +80,8 @@ export interface Lead {
   closingForecast?: string;
   temperature?: LeadTemperature;
   probability?: number;
+  aiScore?: number;
+  aiReasoning?: string;
   
   // Company specific
   legalName?: string;
@@ -82,10 +97,12 @@ export interface Lead {
   
   lastActivityAt?: string;
   status?: 'active' | 'won' | 'lost' | 'paused';
+  interactions?: Interaction[];
 }
 
 export interface Task {
   id: string;
+  tenantId: string;
   title: string;
   description: string;
   status: TaskStatus;

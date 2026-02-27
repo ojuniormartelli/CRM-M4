@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Pipeline, Lead } from '../types';
+import { Pipeline, Lead, Interaction } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
+import { aiService } from '../services/aiService';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -37,6 +38,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isAIScoring, setIsAIScoring] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: ''
@@ -153,6 +157,39 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       alert("Erro ao enriquecer lead.");
     } finally {
       setIsEnriching(false);
+    }
+  };
+
+  const handleAIScore = async (lead: Lead) => {
+    setIsAIScoring(true);
+    try {
+      const result = await aiService.scoreLead(lead);
+      const { error } = await supabase
+        .from('m4_leads')
+        .update({ aiScore: result.score, aiReasoning: result.reasoning })
+        .eq('id', lead.id);
+
+      if (!error) {
+        const updatedLead = { ...lead, aiScore: result.score, aiReasoning: result.reasoning };
+        setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
+        setSelectedLead(updatedLead);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsAIScoring(false);
+    }
+  };
+
+  const handleAISummary = async (interactions: Interaction[]) => {
+    setIsSummarizing(true);
+    try {
+      const summary = await aiService.summarizeInteractions(interactions);
+      setAiSummary(summary);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSummarizing(false);
     }
   };
 
@@ -292,6 +329,14 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               </div>
               <div className="flex gap-3">
                 <button 
+                  onClick={() => handleAIScore(selectedLead)}
+                  disabled={isAIScoring}
+                  className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50"
+                  title="Score com IA"
+                >
+                  {isAIScoring ? <span className="animate-spin block">◌</span> : <ICONS.Plus width="20" height="20" />}
+                </button>
+                <button 
                   onClick={() => handleEnrichSingleLead(selectedLead)}
                   disabled={isEnriching}
                   className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all disabled:opacity-50"
@@ -334,6 +379,23 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação</p>
                       <p className="text-sm font-bold text-slate-900">{selectedLead.qualification || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Score</p>
+                      <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1 rounded-full text-xs font-black ${
+                          (selectedLead.aiScore || 0) > 70 ? 'bg-emerald-100 text-emerald-700' :
+                          (selectedLead.aiScore || 0) > 40 ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {selectedLead.aiScore || 'N/A'}
+                        </div>
+                        {selectedLead.aiReasoning && (
+                          <p className="text-[10px] text-slate-400 font-medium italic line-clamp-1" title={selectedLead.aiReasoning}>
+                            {selectedLead.aiReasoning}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Probabilidade</p>
@@ -393,6 +455,18 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             <div className="text-left">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail</p>
                               <p className="text-sm font-bold text-slate-700">{contact.email || 'N/A'}</p>
+                            </div>
+                          </button>
+                          <button 
+                            onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(contact.email)}`, '_blank')}
+                            className="flex items-center gap-4 group"
+                          >
+                            <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-red-50 group-hover:text-red-600 transition-all">
+                              <ICONS.ExternalLink width="18" height="18" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gmail</p>
+                              <p className="text-sm font-bold text-red-600">Ver conversas</p>
                             </div>
                           </button>
                         </div>
@@ -466,6 +540,62 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                   </div>
                 </CollapsibleSection>
+
+                <CollapsibleSection title="Histórico de Interações (Visão 360º)">
+                  <div className="space-y-6">
+                    <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                      <div className="flex justify-between items-center mb-4">
+                        <h5 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                          <ICONS.Automation width="14" height="14" /> AI Summary
+                        </h5>
+                        <button 
+                          onClick={() => handleAISummary(selectedLead.interactions || [])}
+                          disabled={isSummarizing}
+                          className="text-[10px] font-black text-indigo-600 hover:underline disabled:opacity-50"
+                        >
+                          {isSummarizing ? 'Gerando...' : 'Atualizar Resumo'}
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-700 font-medium leading-relaxed italic">
+                        {aiSummary || "Clique em 'Atualizar Resumo' para gerar um resumo executivo desta conta."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                    {(selectedLead.interactions || [
+                      { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', createdAt: selectedLead.createdAt },
+                      { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', createdAt: selectedLead.createdAt }
+                    ]).map((interaction, idx) => (
+                      <div key={interaction.id} className="flex gap-6 relative">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white ${
+                          interaction.type === 'email' ? 'bg-blue-50 text-blue-600' :
+                          interaction.type === 'call' ? 'bg-emerald-50 text-emerald-600' :
+                          interaction.type === 'meeting' ? 'bg-amber-50 text-amber-600' :
+                          'bg-slate-50 text-slate-600'
+                        }`}>
+                          {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" /> :
+                           interaction.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
+                           interaction.type === 'meeting' ? <ICONS.Collaboration width="18" height="18" /> :
+                           <ICONS.Plus width="18" height="18" />}
+                        </div>
+                        <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                          <div className="flex justify-between items-start mb-2">
+                            <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">{interaction.title}</h5>
+                            <span className="text-[10px] font-black text-slate-400 uppercase">{new Date(interaction.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-medium leading-relaxed">{interaction.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-4 flex flex-wrap gap-3">
+                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Nota</button>
+                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Ligação</button>
+                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Reunião</button>
+                       <button className="flex-1 min-w-[120px] py-3 bg-blue-50 border border-blue-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-100 transition-all">Logar E-mail</button>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleSection>
               </div>
 
               <div className="p-10 space-y-6">

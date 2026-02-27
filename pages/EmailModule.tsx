@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EmailMessage } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -15,6 +15,30 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails }) => {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [newEmail, setNewEmail] = useState({ recipient: '', subject: '', body: '' });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        setIsGmailConnected(true);
+        console.log("Google tokens received:", event.data.tokens);
+        // In a real app, you'd trigger a sync here
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleConnectGmail = async () => {
+    try {
+      const response = await fetch('/api/auth/google/url');
+      const { url } = await response.json();
+      window.open(url, 'google_auth', 'width=600,height=700');
+    } catch (error) {
+      console.error("Error connecting to Gmail:", error);
+      alert("Erro ao conectar com o Google.");
+    }
+  };
 
   const filteredEmails = emails.filter(e => e.folder === activeFolder);
 
@@ -96,10 +120,17 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails }) => {
         </nav>
 
         <div className="mt-auto p-6 bg-slate-900 rounded-[2.5rem] text-white">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Sincronização</p>
-          <div className="flex items-center gap-3">
-             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-             <p className="text-xs font-bold">Gmail Conectado</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Dica de Produtividade</p>
+          <div className="flex flex-col gap-4">
+            <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+              Use o botão <span className="text-white font-bold">"Ver no Gmail"</span> nos cards dos leads para abrir conversas externas instantaneamente.
+            </p>
+            <button 
+              onClick={() => window.open('https://mail.google.com', '_blank')}
+              className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              Abrir Gmail
+            </button>
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { COLORS, ICONS } from '../constants';
 import { Lead } from '../types';
+import { aiService } from '../services/aiService';
 
 interface DashboardProps {
   leads: Lead[];
@@ -27,6 +28,21 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => (
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => {
+  const [forecast, setForecast] = useState<{ predictedRevenue: number; confidence: number } | null>(null);
+  const [isForecasting, setIsForecasting] = useState(false);
+
+  useEffect(() => {
+    const getForecast = async () => {
+      setIsForecasting(true);
+      const result = await aiService.predictForecast(leads);
+      setForecast(result);
+      setIsForecasting(false);
+    };
+    if (leads.length > 0) {
+      getForecast();
+    }
+  }, [leads]);
+
   // Calculate dynamic metrics
   const totalLeads = leads.length;
   const activeLeads = leads.filter(l => l.status === 'active' || !l.status).length;
@@ -121,6 +137,39 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
         <StatCard title="Fechado (Mês)" value={`R$ ${closedRevenueMonth.toLocaleString()}`} change="+24%" icon={ICONS.Plus} color="emerald" />
         <StatCard title="Taxa Conversão" value={`${conversionRate}%`} change="+2%" icon={ICONS.Automation} color="amber" />
         <StatCard title="Tarefas" value={pendingTasks} change="-2" icon={ICONS.Tasks} color="red" />
+      </div>
+
+      {/* AI Forecast Banner */}
+      <div className="p-8 bg-gradient-to-r from-indigo-600 to-blue-700 rounded-[2.5rem] text-white shadow-2xl shadow-blue-100 relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex-1">
+             <div className="flex items-center gap-3 mb-4">
+               <div className="p-2 bg-white/20 rounded-lg">
+                 <ICONS.Automation width="20" height="20" />
+               </div>
+               <span className="text-[10px] font-black uppercase tracking-[0.2em]">AI Sales Prediction</span>
+             </div>
+             <h2 className="text-3xl font-black tracking-tight mb-2">
+               {isForecasting ? 'Analisando Pipeline...' : `R$ ${forecast?.predictedRevenue.toLocaleString() || '0'}`}
+             </h2>
+             <p className="text-blue-100 font-medium text-sm">
+               Previsão de fechamento para os próximos 30 dias com <span className="text-white font-black">{Math.round((forecast?.confidence || 0) * 100)}% de confiança</span>.
+             </p>
+          </div>
+          <div className="flex gap-4">
+            <div className="text-center px-6 py-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-blue-200 mb-1">Leads Quentes</p>
+              <p className="text-xl font-black">{leads.filter(l => l.temperature === 'Quente').length}</p>
+            </div>
+            <div className="text-center px-6 py-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-blue-200 mb-1">Prob. Média</p>
+              <p className="text-xl font-black">
+                {leads.length > 0 ? Math.round(leads.reduce((acc, l) => acc + (l.probability || 0), 0) / leads.length) : 0}%
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {staleDeals.length > 0 && (
