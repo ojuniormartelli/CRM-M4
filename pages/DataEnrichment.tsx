@@ -178,7 +178,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const handleEnrichLeads = async () => {
     setIsEnriching(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) {
         alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
         setIsEnriching(false);

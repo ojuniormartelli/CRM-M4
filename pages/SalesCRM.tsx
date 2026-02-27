@@ -118,7 +118,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads,
   const handleEnrichSingleLead = async (lead: Lead) => {
     setIsEnriching(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) {
         alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
         return;

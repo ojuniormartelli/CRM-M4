@@ -16,7 +16,7 @@ const Automation: React.FC<AutomationProps> = ({ leads }) => {
     setIsAiLoading(true);
     try {
       // Acesso seguro à chave API apenas no momento da execução
-      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
       
       if (!apiKey) {
         setAiSuggestions(["API Key não configurada no ambiente."]);
