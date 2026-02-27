@@ -2,6 +2,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
+
+console.log("Index.tsx starting...");
 
 // Monitoramento de erros globais para evitar tela branca silenciosa
 window.onerror = (message, source, lineno, colno, error) => {

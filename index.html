@@ -5,21 +5,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M4 Marketing CRM</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // Shim atualizado para aceitar os nomes exatos do seu print da Vercel
-      window.process = { 
-        env: { 
-          NODE_ENV: 'production',
-          // O script de deploy da Vercel injeta as variáveis aqui automaticamente
-          // mas garantimos que o objeto exista para não crashar
-          SUPABASE_URL: '',
-          SUPABASE_ANON_KEY: '',
-          NEXT_PUBLIC_SUPABASE_URL: '',
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ''
-        } 
+      // Error handler to catch issues before React loads
+      window.onerror = function(msg, url, line, col, error) {
+        console.error("CRITICAL ERROR:", msg, error);
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="padding: 40px; color: red; font-family: sans-serif;">' +
+            '<h1>Erro de Inicialização</h1>' +
+            '<p>O aplicativo falhou ao carregar. Verifique o console do navegador para detalhes.</p>' +
+            '<pre style="background: #eee; padding: 10px;">' + msg + '</pre>' +
+            '</div>';
+        }
+        return false;
       };
+      console.log("Index.html loaded, waiting for index.tsx...");
     </script>
     <style>
         body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
@@ -29,10 +30,10 @@
         ::-webkit-scrollbar-thumb:hover { background: #555; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
     </style>
-    <link rel="stylesheet" href="/index.css">
+    <link rel="stylesheet" href="./index.css">
 </head>
 <body class="bg-gray-50 text-slate-900">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>
