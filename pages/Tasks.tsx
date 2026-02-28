@@ -125,29 +125,69 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-xl p-10 shadow-2xl">
-            <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase">Nova Atividade</h3>
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              <input required placeholder="Título da Tarefa" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <textarea placeholder="Descrição" value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold h-32" />
-              <div className="grid grid-cols-2 gap-4">
-                <select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as any})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold">
-                  {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <select value={newTask.type} onChange={e => setNewTask({...newTask, type: e.target.value as any})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold">
-                  <option value="task">Tarefa</option>
-                  <option value="call">Ligação</option>
-                  <option value="meeting">Reunião</option>
-                  <option value="email">E-mail</option>
-                  <option value="proposal">Proposta</option>
-                </select>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 uppercase">Nova Atividade</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-all">
+                <ICONS.X />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateTask} className="flex-1 overflow-y-auto px-10 py-6 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Título da Tarefa</label>
+                <textarea 
+                  required 
+                  placeholder="Ex: Follow-up com cliente" 
+                  value={newTask.title} 
+                  onChange={e => setNewTask({...newTask, title: e.target.value})} 
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all resize-none overflow-hidden min-h-[56px]"
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = target.scrollHeight + 'px';
+                  }}
+                />
               </div>
-              <input type="date" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-                <button type="submit" className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">CRIAR TAREFA</button>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Prioridade</label>
+                  <select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as any})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px]">
+                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</label>
+                  <select value={newTask.type} onChange={e => setNewTask({...newTask, type: e.target.value as any})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px]">
+                    <option value="task">Tarefa</option>
+                    <option value="call">Ligação</option>
+                    <option value="meeting">Reunião</option>
+                    <option value="email">E-mail</option>
+                    <option value="proposal">Proposta</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Entrega</label>
+                  <input type="date" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Descrição / Notas</label>
+                <textarea 
+                  placeholder="Detalhes da atividade..." 
+                  value={newTask.description} 
+                  onChange={e => setNewTask({...newTask, description: e.target.value})} 
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-h-[150px]"
+                />
               </div>
             </form>
+
+            <div className="p-10 pt-6 flex gap-4 border-t border-slate-50 shrink-0">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition-all">CANCELAR</button>
+              <button onClick={handleCreateTask} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all">CRIAR TAREFA</button>
+            </div>
           </div>
         </div>
       )}

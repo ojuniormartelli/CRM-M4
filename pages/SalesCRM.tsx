@@ -354,21 +354,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             </div>
             
             <div className="flex-1 overflow-y-auto scrollbar-none">
-              <div className="p-10 flex gap-4 bg-white border-b border-slate-100">
-                <button 
-                  onClick={() => onStatusChange(selectedLead.id, 'won')}
-                  className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-                >
-                  MARCAR COMO GANHO
-                </button>
-                <button 
-                  onClick={() => onStatusChange(selectedLead.id, 'lost')}
-                  className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
-                >
-                  MARCAR COMO PERDIDO
-                </button>
-              </div>
-
               <div className="bg-white">
                 <CollapsibleSection title="Negociação">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
@@ -604,6 +589,21 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   {selectedLead.notes || "Nenhuma nota disponível."}
                 </div>
               </div>
+            </div>
+
+            <div className="p-10 bg-white border-t border-slate-100 flex gap-4 shrink-0">
+              <button 
+                onClick={() => onStatusChange(selectedLead.id, 'won')}
+                className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+              >
+                MARCAR COMO GANHO
+              </button>
+              <button 
+                onClick={() => onStatusChange(selectedLead.id, 'lost')}
+                className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+              >
+                MARCAR COMO PERDIDO
+              </button>
             </div>
           </div>
         </div>

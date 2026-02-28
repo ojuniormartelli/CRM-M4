@@ -1,13 +1,29 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Lead, Interaction } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+// Inicialização preguiçosa (lazy) para evitar erro de "API key must be set" no carregamento
+let aiInstance: GoogleGenAI | null = null;
+
+const getAi = () => {
+  if (!aiInstance) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!apiKey) {
+      console.warn("VITE_GEMINI_API_KEY não encontrada. As funções de IA estarão desativadas.");
+      return null;
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
 
 export const aiService = {
   /**
    * Calculates a Lead Score based on lead data and history
    */
   async scoreLead(lead: Lead): Promise<{ score: number; reasoning: string }> {
+    const ai = getAi();
+    if (!ai) return { score: 0, reasoning: "AI Service not configured (Missing API Key)." };
+
     const prompt = `
       Analyze the following lead data and provide a sales score from 0 to 100.
       Consider company size, segment, interaction history, and current stage.
@@ -54,6 +70,9 @@ export const aiService = {
    * Summarizes a long conversation or interaction history
    */
   async summarizeInteractions(interactions: Interaction[]): Promise<string> {
+    const ai = getAi();
+    if (!ai) return "AI Service not configured (Missing API Key).";
+
     if (!interactions || interactions.length === 0) return "No interactions to summarize.";
 
     const historyText = interactions
@@ -85,6 +104,9 @@ export const aiService = {
    * Predicts sales forecast based on pipeline data
    */
   async predictForecast(leads: Lead[]): Promise<{ predictedRevenue: number; confidence: number }> {
+    const ai = getAi();
+    if (!ai) return { predictedRevenue: 0, confidence: 0 };
+
     const activeLeads = leads.filter(l => l.status === 'active');
     const data = activeLeads.map(l => ({
       value: l.value,

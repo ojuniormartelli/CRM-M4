@@ -32,6 +32,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -310,7 +311,17 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
       return;
     }
 
-    const toInsert = importedLeads.map(lead => ({
+    const leadsToSave = selectedIndices.length > 0 
+      ? importedLeads.filter((_, i) => selectedIndices.includes(i))
+      : importedLeads;
+
+    if (leadsToSave.length === 0) {
+      alert("Nenhum lead selecionado para importação.");
+      setIsSyncing(false);
+      return;
+    }
+
+    const toInsert = leadsToSave.map(lead => ({
       ...lead,
       pipelineId: selectedPipeline,
       stageId: stageId,
@@ -448,6 +459,17 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-900 border-b border-slate-800">
                 <tr>
+                  <th className="px-6 py-5 w-10">
+                    <input 
+                      type="checkbox" 
+                      className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500/20"
+                      checked={selectedIndices.length === importedLeads.length && importedLeads.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedIndices(importedLeads.map((_, i) => i));
+                        else setSelectedIndices([]);
+                      }}
+                    />
+                  </th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Nome</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Empresa / Segmento</th>
                   <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">CNPJ / Sócios</th>
@@ -461,8 +483,19 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <tr 
                     key={i} 
                     onClick={() => handleEditLead(i)}
-                    className="hover:bg-blue-50/30 transition-colors cursor-pointer group/row"
+                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer group/row ${selectedIndices.includes(i) ? 'bg-blue-50/50' : ''}`}
                   >
+                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 rounded border-slate-200 text-blue-600 focus:ring-blue-500/20"
+                        checked={selectedIndices.includes(i)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIndices([...selectedIndices, i]);
+                          else setSelectedIndices(selectedIndices.filter(idx => idx !== i));
+                        }}
+                      />
+                    </td>
                     <td className="px-6 py-5">
                       <p className="font-black text-slate-900 group-hover/row:text-blue-600 transition-colors">{lead.name}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.address || 'Sem endereço'}</p>
@@ -547,8 +580,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
       {/* Edit Modal */}
       {isEditModalOpen && editingLead && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-12 shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-start mb-10">
+          <div className="bg-white rounded-[3rem] w-full max-w-7xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-12 pb-6 flex justify-between items-start shrink-0">
               <div>
                 <h3 className="text-3xl font-black text-slate-900">Editar Lead</h3>
                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Refine os dados antes da importação</p>
@@ -558,7 +591,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               </button>
             </div>
 
-            <div className="space-y-12 mb-12">
+            <div className="flex-1 overflow-y-auto px-12 py-6 space-y-12">
               {/* Negociação */}
               <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
                 <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">
@@ -570,11 +603,21 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Negócio</label>
-                    <input type="text" value={editingLead.name || ''} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.name || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Qualificação</label>
-                    <select value={editingLead.qualification || ''} onChange={(e) => setEditingLead({ ...editingLead, qualification: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all">
+                    <select value={editingLead.qualification || ''} onChange={(e) => setEditingLead({ ...editingLead, qualification: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]">
                       <option value="">Selecionar...</option>
                       <option value="1">1 - Muito Baixa</option>
                       <option value="2">2 - Baixa</option>
@@ -585,19 +628,39 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor Total</label>
-                    <input type="number" value={editingLead.value || 0} onChange={(e) => setEditingLead({ ...editingLead, value: Number(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="number" value={editingLead.value || 0} onChange={(e) => setEditingLead({ ...editingLead, value: Number(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Previsão de Fechamento</label>
-                    <input type="date" value={editingLead.closingForecast || ''} onChange={(e) => setEditingLead({ ...editingLead, closingForecast: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="date" value={editingLead.closingForecast || ''} onChange={(e) => setEditingLead({ ...editingLead, closingForecast: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fonte</label>
-                    <input type="text" value={editingLead.source || ''} onChange={(e) => setEditingLead({ ...editingLead, source: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.source || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, source: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Campanha</label>
-                    <input type="text" value={editingLead.campaign || ''} onChange={(e) => setEditingLead({ ...editingLead, campaign: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.campaign || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, campaign: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
                 </div>
               </section>
@@ -688,35 +751,55 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Fantasia</label>
-                    <input type="text" value={editingLead.company || ''} onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.company || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Razão Social</label>
-                    <input type="text" value={editingLead.legalName || ''} onChange={(e) => setEditingLead({ ...editingLead, legalName: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.legalName || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, legalName: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
-                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Corporativo</label>
-                    <input type="email" value={editingLead.companyEmail || ''} onChange={(e) => setEditingLead({ ...editingLead, companyEmail: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="email" value={editingLead.companyEmail || ''} onChange={(e) => setEditingLead({ ...editingLead, companyEmail: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
-                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
-                    <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Instagram</label>
-                    <input type="text" value={editingLead.instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, instagram: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="text" value={editingLead.instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, instagram: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Site</label>
-                    <input type="text" value={editingLead.website || ''} onChange={(e) => setEditingLead({ ...editingLead, website: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <input type="text" value={editingLead.website || ''} onChange={(e) => setEditingLead({ ...editingLead, website: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                 </div>
               </section>
@@ -732,13 +815,42 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Responsável</label>
-                    <input type="text" value={editingLead.responsibleName || ''} onChange={(e) => setEditingLead({ ...editingLead, responsibleName: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    <textarea 
+                      rows={1}
+                      value={editingLead.responsibleName || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, responsibleName: e.target.value })} 
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
                   </div>
+                </div>
+              </section>
+
+              {/* Notas Adicionais */}
+              <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                    <ICONS.Tasks width="20" height="20" />
+                  </div>
+                  Notas Adicionais
+                </h4>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Observações</label>
+                  <textarea 
+                    value={editingLead.notes || ''} 
+                    onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })} 
+                    className="w-full p-6 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[150px]"
+                    placeholder="Adicione observações ou insights sobre este lead..."
+                  />
                 </div>
               </section>
             </div>
 
-            <div className="flex gap-4 pt-10 border-t border-slate-50">
+            <div className="p-12 pt-6 flex gap-4 border-t border-slate-50 shrink-0">
               <button onClick={() => setIsEditModalOpen(false)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm hover:bg-slate-200 transition-all active:scale-95">
                 CANCELAR
               </button>
