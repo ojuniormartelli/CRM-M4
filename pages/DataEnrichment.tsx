@@ -34,6 +34,17 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isEditModalOpen && modalContentRef.current) {
+      const textareas = modalContentRef.current.querySelectorAll('textarea');
+      textareas.forEach(ta => {
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+      });
+    }
+  }, [isEditModalOpen, editingLead]);
 
   useEffect(() => {
     const savedMapping = localStorage.getItem('m4_last_mapping');
@@ -496,25 +507,25 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                         }}
                       />
                     </td>
-                    <td className="px-6 py-5">
-                      <p className="font-black text-slate-900 group-hover/row:text-blue-600 transition-colors">{lead.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.address || 'Sem endereço'}</p>
+                    <td className="px-6 py-5 min-w-[200px]">
+                      <p className="font-black text-slate-900 group-hover/row:text-blue-600 transition-colors break-words">{lead.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase break-words">{lead.address || 'Sem endereço'}</p>
                     </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-slate-700">{lead.company || 'Pendente'}</p>
+                    <td className="px-6 py-5 min-w-[250px]">
+                      <div className="flex items-start gap-2">
+                        <p className="font-bold text-slate-700 break-words flex-1">{lead.company || 'Pendente'}</p>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleGoogleSearch(lead);
                           }}
-                          className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                          className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all shrink-0"
                           title="Pesquisar no Google"
                         >
                           <ICONS.Search width="14" height="14" />
                         </button>
                       </div>
-                      <p className="text-[10px] text-blue-500 font-black uppercase">{lead.segment || 'Sem segmento'}</p>
+                      <p className="text-[10px] text-blue-500 font-black uppercase break-words mt-1">{lead.segment || 'Sem segmento'}</p>
                     </td>
                     <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
                       <input 
@@ -525,9 +536,9 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                         className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 mb-2"
                       />
                       {lead.partners && (
-                        <div className="max-w-[200px]">
+                        <div className="max-w-[300px]">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Sócios:</p>
-                          <p className="text-[10px] text-slate-500 leading-tight line-clamp-2" title={lead.partners}>{lead.partners}</p>
+                          <p className="text-[10px] text-slate-500 leading-tight" title={lead.partners}>{lead.partners}</p>
                         </div>
                       )}
                     </td>
@@ -537,14 +548,14 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                       {(lead.additionalEmails || lead.additionalPhones) && (
                         <div className="mt-2 pt-2 border-t border-slate-100">
                           <p className="text-[9px] font-black text-blue-400 uppercase">Contatos Extras:</p>
-                          <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{lead.additionalEmails || lead.additionalPhones}</p>
+                          <p className="text-[10px] text-slate-400 max-w-[200px]">{lead.additionalEmails || lead.additionalPhones}</p>
                         </div>
                       )}
                     </td>
                     <td className="px-6 py-5 font-black text-emerald-600">
                       {lead.value ? `R$ ${lead.value.toLocaleString()}` : '-'}
                     </td>
-                    <td className="px-6 py-5 text-[11px] text-slate-400 font-bold max-w-xs truncate" title={lead.notes}>{lead.notes || '-'}</td>
+                    <td className="px-6 py-5 text-[11px] text-slate-400 font-bold min-w-[250px]" title={lead.notes}>{lead.notes || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -591,7 +602,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-12 py-6 space-y-12">
+            <div ref={modalContentRef} className="flex-1 overflow-y-auto px-12 py-6 space-y-12">
               {/* Negociação */}
               <section className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
                 <h4 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-3">

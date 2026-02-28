@@ -253,13 +253,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     className={`bg-white p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-red-200 bg-red-50/10' : 'border-slate-200 hover:border-blue-400'}`}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100/50 inline-block">{lead.company}</span>
+                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100/50 inline-block max-w-full break-words">{lead.company}</span>
                       {isStale(lead) && (
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Negócio parado!"></div>
                       )}
                     </div>
                     <h4 className="font-black text-slate-900 text-lg mb-2 group-hover:text-blue-600 transition-colors">{lead.name}</h4>
-                    <p className="text-xs text-slate-400 font-bold line-clamp-2 mb-6">{lead.notes}</p>
+                    <p className="text-xs text-slate-400 font-bold mb-6">{lead.notes}</p>
                     
                     <div className="flex items-center gap-3 mb-6">
                       <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
@@ -376,7 +376,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           {selectedLead.aiScore || 'N/A'}
                         </div>
                         {selectedLead.aiReasoning && (
-                          <p className="text-[10px] text-slate-400 font-medium italic line-clamp-1" title={selectedLead.aiReasoning}>
+                          <p className="text-[10px] text-slate-400 font-medium italic" title={selectedLead.aiReasoning}>
                             {selectedLead.aiReasoning}
                           </p>
                         )}
