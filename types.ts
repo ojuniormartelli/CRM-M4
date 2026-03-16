@@ -53,7 +53,7 @@ export interface Interaction {
 
 export interface FormQuestion {
   id: string;
-  type: 'text' | 'long_text' | 'multiple_choice' | 'checkbox';
+  type: 'text' | 'long_text' | 'multiple_choice' | 'checkbox' | 'script';
   label: string;
   options?: string[]; // For multiple_choice and checkbox
   required?: boolean;

@@ -244,13 +244,24 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                   </button>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pergunta {idx + 1}</label>
-                      <input 
-                        type="text" 
-                        value={q.label}
-                        onChange={(e) => updateQuestion(q.id, { label: e.target.value })}
-                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none"
-                      />
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                        {q.type === 'script' ? 'Conteúdo do Script' : `Pergunta ${idx + 1}`}
+                      </label>
+                      {q.type === 'script' ? (
+                        <textarea 
+                          value={q.label}
+                          onChange={(e) => updateQuestion(q.id, { label: e.target.value })}
+                          className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none min-h-[120px]"
+                          placeholder="Digite aqui o texto que o vendedor deve ler..."
+                        />
+                      ) : (
+                        <input 
+                          type="text" 
+                          value={q.label}
+                          onChange={(e) => updateQuestion(q.id, { label: e.target.value })}
+                          className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none"
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de Resposta</label>
@@ -263,17 +274,20 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                         <option value="long_text">Texto Longo</option>
                         <option value="multiple_choice">Múltipla Escolha</option>
                         <option value="checkbox">Caixas de Seleção</option>
+                        <option value="script">Script / Texto de Orientação</option>
                       </select>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={q.required}
-                        onChange={(e) => updateQuestion(q.id, { required: e.target.checked })}
-                        className="w-5 h-5 rounded border-slate-300 text-blue-600"
-                      />
-                      <span className="text-sm font-bold text-slate-600">Obrigatória</span>
-                    </div>
+                    {q.type !== 'script' && (
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={q.required}
+                          onChange={(e) => updateQuestion(q.id, { required: e.target.checked })}
+                          className="w-5 h-5 rounded border-slate-300 text-blue-600"
+                        />
+                        <span className="text-sm font-bold text-slate-600">Obrigatória</span>
+                      </div>
+                    )}
                   </div>
 
                   {(q.type === 'multiple_choice' || q.type === 'checkbox') && (
@@ -438,9 +452,21 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
 
               <div className="animate-in slide-in-from-right-4 duration-500">
                 <h3 className="text-2xl font-black text-slate-900 mb-8">
-                  {selectedTemplate.questions[currentQuestionIndex].label}
+                  {selectedTemplate.questions[currentQuestionIndex].type === 'script' ? 'Roteiro de Abordagem' : selectedTemplate.questions[currentQuestionIndex].label}
                   {selectedTemplate.questions[currentQuestionIndex].required && <span className="text-red-500 ml-1">*</span>}
                 </h3>
+
+                {selectedTemplate.questions[currentQuestionIndex].type === 'script' && (
+                  <div className="p-8 bg-blue-50/50 border border-blue-100 rounded-3xl">
+                    <p className="text-slate-700 text-lg font-medium leading-relaxed whitespace-pre-wrap">
+                      {selectedTemplate.questions[currentQuestionIndex].label}
+                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-blue-600">
+                      <ICONS.Info width="16" height="16" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Script de Orientação</span>
+                    </div>
+                  </div>
+                )}
 
                 {selectedTemplate.questions[currentQuestionIndex].type === 'text' && (
                   <input 
