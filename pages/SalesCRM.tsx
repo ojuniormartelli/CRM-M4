@@ -9,6 +9,7 @@ import { aiService } from '../services/aiService';
 interface SalesCRMProps {
   pipelines: Pipeline[];
   activePipelineId: string;
+  setActivePipelineId: (id: string) => void;
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active') => Promise<void>;
@@ -32,10 +33,11 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, leads, setLeads, onStatusChange }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isAIScoring, setIsAIScoring] = useState(false);
@@ -207,12 +209,23 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
   return (
     <div className="space-y-10 h-full flex flex-col relative animate-in fade-in duration-1000">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">{activePipeline.name}</h2>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
-            <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-            <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
+        <div className="flex items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-4xl font-black text-slate-900 tracking-tight">{activePipeline.name}</h2>
+              <button 
+                onClick={() => setIsPipelineModalOpen(true)}
+                className="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
+                title="Trocar Pipeline"
+              >
+                <ICONS.ChevronDown width="20" height="20" />
+              </button>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
+              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+              <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
+            </div>
           </div>
         </div>
 
@@ -222,6 +235,39 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
           </button>
         </div>
       </div>
+
+      {isPipelineModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black text-slate-900 uppercase">Selecionar Pipeline</h3>
+              <button onClick={() => setIsPipelineModalOpen(false)} className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-slate-200 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {pipelines.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setActivePipelineId(p.id);
+                    setIsPipelineModalOpen(false);
+                  }}
+                  className={`w-full p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${activePipelineId === p.id ? 'border-blue-600 bg-blue-50/50' : 'border-slate-100 hover:border-blue-200 bg-slate-50/30'}`}
+                >
+                  <div>
+                    <p className={`font-black uppercase text-xs tracking-widest ${activePipelineId === p.id ? 'text-blue-600' : 'text-slate-400'}`}>Pipeline</p>
+                    <p className="font-bold text-slate-900 mt-1">{p.name}</p>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${activePipelineId === p.id ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white group-hover:border-blue-300'}`}>
+                    {activePipelineId === p.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none">
         <div className="flex gap-8 h-full min-w-max">
@@ -236,6 +282,9 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-600"></div>
                   <h3 className="font-black text-slate-900 text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
+                  <div className="w-5 h-5 bg-indigo-50 text-indigo-400 rounded-lg flex items-center justify-center" title="Automações Ativas">
+                    <ICONS.Automation width="12" height="12" />
+                  </div>
                 </div>
                 <div className="text-right">
                   <span className="bg-slate-900 px-3 py-1 rounded-full text-[10px] font-black text-white">{getLeadsByStage(stage.id).length}</span>

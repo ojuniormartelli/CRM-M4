@@ -16,6 +16,7 @@ import MarketingCRM from './pages/MarketingCRM';
 import EmailModule from './pages/EmailModule';
 import Settings from './pages/Settings';
 import DataEnrichment from './pages/DataEnrichment';
+import MeetingForms from './pages/MeetingForms';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -227,6 +228,7 @@ const App: React.FC = () => {
             isActive={activeTab === 'sales'}
           />
           <SidebarItem id="enrichment" icon={ICONS.Database} label="Importar Leads" isActive={activeTab === 'enrichment'} />
+          <SidebarItem id="meeting_forms" icon={ICONS.Form} label="Sondagem & Reunião" isActive={activeTab === 'meeting_forms'} />
           <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
           <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
           
@@ -265,8 +267,9 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
-          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} />}
+          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} setActivePipelineId={setActivePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
+          {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
           {activeTab === 'collaboration' && <Collaboration />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} />}

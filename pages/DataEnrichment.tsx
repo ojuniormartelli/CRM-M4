@@ -29,12 +29,52 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const [editingLead, setEditingLead] = useState<Partial<Lead> | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isDeepEnriching, setIsDeepEnriching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSuggestingMapping, setIsSuggestingMapping] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
+
+  const handleAISuggestMapping = async () => {
+    if (csvHeaders.length === 0) return;
+    setIsSuggestingMapping(true);
+    try {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        alert("API Key não configurada.");
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Você é um engenheiro de dados especialista em CRM. 
+Analise estes cabeçalhos de uma planilha de leads: ${JSON.stringify(csvHeaders)}.
+Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(Object.keys(mapping))}.
+Retorne APENAS um objeto JSON onde as chaves são os campos do CRM e os valores são o ÍNDICE (0-based) da coluna correspondente na planilha.
+Se não encontrar correspondência clara, use null.
+Exemplo: {"name": 0, "email": 2}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const suggested = JSON.parse(response.text || "{}");
+      const newMapping = { ...mapping };
+      Object.keys(suggested).forEach(key => {
+        if (suggested[key] !== null && suggested[key] !== undefined) {
+          newMapping[key] = suggested[key].toString();
+        }
+      });
+      setMapping(newMapping);
+    } catch (error) {
+      console.error("Erro ao sugerir mapeamento:", error);
+    } finally {
+      setIsSuggestingMapping(false);
+    }
+  };
 
   useEffect(() => {
     if (isEditModalOpen && modalContentRef.current) {
@@ -187,6 +227,54 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     setStep(3);
   };
 
+  const handleDeepEnrichLeads = async () => {
+    setIsDeepEnriching(true);
+    try {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) return;
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const leadsToEnrich = selectedIndices.length > 0 
+        ? importedLeads.filter((_, i) => selectedIndices.includes(i))
+        : importedLeads;
+
+      const prompt = `Você é um especialista em inteligência de mercado e enriquecimento de dados corporativos.
+Analise estes leads: ${JSON.stringify(leadsToEnrich)}.
+Para cada lead, realize um "enriquecimento profundo":
+1. Identifique o nome jurídico (Razão Social) provável.
+2. Identifique possíveis sócios e seus cargos.
+3. Sugira e-mails e telefones corporativos públicos baseados no domínio ou nome da empresa.
+4. Encontre links de redes sociais (Instagram, LinkedIn, Website).
+5. Defina um segmento de mercado detalhado.
+6. Estime o faturamento anual (value) e sugira uma estratégia de vendas (notes).
+
+Retorne APENAS um array JSON com os objetos enriquecidos. Use estas chaves: name, email, phone, company, legalName, cnpj, website, instagram, segment, value, notes, partners (array de {name, role}).
+NÃO ALUCINE. Se não tiver certeza, deixe o campo original ou null.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const enriched = JSON.parse(response.text || "[]");
+      
+      const updatedLeads = [...importedLeads];
+      if (selectedIndices.length > 0) {
+        selectedIndices.forEach((idx, i) => {
+          if (enriched[i]) updatedLeads[idx] = { ...updatedLeads[idx], ...enriched[i] };
+        });
+      } else {
+        setImportedLeads(enriched);
+        return;
+      }
+      setImportedLeads(updatedLeads);
+    } catch (error) {
+      console.error("Erro no enriquecimento profundo:", error);
+    } finally {
+      setIsDeepEnriching(false);
+    }
+  };
   const handleEnrichLeads = async () => {
     setIsEnriching(true);
     try {
@@ -397,14 +485,24 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
 
       {step === 2 && (
         <div className="bg-white p-12 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="flex items-center gap-4 mb-10">
-            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-              <ICONS.Automation width="28" height="28" />
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                <ICONS.Automation width="28" height="28" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Mapeamento Inteligente</h3>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Relacione os campos da sua planilha aos campos do CRM</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-black text-slate-900">Mapeamento Inteligente</h3>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Relacione os campos da sua planilha aos campos do CRM</p>
-            </div>
+            <button 
+              onClick={handleAISuggestMapping}
+              disabled={isSuggestingMapping}
+              className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSuggestingMapping ? <span className="animate-spin">◌</span> : <ICONS.Automation width="14" height="14" />}
+              Sugerir com IA
+            </button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -445,25 +543,33 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
               <h3 className="text-2xl font-black text-slate-900">Revisão & Enriquecimento IA</h3>
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{importedLeads.length} contatos identificados</p>
             </div>
-            <div className="flex flex-wrap gap-4">
-              <button 
-                onClick={handleBrasilAPILookup} 
-                disabled={isEnriching || !importedLeads.some(l => l.cnpj)}
-                className="px-8 py-4 bg-emerald-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-                title={!importedLeads.some(l => l.cnpj) ? "Mapeie uma coluna de CNPJ para usar esta opção" : ""}
-              >
-                {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Database />}
-                {isEnriching ? "CONSULTANDO..." : "ENRIQUECER VIA BRASILAPI"}
-              </button>
-              <button 
-                onClick={handleEnrichLeads} 
-                disabled={isEnriching}
-                className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-              >
-                {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
-                {isEnriching ? "ENRIQUECENDO DADOS..." : "ENRIQUECER COM IA"}
-              </button>
-            </div>
+              <div className="flex flex-wrap gap-4">
+                <button 
+                  onClick={handleBrasilAPILookup} 
+                  disabled={isEnriching || isDeepEnriching || !importedLeads.some(l => l.cnpj)}
+                  className="px-8 py-4 bg-emerald-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+                  title={!importedLeads.some(l => l.cnpj) ? "Mapeie uma coluna de CNPJ para usar esta opção" : ""}
+                >
+                  {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Database />}
+                  {isEnriching ? "CONSULTANDO..." : "BRASILAPI"}
+                </button>
+                <button 
+                  onClick={handleEnrichLeads} 
+                  disabled={isEnriching || isDeepEnriching}
+                  className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+                >
+                  {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
+                  {isEnriching ? "ENRIQUECENDO..." : "ENRIQUECER IA"}
+                </button>
+                <button 
+                  onClick={handleDeepEnrichLeads} 
+                  disabled={isEnriching || isDeepEnriching}
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-[2rem] font-black text-sm uppercase hover:from-purple-700 hover:to-blue-700 shadow-xl shadow-purple-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
+                >
+                  {isDeepEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Marketing />}
+                  {isDeepEnriching ? "PROCESSANDO..." : "DEEP ENRICHMENT"}
+                </button>
+              </div>
           </div>
 
           <div className="overflow-x-auto rounded-[2rem] border border-slate-100 mb-10 shadow-inner bg-slate-50/50">

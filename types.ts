@@ -51,6 +51,38 @@ export interface Interaction {
   metadata?: any;
 }
 
+export interface FormQuestion {
+  id: string;
+  type: 'text' | 'long_text' | 'multiple_choice' | 'checkbox';
+  label: string;
+  options?: string[]; // For multiple_choice and checkbox
+  required?: boolean;
+  logic?: {
+    triggerValue: string;
+    goToQuestionId: string; // ID of the next question or 'end'
+  }[];
+}
+
+export interface FormTemplate {
+  id: string;
+  tenantId: string;
+  title: string;
+  description?: string;
+  questions: FormQuestion[];
+  createdAt: string;
+}
+
+export interface FormResponse {
+  id: string;
+  formId: string;
+  leadId: string;
+  answers: {
+    questionId: string;
+    value: any;
+  }[];
+  createdAt: string;
+}
+
 export interface Lead {
   id: string;
   tenantId: string;
