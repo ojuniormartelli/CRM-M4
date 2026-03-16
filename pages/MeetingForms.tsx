@@ -104,8 +104,16 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
     const currentQuestion = selectedTemplate?.questions[currentQuestionIndex];
     if (!currentQuestion) return;
 
+    const answer = answers[currentQuestion.id];
+
     // Logic Branching
-    const logic = currentQuestion.logic?.find(l => l.triggerValue === answers[currentQuestion.id]);
+    const logic = currentQuestion.logic?.find(l => {
+      if (currentQuestion.type === 'checkbox' && Array.isArray(answer)) {
+        return answer.includes(l.triggerValue);
+      }
+      return l.triggerValue === answer;
+    });
+
     if (logic) {
       if (logic.goToQuestionId === 'end') {
         finishMeeting();
@@ -310,16 +318,36 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                       {q.logic?.map((l, lIdx) => (
                         <div key={lIdx} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-100">
                           <span className="text-xs font-bold text-slate-400">Se responder</span>
-                          <input 
-                            type="text" 
-                            value={l.triggerValue}
-                            onChange={(e) => {
-                              const newLogic = [...(q.logic || [])];
-                              newLogic[lIdx].triggerValue = e.target.value;
-                              updateQuestion(q.id, { logic: newLogic });
-                            }}
-                            className="p-2 border-b border-slate-200 outline-none text-xs font-bold w-24"
-                          />
+                          
+                          {(q.type === 'multiple_choice' || q.type === 'checkbox') ? (
+                            <select 
+                              value={l.triggerValue}
+                              onChange={(e) => {
+                                const newLogic = [...(q.logic || [])];
+                                newLogic[lIdx].triggerValue = e.target.value;
+                                updateQuestion(q.id, { logic: newLogic });
+                              }}
+                              className="p-2 border-b border-slate-200 outline-none text-xs font-bold min-w-[120px]"
+                            >
+                              <option value="">Selecione...</option>
+                              {q.options?.map((opt, i) => (
+                                <option key={i} value={opt}>{String.fromCharCode(65 + i)}) {opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input 
+                              type="text" 
+                              value={l.triggerValue}
+                              onChange={(e) => {
+                                const newLogic = [...(q.logic || [])];
+                                newLogic[lIdx].triggerValue = e.target.value;
+                                updateQuestion(q.id, { logic: newLogic });
+                              }}
+                              className="p-2 border-b border-slate-200 outline-none text-xs font-bold w-24"
+                              placeholder="Valor..."
+                            />
+                          )}
+
                           <span className="text-xs font-bold text-slate-400">ir para</span>
                           <select 
                             value={l.goToQuestionId}
@@ -332,8 +360,10 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                           >
                             <option value="">Próxima Pergunta</option>
                             <option value="end">Finalizar Formulário</option>
-                            {builderForm.questions?.filter(other => other.id !== q.id).map(other => (
-                              <option key={other.id} value={other.id}>{other.label.substring(0, 20)}...</option>
+                            {builderForm.questions?.filter(other => other.id !== q.id).map((other) => (
+                              <option key={other.id} value={other.id}>
+                                Pergunta {builderForm.questions?.indexOf(other)! + 1}: {other.label.substring(0, 20)}...
+                              </option>
                             ))}
                           </select>
                           <button 
