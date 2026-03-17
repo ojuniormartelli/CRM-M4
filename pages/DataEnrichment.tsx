@@ -15,28 +15,54 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<any[][]>([]);
-  const [mapping, setMapping] = useState<Record<string, string>>({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    segment: '',
-    address: '',
-    cnpj: ''
-  });
+  
+  // mapping stores: columnIndex -> { targetField, isCustom, customName, customType }
+  const [mapping, setMapping] = useState<Record<number, { 
+    target: string; 
+    customName?: string; 
+    customType?: string;
+  }>>({});
+
   const [importedLeads, setImportedLeads] = useState<Partial<Lead>[]>([]);
   const [selectedLeadIndex, setSelectedLeadIndex] = useState<number | null>(null);
   const [editingLead, setEditingLead] = useState<Partial<Lead> | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isEnriching, setIsEnriching] = useState(false);
-  const [isDeepEnriching, setIsDeepEnriching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSuggestingMapping, setIsSuggestingMapping] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
+  const [selectedStage, setSelectedStage] = useState(pipelines[0]?.stages[0]?.id || '');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
+
+  const CRM_FIELDS = [
+    { id: 'name', label: 'Nome / Título' },
+    { id: 'company', label: 'Empresa / Razão Social' },
+    { id: 'email', label: 'E-mail Principal' },
+    { id: 'phone', label: 'Telefone / WhatsApp' },
+    { id: 'segment', label: 'Segmento / Setor' },
+    { id: 'niche', label: 'Nicho' },
+    { id: 'city', label: 'Cidade' },
+    { id: 'state', label: 'Estado' },
+    { id: 'source', label: 'Origem / Fonte' },
+    { id: 'notes', label: 'Observações' },
+    { id: 'cnpj', label: 'CNPJ' },
+    { id: 'website', label: 'Website' },
+    { id: 'instagram', label: 'Instagram' },
+    { id: 'legalName', label: 'Razão Social Jurídica' },
+    { id: 'partners', label: 'Sócios / QSA' },
+    { id: 'address', label: 'Endereço Completo' },
+    { id: 'serviceType', label: 'Tipo de Serviço' },
+    { id: 'proposedTicket', label: 'Ticket Proposto' },
+  ];
+
+  useEffect(() => {
+    const pipeline = pipelines.find(p => p.id === selectedPipeline);
+    if (pipeline && pipeline.stages.length > 0) {
+      setSelectedStage(pipeline.stages[0].id);
+    }
+  }, [selectedPipeline, pipelines]);
 
   const handleAISuggestMapping = async () => {
     if (csvHeaders.length === 0) return;
@@ -50,10 +76,11 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `Você é um engenheiro de dados especialista em CRM. 
 Analise estes cabeçalhos de uma planilha de leads: ${JSON.stringify(csvHeaders)}.
-Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(Object.keys(mapping))}.
-Retorne APENAS um objeto JSON onde as chaves são os campos do CRM e os valores são o ÍNDICE (0-based) da coluna correspondente na planilha.
-Se não encontrar correspondência clara, use null.
-Exemplo: {"name": 0, "email": 2}`;
+Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(CRM_FIELDS.map(f => f.id))}.
+Considere variações: "tel", "celular", "whatsapp" -> phone; "empresa", "negócio", "razão social" -> company; "nicho", "setor" -> segment; "município" -> city.
+Retorne APENAS um objeto JSON onde as chaves são os ÍNDICES (0-based) das colunas da planilha e os valores são o ID do campo correspondente no CRM.
+Se não encontrar correspondência clara, não inclua no objeto ou use null.
+Exemplo: {"0": "name", "2": "email"}`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -63,9 +90,10 @@ Exemplo: {"name": 0, "email": 2}`;
 
       const suggested = JSON.parse(response.text || "{}");
       const newMapping = { ...mapping };
-      Object.keys(suggested).forEach(key => {
-        if (suggested[key] !== null && suggested[key] !== undefined) {
-          newMapping[key] = suggested[key].toString();
+      Object.keys(suggested).forEach(colIdx => {
+        const idx = parseInt(colIdx);
+        if (suggested[colIdx] && !isNaN(idx)) {
+          newMapping[idx] = { target: suggested[colIdx] };
         }
       });
       setMapping(newMapping);
@@ -138,22 +166,21 @@ Exemplo: {"name": 0, "email": 2}`;
       setCsvRows(rows);
       
       // Intelligent Auto-mapping
-      const newMapping = { ...mapping };
+      const newMapping: Record<number, { target: string }> = {};
       headers.forEach((h, index) => {
         const lower = h.toLowerCase();
-        if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping.name = index.toString();
-        else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) newMapping.email = index.toString();
-        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('whatsapp') || lower.includes('tel')) newMapping.phone = index.toString();
-        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping.company = index.toString();
-        else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping.segment = index.toString();
-        else if (lower.includes('endereço') || lower.includes('address') || lower.includes('rua')) newMapping.address = index.toString();
-        else if (lower.includes('cidade') || lower.includes('city')) newMapping.city = index.toString();
-        else if (lower.includes('estado') || lower.includes('state') || lower.includes('uf')) newMapping.state = index.toString();
-        else if (lower.includes('cnpj')) newMapping.cnpj = index.toString();
-        else if (lower.includes('instagram')) newMapping.instagram = index.toString();
-        else if (lower.includes('site') || lower.includes('website')) newMapping.website = index.toString();
-        else if (lower.includes('fonte') || lower.includes('source')) newMapping.source = index.toString();
-        else if (lower.includes('campanha') || lower.includes('campaign')) newMapping.campaign = index.toString();
+        if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping[index] = { target: 'name' };
+        else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) newMapping[index] = { target: 'email' };
+        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('whatsapp') || lower.includes('tel')) newMapping[index] = { target: 'phone' };
+        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company' };
+        else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping[index] = { target: 'segment' };
+        else if (lower.includes('cidade') || lower.includes('city') || lower.includes('município')) newMapping[index] = { target: 'city' };
+        else if (lower.includes('cnpj')) newMapping[index] = { target: 'cnpj' };
+        else if (lower.includes('instagram')) newMapping[index] = { target: 'instagram' };
+        else if (lower.includes('site') || lower.includes('website')) newMapping[index] = { target: 'website' };
+        else if (lower.includes('fonte') || lower.includes('source') || lower.includes('origem')) newMapping[index] = { target: 'source' };
+        else if (lower.includes('nota') || lower.includes('obs') || lower.includes('notes')) newMapping[index] = { target: 'notes' };
+        else if (lower.includes('sócio') || lower.includes('socio') || lower.includes('partners')) newMapping[index] = { target: 'partners' };
       });
       
       setMapping(newMapping);
@@ -168,218 +195,39 @@ Exemplo: {"name": 0, "email": 2}`;
   };
 
   const handleProcessMapping = () => {
-    localStorage.setItem('m4_last_mapping', JSON.stringify(mapping));
-    
     const parsed: Partial<Lead>[] = csvRows.map(row => {
-      const lead: Partial<Lead> = {
-        name: mapping.name ? String(row[parseInt(mapping.name)] || '') : '',
-        email: mapping.email ? String(row[parseInt(mapping.email)] || '') : '',
-        phone: mapping.phone ? String(row[parseInt(mapping.phone)] || '') : '',
-        company: mapping.company ? String(row[parseInt(mapping.company)] || '') : '',
-        segment: mapping.segment ? String(row[parseInt(mapping.segment)] || '') : '',
-        address: mapping.address ? String(row[parseInt(mapping.address)] || '') : '',
-        city: mapping.city ? String(row[parseInt(mapping.city)] || '') : '',
-        state: mapping.state ? String(row[parseInt(mapping.state)] || '') : '',
-        cnpj: mapping.cnpj ? String(row[parseInt(mapping.cnpj)] || '') : '',
-        instagram: mapping.instagram ? String(row[parseInt(mapping.instagram)] || '') : '',
-        website: mapping.website ? String(row[parseInt(mapping.website)] || '') : '',
-        source: mapping.source ? String(row[parseInt(mapping.source)] || '') : '',
-        campaign: mapping.campaign ? String(row[parseInt(mapping.campaign)] || '') : '',
+      const lead: Partial<Lead> & { customFields?: Record<string, any> } = {
         value: 0,
-        notes: '',
-        additionalEmails: '',
-        additionalPhones: '',
-        contacts: []
+        contacts: [],
+        customFields: {}
       };
 
-      // Collect all other emails and phones found in the row
-      const otherEmails: string[] = [];
-      const otherPhones: string[] = [];
-      const otherData: string[] = [];
+      Object.entries(mapping).forEach(([colIdxStr, config]) => {
+        const colIdx = parseInt(colIdxStr);
+        const value = row[colIdx];
+        const cfg = config as { target: string; customName?: string; customType?: string };
+        if (value === undefined || value === null || cfg.target === 'ignore') return;
 
-      row.forEach((cell, idx) => {
-        const value = String(cell || '').trim();
-        if (!value) return;
-
-        // Skip already mapped columns
-        const isMapped = Object.values(mapping).includes(idx.toString());
-        if (isMapped) return;
-
-        const header = csvHeaders[idx]?.toLowerCase() || '';
-        
-        if (value.includes('@') && value.includes('.')) {
-          if (value !== lead.email) otherEmails.push(value);
-        } else if (value.replace(/\D/g, '').length >= 8 && (header.includes('tel') || header.includes('cel') || header.includes('fone') || header.includes('phone'))) {
-          if (value !== lead.phone) otherPhones.push(value);
-        } else {
-          otherData.push(`${csvHeaders[idx]}: ${value}`);
+        if (cfg.target === 'custom' && cfg.customName) {
+          if (!lead.customFields) lead.customFields = {};
+          lead.customFields[cfg.customName] = value;
+        } else if (cfg.target !== 'custom') {
+          (lead as any)[cfg.target] = String(value);
         }
       });
-
-      if (otherEmails.length > 0) lead.additionalEmails = otherEmails.join(', ');
-      if (otherPhones.length > 0) lead.additionalPhones = otherPhones.join(', ');
-      if (otherData.length > 0) lead.notes = `Dados Adicionais: ${otherData.join(' | ')}`;
 
       return lead;
     });
 
-    setImportedLeads(parsed.filter(l => l.name || l.email));
+    const validLeads = parsed.filter(l => l.name || l.company);
+    if (validLeads.length === 0) {
+      alert("Pelo menos o campo 'Nome' ou 'Empresa' deve estar mapeado e preenchido.");
+      return;
+    }
+
+    setImportedLeads(validLeads);
+    setSelectedIndices(validLeads.map((_, i) => i));
     setStep(3);
-  };
-
-  const handleDeepEnrichLeads = async () => {
-    setIsDeepEnriching(true);
-    try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) return;
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const leadsToEnrich = selectedIndices.length > 0 
-        ? importedLeads.filter((_, i) => selectedIndices.includes(i))
-        : importedLeads;
-
-      const prompt = `Você é um especialista em inteligência de mercado e enriquecimento de dados corporativos.
-Analise estes leads: ${JSON.stringify(leadsToEnrich)}.
-Para cada lead, realize um "enriquecimento profundo":
-1. Identifique o nome jurídico (Razão Social) provável.
-2. Identifique possíveis sócios e seus cargos.
-3. Sugira e-mails e telefones corporativos públicos baseados no domínio ou nome da empresa.
-4. Encontre links de redes sociais (Instagram, LinkedIn, Website).
-5. Defina um segmento de mercado detalhado.
-6. Estime o faturamento anual (value) e sugira uma estratégia de vendas (notes).
-
-Retorne APENAS um array JSON com os objetos enriquecidos. Use estas chaves: name, email, phone, company, legalName, cnpj, website, instagram, segment, value, notes, partners (array de {name, role}).
-NÃO ALUCINE. Se não tiver certeza, deixe o campo original ou null.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const enriched = JSON.parse(response.text || "[]");
-      
-      const updatedLeads = [...importedLeads];
-      if (selectedIndices.length > 0) {
-        selectedIndices.forEach((idx, i) => {
-          if (enriched[i]) updatedLeads[idx] = { ...updatedLeads[idx], ...enriched[i] };
-        });
-      } else {
-        setImportedLeads(enriched);
-        return;
-      }
-      setImportedLeads(updatedLeads);
-    } catch (error) {
-      console.error("Erro no enriquecimento profundo:", error);
-    } finally {
-      setIsDeepEnriching(false);
-    }
-  };
-  const handleEnrichLeads = async () => {
-    setIsEnriching(true);
-    try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
-        setIsEnriching(false);
-        return;
-      }
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Aqui está uma lista de leads importados (JSON): ${JSON.stringify(importedLeads)}.
-Por favor, enriqueça esses dados:
-1. Se a empresa estiver vazia, tente inferir pelo domínio do e-mail.
-2. Sugira um 'value' (valor do negócio em reais, número inteiro) com base no porte provável da empresa (ex: B2B SaaS, e-commerce).
-3. Adicione um 'notes' curto sugerindo uma estratégia de abordagem personalizada.
-4. Padronize os nomes (primeira letra maiúscula).
-5. Mantenha os campos 'segment' e 'address' se existirem.
-
-Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, email, phone, company, value, notes, segment, address.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
-
-      const text = response.text || "[]";
-      const enriched = JSON.parse(text);
-      setImportedLeads(enriched);
-    } catch (error) {
-      console.error("Erro ao enriquecer:", error);
-      alert("Erro ao enriquecer leads com IA.");
-    } finally {
-      setIsEnriching(false);
-    }
-  };
-
-  const handleBrasilAPILookup = async () => {
-    setIsEnriching(true);
-    try {
-      const enrichedLeads = await Promise.all(importedLeads.map(async (lead) => {
-        if (!lead.cnpj) return lead;
-        
-        const cleanCnpj = lead.cnpj.replace(/\D/g, '');
-        if (cleanCnpj.length !== 14) return lead;
-
-        try {
-          const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Extract partners as contacts
-            const partnersContacts: Contact[] = data.qsa?.map((p: any) => ({
-              name: p.nome_socio,
-              role: p.qualificacao_socio,
-              email: '',
-              phone: '',
-              whatsappLink: ''
-            })) || [];
-            
-            // Extract additional contacts
-            const companyEmail = data.email || '';
-            const companyPhone = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean).join(', ');
-
-            return {
-              ...lead,
-              company: data.razao_social || data.nome_fantasia || lead.company,
-              legalName: data.razao_social,
-              segment: data.cnae_fiscal_descricao || lead.segment,
-              address: `${data.logradouro}, ${data.numero} - ${data.bairro}`,
-              city: data.municipio,
-              state: data.uf,
-              companyEmail: companyEmail,
-              companyPhone: companyPhone,
-              legalNature: data.natureza_juridica,
-              contacts: partnersContacts,
-              notes: lead.notes || `Empresa: ${data.razao_social}. Capital Social: R$ ${data.capital_social}. Natureza: ${data.natureza_juridica}.`
-            };
-          }
-        } catch (e) {
-          console.error(`Erro ao buscar CNPJ ${cleanCnpj}:`, e);
-        }
-        return lead;
-      }));
-      setImportedLeads(enrichedLeads as Partial<Lead>[]);
-    } catch (error) {
-      console.error("Erro no BrasilAPI:", error);
-      alert("Erro ao consultar BrasilAPI.");
-    } finally {
-      setIsEnriching(false);
-    }
-  };
-
-  const handleGoogleSearch = (lead: Partial<Lead>) => {
-    const query = `${lead.company || ''} ${lead.city || ''} CNPJ`.trim();
-    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    window.open(url, '_blank');
-  };
-
-  const updateLeadCnpj = (index: number, cnpj: string) => {
-    const updated = [...importedLeads];
-    updated[index] = { ...updated[index], cnpj };
-    setImportedLeads(updated);
   };
 
   const handleEditLead = (index: number) => {
@@ -401,15 +249,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
 
   const handleSaveImported = async () => {
     setIsSyncing(true);
-    const pipeline = pipelines.find(p => p.id === selectedPipeline) || pipelines[0];
-    const stageId = pipeline?.stages[0]?.id;
-
-    if (!stageId) {
-      alert("Pipeline inválido ou sem estágios.");
-      setIsSyncing(false);
-      return;
-    }
-
+    
     const leadsToSave = selectedIndices.length > 0 
       ? importedLeads.filter((_, i) => selectedIndices.includes(i))
       : importedLeads;
@@ -423,8 +263,10 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
     const toInsert = leadsToSave.map(lead => ({
       ...lead,
       pipelineId: selectedPipeline,
-      stageId: stageId,
-      createdAt: new Date().toISOString()
+      stageId: selectedStage,
+      createdAt: new Date().toISOString(),
+      nextAction: 'Qualificar lead importado',
+      nextActionDate: new Date().toISOString().split('T')[0]
     }));
 
     const { error } = await supabase
@@ -443,8 +285,8 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
     <div className="space-y-8 animate-in fade-in duration-700 max-w-6xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Importação & Enriquecimento</h2>
-          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mt-2">Inteligência de Dados M4 Agency</p>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Importação de Leads</h2>
+          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mt-2">Dados Enriquecidos Externamente (Ex: Manus)</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
           {[1, 2, 3].map((s) => (
@@ -471,14 +313,14 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
             <ICONS.Database width="48" height="48" />
           </div>
           <h3 className="text-3xl font-black text-slate-900 mb-4">Importe sua Planilha de Leads</h3>
-          <p className="text-slate-500 mb-10 max-w-md mx-auto font-medium leading-relaxed">Suporta arquivos <span className="text-blue-600 font-bold">.CSV</span> e <span className="text-blue-600 font-bold">.XLSX</span>. Nossa IA ajudará a mapear as colunas e enriquecer as informações.</p>
+          <p className="text-slate-500 mb-10 max-w-md mx-auto font-medium leading-relaxed">Envie um arquivo <span className="text-blue-600 font-bold">.CSV</span> ou <span className="text-blue-600 font-bold">.XLSX</span> com seus leads já enriquecidos (ex.: via Manus).</p>
           
           <div className="flex flex-col items-center gap-4">
             <label className="inline-flex items-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm hover:bg-blue-600 shadow-2xl transition-all cursor-pointer hover:-translate-y-1 active:scale-95">
               <ICONS.Plus /> SELECIONAR PLANILHA
               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} ref={fileInputRef} />
             </label>
-            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Dica: Use arquivos com cabeçalhos claros para melhor mapeamento</p>
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Dica: Use colunas como nome, e-mail, telefone, empresa, cidade, segmento, origem, sócios, etc.</p>
           </div>
         </div>
       )}
@@ -491,36 +333,69 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                 <ICONS.Automation width="28" height="28" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-slate-900">Mapeamento Inteligente</h3>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Relacione os campos da sua planilha aos campos do CRM</p>
+                <h3 className="text-2xl font-black text-slate-900">Mapeamento de Colunas</h3>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Conecte cada coluna da sua planilha a um campo do CRM</p>
               </div>
             </div>
             <button 
               onClick={handleAISuggestMapping}
               disabled={isSuggestingMapping}
-              className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-8 py-4 bg-amber-500 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-amber-600 shadow-xl shadow-amber-100 transition-all flex items-center gap-3 disabled:opacity-50"
             >
-              {isSuggestingMapping ? <span className="animate-spin">◌</span> : <ICONS.Automation width="14" height="14" />}
-              Sugerir com IA
+              {isSuggestingMapping ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
+              {isSuggestingMapping ? "ANALISANDO..." : "Sugerir Mapeamento com IA"}
             </button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {Object.keys(mapping).map((field) => (
-              <div key={field} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 group hover:border-blue-200 transition-all shadow-sm">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-                  Campo CRM: <span className="text-blue-600">{field.toUpperCase()}</span>
-                </label>
-                <select 
-                  value={mapping[field]} 
-                  onChange={(e) => setMapping({...mapping, [field]: e.target.value})}
-                  className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">-- Ignorar --</option>
-                  {csvHeaders.map((h, i) => (
-                    <option key={i} value={i.toString()}>{h}</option>
-                  ))}
-                </select>
+          <div className="space-y-4 mb-12">
+            <div className="grid grid-cols-12 gap-4 px-8 py-4 bg-slate-900 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest">
+              <div className="col-span-4">Coluna na Planilha</div>
+              <div className="col-span-4">Campo de Destino no CRM</div>
+              <div className="col-span-4">Configuração Adicional</div>
+            </div>
+            {csvHeaders.map((header, index) => (
+              <div key={index} className="grid grid-cols-12 gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 items-center group hover:border-blue-200 transition-all shadow-sm">
+                <div className="col-span-4">
+                  <p className="font-black text-slate-900 truncate">{header}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Coluna {index + 1}</p>
+                </div>
+                <div className="col-span-4">
+                  <select 
+                    value={mapping[index]?.target || 'ignore'} 
+                    onChange={(e) => setMapping({...mapping, [index]: { ...mapping[index], target: e.target.value }})}
+                    className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="ignore">-- Ignorar Coluna --</option>
+                    <optgroup label="Campos Existentes">
+                      {CRM_FIELDS.map(f => (
+                        <option key={f.id} value={f.id}>{f.label}</option>
+                      ))}
+                    </optgroup>
+                    <option value="custom">+ Criar Campo Personalizado</option>
+                  </select>
+                </div>
+                <div className="col-span-4">
+                  {mapping[index]?.target === 'custom' && (
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        placeholder="Nome do Campo"
+                        value={mapping[index]?.customName || ''}
+                        onChange={(e) => setMapping({...mapping, [index]: { ...mapping[index], customName: e.target.value }})}
+                        className="flex-1 p-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm transition-all"
+                      />
+                      <select
+                        value={mapping[index]?.customType || 'text'}
+                        onChange={(e) => setMapping({...mapping, [index]: { ...mapping[index], customType: e.target.value }})}
+                        className="p-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="text">Texto</option>
+                        <option value="number">Número</option>
+                        <option value="date">Data</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -538,38 +413,48 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
 
       {step === 3 && (
         <div className="bg-white p-12 rounded-[3rem] border border-slate-200 shadow-2xl shadow-slate-200/50 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-            <div>
-              <h3 className="text-2xl font-black text-slate-900">Revisão & Enriquecimento IA</h3>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{importedLeads.length} contatos identificados</p>
-            </div>
-              <div className="flex flex-wrap gap-4">
-                <button 
-                  onClick={handleBrasilAPILookup} 
-                  disabled={isEnriching || isDeepEnriching || !importedLeads.some(l => l.cnpj)}
-                  className="px-8 py-4 bg-emerald-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-                  title={!importedLeads.some(l => l.cnpj) ? "Mapeie uma coluna de CNPJ para usar esta opção" : ""}
-                >
-                  {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Database />}
-                  {isEnriching ? "CONSULTANDO..." : "BRASILAPI"}
-                </button>
-                <button 
-                  onClick={handleEnrichLeads} 
-                  disabled={isEnriching || isDeepEnriching}
-                  className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-                >
-                  {isEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Automation />}
-                  {isEnriching ? "ENRIQUECENDO..." : "ENRIQUECER IA"}
-                </button>
-                <button 
-                  onClick={handleDeepEnrichLeads} 
-                  disabled={isEnriching || isDeepEnriching}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-[2rem] font-black text-sm uppercase hover:from-purple-700 hover:to-blue-700 shadow-xl shadow-purple-100 transition-all disabled:opacity-50 flex items-center gap-3 active:scale-95"
-                >
-                  {isDeepEnriching ? <span className="animate-spin text-xl">◌</span> : <ICONS.Marketing />}
-                  {isDeepEnriching ? "PROCESSANDO..." : "DEEP ENRICHMENT"}
-                </button>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-10">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                <ICONS.Automation width="28" height="28" />
               </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Configuração & Confirmação</h3>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Revise os leads e confirme a importação para o pipeline selecionado</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100">
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-2">Pipeline de Destino</label>
+                <select 
+                  value={selectedPipeline} 
+                  onChange={(e) => setSelectedPipeline(e.target.value)}
+                  className="p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none min-w-[200px]"
+                >
+                  {pipelines.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-2">Estágio Inicial</label>
+                <select 
+                  value={selectedStage} 
+                  onChange={(e) => setSelectedStage(e.target.value)}
+                  className="p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none min-w-[200px]"
+                >
+                  {pipelines.find(p => p.id === selectedPipeline)?.stages.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="h-12 w-px bg-slate-200 mx-2 hidden lg:block"></div>
+              <div className="text-right px-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selecionados</p>
+                <p className="text-xl font-black text-blue-600">{selectedIndices.length} / {importedLeads.length}</p>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-[2rem] border border-slate-100 mb-10 shadow-inner bg-slate-50/50">
@@ -579,7 +464,7 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                   <th className="px-6 py-5 w-10">
                     <input 
                       type="checkbox" 
-                      className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500/20"
+                      className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-blue-600"
                       checked={selectedIndices.length === importedLeads.length && importedLeads.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) setSelectedIndices(importedLeads.map((_, i) => i));
@@ -587,25 +472,23 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                       }}
                     />
                   </th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Nome</th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Empresa / Segmento</th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">CNPJ / Sócios</th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Email / Tel</th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Valor Est.</th>
-                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Insights da IA</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Lead / Empresa</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Contato</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Nicho / Origem</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Campos Personalizados</th>
+                  <th className="px-6 py-5 font-black text-white uppercase text-[10px] tracking-[0.2em]">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {importedLeads.map((lead, i) => (
                   <tr 
                     key={i} 
-                    onClick={() => handleEditLead(i)}
-                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer group/row ${selectedIndices.includes(i) ? 'bg-blue-50/50' : ''}`}
+                    className={`hover:bg-blue-50/30 transition-colors ${selectedIndices.includes(i) ? 'bg-blue-50/50' : ''}`}
                   >
-                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-6 py-5">
                       <input 
                         type="checkbox" 
-                        className="w-5 h-5 rounded border-slate-200 text-blue-600 focus:ring-blue-500/20"
+                        className="w-5 h-5 rounded border-slate-200 text-blue-600"
                         checked={selectedIndices.includes(i)}
                         onChange={(e) => {
                           if (e.target.checked) setSelectedIndices([...selectedIndices, i]);
@@ -613,83 +496,50 @@ Retorne APENAS um array JSON válido com os objetos contendo as chaves: name, em
                         }}
                       />
                     </td>
-                    <td className="px-6 py-5 min-w-[200px]">
-                      <p className="font-black text-slate-900 group-hover/row:text-blue-600 transition-colors break-words">{lead.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase break-words">{lead.address || 'Sem endereço'}</p>
-                    </td>
-                    <td className="px-6 py-5 min-w-[250px]">
-                      <div className="flex items-start gap-2">
-                        <p className="font-bold text-slate-700 break-words flex-1">{lead.company || 'Pendente'}</p>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleGoogleSearch(lead);
-                          }}
-                          className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all shrink-0"
-                          title="Pesquisar no Google"
-                        >
-                          <ICONS.Search width="14" height="14" />
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-blue-500 font-black uppercase break-words mt-1">{lead.segment || 'Sem segmento'}</p>
-                    </td>
-                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
-                      <input 
-                        type="text" 
-                        placeholder="00.000.000/0000-00"
-                        value={lead.cnpj || ''}
-                        onChange={(e) => updateLeadCnpj(i, e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 mb-2"
-                      />
-                      {lead.partners && (
-                        <div className="max-w-[300px]">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Sócios:</p>
-                          <p className="text-[10px] text-slate-500 leading-tight" title={lead.partners}>{lead.partners}</p>
-                        </div>
-                      )}
+                    <td className="px-6 py-5">
+                      <p className="font-black text-slate-900">{lead.name || lead.company}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.company}</p>
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-slate-600 font-medium">{lead.email}</p>
                       <p className="text-[10px] text-slate-400 font-bold">{lead.phone}</p>
-                      {(lead.additionalEmails || lead.additionalPhones) && (
-                        <div className="mt-2 pt-2 border-t border-slate-100">
-                          <p className="text-[9px] font-black text-blue-400 uppercase">Contatos Extras:</p>
-                          <p className="text-[10px] text-slate-400 max-w-[200px]">{lead.additionalEmails || lead.additionalPhones}</p>
-                        </div>
-                      )}
                     </td>
-                    <td className="px-6 py-5 font-black text-emerald-600">
-                      {lead.value ? `R$ ${lead.value.toLocaleString()}` : '-'}
+                    <td className="px-6 py-5">
+                      <p className="text-blue-500 font-black text-[10px] uppercase">{lead.segment || 'Pendente'}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.source || 'Importação'}</p>
                     </td>
-                    <td className="px-6 py-5 text-[11px] text-slate-400 font-bold min-w-[250px]" title={lead.notes}>{lead.notes || '-'}</td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(lead.customFields || {}).map(([key, val]) => (
+                          <span key={key} className="px-2 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 rounded-lg border border-slate-200">
+                            {key}: {String(val)}
+                          </span>
+                        ))}
+                        {Object.keys(lead.customFields || {}).length === 0 && <span className="text-slate-300 italic text-[10px]">Nenhum</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <button onClick={() => handleEditLead(i)} className="p-2 text-slate-400 hover:text-blue-600 transition-all">
+                        <ICONS.Settings width="16" height="16" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-8 items-end justify-between p-10 bg-slate-900 rounded-[2.5rem] shadow-2xl">
-            <div className="flex-1 w-full">
-              <label className="block text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-4">Pipeline de Destino</label>
-              <select 
-                value={selectedPipeline} 
-                onChange={(e) => setSelectedPipeline(e.target.value)}
-                className="w-full max-w-md p-5 bg-slate-800 border border-slate-700 rounded-2xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20 transition-all cursor-pointer"
-              >
-                {pipelines.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="flex gap-4 w-full lg:w-auto">
-              <button onClick={() => setStep(2)} className="px-10 py-5 bg-slate-800 text-slate-400 rounded-[2rem] font-black text-sm hover:bg-slate-700 transition-all active:scale-95">
-                VOLTAR
-              </button>
-              <button onClick={handleSaveImported} disabled={isSyncing} className="flex-1 lg:flex-none px-12 py-5 bg-emerald-500 text-white rounded-[2rem] font-black text-sm hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 active:scale-95">
-                {isSyncing ? "SALVANDO..." : "FINALIZAR IMPORTAÇÃO"}
-              </button>
-            </div>
+          <div className="flex gap-4 pt-8 border-t border-slate-50">
+            <button onClick={() => setStep(2)} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm hover:bg-slate-200 transition-all">
+              VOLTAR
+            </button>
+            <button 
+              onClick={handleSaveImported} 
+              disabled={isSyncing} 
+              className="flex-1 px-12 py-5 bg-emerald-500 text-white rounded-[2rem] font-black text-sm hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50"
+            >
+              {isSyncing ? "SALVANDO..." : `CONFIRMAR IMPORTAÇÃO (${selectedIndices.length} LEADS)`}
+            </button>
           </div>
         </div>
       )}

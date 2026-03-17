@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { ICONS } from './constants';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode } from './types';
 import { supabase } from './lib/supabase';
+import { AGENCY_PIPELINE_STAGES } from './constants';
 import Dashboard from './pages/Dashboard';
 import SalesCRM from './pages/SalesCRM';
 import Clients from './pages/Clients';
@@ -24,10 +25,11 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSalesExpanded, setIsSalesExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
 
   // --- GLOBAL STATE ---
   const [pipelines] = useState<Pipeline[]>([
-    { id: 'p1', name: 'Vendas Comercial', stages: [{ id: 's1', name: 'Prospecção' }, { id: 's2', name: 'Qualificação' }, { id: 's3', name: 'Apresentação' }, { id: 's4', name: 'Fechamento' }] },
+    { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
     { id: 'p2', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
   ]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -208,14 +210,20 @@ const App: React.FC = () => {
           <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100">M4</div>
           <div className={`transition-all duration-500 ${!isSidebarOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
             <h1 className="font-black text-slate-900 text-xl leading-none">M4 CRM</h1>
-            <p className="text-[10px] font-black text-blue-600 uppercase mt-1">Agency Cloud</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[10px] font-black text-blue-600 uppercase">Agency Cloud</p>
+              <button 
+                onClick={() => setAppMode(appMode === AppMode.EUGENCIA ? AppMode.AGENCIA : AppMode.EUGENCIA)}
+                className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[8px] font-black hover:bg-blue-100 hover:text-blue-600 transition-colors"
+              >
+                {appMode === AppMode.EUGENCIA ? 'EUGÊNCIA' : 'AGÊNCIA'}
+              </button>
+            </div>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto scrollbar-none">
           <SidebarItem id="dashboard" icon={ICONS.Dashboard} label="Visão Geral" isActive={activeTab === 'dashboard'} />
-          <SidebarItem id="emails" icon={ICONS.Mail} label="E-mail (Inbox)" isActive={activeTab === 'emails'} />
-          <SidebarItem id="collaboration" icon={ICONS.Collaboration} label="Feed & Chat" isActive={activeTab === 'collaboration'} />
           
           <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Comercial</div>
           <SidebarItem 
@@ -227,19 +235,23 @@ const App: React.FC = () => {
             onToggle={() => setIsSalesExpanded(!isSalesExpanded)}
             isActive={activeTab === 'sales'}
           />
-          <SidebarItem id="enrichment" icon={ICONS.Database} label="Importar Leads" isActive={activeTab === 'enrichment'} />
           <SidebarItem id="meeting_forms" icon={ICONS.Form} label="Sondagem & Reunião" isActive={activeTab === 'meeting_forms'} />
-          <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
-          <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
-          
-          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Operações</div>
-          <SidebarItem id="projects" icon={ICONS.Projects} label="Projetos & Squads" isActive={activeTab === 'projects'} />
           <SidebarItem id="tasks" icon={ICONS.Tasks} label="Minhas Tarefas" isActive={activeTab === 'tasks'} />
-          <SidebarItem id="clients" icon={ICONS.Clients} label="Base de Clientes" isActive={activeTab === 'clients'} />
-          
-          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Gestão</div>
-          <SidebarItem id="finance" icon={ICONS.Finance} label="Financeiro" isActive={activeTab === 'finance'} />
-          <SidebarItem id="automation" icon={ICONS.Automation} label="IA & Automações" isActive={activeTab === 'automation'} />
+          <SidebarItem id="projects" icon={ICONS.Projects} label="Projetos & Squads" isActive={activeTab === 'projects'} />
+
+          {appMode === AppMode.AGENCIA && (
+            <>
+              <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Agência Plus</div>
+              <SidebarItem id="emails" icon={ICONS.Mail} label="E-mail (Inbox)" isActive={activeTab === 'emails'} />
+              <SidebarItem id="enrichment" icon={ICONS.Database} label="Importar Leads" isActive={activeTab === 'enrichment'} />
+              <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
+              <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
+              <SidebarItem id="clients" icon={ICONS.Clients} label="Base de Clientes" isActive={activeTab === 'clients'} />
+              <SidebarItem id="finance" icon={ICONS.Finance} label="Financeiro" isActive={activeTab === 'finance'} />
+              <SidebarItem id="automation" icon={ICONS.Automation} label="IA & Automações" isActive={activeTab === 'automation'} />
+              <SidebarItem id="collaboration" icon={ICONS.Collaboration} label="Feed & Chat" isActive={activeTab === 'collaboration'} />
+            </>
+          )}
         </nav>
 
         <div className="p-6 border-t border-slate-50">
@@ -267,7 +279,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
-          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} setActivePipelineId={setActivePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} />}
+          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} setActivePipelineId={setActivePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} onImportLeads={() => setActiveTab('enrichment')} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
           {activeTab === 'collaboration' && <Collaboration />}

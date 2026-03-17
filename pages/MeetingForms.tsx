@@ -16,6 +16,32 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const AGENCY_TEMPLATES = [
+    {
+      id: 'tpl_briefing',
+      title: 'Sondagem Inicial (Briefing)',
+      description: 'Coleta de dados básicos para qualificação de leads.',
+      questions: [
+        { id: '1', type: 'script', label: 'Olá! Sou da M4 Marketing. Gostaria de entender um pouco mais sobre seu negócio para vermos como podemos ajudar.', required: false },
+        { id: '2', type: 'text', label: 'Qual o principal objetivo da sua empresa hoje?', required: true },
+        { id: '3', type: 'multiple_choice', label: 'Qual o seu orçamento mensal para marketing?', options: ['Até R$ 1.000', 'R$ 1.000 - R$ 5.000', 'R$ 5.000 - R$ 10.000', 'Acima de R$ 10.000'], required: true },
+        { id: '4', type: 'text', label: 'Quem é o seu público-alvo principal?', required: true }
+      ]
+    },
+    {
+      id: 'tpl_diag',
+      title: 'Diagnóstico de Tráfego Pago',
+      description: 'Análise profunda para propostas de Google/Meta Ads.',
+      questions: [
+        { id: '1', type: 'script', label: 'Vamos analisar seu histórico de anúncios para identificar gargalos e oportunidades.', required: false },
+        { id: '2', type: 'multiple_choice', label: 'Você já anuncia hoje?', options: ['Sim, Google Ads', 'Sim, Meta Ads', 'Sim, Ambos', 'Não anuncio'], required: true },
+        { id: '3', type: 'text', label: 'Qual o seu Custo por Lead (CPL) atual?', required: false },
+        { id: '4', type: 'text', label: 'Qual o faturamento médio mensal vindo de anúncios?', required: true }
+      ]
+    }
+  ];
 
   // Builder State
   const [builderForm, setBuilderForm] = useState<Partial<FormTemplate>>({
@@ -183,33 +209,77 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
       </div>
 
       {activeView === 'list' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {templates.map(template => (
-            <div key={template.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/20 hover:shadow-2xl transition-all group">
-              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <ICONS.Form width="28" height="28" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">{template.title}</h3>
-              <p className="text-slate-400 text-sm font-medium mb-8 line-clamp-2">{template.description || 'Sem descrição'}</p>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => startMeeting(template)}
-                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all"
-                >
-                  Iniciar Reunião
-                </button>
-                <button 
-                  onClick={() => {
-                    setBuilderForm(template);
-                    setActiveView('builder');
-                  }}
-                  className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
-                >
-                  <ICONS.Settings width="18" height="18" />
-                </button>
-              </div>
+        <div className="space-y-12">
+          {/* Agency Templates */}
+          <section>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Modelos Prontos (M4 Agency)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {AGENCY_TEMPLATES.map(tpl => (
+                <div key={tpl.id} className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-100/50 group hover:-translate-y-1 transition-all">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                    <ICONS.Form width="24" height="24" />
+                  </div>
+                  <h3 className="text-xl font-black mb-2 uppercase tracking-tight">{tpl.title}</h3>
+                  <p className="text-blue-100 text-sm font-medium mb-8 line-clamp-2">{tpl.description}</p>
+                  <button 
+                    onClick={() => {
+                      setBuilderForm({
+                        title: tpl.title,
+                        description: tpl.description,
+                        questions: tpl.questions
+                      });
+                      setActiveView('builder');
+                    }}
+                    className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all"
+                  >
+                    Usar este Modelo
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          </section>
+
+          {/* User Templates */}
+          <section>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Meus Formulários</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {templates.map(template => (
+                <div key={template.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/20 hover:shadow-2xl transition-all group">
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <ICONS.Form width="28" height="28" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 mb-2">{template.title}</h3>
+                  <p className="text-slate-400 text-sm font-medium mb-8 line-clamp-2">{template.description || 'Sem descrição'}</p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => startMeeting(template)}
+                      className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all"
+                    >
+                      Iniciar Reunião
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setBuilderForm(template);
+                        setActiveView('builder');
+                      }}
+                      className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
+                    >
+                      <ICONS.Settings width="18" height="18" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button 
+                onClick={handleCreateTemplate}
+                className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-8 flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-blue-400 hover:text-blue-600 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center group-hover:border-blue-200 shadow-sm">
+                  <ICONS.Plus />
+                </div>
+                <span className="font-black text-xs uppercase tracking-widest">Criar do Zero</span>
+              </button>
+            </div>
+          </section>
         </div>
       )}
 

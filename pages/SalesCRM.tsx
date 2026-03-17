@@ -13,6 +13,7 @@ interface SalesCRMProps {
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active') => Promise<void>;
+  onImportLeads?: () => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -33,7 +34,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,9 +44,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   const [isAIScoring, setIsAIScoring] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
-    name: '', company: '', email: '', phone: '', value: 0, notes: ''
+    name: '', company: '', email: '', phone: '', value: 0, notes: '',
+    niche: '', serviceType: '', proposedTicket: 0
   });
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
@@ -70,7 +73,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     } else if (data) {
       setLeads([...leads, data[0]]);
       setIsModalOpen(false);
-      setNewLead({ name: '', company: '', email: '', phone: '', value: 0, notes: '' });
+      setNewLead({ 
+        name: '', company: '', email: '', phone: '', value: 0, notes: '',
+        niche: '', serviceType: '', proposedTicket: 0, nextAction: '', nextActionDate: ''
+      });
     }
     setIsSyncing(false);
   };
@@ -133,8 +139,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
 4. Padronize o nome.
 5. Sugira uma 'probability' (0-100) e 'temperature' (Frio, Morno, Quente).
 6. Sugira uma 'closingForecast' (ex: 2024-12-15).
+7. Identifique o 'niche' (ex: Estética, E-commerce, SaaS).
+8. Sugira o 'serviceType' (ex: Tráfego Pago, SEO, Social Media).
+9. Dê um 'aiScore' de 0 a 100 baseado no fit.
 
-Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closingForecast.`;
+Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closingForecast, niche, serviceType, aiScore.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -196,7 +205,16 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
   };
 
 
-  const getLeadsByStage = (stageId: string) => leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId && (l.status === 'active' || !l.status));
+  const getLeadsByStage = (stageId: string) => {
+    let filtered = leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId && (l.status === 'active' || !l.status));
+    
+    if (filterMode === 'my_day') {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(l => l.nextActionDate && l.nextActionDate <= today);
+    }
+    
+    return filtered;
+  };
   const calculateStageTotal = (stageId: string) => getLeadsByStage(stageId).reduce((acc, curr) => acc + Number(curr.value), 0);
 
   const isStale = (lead: Lead) => {
@@ -230,6 +248,28 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         </div>
 
         <div className="flex gap-4">
+          <button 
+            onClick={onImportLeads}
+            className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+          >
+            <ICONS.Database width="16" height="16" />
+            Importar Leads (Planilha)
+          </button>
+          <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
+            <button 
+              onClick={() => setFilterMode('all')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterMode === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setFilterMode('my_day')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${filterMode === 'my_day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <ICONS.Clock width="12" height="12" />
+              Meu Dia
+            </button>
+          </div>
           <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 transition-all hover:-translate-y-1">
             <ICONS.Plus /> NOVO NEGÓCIO
           </button>
@@ -308,6 +348,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       )}
                     </div>
                     <h4 className="font-black text-slate-900 text-lg mb-2 group-hover:text-blue-600 transition-colors">{lead.name}</h4>
+                    {lead.nextAction && (
+                      <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100/50">
+                        <ICONS.Clock width="12" height="12" />
+                        <p className="text-[10px] font-black uppercase truncate">{lead.nextAction}</p>
+                      </div>
+                    )}
                     <p className="text-xs text-slate-400 font-bold mb-6">{lead.notes}</p>
                     
                     <div className="flex items-center gap-3 mb-6">
@@ -339,11 +385,22 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
           <div className="bg-white rounded-[2.5rem] w-full max-w-xl p-10 shadow-2xl">
             <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase">Cadastrar no Supabase</h3>
             <form onSubmit={handleCreateLead} className="space-y-4">
-              <input required placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <input required placeholder="Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-              <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+              <div className="grid grid-cols-2 gap-4">
+                <input required placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input required placeholder="Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+              </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-black uppercase text-xs">Cancelar</button>
                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
@@ -444,6 +501,26 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       }`}>{selectedLead.temperature || 'Frio'}</p>
                     </div>
                     <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nicho / Segmento</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedLead.niche || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviço Principal</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedLead.serviceType || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Proposto</p>
+                      <p className="text-sm font-bold text-slate-900">R$ {Number(selectedLead.proposedTicket || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Próxima Ação</p>
+                      <p className="text-sm font-bold text-blue-600">{selectedLead.nextAction || 'Definir ação'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Próxima Ação</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedLead.nextActionDate || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor total</p>
                       <p className="text-sm font-bold text-slate-900">R$ {Number(selectedLead.value).toLocaleString()}</p>
                     </div>
@@ -461,6 +538,19 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                   </div>
                 </CollapsibleSection>
+
+                {selectedLead.customFields && Object.keys(selectedLead.customFields).length > 0 && (
+                  <CollapsibleSection title="Campos Personalizados">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {Object.entries(selectedLead.customFields).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{key}</p>
+                          <p className="text-sm font-bold text-slate-900">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                )}
 
                 <CollapsibleSection title="Contatos">
                   <div className="space-y-8">

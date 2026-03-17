@@ -61,6 +61,13 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
   
+  const myDayLeads = leads.filter(l => {
+    const today = new Date().toISOString().split('T')[0];
+    return l.nextActionDate === today && (l.status === 'active' || !l.status);
+  });
+
+  const averageTicket = wonLeads > 0 ? (closedRevenueMonth / wonLeads) : 0;
+  
   // Stale deals (no activity for > 5 days)
   const fiveDaysAgo = new Date();
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
@@ -133,11 +140,43 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard title="Leads Ativos" value={activeLeads} change="+12%" icon={ICONS.Sales} color="blue" />
-        <StatCard title="Receita Prevista" value={`R$ ${totalRevenueForecast.toLocaleString()}`} change="+8%" icon={ICONS.Finance} color="indigo" />
+        <StatCard title="Ticket Médio" value={`R$ ${averageTicket.toLocaleString()}`} change="+5%" icon={ICONS.TrendingUp} color="indigo" />
         <StatCard title="Fechado (Mês)" value={`R$ ${closedRevenueMonth.toLocaleString()}`} change="+24%" icon={ICONS.Plus} color="emerald" />
         <StatCard title="Taxa Conversão" value={`${conversionRate}%`} change="+2%" icon={ICONS.Automation} color="amber" />
         <StatCard title="Tarefas" value={pendingTasks} change="-2" icon={ICONS.Tasks} color="red" />
       </div>
+
+      {myDayLeads.length > 0 && (
+        <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <ICONS.Clock width="20" height="20" />
+              </div>
+              <h3 className="text-lg font-black uppercase tracking-widest">Meu Dia: {myDayLeads.length} Ações Prioritárias</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myDayLeads.slice(0, 3).map(lead => (
+                <div key={lead.id} className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:bg-white/20 transition-all cursor-pointer group">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded-lg">{lead.company}</span>
+                    <ICONS.ExternalLink width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <h4 className="font-black text-lg mb-1">{lead.name}</h4>
+                  <p className="text-blue-100 text-xs font-bold mb-4 flex items-center gap-2">
+                    <ICONS.Target width="12" height="12" /> {lead.nextAction || 'Follow-up'}
+                  </p>
+                  <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-200">R$ {Number(lead.value).toLocaleString()}</span>
+                    <div className="px-2 py-0.5 bg-orange-400 text-white text-[8px] font-black rounded-md uppercase tracking-widest">Quente</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Forecast Banner */}
       <div className="p-8 bg-gradient-to-r from-indigo-600 to-blue-700 rounded-[2.5rem] text-white shadow-2xl shadow-blue-100 relative overflow-hidden">

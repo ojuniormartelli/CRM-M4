@@ -1,4 +1,9 @@
 
+export enum AppMode {
+  EUGENCIA = 'eugencia',
+  AGENCIA = 'agencia'
+}
+
 export interface PipelineStage {
   id: string;
   name: string;
@@ -95,6 +100,11 @@ export interface Lead {
   value: number;
   notes: string;
   segment?: string;
+  niche?: string; // New field
+  serviceType?: string; // New field
+  proposedTicket?: number; // New field
+  nextAction?: string; // New field
+  nextActionDate?: string; // New field
   address?: string;
   cnpj?: string;
   partners?: string;
@@ -130,6 +140,7 @@ export interface Lead {
   lastActivityAt?: string;
   status?: 'active' | 'won' | 'lost' | 'paused';
   interactions?: Interaction[];
+  customFields?: Record<string, any>;
 }
 
 export interface Task {
@@ -157,6 +168,8 @@ export interface Project {
   endDate?: string;
   value: number;
   description?: string;
+  type?: 'recorrente' | 'projeto';
+  paymentMethod?: string;
 }
 
 export interface Client {
