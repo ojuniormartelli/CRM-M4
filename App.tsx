@@ -38,20 +38,26 @@ const App: React.FC = () => {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
+  const [settings, setSettings] = useState<any>(null);
 
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects] = await Promise.all([
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns] = await Promise.all([
           supabase.from('m4_leads').select('*'),
           supabase.from('m4_tasks').select('*'),
           supabase.from('m4_transactions').select('*'),
           supabase.from('m4_emails').select('*').order('created_at', { ascending: false }),
           supabase.from('m4_clients').select('*'),
-          supabase.from('m4_projects').select('*')
+          supabase.from('m4_projects').select('*'),
+          supabase.from('m4_settings').select('*').maybeSingle(),
+          supabase.from('m4_posts').select('*').order('created_at', { ascending: false }),
+          supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false })
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -60,6 +66,17 @@ const App: React.FC = () => {
         if (resEmails.data) setEmails(resEmails.data);
         if (resClients.data) setClients(resClients.data);
         if (resProjects.data) setProjects(resProjects.data);
+        if (resPosts.data) setPosts(resPosts.data);
+        if (resCampaigns.data) setCampaigns(resCampaigns.data);
+        if (resSettings.data) {
+          setSettings(resSettings.data);
+          // Apply theme
+          if (resSettings.data.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
@@ -204,14 +221,20 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className={`flex h-screen bg-slate-50 overflow-hidden font-sans ${settings?.theme === 'dark' ? 'dark' : ''}`}>
       <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-white border-r border-slate-100 transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20`}>
         <div className="p-8 flex items-center gap-4 border-b border-slate-50 h-24 shrink-0">
-          <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100">M4</div>
+          <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100 overflow-hidden">
+            {settings?.logo_url ? (
+              <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              'M4'
+            )}
+          </div>
           <div className={`transition-all duration-500 ${!isSidebarOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-            <h1 className="font-black text-slate-900 text-xl leading-none">M4 CRM</h1>
+            <h1 className="font-black text-slate-900 text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-[10px] font-black text-blue-600 uppercase">Agency Cloud</p>
+              <p className="text-[10px] font-black text-blue-600 uppercase">{settings?.company_name || 'Agency Cloud'}</p>
               <button 
                 onClick={() => setAppMode(appMode === AppMode.EUGENCIA ? AppMode.AGENCIA : AppMode.EUGENCIA)}
                 className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[8px] font-black hover:bg-blue-100 hover:text-blue-600 transition-colors"
@@ -282,12 +305,12 @@ const App: React.FC = () => {
           {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} setActivePipelineId={setActivePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} onImportLeads={() => setActiveTab('enrichment')} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
-          {activeTab === 'collaboration' && <Collaboration />}
+          {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} />}
           {activeTab === 'finance' && <Finance transactions={transactions} setTransactions={setTransactions} />}
-          {activeTab === 'marketing' && <MarketingCRM leads={leads} />}
+          {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
           {activeTab === 'settings' && <Settings />}

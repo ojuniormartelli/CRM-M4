@@ -5,15 +5,10 @@ import { Lead } from '../types';
 
 interface MarketingCRMProps {
   leads: Lead[];
+  campaigns: any[];
 }
 
-const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads }) => {
-  const campaigns = [
-    { name: 'Reativação de Leads Antigos', type: 'E-mail', status: 'Enviando', sent: 1240, open: '24%', click: '3.2%' },
-    { name: 'Promoção Black November', type: 'Meta Ads', status: 'Ativa', sent: '-', open: '-', click: '1.8% CTR' },
-    { name: 'Lançamento Tech Solutions', type: 'WhatsApp', status: 'Agendada', sent: 0, open: '-', click: '-' },
-  ];
-
+const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
   const totalAudience = leads.length;
   const emailAudience = leads.filter(l => l.email).length;
   const whatsappAudience = leads.filter(l => l.phone).length;
@@ -79,26 +74,34 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {campaigns.map((c, i) => (
-              <tr key={i} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.name}</td>
-                <td className="px-6 py-4 text-xs font-medium text-slate-500">{c.type}</td>
-                <td className="px-6 py-4">
-                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${c.status === 'Ativa' || c.status === 'Enviando' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                    {c.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                   <div className="flex gap-4 items-center">
-                     <span className="text-xs font-bold text-slate-800">{c.click}</span>
-                     {c.sent !== '-' && <span className="text-[10px] text-slate-400">Vol: {c.sent}</span>}
-                   </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><ICONS.Search /></button>
+            {campaigns.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  Nenhuma campanha encontrada. Crie sua primeira campanha para começar!
                 </td>
               </tr>
-            ))}
+            ) : (
+              campaigns.map((c, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.name}</td>
+                  <td className="px-6 py-4 text-xs font-medium text-slate-500">{c.type}</td>
+                  <td className="px-6 py-4">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${c.status === 'Ativa' || c.status === 'Enviando' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                      {c.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                     <div className="flex gap-4 items-center">
+                       <span className="text-xs font-bold text-slate-800">{c.click_rate}</span>
+                       {c.sent_count > 0 && <span className="text-[10px] text-slate-400">Vol: {c.sent_count}</span>}
+                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><ICONS.Search /></button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

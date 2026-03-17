@@ -1,169 +1,315 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
+import { supabase } from '../lib/supabase';
+import TechnicalPanel from './TechnicalPanel';
 
 const Settings: React.FC = () => {
-  const [copied, setCopied] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical'>('general');
+  const [isSaving, setIsSaving] = useState(false);
+  const [settings, setSettings] = useState({
+    crm_name: 'M4 CRM',
+    company_name: 'Agency Cloud',
+    theme: 'light',
+    primary_color: '#2563eb',
+    logo_url: '',
+    city: '',
+    state: '',
+    website_url: '',
+    whatsapp_number: '',
+    language: 'pt-BR'
+  });
 
-  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM)
--- ATENÇÃO: Use este script apenas se estiver configurando do zero.
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data, error } = await supabase.from('m4_settings').select('*').maybeSingle();
+      if (data) {
+        setSettings(data);
+      }
+    };
+    fetchSettings();
+  }, []);
 
--- 1. Tabela de Leads
-CREATE TABLE IF NOT EXISTS m4_leads (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  company TEXT,
-  email TEXT,
-  phone TEXT,
-  pipelineId TEXT DEFAULT 'p1',
-  stageId TEXT DEFAULT 's1',
-  value NUMERIC DEFAULT 0,
-  notes TEXT,
-  createdAt TIMESTAMPTZ DEFAULT now()
-);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('m4_settings')
+        .upsert({ 
+          ...settings, 
+          updated_at: new Date().toISOString() 
+        }, { onConflict: 'tenant_id' });
 
--- 2. Tabela de Tarefas
-CREATE TABLE IF NOT EXISTS m4_tasks (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'Pendente',
-  priority TEXT DEFAULT 'Média',
-  assignedTo TEXT,
-  dueDate DATE,
-  createdAt TIMESTAMPTZ DEFAULT now()
-);
+      if (error) throw error;
+      
+      // Apply theme immediately
+      if (settings.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      alert('Configurações salvas com sucesso!');
+      window.location.reload(); // Reload to apply all changes globally
+    } catch (error: any) {
+      alert('Erro ao salvar: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
--- 3. Tabela de Transações Financeiras
-CREATE TABLE IF NOT EXISTS m4_transactions (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  type TEXT NOT NULL, -- 'Receita' ou 'Despesa'
-  category TEXT,
-  amount NUMERIC NOT NULL,
-  date DATE DEFAULT CURRENT_DATE,
-  description TEXT,
-  status TEXT DEFAULT 'Pendente' -- 'Pago' ou 'Pendente'
-);
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
--- 4. Tabela de E-mails
-CREATE TABLE IF NOT EXISTS m4_emails (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sender_name TEXT,
-  sender_email TEXT,
-  recipient_email TEXT,
-  subject TEXT,
-  body TEXT,
-  folder TEXT DEFAULT 'inbox', -- 'inbox', 'sent', 'drafts', 'trash'
-  is_read BOOLEAN DEFAULT false,
-  is_starred BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);`;
-
-  const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (SEM PERDA DE DADOS)
--- Use este script para adicionar novas funcionalidades a um banco já existente.
-
--- Adiciona tabela de E-mails (caso não exista)
-CREATE TABLE IF NOT EXISTS m4_emails (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sender_name TEXT,
-  sender_email TEXT,
-  recipient_email TEXT,
-  subject TEXT,
-  body TEXT,
-  folder TEXT DEFAULT 'inbox',
-  is_read BOOLEAN DEFAULT false,
-  is_starred BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Exemplo: Adicionando coluna de responsável em Leads caso esqueça
--- ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS assigned_to TEXT;`;
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
+    // In a real app, you'd upload to Supabase Storage
+    // For now, we'll use a local URL or placeholder
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSettings({ ...settings, logo_url: reader.result as string });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      <div className="flex items-center gap-6">
-        <div className="w-16 h-16 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-blue-100">
-          <ICONS.Settings />
+    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
+      <div className="flex justify-between items-end">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-200">
+            <ICONS.Settings />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações do CRM</h2>
+            <p className="text-slate-500 font-medium">Personalize a identidade e o comportamento do seu workspace.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Painel Técnico</h2>
-          <p className="text-slate-500 font-medium italic">Gerencie a estrutura do seu banco de dados no Supabase.</p>
-        </div>
+        <button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-2xl shadow-blue-100 transition-all disabled:opacity-50"
+        >
+          {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Configuração Inicial</h3>
-              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Setup Completo do Zero</p>
+      <div className="flex gap-4 border-b border-slate-100 pb-4">
+        <button 
+          onClick={() => setActiveTab('general')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+        >
+          Geral
+        </button>
+        <button 
+          onClick={() => setActiveTab('visual')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+        >
+          Identidade Visual
+        </button>
+        <button 
+          onClick={() => setActiveTab('technical')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+        >
+          Painel Técnico (SQL)
+        </button>
+      </div>
+
+      {activeTab === 'general' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Informações da Agência</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Agência / Empresa</label>
+                <input 
+                  type="text" 
+                  value={settings.company_name} 
+                  onChange={e => setSettings({...settings, company_name: e.target.value})}
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
+                  <input 
+                    type="text" 
+                    value={settings.city} 
+                    onChange={e => setSettings({...settings, city: e.target.value})}
+                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                  <input 
+                    type="text" 
+                    value={settings.state} 
+                    onChange={e => setSettings({...settings, state: e.target.value})}
+                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website URL</label>
+                <input 
+                  type="url" 
+                  value={settings.website_url} 
+                  onChange={e => setSettings({...settings, website_url: e.target.value})}
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  placeholder="https://suaagencia.com"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Principal</label>
+                <input 
+                  type="text" 
+                  value={settings.whatsapp_number} 
+                  onChange={e => setSettings({...settings, whatsapp_number: e.target.value})}
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  placeholder="+55 (11) 99999-9999"
+                />
+              </div>
             </div>
-            <button 
-              onClick={() => handleCopy(fullSetupSQL, 'full')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'full' ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white'}`}
-            >
-              {copied === 'full' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
           </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {fullSetupSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
-             <div className="text-red-500"><ICONS.Plus className="rotate-45" /></div>
-             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Aviso: Rodar este script em um banco com dados pode causar conflitos se as tabelas já existirem. Use com cautela.</p>
-          </div>
-        </div>
 
-        <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-blue-900 uppercase tracking-tight">Atualização Segura</h3>
-              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Incrementos e Migrações</p>
+          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Preferências do Sistema</h3>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tema do Workspace</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setSettings({...settings, theme: 'light'})}
+                    className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'light' ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-blue-200'}`}
+                  >
+                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
+                      <ICONS.Dashboard />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest">Light Mode</span>
+                  </button>
+                  <button 
+                    onClick={() => setSettings({...settings, theme: 'dark'})}
+                    className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'dark' ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-blue-200'}`}
+                  >
+                    <div className="w-10 h-10 bg-slate-900 rounded-xl shadow-sm border border-slate-800 flex items-center justify-center text-blue-400">
+                      <ICONS.Automation />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest">Dark Mode</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Idioma Padrão</label>
+                <select 
+                  value={settings.language} 
+                  onChange={e => setSettings({...settings, language: e.target.value})}
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="pt-BR">Português (Brasil)</option>
+                  <option value="en-US">English (US)</option>
+                  <option value="es-ES">Español</option>
+                </select>
+              </div>
             </div>
-            <button 
-              onClick={() => handleCopy(updateOnlySQL, 'update')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'update' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
-            >
-              {copied === 'update' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-indigo-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {updateOnlySQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
-             <div className="text-emerald-500"><ICONS.Automation /></div>
-             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Dica: Este script garante que novas funcionalidades (como o Módulo de Email) sejam instaladas sem apagar seus leads atuais.</p>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="bg-slate-900 p-12 rounded-[3.5rem] text-white flex flex-col md:flex-row items-center justify-between gap-10">
-        <div className="flex-1 space-y-4">
-          <h4 className="text-2xl font-black uppercase tracking-tight">Como Aplicar?</h4>
-          <ol className="space-y-3 text-slate-400 font-medium text-sm list-decimal ml-5">
-            <li>Acesse o dashboard do seu projeto no <a href="https://supabase.com" target="_blank" className="text-blue-400 hover:underline">Supabase</a>.</li>
-            <li>No menu lateral esquerdo, clique em <span className="text-white font-bold">"SQL Editor"</span>.</li>
-            <li>Clique em <span className="text-white font-bold">"+ New Query"</span>.</li>
-            <li>Cole o código copiado aqui e clique em <span className="text-blue-500 font-black italic">"RUN"</span>.</li>
-            <li>Pronto! Seu CRM estará 100% funcional.</li>
-          </ol>
+      {activeTab === 'visual' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Branding</h3>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do CRM</label>
+                <input 
+                  type="text" 
+                  value={settings.crm_name} 
+                  onChange={e => setSettings({...settings, crm_name: e.target.value})}
+                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  placeholder="Ex: Agency X CRM"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Logo da Agência</label>
+                <div className="flex items-center gap-8">
+                  <div className="w-24 h-24 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+                    {settings.logo_url ? (
+                      <img src={settings.logo_url} alt="Logo Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ICONS.Plus className="text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleLogoUpload}
+                      className="hidden" 
+                      id="logo-upload" 
+                    />
+                    <label 
+                      htmlFor="logo-upload"
+                      className="inline-block px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-slate-800 transition-all"
+                    >
+                      Upload Novo Logo
+                    </label>
+                    <p className="text-[10px] text-slate-400 font-medium">Recomendado: PNG ou SVG transparente, 512x512px.</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Cor Primária</label>
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="color" 
+                    value={settings.primary_color} 
+                    onChange={e => setSettings({...settings, primary_color: e.target.value})}
+                    className="w-12 h-12 rounded-xl border-none cursor-pointer" 
+                  />
+                  <input 
+                    type="text" 
+                    value={settings.primary_color} 
+                    onChange={e => setSettings({...settings, primary_color: e.target.value})}
+                    className="flex-1 p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-64 h-64 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+            <h3 className="text-lg font-black uppercase tracking-widest relative z-10">Preview da Marca</h3>
+            <div className="space-y-6 relative z-10">
+              <div className="p-6 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center overflow-hidden">
+                    {settings.logo_url ? (
+                      <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-black text-lg">M4</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-black text-sm leading-none">{settings.crm_name}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase mt-1">{settings.company_name}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <p className="text-xs text-slate-400 font-medium italic">Como seus botões e elementos ativos aparecerão:</p>
+                <button 
+                  style={{ backgroundColor: settings.primary_color }}
+                  className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900/20"
+                >
+                  Botão de Exemplo
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="w-48 h-48 bg-blue-600/20 rounded-[2.5rem] border border-blue-500/30 flex items-center justify-center animate-pulse">
-           <ICONS.Search />
-        </div>
-      </div>
+      )}
+
+      {activeTab === 'technical' && <TechnicalPanel />}
     </div>
   );
 };

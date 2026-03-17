@@ -95,8 +95,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
     
     return {
       name: month,
-      mrr: monthRevenue || (Math.random() * 50000 + 20000), // Fallback to random if no data yet
-      leads: monthLeads.length || (Math.random() * 20 + 5)
+      mrr: monthRevenue,
+      leads: monthLeads.length
     };
   });
 
