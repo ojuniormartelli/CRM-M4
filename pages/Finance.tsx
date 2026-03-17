@@ -212,7 +212,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Vencimento</p>
-                        <p className="text-xs font-bold">Dia {card.due_day || card.dueDay}</p>
+                        <p className="text-xs font-bold">Dia {card.dueDay}</p>
                       </div>
                       <div className="w-8 h-5 bg-slate-700/50 rounded flex items-center justify-center">
                         <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center">
@@ -411,7 +411,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
                   <select 
                     value={newTransaction.status} 
-                    onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}
+                    onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
                     className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                   >
                     <option value="Pendente">Pendente</option>

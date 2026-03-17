@@ -10,9 +10,11 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState({
+    id: undefined as string | undefined,
+    tenant_id: 'default-tenant', // Default for single-tenant apps
     crm_name: 'M4 CRM',
     company_name: 'Agency Cloud',
-    theme: 'light',
+    theme: theme, // Use theme from context initially
     primary_color: '#2563eb',
     logo_url: '',
     city: '',
@@ -24,32 +26,70 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data, error } = await supabase.from('m4_settings').select('*').maybeSingle();
-      if (data) {
-        setSettings(data);
+      try {
+        const { data, error } = await supabase.from('m4_settings').select('*').maybeSingle();
+        if (error) {
+          console.error('Error fetching settings:', error);
+          // Ensure we at least have the correct theme from context if fetch fails
+          setSettings(prev => ({ ...prev, theme }));
+          return;
+        }
+        if (data) {
+          setSettings(data);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching settings:', err);
       }
     };
     fetchSettings();
-  }, []);
+  }, [theme]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('m4_settings')
-        .upsert({ 
-          ...settings, 
-          updated_at: new Date().toISOString() 
-        }, { onConflict: 'tenant_id' });
+      console.log('Attempting to save settings to Supabase...', settings);
+      
+      const payload = { 
+        ...settings, 
+        tenant_id: settings.tenant_id || 'default-tenant',
+        updated_at: new Date().toISOString() 
+      };
 
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('m4_settings')
+        .upsert(payload, { onConflict: 'tenant_id' })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(error.message || 'Erro desconhecido no Supabase');
+      }
+      
+      console.log('Settings saved successfully:', data);
+      if (data) setSettings(data);
       
       // Apply theme immediately via context
-      await setTheme(settings.theme as any);
+      // We pass skipPersistence=true because we already saved the theme in the upsert above
+      await setTheme(settings.theme as any, true);
       
       alert('Configurações salvas com sucesso!');
     } catch (error: any) {
-      alert('Erro ao salvar: ' + error.message);
+      console.error('Full error during save:', error);
+      
+      let errorMessage = 'Erro ao salvar: ';
+      if (error.message === 'Failed to fetch') {
+        errorMessage += 'Falha na conexão com o Supabase. Verifique se a URL e a chave estão corretas no ambiente.';
+      } else {
+        errorMessage += error.message || 'Erro inesperado.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }

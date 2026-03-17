@@ -226,7 +226,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                       setBuilderForm({
                         title: tpl.title,
                         description: tpl.description,
-                        questions: tpl.questions
+                        questions: tpl.questions as FormQuestion[]
                       });
                       setActiveView('builder');
                     }}

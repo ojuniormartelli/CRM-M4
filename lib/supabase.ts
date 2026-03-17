@@ -14,9 +14,21 @@ const supabaseAnonKey =
   import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 
   '';
 
+if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+  console.warn('⚠️ Supabase URL is missing or using placeholder. Database calls will fail.');
+} else {
+  console.log('✅ Supabase initialized with URL:', supabaseUrl.substring(0, 20) + '...');
+}
+
 // Se as chaves não forem encontradas, o cliente ainda é criado para não quebrar o import,
 // mas as chamadas falharão graciosamente.
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder'
+  supabaseAnonKey || 'placeholder',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  }
 );
