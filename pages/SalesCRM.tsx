@@ -12,21 +12,21 @@ interface SalesCRMProps {
   setActivePipelineId: (id: string) => void;
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
-  onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active') => Promise<void>;
+  onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => Promise<void>;
   onImportLeads?: () => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-slate-100 last:border-0">
+    <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center py-6 px-10 hover:bg-slate-50 transition-all group"
+        className="w-full flex justify-between items-center py-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group"
       >
-        <h4 className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-[0.2em]">{title}</h4>
+        <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase tracking-[0.2em]">{title}</h4>
         <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-          <ICONS.ChevronDown width="16" height="16" className="text-slate-400" />
+          <ICONS.ChevronDown width="16" height="16" className="text-slate-400 dark:text-slate-500" />
         </div>
       </button>
       {isOpen && <div className="px-10 pb-10 animate-in fade-in slide-in-from-top-2 duration-300">{children}</div>}
@@ -45,6 +45,13 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
+  const [isWonModalOpen, setIsWonModalOpen] = useState(false);
+  const [wonData, setWonData] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    monthlyValue: 0,
+    serviceType: '',
+    bankAccountId: ''
+  });
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: '',
@@ -224,25 +231,39 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     return activityDate < fiveDaysAgo;
   };
 
+  const handleWonConfirm = async () => {
+    if (!selectedLead) return;
+    setIsSyncing(true);
+    try {
+      await onStatusChange(selectedLead.id, 'won', wonData);
+      setIsWonModalOpen(false);
+      setSelectedLead(null);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-10 h-full flex flex-col relative animate-in fade-in duration-1000">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">{activePipeline.name}</h2>
+              <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{activePipeline.name}</h2>
               <button 
                 onClick={() => setIsPipelineModalOpen(true)}
-                className="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
+                className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
                 title="Trocar Pipeline"
               >
                 <ICONS.ChevronDown width="20" height="20" />
               </button>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
-              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-              <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
+              <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
+              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+              <p className="text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
             </div>
           </div>
         </div>
@@ -250,27 +271,27 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         <div className="flex gap-4">
           <button 
             onClick={onImportLeads}
-            className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+            className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm"
           >
             <ICONS.Database width="16" height="16" />
             Importar Leads (Planilha)
           </button>
-          <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mr-4">
             <button 
               onClick={() => setFilterMode('all')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterMode === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterMode === 'all' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
             >
               Todos
             </button>
             <button 
               onClick={() => setFilterMode('my_day')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${filterMode === 'my_day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${filterMode === 'my_day' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
             >
               <ICONS.Clock width="12" height="12" />
               Meu Dia
             </button>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 transition-all hover:-translate-y-1">
+          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1">
             <ICONS.Plus /> NOVO NEGÓCIO
           </button>
         </div>
@@ -278,10 +299,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
       {isPipelineModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-slate-900 uppercase">Selecionar Pipeline</h3>
-              <button onClick={() => setIsPipelineModalOpen(false)} className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-slate-200 transition-all">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">Selecionar Pipeline</h3>
+              <button onClick={() => setIsPipelineModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
                 <ICONS.Plus className="rotate-45" />
               </button>
             </div>
@@ -293,13 +314,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     setActivePipelineId(p.id);
                     setIsPipelineModalOpen(false);
                   }}
-                  className={`w-full p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${activePipelineId === p.id ? 'border-blue-600 bg-blue-50/50' : 'border-slate-100 hover:border-blue-200 bg-slate-50/30'}`}
+                  className={`w-full p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${activePipelineId === p.id ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 bg-slate-50/30 dark:bg-slate-800/30'}`}
                 >
                   <div>
-                    <p className={`font-black uppercase text-xs tracking-widest ${activePipelineId === p.id ? 'text-blue-600' : 'text-slate-400'}`}>Pipeline</p>
-                    <p className="font-bold text-slate-900 mt-1">{p.name}</p>
+                    <p className={`font-black uppercase text-xs tracking-widest ${activePipelineId === p.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>Pipeline</p>
+                    <p className="font-bold text-slate-900 dark:text-white mt-1">{p.name}</p>
                   </div>
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${activePipelineId === p.id ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white group-hover:border-blue-300'}`}>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${activePipelineId === p.id ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 group-hover:border-blue-300 dark:group-hover:border-blue-700'}`}>
                     {activePipelineId === p.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
                   </div>
                 </button>
@@ -316,19 +337,19 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               key={stage.id} 
               onDragOver={onDragOver} 
               onDrop={(e) => onDrop(e, stage.id)}
-              className={`w-[360px] flex flex-col bg-slate-100/30 rounded-[2.5rem] border transition-all duration-500 p-3 ${draggedLeadId ? 'border-blue-300 border-dashed bg-blue-50/20' : 'border-slate-200/40'}`}
+              className={`w-[360px] flex flex-col bg-slate-100/30 dark:bg-slate-900/30 rounded-[2.5rem] border transition-all duration-500 p-3 ${draggedLeadId ? 'border-blue-300 dark:border-blue-800 border-dashed bg-blue-50/20 dark:bg-blue-900/10' : 'border-slate-200/40 dark:border-slate-800/40'}`}
             >
-              <div className="p-6 flex justify-between items-center bg-white/60 rounded-[2rem] border-b border-slate-200/50 mb-4 shadow-sm">
+              <div className="p-6 flex justify-between items-center bg-white/60 dark:bg-slate-800/60 rounded-[2rem] border-b border-slate-200/50 dark:border-slate-700/50 mb-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                  <h3 className="font-black text-slate-900 text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
-                  <div className="w-5 h-5 bg-indigo-50 text-indigo-400 rounded-lg flex items-center justify-center" title="Automações Ativas">
+                  <h3 className="font-black text-slate-900 dark:text-white text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
+                  <div className="w-5 h-5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-400 dark:text-indigo-300 rounded-lg flex items-center justify-center" title="Automações Ativas">
                     <ICONS.Automation width="12" height="12" />
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="bg-slate-900 px-3 py-1 rounded-full text-[10px] font-black text-white">{getLeadsByStage(stage.id).length}</span>
-                  <p className="text-[10px] font-black text-slate-400 mt-1">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
+                  <span className="bg-slate-900 dark:bg-slate-700 px-3 py-1 rounded-full text-[10px] font-black text-white">{getLeadsByStage(stage.id).length}</span>
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 mt-1">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -339,41 +360,41 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     draggable
                     onDragStart={(e) => onDragStart(e, lead.id)}
                     onClick={() => setSelectedLead(lead)}
-                    className={`bg-white p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-red-200 bg-red-50/10' : 'border-slate-200 hover:border-blue-400'}`}
+                    className={`bg-white dark:bg-slate-800 p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-red-200 dark:border-red-900/30 bg-red-50/10 dark:bg-red-900/5' : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600'}`}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100/50 inline-block max-w-full break-words">{lead.company}</span>
+                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3.5 py-1.5 rounded-xl border border-blue-100/50 dark:border-blue-800/50 inline-block max-w-full break-words">{lead.company}</span>
                       {isStale(lead) && (
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Negócio parado!"></div>
                       )}
                     </div>
-                    <h4 className="font-black text-slate-900 text-lg mb-2 group-hover:text-blue-600 transition-colors">{lead.name}</h4>
+                    <h4 className="font-black text-slate-900 dark:text-white text-lg mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{lead.name}</h4>
                     {lead.nextAction && (
-                      <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100/50">
+                      <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-100/50 dark:border-blue-800/50">
                         <ICONS.Clock width="12" height="12" />
                         <p className="text-[10px] font-black uppercase truncate">{lead.nextAction}</p>
                       </div>
                     )}
-                    <p className="text-xs text-slate-400 font-bold mb-6">{lead.notes}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{lead.notes}</p>
                     
                     <div className="flex items-center gap-3 mb-6">
                       <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                        lead.temperature === 'Quente' ? 'bg-orange-100 text-orange-600' :
-                        lead.temperature === 'Morno' ? 'bg-blue-100 text-blue-600' :
-                        'bg-slate-100 text-slate-500'
+                        lead.temperature === 'Quente' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+                        lead.temperature === 'Morno' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                        'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                       }`}>
                         {lead.temperature || 'Frio'}
                       </div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
+                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
                     </div>
 
-                    <div className="flex justify-between items-center pt-6 border-t border-slate-50">
-                      <div className="font-black text-slate-900 text-base">R$ {Number(lead.value).toLocaleString()}</div>
-                      <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className="w-9 h-9 rounded-2xl border-4 border-white shadow-xl" alt="Owner" />
+                    <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-slate-700/50">
+                      <div className="font-black text-slate-900 dark:text-white text-base">R$ {Number(lead.value).toLocaleString()}</div>
+                      <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className="w-9 h-9 rounded-2xl border-4 border-white dark:border-slate-800 shadow-xl" alt="Owner" />
                     </div>
                   </div>
                 ))}
-                <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-300 text-[11px] font-black uppercase tracking-[0.2em] hover:border-blue-400 hover:text-blue-600 hover:bg-white transition-all">+ NOVO LEAD</button>
+                <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] text-slate-300 dark:text-slate-700 text-[11px] font-black uppercase tracking-[0.2em] hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-800 transition-all">+ NOVO LEAD</button>
               </div>
             </div>
           ))}
@@ -382,27 +403,27 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-xl p-10 shadow-2xl">
-            <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase">Cadastrar no Supabase</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl p-10 shadow-2xl">
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6 uppercase">Cadastrar no Supabase</h3>
             <form onSubmit={handleCreateLead} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-                <input required placeholder="Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input required placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                <input required placeholder="Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-                <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-                <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
-                <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" />
+                <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
               </div>
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
                   {isSyncing ? "SALVANDO..." : "SALVAR NA NUVEM"}
                 </button>
@@ -414,19 +435,19 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
       {selectedLead && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-50 flex justify-end">
-          <div className="w-full md:w-[750px] bg-slate-50 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-700">
-            <div className="p-10 bg-white border-b border-slate-100 flex justify-between items-center">
+          <div className="w-full md:w-[750px] bg-slate-50 dark:bg-slate-950 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-700">
+            <div className="p-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200">{selectedLead.name.charAt(0)}</div>
+                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 dark:shadow-none">{selectedLead.name.charAt(0)}</div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">{selectedLead.name}</h3>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedLead.name}</h3>
                   <div className="flex items-center gap-2">
-                    <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
-                    <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                    <p className="text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
+                    <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                      selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
-                      selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
-                      'bg-blue-100 text-blue-600'
+                      selectedLead.status === 'won' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                      selectedLead.status === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' :
+                      'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                     }`}>
                       {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
                     </span>
@@ -437,7 +458,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <button 
                   onClick={() => handleAIScore(selectedLead)}
                   disabled={isAIScoring}
-                  className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50"
+                  className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all disabled:opacity-50"
                   title="Score com IA"
                 >
                   {isAIScoring ? <span className="animate-spin block">◌</span> : <ICONS.Plus width="20" height="20" />}
@@ -445,96 +466,96 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <button 
                   onClick={() => handleEnrichSingleLead(selectedLead)}
                   disabled={isEnriching}
-                  className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all disabled:opacity-50"
+                  className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all disabled:opacity-50"
                   title="Enriquecer com IA"
                 >
                   {isEnriching ? <span className="animate-spin block">◌</span> : <ICONS.Automation width="20" height="20" />}
                 </button>
-                <button onClick={() => handleDeleteLead(selectedLead.id)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all" title="Excluir">
+                <button onClick={() => handleDeleteLead(selectedLead.id)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all" title="Excluir">
                   <ICONS.X width="20" height="20" />
                 </button>
-                <button onClick={() => setSelectedLead(null)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all">
+                <button onClick={() => setSelectedLead(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
                   FECHAR
                 </button>
               </div>
             </div>
             
             <div className="flex-1 overflow-y-auto scrollbar-none">
-              <div className="bg-white">
+              <div className="bg-white dark:bg-slate-900">
                 <CollapsibleSection title="Negociação">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.name}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.name}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.qualification || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Qualificação</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.qualification || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Score</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">AI Score</p>
                       <div className="flex items-center gap-2">
                         <div className={`px-3 py-1 rounded-full text-xs font-black ${
-                          (selectedLead.aiScore || 0) > 70 ? 'bg-emerald-100 text-emerald-700' :
-                          (selectedLead.aiScore || 0) > 40 ? 'bg-amber-100 text-amber-700' :
-                          'bg-red-100 text-red-700'
+                          (selectedLead.aiScore || 0) > 70 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                          (selectedLead.aiScore || 0) > 40 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                          'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                         }`}>
                           {selectedLead.aiScore || 'N/A'}
                         </div>
                         {selectedLead.aiReasoning && (
-                          <p className="text-[10px] text-slate-400 font-medium italic" title={selectedLead.aiReasoning}>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic" title={selectedLead.aiReasoning}>
                             {selectedLead.aiReasoning}
                           </p>
                         )}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Probabilidade</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.probability || 0}%</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Probabilidade</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.probability || 0}%</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temperatura</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Temperatura</p>
                       <p className={`text-sm font-bold ${
-                        selectedLead.temperature === 'Quente' ? 'text-orange-600' :
-                        selectedLead.temperature === 'Morno' ? 'text-blue-600' :
-                        'text-slate-600'
+                        selectedLead.temperature === 'Quente' ? 'text-orange-600 dark:text-orange-400' :
+                        selectedLead.temperature === 'Morno' ? 'text-blue-600 dark:text-blue-400' :
+                        'text-slate-600 dark:text-slate-400'
                       }`}>{selectedLead.temperature || 'Frio'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nicho / Segmento</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.niche || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nicho / Segmento</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviço Principal</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.serviceType || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Serviço Principal</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.serviceType || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Proposto</p>
-                      <p className="text-sm font-bold text-slate-900">R$ {Number(selectedLead.proposedTicket || 0).toLocaleString()}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ticket Proposto</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposedTicket || 0).toLocaleString()}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Próxima Ação</p>
-                      <p className="text-sm font-bold text-blue-600">{selectedLead.nextAction || 'Definir ação'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Próxima Ação</p>
+                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.nextAction || 'Definir ação'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Próxima Ação</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.nextActionDate || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Data Próxima Ação</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.nextActionDate || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor total</p>
-                      <p className="text-sm font-bold text-slate-900">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Valor total</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value).toLocaleString()}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Previsão de fechamento</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.closingForecast || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Previsão de fechamento</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closingForecast || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fonte</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.source || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fonte</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campanha</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.campaign || 'N/A'}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Campanha</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || 'N/A'}</p>
                     </div>
                   </div>
                 </CollapsibleSection>
@@ -544,8 +565,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {Object.entries(selectedLead.customFields).map(([key, value]) => (
                         <div key={key} className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{key}</p>
-                          <p className="text-sm font-bold text-slate-900">{String(value)}</p>
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{key}</p>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">{String(value)}</p>
                         </div>
                       ))}
                     </div>
@@ -557,192 +578,246 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     {(selectedLead.contacts || []).map((contact, idx) => (
                       <div key={idx} className="space-y-6">
                         <div className="flex items-center gap-3">
-                          <p className="text-base font-black text-slate-900">{contact.name}</p>
-                          <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                          <p className="text-base font-black text-slate-900 dark:text-white">{contact.name}</p>
+                          <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
                             <ICONS.User width="12" height="12" />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <button onClick={() => window.open(`tel:${contact.phone.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-4 group">
-                            <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
                               <ICONS.Phone width="18" height="18" />
                             </div>
                             <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telefone</p>
-                              <p className="text-sm font-bold text-slate-700">{contact.phone || 'N/A'}</p>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone || 'N/A'}</p>
                             </div>
                           </button>
                           <button onClick={() => window.open(`mailto:${contact.email}`, '_blank')} className="flex items-center gap-4 group">
-                            <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
                               <ICONS.Mail width="18" height="18" />
                             </div>
                             <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail</p>
-                              <p className="text-sm font-bold text-slate-700">{contact.email || 'N/A'}</p>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.email || 'N/A'}</p>
                             </div>
                           </button>
                           <button 
                             onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(contact.email)}`, '_blank')}
                             className="flex items-center gap-4 group"
                           >
-                            <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-red-50 group-hover:text-red-600 transition-all">
+                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-red-50 dark:group-hover:bg-red-900/30 group-hover:text-red-600 dark:group-hover:text-red-400 transition-all">
                               <ICONS.ExternalLink width="18" height="18" />
                             </div>
                             <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gmail</p>
-                              <p className="text-sm font-bold text-red-600">Ver conversas</p>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Gmail</p>
+                              <p className="text-sm font-bold text-red-600 dark:text-red-400">Ver conversas</p>
                             </div>
                           </button>
                         </div>
-                        <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Informações adicionais</p>
+                        <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-4">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Informações adicionais</p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Cargo</p>
-                              <p className="text-sm font-bold text-slate-700">{contact.role || 'N/A'}</p>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Cargo</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.role || 'N/A'}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Link Whatsapp</p>
-                              <button onClick={() => window.open(`https://wa.me/${contact.phone.replace(/\D/g, '')}`, '_blank')} className="text-sm font-bold text-blue-600 hover:underline">Abrir conversa</button>
+                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Link Whatsapp</p>
+                              <button onClick={() => window.open(`https://wa.me/${contact.phone.replace(/\D/g, '')}`, '_blank')} className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Abrir conversa</button>
                             </div>
                           </div>
                         </div>
                       </div>
                     ))}
-                    <button className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-[11px] font-black uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all">
+                    <button className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 dark:text-slate-600 text-[11px] font-black uppercase tracking-widest hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
                       + Adicionar contato
                     </button>
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Empresa">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.company}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.companyEmail || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cidade</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.city || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CNPJ</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.cnpj || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Razão Social</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.legalName || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telefone</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.companyPhone || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Instagram</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.instagram || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="mt-8 pt-8 border-t border-slate-50">
-                    <button onClick={() => window.open(selectedLead.website || `https://www.google.com/search?q=${encodeURIComponent(selectedLead.company)}`, '_blank')} className="flex items-center gap-2 text-blue-600 font-black text-xs uppercase tracking-widest hover:underline">
-                      Abrir página da Empresa <ICONS.ExternalLink width="14" height="14" />
+            <CollapsibleSection title="Empresa">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyEmail || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cidade</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.city || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Razão Social</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legalName || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyPhone || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.instagram || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="mt-8 pt-8 border-t border-slate-50 dark:border-slate-800">
+                <button onClick={() => window.open(selectedLead.website || `https://www.google.com/search?q=${encodeURIComponent(selectedLead.company)}`, '_blank')} className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-widest hover:underline">
+                  Abrir página da Empresa <ICONS.ExternalLink width="14" height="14" />
+                </button>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Responsável">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 font-black">
+                  {selectedLead.responsibleName?.charAt(0) || 'U'}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Responsável</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.responsibleName || 'Não atribuído'}</p>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Histórico de Interações (Visão 360º)">
+              <div className="space-y-6">
+                <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                  <div className="flex justify-between items-center mb-4">
+                    <h5 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                      <ICONS.Automation width="14" height="14" /> AI Summary
+                    </h5>
+                    <button 
+                      onClick={() => handleAISummary(selectedLead.interactions || [])}
+                      disabled={isSummarizing}
+                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
+                    >
+                      {isSummarizing ? 'Gerando...' : 'Atualizar Resumo'}
                     </button>
                   </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Responsável">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-black">
-                      {selectedLead.responsibleName?.charAt(0) || 'U'}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedLead.responsibleName || 'Não atribuído'}</p>
-                    </div>
-                  </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Histórico de Interações (Visão 360º)">
-                  <div className="space-y-6">
-                    <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                      <div className="flex justify-between items-center mb-4">
-                        <h5 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                          <ICONS.Automation width="14" height="14" /> AI Summary
-                        </h5>
-                        <button 
-                          onClick={() => handleAISummary(selectedLead.interactions || [])}
-                          disabled={isSummarizing}
-                          className="text-[10px] font-black text-indigo-600 hover:underline disabled:opacity-50"
-                        >
-                          {isSummarizing ? 'Gerando...' : 'Atualizar Resumo'}
-                        </button>
-                      </div>
-                      <p className="text-xs text-slate-700 font-medium leading-relaxed italic">
-                        {aiSummary || "Clique em 'Atualizar Resumo' para gerar um resumo executivo desta conta."}
-                      </p>
-                    </div>
-
-                    <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-                    {(selectedLead.interactions || [
-                      { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', createdAt: selectedLead.createdAt },
-                      { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', createdAt: selectedLead.createdAt }
-                    ]).map((interaction, idx) => (
-                      <div key={interaction.id} className="flex gap-6 relative">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white ${
-                          interaction.type === 'email' ? 'bg-blue-50 text-blue-600' :
-                          interaction.type === 'call' ? 'bg-emerald-50 text-emerald-600' :
-                          interaction.type === 'meeting' ? 'bg-amber-50 text-amber-600' :
-                          'bg-slate-50 text-slate-600'
-                        }`}>
-                          {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" /> :
-                           interaction.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
-                           interaction.type === 'meeting' ? <ICONS.Collaboration width="18" height="18" /> :
-                           <ICONS.Plus width="18" height="18" />}
-                        </div>
-                        <div className="flex-1 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                          <div className="flex justify-between items-start mb-2">
-                            <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">{interaction.title}</h5>
-                            <span className="text-[10px] font-black text-slate-400 uppercase">{new Date(interaction.createdAt).toLocaleString()}</span>
-                          </div>
-                          <p className="text-xs text-slate-600 font-medium leading-relaxed">{interaction.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="pt-4 flex flex-wrap gap-3">
-                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Nota</button>
-                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Ligação</button>
-                       <button className="flex-1 min-w-[120px] py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">+ Reunião</button>
-                       <button className="flex-1 min-w-[120px] py-3 bg-blue-50 border border-blue-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-100 transition-all">Logar E-mail</button>
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic">
+                    {aiSummary || "Clique em 'Atualizar Resumo' para gerar um resumo executivo desta conta."}
+                  </p>
                 </div>
-              </CollapsibleSection>
-              </div>
 
-              <div className="p-10 space-y-6">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Notas & Insights</p>
-                <div className="p-8 bg-white rounded-[2rem] border border-slate-100 text-slate-600 font-medium leading-relaxed shadow-sm">
-                  {selectedLead.notes || "Nenhuma nota disponível."}
+                <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
+                {(selectedLead.interactions || [
+                  { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', createdAt: selectedLead.createdAt },
+                  { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', createdAt: selectedLead.createdAt }
+                ]).map((interaction, idx) => (
+                  <div key={interaction.id} className="flex gap-6 relative">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white dark:border-slate-900 ${
+                      interaction.type === 'email' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                      interaction.type === 'call' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                      interaction.type === 'meeting' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
+                      'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}>
+                      {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" /> :
+                       interaction.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
+                       interaction.type === 'meeting' ? <ICONS.Collaboration width="18" height="18" /> :
+                       <ICONS.Plus width="18" height="18" />}
+                    </div>
+                    <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{interaction.title}</h5>
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">{new Date(interaction.createdAt).toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{interaction.content}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-4 flex flex-wrap gap-3">
+                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Nota</button>
+                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Ligação</button>
+                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Reunião</button>
+                   <button className="flex-1 min-w-[120px] py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/50 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">Logar E-mail</button>
                 </div>
               </div>
             </div>
+          </CollapsibleSection>
+          </div>
 
-            <div className="p-10 bg-white border-t border-slate-100 flex gap-4 shrink-0">
-              <button 
-                onClick={() => onStatusChange(selectedLead.id, 'won')}
-                className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-              >
-                MARCAR COMO GANHO
-              </button>
-              <button 
-                onClick={() => onStatusChange(selectedLead.id, 'lost')}
-                className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
-              >
-                MARCAR COMO PERDIDO
-              </button>
+          <div className="p-10 space-y-6">
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas & Insights</p>
+            <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-medium leading-relaxed shadow-sm">
+              {selectedLead.notes || "Nenhuma nota disponível."}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-10 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-4 shrink-0">
+          <button 
+            onClick={() => {
+              setWonData({
+                ...wonData,
+                monthlyValue: Number(selectedLead.proposedTicket || selectedLead.value || 0),
+                serviceType: selectedLead.serviceType || ''
+              });
+              setIsWonModalOpen(true);
+            }}
+            className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100 dark:shadow-none' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'}`}
+          >
+            MARCAR COMO GANHO
+          </button>
+          <button 
+            onClick={() => onStatusChange(selectedLead.id, 'lost')}
+            className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100 dark:shadow-none' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'}`}
+          >
+            MARCAR COMO PERDIDO
+          </button>
+        </div>
+          </div>
+        </div>
+      )}
+
+      {isWonModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6 uppercase">Configurar Nova Conta</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Data de Início</label>
+                <input 
+                  type="date" 
+                  value={wonData.startDate}
+                  onChange={e => setWonData({...wonData, startDate: e.target.value})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
+                <input 
+                  type="number" 
+                  value={wonData.monthlyValue}
+                  onChange={e => setWonData({...wonData, monthlyValue: Number(e.target.value)})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
+                <input 
+                  placeholder="Ex: Gestão de Tráfego"
+                  value={wonData.serviceType}
+                  onChange={e => setWonData({...wonData, serviceType: e.target.value})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="pt-6 flex gap-4">
+                <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button 
+                  onClick={handleWonConfirm}
+                  disabled={isSyncing}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-100 dark:shadow-none disabled:opacity-50"
+                >
+                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

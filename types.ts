@@ -154,6 +154,9 @@ export interface Task {
   dueDate: string;
   leadId?: string;
   projectId?: string;
+  clientAccountId?: string;
+  isRecurring?: boolean;
+  recurrencePeriod?: string;
   type: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
   createdAt: string;
 }
@@ -200,15 +203,56 @@ export interface Automation {
   isActive: boolean;
 }
 
+export interface ClientAccount {
+  id: string;
+  leadId: string;
+  status: 'ativo' | 'pausado' | 'cancelado';
+  serviceType: string;
+  startDate: string;
+  endDate?: string;
+  billingModel: 'recorrente' | 'projeto';
+  monthlyValue: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BankAccount {
+  id: string;
+  name: string;
+  bankType: string;
+  currentBalance: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  limitAmount: number;
+  closingDay: number;
+  dueDay: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Transaction {
   id: string;
-  type: 'Receita' | 'Despesa';
+  type: 'Receita' | 'Despesa' | 'Transferência';
   category: string;
   amount: number;
   date: string;
   description: string;
-  status: 'Pago' | 'Pendente';
-  clientId?: string;
+  status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar';
+  bankAccountId?: string;
+  clientAccountId?: string;
+  leadId?: string;
+  creditCardId?: string;
+  paymentMethod?: string;
+  dueDate?: string;
+  paidDate?: string;
+  createdAt: string;
 }
 
 export interface EmailMessage {

@@ -12,7 +12,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
   const [filter, setFilter] = useState<TaskStatus | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
-    title: '', description: '', status: TaskStatus.TODO, priority: Priority.MEDIUM, type: 'task', dueDate: new Date().toISOString().split('T')[0]
+    title: '', 
+    description: '', 
+    status: TaskStatus.TODO, 
+    priority: Priority.MEDIUM, 
+    type: 'task', 
+    dueDate: new Date().toISOString().split('T')[0],
+    isRecurring: false,
+    recurrencePeriod: 'Mensal'
   });
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -35,7 +42,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
   };
 
   const handleToggleStatus = async (task: Task) => {
-    const newStatus = task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE;
+    const isNowDone = task.status !== TaskStatus.DONE;
+    const newStatus = isNowDone ? TaskStatus.DONE : TaskStatus.TODO;
+    
     const { error } = await supabase
       .from('m4_tasks')
       .update({ status: newStatus })
@@ -43,6 +52,38 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
 
     if (!error) {
       setTasks(tasks.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+
+      // Handle Recurrence
+      if (isNowDone && task.isRecurring && task.recurrencePeriod) {
+        const nextDate = new Date(task.dueDate);
+        if (task.recurrencePeriod === 'Semanal') nextDate.setDate(nextDate.getDate() + 7);
+        else if (task.recurrencePeriod === 'Quinzenal') nextDate.setDate(nextDate.getDate() + 15);
+        else if (task.recurrencePeriod === 'Mensal') nextDate.setMonth(nextDate.getMonth() + 1);
+        else if (task.recurrencePeriod === 'Trimestral') nextDate.setMonth(nextDate.getMonth() + 3);
+
+        const nextTask = {
+          title: task.title,
+          description: task.description,
+          status: TaskStatus.TODO,
+          priority: task.priority,
+          type: task.type,
+          dueDate: nextDate.toISOString().split('T')[0],
+          isRecurring: true,
+          recurrencePeriod: task.recurrencePeriod,
+          clientAccountId: task.clientAccountId,
+          projectId: task.projectId,
+          createdAt: new Date().toISOString()
+        };
+
+        const { data: nextRes } = await supabase
+          .from('m4_tasks')
+          .insert([nextTask])
+          .select();
+        
+        if (nextRes) {
+          setTasks(prev => [...prev, nextRes[0]]);
+        }
+      }
     }
   };
 
@@ -100,6 +141,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
                   </span>
                   <div className="w-1 h-1 rounded-full bg-slate-200"></div>
                   <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{task.type}</span>
+                  {task.isRecurring && (
+                    <>
+                      <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                        <ICONS.Automation width="12" height="12" /> Recorrente ({task.recurrencePeriod})
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -170,6 +219,39 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Entrega</label>
                   <input type="date" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px]" />
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                    <ICONS.Automation width="20" height="20" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900 uppercase">Tarefa Recorrente</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Criar automaticamente após conclusão</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {newTask.isRecurring && (
+                    <select 
+                      value={newTask.recurrencePeriod} 
+                      onChange={e => setNewTask({...newTask, recurrencePeriod: e.target.value as any})}
+                      className="p-3 bg-white rounded-xl border-none font-bold text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="Semanal">Semanal</option>
+                      <option value="Quinzenal">Quinzenal</option>
+                      <option value="Mensal">Mensal</option>
+                      <option value="Trimestral">Trimestral</option>
+                    </select>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => setNewTask({...newTask, isRecurring: !newTask.isRecurring})}
+                    className={`w-12 h-6 rounded-full transition-all relative ${newTask.isRecurring ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${newTask.isRecurring ? 'left-7' : 'left-1'}`}></div>
+                  </button>
                 </div>
               </div>
 

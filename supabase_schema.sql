@@ -105,7 +105,58 @@ CREATE TABLE IF NOT EXISTS m4_campaigns (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Enable RLS (Optional but recommended)
+-- 4. Client Accounts & Follow-up
+CREATE TABLE IF NOT EXISTS m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'ativo', -- ativo, pausado, cancelado
+    service_type TEXT, -- Gestão de Tráfego, Social Media, etc.
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    billing_model TEXT DEFAULT 'recorrente', -- recorrente, projeto
+    monthly_value NUMERIC DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Financial Module
+CREATE TABLE IF NOT EXISTS m4_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL, -- Nubank PJ, etc.
+    bank_type TEXT, -- corrente, poupança, etc.
+    current_balance NUMERIC DEFAULT 0,
+    currency TEXT DEFAULT 'BRL',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_credit_cards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL, -- Cartão Nubank PJ
+    limit_amount NUMERIC DEFAULT 0,
+    closing_day INTEGER,
+    due_day INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Update Transactions with new fields
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS bank_account_id UUID REFERENCES m4_bank_accounts(id);
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS client_account_id UUID REFERENCES m4_client_accounts(id);
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS lead_id UUID REFERENCES m4_leads(id);
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS credit_card_id UUID REFERENCES m4_credit_cards(id);
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS payment_method TEXT; -- boleto, pix, cartão, etc.
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS paid_date DATE;
+ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Update Tasks with client_account_id
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS client_account_id UUID REFERENCES m4_client_accounts(id);
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE;
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS recurrence_period TEXT; -- 15_days, 1_month, etc.
+
+-- 6. Enable RLS (Optional but recommended)
 -- ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE m4_leads ENABLE ROW LEVEL SECURITY;
 -- ... add policies as needed

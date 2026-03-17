@@ -10,6 +10,7 @@ import Clients from './pages/Clients';
 import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Finance from './pages/Finance';
+import ClientAccounts from './pages/ClientAccounts';
 import Automation from './pages/Automation';
 import Collaboration from './pages/Collaboration';
 import ContactCenter from './pages/ContactCenter';
@@ -38,6 +39,9 @@ const App: React.FC = () => {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clientAccounts, setClientAccounts] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [creditCards, setCreditCards] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
@@ -48,7 +52,7 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns] = await Promise.all([
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards] = await Promise.all([
           supabase.from('m4_leads').select('*'),
           supabase.from('m4_tasks').select('*'),
           supabase.from('m4_transactions').select('*'),
@@ -57,7 +61,10 @@ const App: React.FC = () => {
           supabase.from('m4_projects').select('*'),
           supabase.from('m4_settings').select('*').maybeSingle(),
           supabase.from('m4_posts').select('*').order('created_at', { ascending: false }),
-          supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false })
+          supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false }),
+          supabase.from('m4_client_accounts').select('*'),
+          supabase.from('m4_bank_accounts').select('*'),
+          supabase.from('m4_credit_cards').select('*')
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -68,14 +75,11 @@ const App: React.FC = () => {
         if (resProjects.data) setProjects(resProjects.data);
         if (resPosts.data) setPosts(resPosts.data);
         if (resCampaigns.data) setCampaigns(resCampaigns.data);
+        if (resClientAcc.data) setClientAccounts(resClientAcc.data);
+        if (resBankAcc.data) setBankAccounts(resBankAcc.data);
+        if (resCards.data) setCreditCards(resCards.data);
         if (resSettings.data) {
           setSettings(resSettings.data);
-          // Apply theme
-          if (resSettings.data.theme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
         }
 
       } catch (err: any) {
@@ -87,7 +91,7 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active') => {
+  const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => {
     const lead = leads.find(l => l.id === leadId);
     if (!lead) return;
 
@@ -99,63 +103,102 @@ const App: React.FC = () => {
     if (!error) {
       setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
       
-      // AUTOMATION: If won, create client and project
+      // AUTOMATION: If won, create client account and initial transaction
       if (status === 'won') {
-        const clientData = {
-          name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-          company: lead.company,
+        const clientAccData = {
+          lead_id: lead.id,
           status: 'active',
-          mrr: lead.value || 0,
-          contractStart: new Date().toISOString(),
-          healthScore: 100
+          service_type: extraData?.serviceType || lead.serviceType || 'Fee Mensal',
+          start_date: extraData?.startDate || new Date().toISOString().split('T')[0],
+          monthly_value: extraData?.monthlyValue || lead.proposedTicket || lead.value || 0,
+          notes: `Conta criada automaticamente a partir do lead ${lead.name}`
         };
 
-        const { data: clientRes, error: clientErr } = await supabase
-          .from('m4_clients')
-          .insert([clientData])
+        const { data: accRes, error: accErr } = await supabase
+          .from('m4_client_accounts')
+          .insert([clientAccData])
           .select();
 
-        if (!clientErr && clientRes) {
-          setClients([...clients, clientRes[0]]);
-          
-          const projectData = {
-            name: `Onboarding: ${lead.company}`,
-            clientId: clientRes[0].id,
-            leadId: lead.id,
-            status: 'active',
-            startDate: new Date().toISOString(),
-            value: lead.value || 0
+        if (!accErr && accRes) {
+          setClientAccounts([...clientAccounts, accRes[0]]);
+
+          // Create initial transaction
+          const initialTrans = {
+            description: `Primeira Mensalidade - ${lead.company}`,
+            amount: clientAccData.monthly_value,
+            type: 'Receita',
+            category: 'Mensalidade',
+            status: 'Pendente',
+            due_date: clientAccData.start_date,
+            client_account_id: accRes[0].id,
+            lead_id: lead.id,
+            payment_method: 'Boleto'
           };
 
-          const { data: projRes, error: projErr } = await supabase
-            .from('m4_projects')
-            .insert([projectData])
+          const { data: transRes } = await supabase
+            .from('m4_transactions')
+            .insert([initialTrans])
+            .select();
+          
+          if (transRes) setTransactions([...transactions, ...transRes]);
+
+          // Also create the legacy "Client" and "Project" for backward compatibility if needed
+          const clientData = {
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            company: lead.company,
+            status: 'active',
+            mrr: clientAccData.monthly_value,
+            contractStart: clientAccData.start_date,
+            healthScore: 100
+          };
+
+          const { data: clientRes } = await supabase
+            .from('m4_clients')
+            .insert([clientData])
             .select();
 
-          if (!projErr && projRes) {
-            setProjects([...projects, projRes[0]]);
+          if (clientRes) {
+            setClients([...clients, clientRes[0]]);
             
-            // Create standard onboarding tasks
-            const onboardingTasks = [
-              { title: 'Enviar Contrato', type: 'task', priority: 'Urgente', status: 'Pendente' },
-              { title: 'Enviar Briefing', type: 'task', priority: 'Alta', status: 'Pendente' },
-              { title: 'Criar Grupo WhatsApp', type: 'task', priority: 'Média', status: 'Pendente' },
-              { title: 'Agendar Kickoff', type: 'meeting', priority: 'Alta', status: 'Pendente' }
-            ].map(t => ({
-              ...t,
-              projectId: projRes[0].id,
-              dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-              createdAt: new Date().toISOString()
-            }));
+            const projectData = {
+              name: `Onboarding: ${lead.company}`,
+              clientId: clientRes[0].id,
+              leadId: lead.id,
+              status: 'active',
+              startDate: clientAccData.start_date,
+              value: lead.value || 0
+            };
 
-            const { data: tasksRes } = await supabase
-              .from('m4_tasks')
-              .insert(onboardingTasks)
+            const { data: projRes } = await supabase
+              .from('m4_projects')
+              .insert([projectData])
               .select();
-            
-            if (tasksRes) setTasks([...tasks, ...tasksRes]);
+
+            if (projRes) {
+              setProjects([...projects, projRes[0]]);
+              
+              // Create standard onboarding tasks
+              const onboardingTasks = [
+                { title: 'Enviar Contrato', type: 'task', priority: 'Urgente', status: 'Pendente', client_account_id: accRes[0].id },
+                { title: 'Enviar Briefing', type: 'task', priority: 'Alta', status: 'Pendente', client_account_id: accRes[0].id },
+                { title: 'Criar Grupo WhatsApp', type: 'task', priority: 'Média', status: 'Pendente', client_account_id: accRes[0].id },
+                { title: 'Agendar Kickoff', type: 'meeting', priority: 'Alta', status: 'Pendente', client_account_id: accRes[0].id }
+              ].map(t => ({
+                ...t,
+                projectId: projRes[0].id,
+                dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+                createdAt: new Date().toISOString()
+              }));
+
+              const { data: tasksRes } = await supabase
+                .from('m4_tasks')
+                .insert(onboardingTasks)
+                .select();
+              
+              if (tasksRes) setTasks([...tasks, ...tasksRes]);
+            }
           }
         }
       }
@@ -221,9 +264,9 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen bg-slate-50 overflow-hidden font-sans ${settings?.theme === 'dark' ? 'dark' : ''}`}>
-      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-white border-r border-slate-100 transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20`}>
-        <div className="p-8 flex items-center gap-4 border-b border-slate-50 h-24 shrink-0">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans transition-colors duration-300">
+      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
+        <div className="p-8 flex items-center gap-4 border-b border-slate-50 dark:border-slate-800 h-24 shrink-0">
           <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100 overflow-hidden">
             {settings?.logo_url ? (
               <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
@@ -232,12 +275,12 @@ const App: React.FC = () => {
             )}
           </div>
           <div className={`transition-all duration-500 ${!isSidebarOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-            <h1 className="font-black text-slate-900 text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
+            <h1 className="font-black text-slate-900 dark:text-white text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-[10px] font-black text-blue-600 uppercase">{settings?.company_name || 'Agency Cloud'}</p>
               <button 
                 onClick={() => setAppMode(appMode === AppMode.EUGENCIA ? AppMode.AGENCIA : AppMode.EUGENCIA)}
-                className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[8px] font-black hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded text-[8px] font-black hover:bg-blue-100 hover:text-blue-600 transition-colors"
               >
                 {appMode === AppMode.EUGENCIA ? 'EUGÊNCIA' : 'AGÊNCIA'}
               </button>
@@ -259,6 +302,12 @@ const App: React.FC = () => {
             isActive={activeTab === 'sales'}
           />
           <SidebarItem id="meeting_forms" icon={ICONS.Form} label="Sondagem & Reunião" isActive={activeTab === 'meeting_forms'} />
+          <SidebarItem id="client_accounts" icon={ICONS.Clients} label="Contas Ativas" isActive={activeTab === 'client_accounts'} />
+          
+          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Financeiro</div>
+          <SidebarItem id="finance" icon={ICONS.Finance} label="Gestão Financeira" isActive={activeTab === 'finance'} />
+          
+          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Operacional</div>
           <SidebarItem id="tasks" icon={ICONS.Tasks} label="Minhas Tarefas" isActive={activeTab === 'tasks'} />
           <SidebarItem id="projects" icon={ICONS.Projects} label="Projetos & Squads" isActive={activeTab === 'projects'} />
 
@@ -270,14 +319,13 @@ const App: React.FC = () => {
               <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
               <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
               <SidebarItem id="clients" icon={ICONS.Clients} label="Base de Clientes" isActive={activeTab === 'clients'} />
-              <SidebarItem id="finance" icon={ICONS.Finance} label="Financeiro" isActive={activeTab === 'finance'} />
               <SidebarItem id="automation" icon={ICONS.Automation} label="IA & Automações" isActive={activeTab === 'automation'} />
               <SidebarItem id="collaboration" icon={ICONS.Collaboration} label="Feed & Chat" isActive={activeTab === 'collaboration'} />
             </>
           )}
         </nav>
 
-        <div className="p-6 border-t border-slate-50">
+        <div className="p-6 border-t border-slate-50 dark:border-slate-800">
           <SidebarItem id="settings" icon={ICONS.Settings} label="Configurações" isActive={activeTab === 'settings'} />
           <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="w-full mt-4 flex items-center justify-center p-3 text-slate-300 hover:text-blue-600 rounded-2xl transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`${!isSidebarOpen ? 'rotate-180' : ''}`}><path d="m15 18-6-6 6-6"/></svg>
@@ -286,14 +334,14 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-10 z-20">
-          <div className="flex items-center gap-6 bg-slate-50 px-6 py-2.5 rounded-[1.25rem] w-[500px] border border-slate-200/50">
-            <ICONS.Search />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar em tudo..." className="bg-transparent border-none outline-none text-sm w-full font-bold text-slate-800" />
+        <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-10 z-20">
+          <div className="flex items-center gap-6 bg-slate-50 dark:bg-slate-800 px-6 py-2.5 rounded-[1.25rem] w-[500px] border border-slate-200/50 dark:border-slate-700/50">
+            <ICONS.Search className="text-slate-400" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar em tudo..." className="bg-transparent border-none outline-none text-sm w-full font-bold text-slate-800 dark:text-slate-200" />
           </div>
           <div className="flex items-center gap-6">
-             <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase border border-emerald-100">Cloud Sync OK</div>
-             <div className="w-12 h-12 rounded-2xl bg-slate-900 shadow-xl border-4 border-white overflow-hidden">
+             <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[10px] font-black uppercase border border-emerald-100 dark:border-emerald-900/30">Cloud Sync OK</div>
+             <div className="w-12 h-12 rounded-2xl bg-slate-900 shadow-xl border-4 border-white dark:border-slate-800 overflow-hidden">
                 <img src="https://picsum.photos/80/80?random=10" alt="Profile" />
               </div>
           </div>
@@ -308,8 +356,18 @@ const App: React.FC = () => {
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} />}
+          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} />}
-          {activeTab === 'finance' && <Finance transactions={transactions} setTransactions={setTransactions} />}
+          {activeTab === 'finance' && (
+            <Finance 
+              transactions={transactions} 
+              bankAccounts={bankAccounts} 
+              creditCards={creditCards} 
+              clientAccounts={clientAccounts}
+              setTransactions={setTransactions} 
+              appMode={appMode}
+            />
+          )}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}

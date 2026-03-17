@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import TechnicalPanel from './TechnicalPanel';
+import { useTheme } from '../ThemeContext';
 
 const Settings: React.FC = () => {
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState({
@@ -42,15 +44,10 @@ const Settings: React.FC = () => {
 
       if (error) throw error;
       
-      // Apply theme immediately
-      if (settings.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      // Apply theme immediately via context
+      await setTheme(settings.theme as any);
       
       alert('Configurações salvas com sucesso!');
-      window.location.reload(); // Reload to apply all changes globally
     } catch (error: any) {
       alert('Erro ao salvar: ' + error.message);
     } finally {
@@ -92,22 +89,22 @@ const Settings: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-100 pb-4">
+      <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
         <button 
           onClick={() => setActiveTab('general')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Geral
         </button>
         <button 
           onClick={() => setActiveTab('visual')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Identidade Visual
         </button>
         <button 
           onClick={() => setActiveTab('technical')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100'}`}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Painel Técnico (SQL)
         </button>
@@ -115,8 +112,8 @@ const Settings: React.FC = () => {
 
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Informações da Agência</h3>
+          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Informações da Agência</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Agência / Empresa</label>
@@ -124,7 +121,7 @@ const Settings: React.FC = () => {
                   type="text" 
                   value={settings.company_name} 
                   onChange={e => setSettings({...settings, company_name: e.target.value})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -170,29 +167,38 @@ const Settings: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Preferências do Sistema</h3>
+          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Preferências do Sistema</h3>
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tema do Workspace</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <button 
                     onClick={() => setSettings({...settings, theme: 'light'})}
-                    className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'light' ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-blue-200'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
                   >
                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
                       <ICONS.Dashboard />
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest">Light Mode</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">Light</span>
                   </button>
                   <button 
                     onClick={() => setSettings({...settings, theme: 'dark'})}
-                    className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'dark' ? 'border-blue-600 bg-blue-50' : 'border-slate-100 hover:border-blue-200'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
                   >
                     <div className="w-10 h-10 bg-slate-900 rounded-xl shadow-sm border border-slate-800 flex items-center justify-center text-blue-400">
                       <ICONS.Automation />
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest">Dark Mode</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">Dark</span>
+                  </button>
+                  <button 
+                    onClick={() => setSettings({...settings, theme: 'system'})}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'system' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                  >
+                    <div className="w-10 h-10 bg-slate-500 rounded-xl shadow-sm border border-slate-400 flex items-center justify-center text-white">
+                      <ICONS.Settings />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">System</span>
                   </button>
                 </div>
               </div>
