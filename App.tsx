@@ -58,6 +58,24 @@ const App: React.FC = () => {
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
   const [settings, setSettings] = useState<any>(null);
 
+  // Update Favicon and Title based on Settings
+  useEffect(() => {
+    if (settings) {
+      if (settings.crm_name) {
+        document.title = settings.crm_name;
+      }
+      if (settings.logo_url) {
+        let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.getElementsByTagName('head')[0].appendChild(link);
+        }
+        link.href = settings.logo_url;
+      }
+    }
+  }, [settings]);
+
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
