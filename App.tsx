@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from './constants';
 import Companies from './pages/Companies';
 import Contacts from './pages/Contacts';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact } from './types';
+import SupabaseStatus from './components/SupabaseStatus';
+import UserMenu from './components/UserMenu';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User } from './types';
 import { supabase } from './lib/supabase';
 import { AGENCY_PIPELINE_STAGES } from './constants';
 import Dashboard from './pages/Dashboard';
@@ -32,6 +34,7 @@ const App: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // --- GLOBAL STATE ---
   const [pipelines] = useState<Pipeline[]>([
@@ -59,7 +62,10 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts] = await Promise.all([
+        // Get Current Auth User
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts, resUser] = await Promise.all([
           supabase.from('m4_leads').select('*'),
           supabase.from('m4_tasks').select('*'),
           supabase.from('m4_transactions').select('*'),
@@ -73,7 +79,8 @@ const App: React.FC = () => {
           supabase.from('m4_bank_accounts').select('*'),
           supabase.from('m4_credit_cards').select('*'),
           supabase.from('m4_companies').select('*'),
-          supabase.from('m4_contacts').select('*')
+          supabase.from('m4_contacts').select('*'),
+          authUser ? supabase.from('m4_users').select('*').eq('auth_user_id', authUser.id).maybeSingle() : Promise.resolve({ data: null })
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -93,6 +100,21 @@ const App: React.FC = () => {
           setSettings(resSettings.data);
         }
 
+        if (resUser.data) {
+          setCurrentUser(resUser.data);
+        } else if (authUser) {
+          // If auth user exists but no profile, create one (simplified for now)
+          const newUser: any = {
+            auth_user_id: authUser.id,
+            name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
+            email: authUser.email || '',
+            role: 'owner',
+            status: 'active'
+          };
+          const { data: createdUser } = await supabase.from('m4_users').insert([newUser]).select().single();
+          if (createdUser) setCurrentUser(createdUser);
+        }
+
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
       } finally {
@@ -101,6 +123,11 @@ const App: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
 
   const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => {
     const lead = leads.find(l => l.id === leadId);
@@ -412,10 +439,12 @@ const App: React.FC = () => {
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar em tudo..." className="bg-transparent border-none outline-none text-sm w-full font-bold text-slate-800 dark:text-slate-200" />
           </div>
           <div className="flex items-center gap-6">
-             <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[10px] font-black uppercase border border-emerald-100 dark:border-emerald-900/30">Cloud Sync OK</div>
-             <div className="w-12 h-12 rounded-2xl bg-slate-900 shadow-xl border-4 border-white dark:border-slate-800 overflow-hidden">
-                <img src="https://picsum.photos/80/80?random=10" alt="Profile" />
-              </div>
+            <SupabaseStatus />
+            <UserMenu 
+              user={currentUser} 
+              onNavigate={setActiveTab} 
+              onLogout={handleLogout} 
+            />
           </div>
         </header>
 
@@ -457,7 +486,7 @@ const App: React.FC = () => {
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
-          {activeTab === 'settings' && <Settings />}
+          {activeTab === 'settings' && <Settings appMode={appMode} currentUser={currentUser} onUserUpdate={setCurrentUser} />}
         </div>
       </main>
     </div>

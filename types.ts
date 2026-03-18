@@ -287,6 +287,25 @@ export interface Transaction {
   createdAt: string;
 }
 
+export enum UserRole {
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  USER = 'user'
+}
+
+export interface User {
+  id: string;
+  auth_user_id?: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+  role: UserRole;
+  workspace_id?: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EmailMessage {
   id: string;
   sender_name: string;
