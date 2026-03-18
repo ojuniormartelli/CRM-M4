@@ -514,7 +514,7 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                           }}
                           className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
                         >
-                          <ICONS.Edit size={16} />
+                          <ICONS.Settings size={16} />
                         </button>
                       )}
                     </td>
@@ -628,6 +628,16 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                   value={editingUser.email || ''}
                   onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha</label>
+                <input 
+                  type="text" 
+                  value={editingUser.password || ''}
+                  onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder="admin"
                 />
               </div>
               <div>

@@ -298,6 +298,7 @@ export interface User {
   auth_user_id?: string;
   name: string;
   email: string;
+  password?: string;
   avatar_url?: string;
   role: UserRole;
   workspace_id?: string;

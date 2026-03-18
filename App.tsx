@@ -5,6 +5,7 @@ import Companies from './pages/Companies';
 import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
+import Login from './components/Login';
 import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User } from './types';
 import { supabase } from './lib/supabase';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -62,8 +63,8 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Get Current Auth User
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        // Check for local session
+        const localUserId = localStorage.getItem('m4_crm_user_id');
 
         const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts, resUser] = await Promise.all([
           supabase.from('m4_leads').select('*'),
@@ -80,7 +81,7 @@ const App: React.FC = () => {
           supabase.from('m4_credit_cards').select('*'),
           supabase.from('m4_companies').select('*'),
           supabase.from('m4_contacts').select('*'),
-          authUser ? supabase.from('m4_users').select('*').eq('auth_user_id', authUser.id).maybeSingle() : Promise.resolve({ data: null })
+          localUserId ? supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle() : Promise.resolve({ data: null })
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -102,17 +103,6 @@ const App: React.FC = () => {
 
         if (resUser.data) {
           setCurrentUser(resUser.data);
-        } else if (authUser) {
-          // If auth user exists but no profile, create one (simplified for now)
-          const newUser: any = {
-            auth_user_id: authUser.id,
-            name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
-            email: authUser.email || '',
-            role: 'owner',
-            status: 'active'
-          };
-          const { data: createdUser } = await supabase.from('m4_users').insert([newUser]).select().single();
-          if (createdUser) setCurrentUser(createdUser);
         }
 
       } catch (err: any) {
@@ -125,8 +115,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
+    localStorage.removeItem('m4_crm_user_id');
+    setCurrentUser(null);
   };
 
   const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => {
@@ -328,11 +318,15 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white flex-col gap-4">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-slate-950 flex-col gap-4 transition-colors duration-300">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="font-black text-slate-400 uppercase tracking-widest text-[10px] animate-pulse">Iniciando Cloud M4...</p>
       </div>
     );
+  }
+
+  if (!currentUser) {
+    return <Login onLogin={setCurrentUser} />;
   }
 
   return (

@@ -5,12 +5,18 @@ CREATE TABLE IF NOT EXISTS public.m4_users (
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     avatar_url TEXT,
+    password TEXT DEFAULT 'admin',
     role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
     workspace_id UUID,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Seed default admin user
+INSERT INTO public.m4_users (name, email, password, role, status)
+VALUES ('Administrador', 'admin', 'admin', 'owner', 'active')
+ON CONFLICT (email) DO NOTHING;
 
 -- Enable RLS
 ALTER TABLE public.m4_users ENABLE ROW LEVEL SECURITY;
