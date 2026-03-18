@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Contact, Company } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
 interface ContactsProps {
   contacts: Contact[];
@@ -154,7 +155,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
               <div className="space-y-3 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                   <ICONS.Phone width="14" height="14" />
-                  <span className="text-xs font-bold">{contact.phone || 'N/A'}</span>
+                  <span className="text-xs font-bold">{contact.phone ? formatPhoneBR(contact.phone) : 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                   <ICONS.Mail width="14" height="14" />
@@ -215,11 +216,11 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
@@ -271,7 +272,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento</label>
@@ -362,7 +363,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>

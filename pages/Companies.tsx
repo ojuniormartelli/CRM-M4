@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Company, Contact } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
 interface CompaniesProps {
   companies: Company[];
@@ -267,7 +268,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
               <div className="space-y-3 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                   <ICONS.Phone width="14" height="14" />
-                  <span className="text-xs font-bold">{company.phone || 'N/A'}</span>
+                  <span className="text-xs font-bold">{company.phone ? formatPhoneBR(company.phone) : 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                   <ICONS.Mail width="14" height="14" />
@@ -305,7 +306,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
@@ -331,11 +332,11 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
                 <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
@@ -453,7 +454,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
@@ -479,11 +480,11 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
 
@@ -562,7 +563,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>

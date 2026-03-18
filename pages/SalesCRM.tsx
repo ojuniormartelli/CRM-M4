@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Pipeline, Lead, Interaction, Company, Contact } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { formatPhoneBR } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
 
@@ -574,7 +575,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Dados do Negócio</p>
                   <div className="grid grid-cols-2 gap-4">
                     <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                    <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
@@ -761,7 +762,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             </div>
                             <div className="text-left">
                               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone || 'N/A'}</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone ? formatPhoneBR(contact.phone) : 'N/A'}</p>
                             </div>
                           </button>
                           <button onClick={() => window.open(`mailto:${contact.email}`, '_blank')} className="flex items-center gap-4 group">
@@ -823,7 +824,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj || 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj ? formatCNPJ(selectedLead.cnpj) : 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Razão Social</p>
@@ -831,7 +832,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyPhone || 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyPhone ? formatPhoneBR(selectedLead.companyPhone) : 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>

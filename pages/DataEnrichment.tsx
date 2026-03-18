@@ -3,6 +3,7 @@ import { ICONS } from '../constants';
 import { Lead, Pipeline, Contact } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
+import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -502,7 +503,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-slate-600 font-medium">{lead.email}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{lead.phone}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{lead.phone ? formatPhoneBR(lead.phone) : ''}</p>
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-blue-500 font-black text-[10px] uppercase">{lead.segment || 'Pendente'}</p>
@@ -699,7 +700,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Telefone</label>
                           <input type="text" value={contact.phone} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], phone: e.target.value };
+                            contacts[idx] = { ...contacts[idx], phone: formatPhoneBR(e.target.value) };
                             setEditingLead({ ...editingLead, contacts });
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
@@ -759,7 +760,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CNPJ</label>
-                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: formatCNPJ(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Corporativo</label>
@@ -767,7 +768,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
-                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
