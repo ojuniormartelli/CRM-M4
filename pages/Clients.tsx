@@ -17,7 +17,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients }) => {
   );
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-10 animate-in fade-in duration-700">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Base de Clientes</h2>

@@ -102,7 +102,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails }) => {
   );
 
   return (
-    <div className="h-[calc(100vh-140px)] flex gap-8 animate-in fade-in duration-700">
+    <div className="h-full flex gap-8 animate-in fade-in duration-700">
       {/* Sidebar Folders */}
       <div className="w-64 space-y-8 h-full flex flex-col">
         <button 

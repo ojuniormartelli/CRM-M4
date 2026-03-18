@@ -192,21 +192,23 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
+      <div className="flex justify-between items-center mb-10 shrink-0">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Sondagem & Reunião</h2>
+          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Sondagem & Reunião</h2>
           <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Formulários dinâmicos para qualificação</p>
         </div>
         {activeView === 'list' && (
           <button 
             onClick={handleCreateTemplate}
-            className="flex items-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all hover:-translate-y-1"
+            className="flex items-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
           >
             <ICONS.Plus /> NOVO FORMULÁRIO
           </button>
         )}
       </div>
+
+      <div className="flex-1 overflow-y-auto pr-4 scrollbar-none space-y-10 pb-10">
 
       {activeView === 'list' && (
         <div className="space-y-12">
@@ -620,6 +622,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

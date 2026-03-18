@@ -49,7 +49,7 @@ const Automation: React.FC<AutomationProps> = ({ leads }) => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Automações</h2>

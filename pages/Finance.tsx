@@ -318,8 +318,8 @@ const Finance: React.FC<FinanceProps> = ({
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none p-8 max-w-7xl mx-auto space-y-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
             {appMode === AppMode.EUGENCIA ? 'Minhas Finanças' : 'Gestão Financeira'}
@@ -346,143 +346,145 @@ const Finance: React.FC<FinanceProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0">
-              <h3 className="text-2xl font-black text-slate-900 uppercase">Novo Lançamento</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-all">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Lançamento</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
                 <ICONS.X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateTransaction} className="flex-1 overflow-y-auto px-10 py-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</label>
-                  <select 
-                    value={newTransaction.type} 
-                    onChange={e => setNewTransaction({...newTransaction, type: e.target.value as any})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="Receita">Receita (+)</option>
-                    <option value="Despesa">Despesa (-)</option>
-                  </select>
+            <form onSubmit={handleCreateTransaction} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-10 py-6 space-y-6 scrollbar-none">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                    <select 
+                      value={newTransaction.type} 
+                      onChange={e => setNewTransaction({...newTransaction, type: e.target.value as any})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="Receita">Receita (+)</option>
+                      <option value="Despesa">Despesa (-)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Valor</label>
+                    <input 
+                      type="number" 
+                      required
+                      value={newTransaction.amount} 
+                      onChange={e => setNewTransaction({...newTransaction, amount: Number(e.target.value)})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor</label>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Descrição</label>
                   <input 
-                    type="number" 
                     required
-                    value={newTransaction.amount} 
-                    onChange={e => setNewTransaction({...newTransaction, amount: Number(e.target.value)})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    placeholder="Ex: Mensalidade Cliente X"
+                    value={newTransaction.description} 
+                    onChange={e => setNewTransaction({...newTransaction, description: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
+                    <select 
+                      value={newTransaction.category} 
+                      onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="Mensalidade">Mensalidade</option>
+                      <option value="Serviço Avulso">Serviço Avulso</option>
+                      <option value="Infraestrutura">Infraestrutura</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Salários">Salários</option>
+                      <option value="Impostos">Impostos</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Status</label>
+                    <select 
+                      value={newTransaction.status} 
+                      onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="Pendente">Pendente</option>
+                      <option value="Pago">Pago / Recebido</option>
+                      <option value="Atrasado">Atrasado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data Vencimento</label>
+                    <input 
+                      type="date" 
+                      value={newTransaction.dueDate} 
+                      onChange={e => setNewTransaction({...newTransaction, dueDate: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Método de Pagamento</label>
+                    <select 
+                      value={newTransaction.paymentMethod} 
+                      onChange={e => setNewTransaction({...newTransaction, paymentMethod: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="Boleto">Boleto</option>
+                      <option value="Pix">Pix</option>
+                      <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      <option value="Transferência">Transferência</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Conta Bancária</label>
+                    <select 
+                      value={newTransaction.bankAccountId} 
+                      onChange={e => setNewTransaction({...newTransaction, bankAccountId: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="">Nenhuma</option>
+                      {bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Cliente</label>
+                    <select 
+                      value={newTransaction.clientAccountId} 
+                      onChange={e => setNewTransaction({...newTransaction, clientAccountId: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="">Nenhum</option>
+                      {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.serviceType} - {acc.id.slice(0,8)}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Descrição</label>
-                <input 
-                  required
-                  placeholder="Ex: Mensalidade Cliente X"
-                  value={newTransaction.description} 
-                  onChange={e => setNewTransaction({...newTransaction, description: e.target.value})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoria</label>
-                  <select 
-                    value={newTransaction.category} 
-                    onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="Mensalidade">Mensalidade</option>
-                    <option value="Serviço Avulso">Serviço Avulso</option>
-                    <option value="Infraestrutura">Infraestrutura</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Salários">Salários</option>
-                    <option value="Impostos">Impostos</option>
-                    <option value="Outros">Outros</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
-                  <select 
-                    value={newTransaction.status} 
-                    onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="Pendente">Pendente</option>
-                    <option value="Pago">Pago / Recebido</option>
-                    <option value="Atrasado">Atrasado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data Vencimento</label>
-                  <input 
-                    type="date" 
-                    value={newTransaction.dueDate} 
-                    onChange={e => setNewTransaction({...newTransaction, dueDate: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Método de Pagamento</label>
-                  <select 
-                    value={newTransaction.paymentMethod} 
-                    onChange={e => setNewTransaction({...newTransaction, paymentMethod: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="Boleto">Boleto</option>
-                    <option value="Pix">Pix</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Transferência">Transferência</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Conta Bancária</label>
-                  <select 
-                    value={newTransaction.bankAccountId} 
-                    onChange={e => setNewTransaction({...newTransaction, bankAccountId: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="">Nenhuma</option>
-                    {bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vincular a Cliente</label>
-                  <select 
-                    value={newTransaction.clientAccountId} 
-                    onChange={e => setNewTransaction({...newTransaction, clientAccountId: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="">Nenhum</option>
-                    {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.serviceType} - {acc.id.slice(0,8)}</option>)}
-                  </select>
-                </div>
+              <div className="p-10 pt-6 flex gap-4 border-t border-slate-50 dark:border-slate-800 shrink-0">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">CANCELAR</button>
+                <button 
+                  onClick={handleCreateTransaction} 
+                  disabled={isSyncing}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSyncing ? "SALVANDO..." : "CRIAR LANÇAMENTO"}
+                </button>
               </div>
             </form>
-
-            <div className="p-10 pt-6 flex gap-4 border-t border-slate-50 shrink-0">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition-all">CANCELAR</button>
-              <button 
-                onClick={handleCreateTransaction} 
-                disabled={isSyncing}
-                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all disabled:opacity-50"
-              >
-                {isSyncing ? "SALVANDO..." : "CRIAR LANÇAMENTO"}
-              </button>
-            </div>
           </div>
         </div>
       )}

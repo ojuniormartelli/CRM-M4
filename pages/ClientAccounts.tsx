@@ -90,7 +90,7 @@ export default function ClientAccounts({ leads, tasks, transactions }: ClientAcc
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none p-8 max-w-7xl mx-auto">
       {view === 'list' ? (
         <>
           <div className="flex justify-between items-center mb-8">

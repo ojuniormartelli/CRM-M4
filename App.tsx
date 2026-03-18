@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { ICONS } from './constants';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode } from './types';
+import Companies from './pages/Companies';
+import Contacts from './pages/Contacts';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact } from './types';
 import { supabase } from './lib/supabase';
 import { AGENCY_PIPELINE_STAGES } from './constants';
 import Dashboard from './pages/Dashboard';
@@ -24,7 +26,10 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSalesExpanded, setIsSalesExpanded] = useState(true);
+  const [expandedMenus, setExpandedMenus] = useState({
+    sales: true,
+    clients: false
+  });
   const [loading, setLoading] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
 
@@ -34,6 +39,8 @@ const App: React.FC = () => {
     { id: 'p2', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
   ]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
@@ -52,7 +59,7 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards] = await Promise.all([
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts] = await Promise.all([
           supabase.from('m4_leads').select('*'),
           supabase.from('m4_tasks').select('*'),
           supabase.from('m4_transactions').select('*'),
@@ -64,7 +71,9 @@ const App: React.FC = () => {
           supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false }),
           supabase.from('m4_client_accounts').select('*'),
           supabase.from('m4_bank_accounts').select('*'),
-          supabase.from('m4_credit_cards').select('*')
+          supabase.from('m4_credit_cards').select('*'),
+          supabase.from('m4_companies').select('*'),
+          supabase.from('m4_contacts').select('*')
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -78,6 +87,8 @@ const App: React.FC = () => {
         if (resClientAcc.data) setClientAccounts(resClientAcc.data);
         if (resBankAcc.data) setBankAccounts(resBankAcc.data);
         if (resCards.data) setCreditCards(resCards.data);
+        if (resCompanies.data) setCompanies(resCompanies.data);
+        if (resContacts.data) setContacts(resContacts.data);
         if (resSettings.data) {
           setSettings(resSettings.data);
         }
@@ -201,6 +212,26 @@ const App: React.FC = () => {
             }
           }
         }
+      } else if (status === 'lost') {
+        // AUTOMATION: If lost, create a follow-up task
+        const followUpTask = {
+          title: `Follow-up: Lead Perdido - ${lead.company}`,
+          description: `Motivo da perda: ${extraData?.reason || 'Não informado'}. Tentar contato em 3 meses.`,
+          type: 'call',
+          priority: 'Baixa',
+          status: 'Pendente',
+          leadId: lead.id,
+          companyId: lead.companyId,
+          dueDate: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
+          createdAt: new Date().toISOString()
+        };
+
+        const { data: taskRes } = await supabase
+          .from('m4_tasks')
+          .insert([followUpTask])
+          .select();
+        
+        if (taskRes) setTasks([...tasks, ...taskRes]);
       }
     }
   };
@@ -211,7 +242,6 @@ const App: React.FC = () => {
         onClick={() => {
           if (hasSubItems) {
             onToggle();
-            if (activeTab !== id) setActiveTab(id);
           } else {
             setActiveTab(id);
           }
@@ -230,29 +260,44 @@ const App: React.FC = () => {
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
         )}
       </button>
-      {hasSubItems && isExpanded && isSidebarOpen && (
-        <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-          {pipelines.map(p => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setActivePipelineId(p.id);
-                setActiveTab('sales');
-              }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                activeTab === 'sales' && activePipelineId === p.id 
-                  ? 'text-blue-600 bg-blue-50/50' 
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales' && activePipelineId === p.id ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-              {p.name}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
+
+  const menuSections = [
+    {
+      title: "Comercial",
+      items: [
+        { id: 'sales', icon: ICONS.Sales, label: 'Pipelines Vendas', hasSubItems: true, menuKey: 'sales' },
+        { id: 'clients_group', icon: ICONS.Clients, label: 'Base de Clientes', hasSubItems: true, menuKey: 'clients' },
+        { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
+        { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
+      ]
+    },
+    {
+      title: "Financeiro",
+      items: [
+        { id: 'finance', icon: ICONS.Finance, label: 'Gestão Financeira' },
+      ]
+    },
+    {
+      title: "Operacional",
+      items: [
+        { id: 'tasks', icon: ICONS.Tasks, label: 'Minhas Tarefas' },
+        { id: 'projects', icon: ICONS.Projects, label: 'Projetos & Squads' },
+      ]
+    },
+    ...(appMode === AppMode.AGENCIA ? [{
+      title: "Agência Plus",
+      items: [
+        { id: 'emails', icon: ICONS.Mail, label: 'E-mail (Inbox)' },
+        { id: 'enrichment', icon: ICONS.Database, label: 'Importar Leads' },
+        { id: 'marketing', icon: ICONS.Marketing, label: 'Marketing CRM' },
+        { id: 'contact', icon: ICONS.ContactCenter, label: 'Contact Center' },
+        { id: 'automation', icon: ICONS.Automation, label: 'IA & Automações' },
+        { id: 'collaboration', icon: ICONS.Collaboration, label: 'Feed & Chat' },
+      ]
+    }] : [])
+  ];
 
   if (loading) {
     return (
@@ -291,38 +336,65 @@ const App: React.FC = () => {
         <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto scrollbar-none">
           <SidebarItem id="dashboard" icon={ICONS.Dashboard} label="Visão Geral" isActive={activeTab === 'dashboard'} />
           
-          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Comercial</div>
-          <SidebarItem 
-            id="sales" 
-            icon={ICONS.Sales} 
-            label="Pipelines Vendas" 
-            hasSubItems={true} 
-            isExpanded={isSalesExpanded}
-            onToggle={() => setIsSalesExpanded(!isSalesExpanded)}
-            isActive={activeTab === 'sales'}
-          />
-          <SidebarItem id="meeting_forms" icon={ICONS.Form} label="Sondagem & Reunião" isActive={activeTab === 'meeting_forms'} />
-          <SidebarItem id="client_accounts" icon={ICONS.Clients} label="Contas Ativas" isActive={activeTab === 'client_accounts'} />
-          
-          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Financeiro</div>
-          <SidebarItem id="finance" icon={ICONS.Finance} label="Gestão Financeira" isActive={activeTab === 'finance'} />
-          
-          <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Operacional</div>
-          <SidebarItem id="tasks" icon={ICONS.Tasks} label="Minhas Tarefas" isActive={activeTab === 'tasks'} />
-          <SidebarItem id="projects" icon={ICONS.Projects} label="Projetos & Squads" isActive={activeTab === 'projects'} />
+          {menuSections.map((section, sIdx) => (
+            <React.Fragment key={sIdx}>
+              <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>
+                {section.title}
+              </div>
+              {section.items.map(item => (
+                <React.Fragment key={item.id}>
+                  <SidebarItem 
+                    id={item.id}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={
+                      item.id === 'sales' ? activeTab === 'sales' :
+                      item.id === 'clients_group' ? (activeTab === 'companies' || activeTab === 'contacts') :
+                      activeTab === item.id
+                    }
+                    hasSubItems={item.hasSubItems}
+                    isExpanded={item.menuKey ? expandedMenus[item.menuKey as keyof typeof expandedMenus] : false}
+                    onToggle={item.menuKey ? () => setExpandedMenus({...expandedMenus, [item.menuKey!]: !expandedMenus[item.menuKey as keyof typeof expandedMenus]}) : undefined}
+                  />
+                  
+                  {item.id === 'sales' && expandedMenus.sales && isSidebarOpen && (
+                    <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      {pipelines.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            setActivePipelineId(p.id);
+                            setActiveTab('sales');
+                          }}
+                          className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
+                            activeTab === 'sales' && activePipelineId === p.id 
+                              ? 'text-blue-600 bg-blue-50/50' 
+                              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales' && activePipelineId === p.id ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-          {appMode === AppMode.AGENCIA && (
-            <>
-              <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>Agência Plus</div>
-              <SidebarItem id="emails" icon={ICONS.Mail} label="E-mail (Inbox)" isActive={activeTab === 'emails'} />
-              <SidebarItem id="enrichment" icon={ICONS.Database} label="Importar Leads" isActive={activeTab === 'enrichment'} />
-              <SidebarItem id="marketing" icon={ICONS.Marketing} label="Marketing CRM" isActive={activeTab === 'marketing'} />
-              <SidebarItem id="contact" icon={ICONS.ContactCenter} label="Contact Center" isActive={activeTab === 'contact'} />
-              <SidebarItem id="clients" icon={ICONS.Clients} label="Base de Clientes" isActive={activeTab === 'clients'} />
-              <SidebarItem id="automation" icon={ICONS.Automation} label="IA & Automações" isActive={activeTab === 'automation'} />
-              <SidebarItem id="collaboration" icon={ICONS.Collaboration} label="Feed & Chat" isActive={activeTab === 'collaboration'} />
-            </>
-          )}
+                  {item.id === 'clients_group' && expandedMenus.clients && isSidebarOpen && (
+                    <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      <button onClick={() => setActiveTab('companies')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Empresas
+                      </button>
+                      <button onClick={() => setActiveTab('contacts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'contacts' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Contatos
+                      </button>
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </React.Fragment>
+          ))}
         </nav>
 
         <div className="p-6 border-t border-slate-50 dark:border-slate-800">
@@ -347,10 +419,24 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
+        <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
-          {activeTab === 'sales' && <SalesCRM pipelines={pipelines} activePipelineId={activePipelineId} setActivePipelineId={setActivePipelineId} leads={leads} setLeads={setLeads} onStatusChange={handleStatusChange} onImportLeads={() => setActiveTab('enrichment')} />}
+          {activeTab === 'sales' && (
+            <SalesCRM 
+              pipelines={pipelines} 
+              activePipelineId={activePipelineId} 
+              setActivePipelineId={setActivePipelineId} 
+              leads={leads} 
+              setLeads={setLeads} 
+              onStatusChange={handleStatusChange} 
+              onImportLeads={() => setActiveTab('enrichment')}
+              companies={companies}
+              contacts={contacts}
+            />
+          )}
+          {activeTab === 'companies' && <Companies companies={companies} setCompanies={setCompanies} contacts={contacts} setContacts={setContacts} />}
+          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} />}

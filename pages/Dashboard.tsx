@@ -124,8 +124,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
     .slice(0, 3);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center shrink-0">
         <div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Dashboard Comercial</h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Performance e métricas em tempo real.</p>

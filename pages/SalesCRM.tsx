@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Pipeline, Lead, Interaction } from '../types';
+import { Pipeline, Lead, Interaction, Company, Contact } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
@@ -14,6 +14,8 @@ interface SalesCRMProps {
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => Promise<void>;
   onImportLeads?: () => void;
+  companies: Company[];
+  contacts: Contact[];
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -34,7 +36,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads, companies, contacts }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,16 +57,104 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: '',
-    niche: '', serviceType: '', proposedTicket: 0
+    niche: '', serviceType: '', proposedTicket: 0,
+    companyId: '', contactId: ''
   });
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [newCompany, setNewCompany] = useState<Partial<Company>>({
+    name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: ''
+  });
+  
+  // Contact selection states for New Company form
+  const [contactMode, setContactMode] = useState<'select' | 'create'>('select');
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [contactSearch, setContactSearch] = useState('');
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const [primaryContact, setPrimaryContact] = useState({
+    name: '', email: '', phone: '', role: ''
+  });
+
+  const [newContact, setNewContact] = useState<Partial<Contact>>({
+    name: '', email: '', phone: '', role: '', companyId: ''
+  });
+
+  const handleCreateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSyncing(true);
+    const { data: companyData, error: companyError } = await supabase
+      .from('m4_companies')
+      .insert([newCompany])
+      .select();
+
+    if (companyError) {
+      alert("Erro ao salvar empresa: " + companyError.message);
+    } else if (companyData) {
+      const companyId = companyData[0].id;
+      
+      // Handle primary contact
+      if (contactMode === 'create' && primaryContact.name) {
+        await supabase
+          .from('m4_contacts')
+          .insert([{
+            ...primaryContact,
+            companyId,
+            isPrimary: true
+          }]);
+      } else if (contactMode === 'select' && selectedContactId) {
+        await supabase
+          .from('m4_contacts')
+          .update({ companyId, isPrimary: true })
+          .eq('id', selectedContactId);
+      }
+
+      setNewLead({ ...newLead, companyId: companyData[0].id, company: companyData[0].name });
+      setIsCompanyModalOpen(false);
+      setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: '' });
+      setPrimaryContact({ name: '', email: '', phone: '', role: '' });
+      setSelectedContactId('');
+      setContactSearch('');
+      setContactMode('select');
+      window.location.reload();
+    }
+    setIsSyncing(false);
+  };
+
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSyncing(true);
+    const { data, error } = await supabase
+      .from('m4_contacts')
+      .insert([{ ...newContact, companyId: newLead.companyId }])
+      .select();
+
+    if (error) {
+      alert("Erro ao salvar contato: " + error.message);
+    } else if (data) {
+      setNewLead({ ...newLead, contactId: data[0].id, name: data[0].name, email: data[0].email, phone: data[0].phone });
+      setIsContactModalOpen(false);
+      setNewContact({ name: '', email: '', phone: '', role: '', companyId: '' });
+      window.location.reload();
+    }
+    setIsSyncing(false);
+  };
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
+    
+    // Encontrar dados da empresa selecionada se houver
+    const selectedCompany = companies.find(c => c.id === newLead.companyId);
+    const selectedContact = contacts.find(c => c.id === newLead.contactId);
+
     const leadData = {
       ...newLead,
+      company: selectedCompany?.name || newLead.company,
+      name: selectedContact?.name || newLead.name,
+      email: selectedContact?.email || newLead.email,
+      phone: selectedContact?.phone || newLead.phone,
       pipelineId: activePipelineId,
       stageId: activePipeline.stages[0].id,
       createdAt: new Date().toISOString()
@@ -82,7 +172,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       setIsModalOpen(false);
       setNewLead({ 
         name: '', company: '', email: '', phone: '', value: 0, notes: '',
-        niche: '', serviceType: '', proposedTicket: 0, nextAction: '', nextActionDate: ''
+        niche: '', serviceType: '', proposedTicket: 0, nextAction: '', nextActionDate: '',
+        companyId: '', contactId: ''
       });
     }
     setIsSyncing(false);
@@ -246,8 +337,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
   };
 
   return (
-    <div className="space-y-10 h-full flex flex-col relative animate-in fade-in duration-1000">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+    <div className="flex flex-col h-full overflow-hidden relative animate-in fade-in duration-1000">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">
         <div className="flex items-center gap-6">
           <div>
             <div className="flex items-center gap-3">
@@ -403,29 +494,109 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl p-10 shadow-2xl">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6 uppercase">Cadastrar no Supabase</h3>
-            <form onSubmit={handleCreateLead} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                <input required placeholder="Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Negócio</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Entidades (Bitrix24 Style)</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
+                      <div className="flex gap-2">
+                        <select 
+                          value={newLead.companyId} 
+                          onChange={e => {
+                            const comp = companies.find(c => c.id === e.target.value);
+                            setNewLead({...newLead, companyId: e.target.value, company: comp?.name || ''});
+                          }} 
+                          className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value="">Selecionar Empresa</option>
+                          {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <button 
+                          type="button" 
+                          onClick={() => setIsCompanyModalOpen(true)}
+                          className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 transition-all"
+                          title="Nova Empresa"
+                        >
+                          <ICONS.Plus />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Contato</label>
+                      <div className="flex gap-2">
+                        <select 
+                          value={newLead.contactId} 
+                          onChange={e => {
+                            const cont = contacts.find(c => c.id === e.target.value);
+                            setNewLead({...newLead, contactId: e.target.value, name: cont?.name || '', email: cont?.email || '', phone: cont?.phone || ''});
+                          }} 
+                          className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value="">Selecionar Contato</option>
+                          {contacts.filter(c => !newLead.companyId || c.companyId === newLead.companyId).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <button 
+                          type="button" 
+                          onClick={() => setIsContactModalOpen(true)}
+                          className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 transition-all"
+                          title="Novo Contato"
+                          disabled={!newLead.companyId}
+                        >
+                          <ICONS.Plus />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {!newLead.companyId && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
+                      <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Ou cadastre manualmente:</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <input placeholder="Nome da Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" />
+                        <input placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Dados do Negócio</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Total</label>
+                      <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Ticket Mensal</label>
+                      <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-              </div>
-              <div className="flex gap-4 pt-4">
+
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
-                  {isSyncing ? "SALVANDO..." : "SALVAR NA NUVEM"}
+                  {isSyncing ? "SALVANDO..." : "CRIAR NEGÓCIO"}
                 </button>
               </div>
             </form>
@@ -778,9 +949,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
       {isWonModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6 uppercase">Configurar Nova Conta</h3>
-            <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-0 shrink-0">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6 uppercase">Configurar Nova Conta</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
               <div>
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Data de Início</label>
                 <input 
@@ -808,17 +981,180 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                 />
               </div>
-              <div className="pt-6 flex gap-4">
-                <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-                <button 
-                  onClick={handleWonConfirm}
-                  disabled={isSyncing}
-                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-100 dark:shadow-none disabled:opacity-50"
-                >
-                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
+            </div>
+            <div className="p-10 pt-0 shrink-0 flex gap-4">
+              <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+              <button 
+                onClick={handleWonConfirm}
+                disabled={isSyncing}
+                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-100 dark:shadow-none disabled:opacity-50"
+              >
+                {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isCompanyModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
+              <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCompany} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                  <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento</label>
+                    <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Tecnologia" />
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal (Opcional)</p>
+                    <button 
+                      type="button"
+                      onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
+                      className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
+                    >
+                      {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
+                    </button>
+                  </div>
+
+                  {contactMode === 'select' ? (
+                    <div className="relative">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Buscar Contato</label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input 
+                            value={contactSearch} 
+                            onChange={e => {
+                              setContactSearch(e.target.value);
+                              setShowContactDropdown(true);
+                            }} 
+                            onFocus={() => setShowContactDropdown(true)}
+                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
+                            placeholder="Digite nome, e-mail ou telefone..." 
+                          />
+                          {showContactDropdown && contactSearch && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[110] max-h-60 overflow-y-auto scrollbar-none">
+                              {contacts.filter(c => 
+                                c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                                c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                                c.phone?.includes(contactSearch)
+                              ).length > 0 ? (
+                                contacts.filter(c => 
+                                  c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                                  c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                                  c.phone?.includes(contactSearch)
+                                ).map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedContactId(c.id);
+                                      setContactSearch(c.name);
+                                      setShowContactDropdown(false);
+                                    }}
+                                    className="w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between group"
+                                  >
+                                    <div>
+                                      <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
+                                      <p className="text-[10px] text-slate-400">{c.email} • {c.phone}</p>
+                                    </div>
+                                    {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="p-4 text-center text-slate-400 text-xs font-bold">Nenhum contato encontrado</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
+                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Nome do contato" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Ex: CEO" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="email@contato.com" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button type="button" onClick={() => setIsCompanyModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
+                  {isSyncing ? "SALVANDO..." : "SALVAR EMPRESA"}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isContactModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Contato</h3>
+              <button onClick={() => setIsContactModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
             </div>
+            <form onSubmit={handleCreateContact} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                  <input required value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: João Silva" />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                    <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="joao@empresa.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button type="button" onClick={() => setIsContactModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
+                  {isSyncing ? "SALVANDO..." : "SALVAR CONTATO"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

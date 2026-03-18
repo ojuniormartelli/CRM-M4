@@ -109,7 +109,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
       <div className="flex justify-between items-end">
         <div className="flex items-center gap-6">
           <div className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-200">

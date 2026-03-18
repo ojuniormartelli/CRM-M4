@@ -644,7 +644,20 @@ Exemplo: {"0": "name", "2": "email"}`;
                   <button 
                     onClick={() => {
                       const contacts = editingLead.contacts || [];
-                      setEditingLead({ ...editingLead, contacts: [...contacts, { name: '', email: '', phone: '', role: '' }] });
+                      setEditingLead({ 
+                        ...editingLead, 
+                        contacts: [...contacts, { 
+                          id: crypto.randomUUID(),
+                          companyId: '',
+                          name: '', 
+                          email: '', 
+                          phone: '', 
+                          role: '',
+                          isPrimary: false,
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString()
+                        } as Contact] 
+                      });
                     }}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
                   >
@@ -670,7 +683,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Nome</label>
                           <input type="text" value={contact.name} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx].name = e.target.value;
+                            contacts[idx] = { ...contacts[idx], name: e.target.value };
                             setEditingLead({ ...editingLead, contacts });
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
@@ -678,7 +691,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">E-mail</label>
                           <input type="email" value={contact.email} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx].email = e.target.value;
+                            contacts[idx] = { ...contacts[idx], email: e.target.value };
                             setEditingLead({ ...editingLead, contacts });
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
@@ -686,7 +699,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Telefone</label>
                           <input type="text" value={contact.phone} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx].phone = e.target.value;
+                            contacts[idx] = { ...contacts[idx], phone: e.target.value };
                             setEditingLead({ ...editingLead, contacts });
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
@@ -694,7 +707,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Cargo</label>
                           <input type="text" value={contact.role} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx].role = e.target.value;
+                            contacts[idx] = { ...contacts[idx], role: e.target.value };
                             setEditingLead({ ...editingLead, contacts });
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>

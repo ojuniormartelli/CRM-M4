@@ -29,13 +29,36 @@ export enum Priority {
   URGENT = 'Urgente'
 }
 
-export interface Contact {
-  id?: string;
+export interface Company {
+  id: string;
   name: string;
-  email: string;
-  phone: string;
-  role: string;
-  whatsappLink?: string;
+  cnpj?: string;
+  city?: string;
+  state?: string;
+  segment?: string;
+  website?: string;
+  instagram?: string;
+  phone?: string;
+  whatsapp?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contact {
+  id: string;
+  companyId: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  instagram?: string;
+  linkedin?: string;
+  notes?: string;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export enum LeadTemperature {
@@ -137,6 +160,10 @@ export interface Lead {
   responsibleName?: string;
   responsibleId?: string;
   
+  // Bitrix24 Refactoring
+  companyId?: string;
+  contactId?: string;
+  
   lastActivityAt?: string;
   status?: 'active' | 'won' | 'lost' | 'paused';
   interactions?: Interaction[];
@@ -153,6 +180,8 @@ export interface Task {
   assignedTo: string;
   dueDate: string;
   leadId?: string;
+  dealId?: string;
+  companyId?: string;
   projectId?: string;
   clientAccountId?: string;
   isRecurring?: boolean;
@@ -166,6 +195,7 @@ export interface Project {
   name: string;
   clientId: string;
   leadId?: string;
+  companyId?: string;
   status: 'active' | 'completed' | 'on_hold';
   startDate: string;
   endDate?: string;
@@ -206,6 +236,7 @@ export interface Automation {
 export interface ClientAccount {
   id: string;
   leadId: string;
+  companyId?: string;
   status: 'ativo' | 'pausado' | 'cancelado';
   serviceType: string;
   startDate: string;
@@ -248,6 +279,7 @@ export interface Transaction {
   bankAccountId?: string;
   clientAccountId?: string;
   leadId?: string;
+  companyId?: string;
   creditCardId?: string;
   paymentMethod?: string;
   dueDate?: string;
@@ -267,4 +299,6 @@ export interface EmailMessage {
   is_starred: boolean;
   created_at: string;
   leadId?: string;
+  companyId?: string;
+  contactId?: string;
 }
