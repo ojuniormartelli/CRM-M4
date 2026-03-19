@@ -1,9 +1,10 @@
--- SQL Migration Script for CRM Evolution
--- Run this in your Supabase SQL Editor
+-- 🔄 SCRIPT DE ATUALIZAÇÃO (M4 CRM - CRM Evolution)
+-- Use este script para adicionar novas funcionalidades a um banco já existente.
 
--- 1. Create Companies table if not exists
+-- 1. Criar tabela de Empresas (se não existir)
 CREATE TABLE IF NOT EXISTS public.m4_companies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
   name text NOT NULL,
   cnpj text,
   city text,
@@ -18,9 +19,10 @@ CREATE TABLE IF NOT EXISTS public.m4_companies (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 2. Create Contacts table if not exists
+-- 2. Criar tabela de Contatos (se não existir)
 CREATE TABLE IF NOT EXISTS public.m4_contacts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
   company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
   name text NOT NULL,
   role text,
@@ -35,22 +37,34 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 3. Update m4_leads (Deals) to link with Companies and Contacts
+-- 3. Vincular Leads (Negócios) às Empresas e Contatos
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS workspace_id uuid;
 
--- 4. Update m4_client_accounts to link with Companies
+-- 4. Vincular Contas de Clientes às Empresas
 ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 
--- 5. Update m4_tasks to link with Companies and Deals
+-- 5. Vincular Tarefas às Empresas e Negócios
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS workspace_id uuid;
 
--- 6. Update m4_transactions to link with Companies and Deals
+-- 6. Vincular Transações às Empresas e Negócios
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS workspace_id uuid;
 
--- 7. Update m4_emails to link with Companies and Contacts
+-- 7. Vincular E-mails às Empresas, Contatos e Negócios
 ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
 ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
+-- 8. Adicionar workspace_id às tabelas restantes
+ALTER TABLE m4_client_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_bank_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_credit_cards ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_posts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_campaigns ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID;

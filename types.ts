@@ -31,6 +31,7 @@ export enum Priority {
 
 export interface Company {
   id: string;
+  workspace_id?: string;
   name: string;
   cnpj?: string;
   city?: string;
@@ -47,6 +48,7 @@ export interface Company {
 
 export interface Contact {
   id: string;
+  workspace_id?: string;
   companyId: string;
   name: string;
   role?: string;

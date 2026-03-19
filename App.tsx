@@ -81,25 +81,42 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Check for local session
+        // 1. Check for local session and fetch User first
         const localUserId = localStorage.getItem('m4_crm_user_id');
+        let user = null;
+        if (localUserId) {
+          const { data: userData } = await supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle();
+          user = userData;
+          if (user) setCurrentUser(user);
+        }
 
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts, resUser] = await Promise.all([
-          supabase.from('m4_leads').select('*'),
-          supabase.from('m4_tasks').select('*'),
-          supabase.from('m4_transactions').select('*'),
-          supabase.from('m4_emails').select('*').order('created_at', { ascending: false }),
-          supabase.from('m4_clients').select('*'),
-          supabase.from('m4_projects').select('*'),
-          supabase.from('m4_settings').select('*').maybeSingle(),
-          supabase.from('m4_posts').select('*').order('created_at', { ascending: false }),
-          supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false }),
-          supabase.from('m4_client_accounts').select('*'),
-          supabase.from('m4_bank_accounts').select('*'),
-          supabase.from('m4_credit_cards').select('*'),
-          supabase.from('m4_companies').select('*'),
-          supabase.from('m4_contacts').select('*'),
-          localUserId ? supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle() : Promise.resolve({ data: null })
+        // 2. Fetch all other data, filtered by workspace_id if user exists
+        const workspaceId = user?.workspace_id;
+
+        const buildQuery = (table: string) => {
+          let query = supabase.from(table).select('*');
+          if (workspaceId) {
+            query = query.eq('workspace_id', workspaceId);
+          }
+          return query;
+        };
+
+        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts] = await Promise.all([
+          buildQuery('m4_leads'),
+          buildQuery('m4_tasks'),
+          buildQuery('m4_transactions'),
+          buildQuery('m4_emails').order('created_at', { ascending: false }),
+          buildQuery('m4_clients'),
+          buildQuery('m4_projects'),
+          supabase.from('m4_settings').select('*').maybeSingle(), // Settings might be global or per workspace
+          buildQuery('m4_posts').order('created_at', { ascending: false }),
+          buildQuery('m4_campaigns').order('created_at', { ascending: false }),
+          buildQuery('m4_client_accounts'),
+          buildQuery('m4_bank_accounts'),
+          buildQuery('m4_credit_cards'),
+          buildQuery('m4_companies'),
+          buildQuery('m4_contacts'),
+          buildQuery('m4_settings').maybeSingle()
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -115,13 +132,7 @@ const App: React.FC = () => {
         if (resCards.data) setCreditCards(resCards.data);
         if (resCompanies.data) setCompanies(resCompanies.data);
         if (resContacts.data) setContacts(resContacts.data);
-        if (resSettings.data) {
-          setSettings(resSettings.data);
-        }
-
-        if (resUser.data) {
-          setCurrentUser(resUser.data);
-        }
+        if (resSettings.data) setSettings(resSettings.data);
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
@@ -462,7 +473,7 @@ const App: React.FC = () => {
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
-          {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} />}
+          {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
           {activeTab === 'sales' && (
             <SalesCRM 
               pipelines={pipelines} 
@@ -474,17 +485,18 @@ const App: React.FC = () => {
               onImportLeads={() => setActiveTab('enrichment')}
               companies={companies}
               contacts={contacts}
+              currentUser={currentUser}
             />
           )}
-          {activeTab === 'companies' && <Companies companies={companies} setCompanies={setCompanies} contacts={contacts} setContacts={setContacts} />}
-          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} />}
-          {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} />}
+          {activeTab === 'companies' && <Companies companies={companies} setCompanies={setCompanies} contacts={contacts} setContacts={setContacts} currentUser={currentUser} />}
+          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} currentUser={currentUser} />}
+          {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
-          {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} />}
-          {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} />}
-          {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} />}
-          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} />}
-          {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} />}
+          {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}
+          {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} />}
+          {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
+          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} />}
+          {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
           {activeTab === 'finance' && (
             <Finance 
               transactions={transactions} 
@@ -493,6 +505,7 @@ const App: React.FC = () => {
               clientAccounts={clientAccounts}
               setTransactions={setTransactions} 
               appMode={appMode}
+              currentUser={currentUser}
             />
           )}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}

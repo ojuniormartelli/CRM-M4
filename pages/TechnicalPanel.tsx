@@ -5,79 +5,298 @@ import { ICONS } from '../constants';
 const TechnicalPanel: React.FC = () => {
   const [copied, setCopied] = useState<string | null>(null);
 
-  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM)
--- ATENÇÃO: Use este script apenas se estiver configurando do zero.
+  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
+-- Use este script apenas se estiver configurando do zero.
 
--- 1. Tabela de Leads
+-- 1. Tabela de Configurações
+CREATE TABLE IF NOT EXISTS m4_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID UNIQUE,
+    crm_name TEXT DEFAULT 'M4 CRM',
+    logo_url TEXT,
+    theme TEXT DEFAULT 'light',
+    primary_color TEXT DEFAULT '#2563eb',
+    company_name TEXT DEFAULT 'Agency Cloud',
+    city TEXT,
+    state TEXT,
+    website_url TEXT,
+    whatsapp_number TEXT,
+    language TEXT DEFAULT 'pt-BR',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Tabela de Empresas
+CREATE TABLE IF NOT EXISTS public.m4_companies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  name text NOT NULL,
+  cnpj text,
+  city text,
+  state text,
+  segment text,
+  website text,
+  instagram text,
+  phone text,
+  whatsapp text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- 3. Tabela de Contatos
+CREATE TABLE IF NOT EXISTS public.m4_contacts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  role text,
+  email text,
+  phone text,
+  whatsapp text,
+  instagram text,
+  linkedin text,
+  notes text,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- 4. Tabela de Leads (Negócios/Deals)
 CREATE TABLE IF NOT EXISTS m4_leads (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  company TEXT,
-  email TEXT,
-  phone TEXT,
-  pipelineId TEXT DEFAULT 'p1',
-  stageId TEXT DEFAULT 's1',
-  value NUMERIC DEFAULT 0,
-  notes TEXT,
-  createdAt TIMESTAMPTZ DEFAULT now()
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    company TEXT, -- Nome da empresa (legado)
+    company_id UUID REFERENCES public.m4_companies(id),
+    contact_id UUID REFERENCES public.m4_contacts(id),
+    email TEXT,
+    phone TEXT,
+    pipelineId TEXT DEFAULT 'p1',
+    stageId TEXT DEFAULT 's1',
+    value NUMERIC DEFAULT 0,
+    notes TEXT,
+    niche TEXT,
+    service_type TEXT,
+    proposed_ticket NUMERIC DEFAULT 0,
+    next_action TEXT,
+    next_action_date DATE,
+    qualification TEXT,
+    source TEXT,
+    campaign TEXT,
+    city TEXT,
+    state TEXT,
+    closing_forecast DATE,
+    temperature TEXT DEFAULT 'Frio',
+    probability INTEGER DEFAULT 0,
+    ai_score INTEGER DEFAULT 0,
+    ai_reasoning TEXT,
+    legal_name TEXT,
+    instagram TEXT,
+    website TEXT,
+    company_email TEXT,
+    company_phone TEXT,
+    contacts JSONB DEFAULT '[]', -- Legado
+    responsible_name TEXT,
+    responsible_id TEXT,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status TEXT DEFAULT 'active',
+    interactions JSONB DEFAULT '[]',
+    custom_fields JSONB DEFAULT '{}',
+    workspace_id UUID,
+    createdAt TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Tabela de Tarefas
+-- 5. Tabela de Tarefas
 CREATE TABLE IF NOT EXISTS m4_tasks (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'Pendente',
-  priority TEXT DEFAULT 'Média',
-  assignedTo TEXT,
-  dueDate DATE,
-  createdAt TIMESTAMPTZ DEFAULT now()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'Pendente',
+    priority TEXT DEFAULT 'Média',
+    type TEXT DEFAULT 'task',
+    due_date TIMESTAMP WITH TIME ZONE,
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES m4_companies(id),
+    deal_id UUID REFERENCES m4_leads(id),
+    client_account_id UUID,
+    is_recurring BOOLEAN DEFAULT FALSE,
+    recurrence_period TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. Tabela de Transações Financeiras
+-- 6. Tabela de Contas de Clientes (Follow-up)
+CREATE TABLE IF NOT EXISTS m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES m4_companies(id),
+    status TEXT DEFAULT 'ativo',
+    service_type TEXT,
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    billing_model TEXT DEFAULT 'recorrente',
+    monthly_value NUMERIC DEFAULT 0,
+    notes TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 7. Módulo Financeiro
+CREATE TABLE IF NOT EXISTS m4_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    bank_type TEXT,
+    current_balance NUMERIC DEFAULT 0,
+    currency TEXT DEFAULT 'BRL',
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_credit_cards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    limit_amount NUMERIC DEFAULT 0,
+    closing_day INTEGER,
+    due_day INTEGER,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS m4_transactions (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  type TEXT NOT NULL, -- 'Receita' ou 'Despesa'
-  category TEXT,
-  amount NUMERIC NOT NULL,
-  date DATE DEFAULT CURRENT_DATE,
-  description TEXT,
-  status TEXT DEFAULT 'Pendente' -- 'Pago' ou 'Pendente'
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    description TEXT NOT NULL,
+    amount NUMERIC NOT NULL,
+    type TEXT NOT NULL,
+    category TEXT,
+    date DATE DEFAULT CURRENT_DATE,
+    status TEXT DEFAULT 'Pendente',
+    bank_account_id UUID REFERENCES m4_bank_accounts(id),
+    client_account_id UUID REFERENCES m4_client_accounts(id),
+    lead_id UUID REFERENCES m4_leads(id),
+    company_id UUID REFERENCES m4_companies(id),
+    deal_id UUID REFERENCES m4_leads(id),
+    credit_card_id UUID REFERENCES m4_credit_cards(id),
+    payment_method TEXT,
+    due_date DATE,
+    paid_date DATE,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Tabela de E-mails
+-- 8. Comunicação e Social
 CREATE TABLE IF NOT EXISTS m4_emails (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sender_name TEXT,
-  sender_email TEXT,
-  recipient_email TEXT,
-  subject TEXT,
-  body TEXT,
-  folder TEXT DEFAULT 'inbox', -- 'inbox', 'sent', 'drafts', 'trash'
-  is_read BOOLEAN DEFAULT false,
-  is_starred BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_name TEXT,
+    sender_email TEXT,
+    recipient_email TEXT,
+    subject TEXT,
+    body TEXT,
+    folder TEXT DEFAULT 'inbox',
+    is_read BOOLEAN DEFAULT FALSE,
+    company_id UUID REFERENCES m4_companies(id),
+    contact_id UUID REFERENCES m4_contacts(id),
+    lead_id UUID REFERENCES m4_leads(id),
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_name TEXT,
+    user_role TEXT,
+    content TEXT,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    type TEXT DEFAULT 'update',
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    type TEXT,
+    status TEXT DEFAULT 'Agendada',
+    sent_count INTEGER DEFAULT 0,
+    open_rate TEXT DEFAULT '-',
+    click_rate TEXT DEFAULT '-',
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );`;
 
-  const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (SEM PERDA DE DADOS)
+  const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (M4 CRM - CRM Evolution)
 -- Use este script para adicionar novas funcionalidades a um banco já existente.
 
--- Adiciona tabela de E-mails (caso não exista)
-CREATE TABLE IF NOT EXISTS m4_emails (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sender_name TEXT,
-  sender_email TEXT,
-  recipient_email TEXT,
-  subject TEXT,
-  body TEXT,
-  folder TEXT DEFAULT 'inbox',
-  is_read BOOLEAN DEFAULT false,
-  is_starred BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
+-- 1. Criar tabela de Empresas (se não existir)
+CREATE TABLE IF NOT EXISTS public.m4_companies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  name text NOT NULL,
+  cnpj text,
+  city text,
+  state text,
+  segment text,
+  website text,
+  instagram text,
+  phone text,
+  whatsapp text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
--- Exemplo: Adicionando coluna de responsável em Leads caso esqueça
--- ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS assigned_to TEXT;`;
+-- 2. Criar tabela de Contatos (se não existir)
+CREATE TABLE IF NOT EXISTS public.m4_contacts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  role text,
+  email text,
+  phone text,
+  whatsapp text,
+  instagram text,
+  linkedin text,
+  notes text,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- 3. Vincular Leads (Negócios) às Empresas e Contatos
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
+-- 4. Vincular Contas de Clientes às Empresas
+ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+
+-- 5. Vincular Tarefas às Empresas e Negócios
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
+-- 6. Vincular Transações às Empresas e Negócios
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
+-- 7. Vincular E-mails às Empresas, Contatos e Negócios
+ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
+ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES public.m4_leads(id);
+ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS workspace_id uuid;
+
+-- 8. Adicionar workspace_id às tabelas restantes
+ALTER TABLE m4_bank_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_credit_cards ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_posts ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_campaigns ADD COLUMN IF NOT EXISTS workspace_id UUID;
+ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID;`;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

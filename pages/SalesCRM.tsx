@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Pipeline, Lead, Interaction, Company, Contact } from '../types';
+import { Pipeline, Lead, Interaction, Company, Contact, User } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
-import { formatPhoneBR } from '../utils/formatters';
+import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
 
@@ -17,6 +17,7 @@ interface SalesCRMProps {
   onImportLeads?: () => void;
   companies: Company[];
   contacts: Contact[];
+  currentUser: User | null;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -37,7 +38,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads, companies, contacts }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads, companies, contacts, currentUser }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,7 +86,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     setIsSyncing(true);
     const { data: companyData, error: companyError } = await supabase
       .from('m4_companies')
-      .insert([newCompany])
+      .insert([{
+        ...newCompany,
+        workspace_id: currentUser?.workspace_id
+      }])
       .select();
 
     if (companyError) {
@@ -100,6 +104,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
           .insert([{
             ...primaryContact,
             companyId,
+            workspace_id: currentUser?.workspace_id,
             isPrimary: true
           }]);
       } else if (contactMode === 'select' && selectedContactId) {
@@ -126,7 +131,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     setIsSyncing(true);
     const { data, error } = await supabase
       .from('m4_contacts')
-      .insert([{ ...newContact, companyId: newLead.companyId }])
+      .insert([{ 
+        ...newContact, 
+        companyId: newLead.companyId,
+        workspace_id: currentUser?.workspace_id
+      }])
       .select();
 
     if (error) {
@@ -158,6 +167,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       phone: selectedContact?.phone || newLead.phone,
       pipelineId: activePipelineId,
       stageId: activePipeline.stages[0].id,
+      workspace_id: currentUser?.workspace_id,
       createdAt: new Date().toISOString()
     };
 
@@ -1014,7 +1024,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento</label>
@@ -1105,7 +1115,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>
@@ -1145,7 +1155,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
               </div>

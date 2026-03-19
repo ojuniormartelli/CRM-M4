@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
-import { Task, TaskStatus, Priority } from '../types';
+import { Task, TaskStatus, Priority, User } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface TasksProps {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  currentUser?: User | null;
 }
 
-const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   const [filter, setFilter] = useState<TaskStatus | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
@@ -26,6 +27,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
     e.preventDefault();
     const taskData = {
       ...newTask,
+      workspace_id: currentUser?.workspace_id,
       createdAt: new Date().toISOString()
     };
 
@@ -72,6 +74,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks }) => {
           recurrencePeriod: task.recurrencePeriod,
           clientAccountId: task.clientAccountId,
           projectId: task.projectId,
+          workspace_id: currentUser?.workspace_id,
           createdAt: new Date().toISOString()
         };
 

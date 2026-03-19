@@ -9,33 +9,13 @@ interface ClientAccountsProps {
   leads: Lead[];
   tasks: Task[];
   transactions: Transaction[];
+  clientAccounts: ClientAccount[];
+  setClientAccounts: React.Dispatch<React.SetStateAction<ClientAccount[]>>;
 }
 
-export default function ClientAccounts({ leads, tasks, transactions }: ClientAccountsProps) {
-  const [accounts, setAccounts] = useState<ClientAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts }: ClientAccountsProps) {
   const [selectedAccount, setSelectedAccount] = useState<ClientAccount | null>(null);
   const [view, setView] = useState<'list' | 'details'>('list');
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  async function fetchAccounts() {
-    try {
-      const { data, error } = await supabase
-        .from('m4_client_accounts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAccounts(data || []);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const getLeadName = (leadId: string) => {
     return leads.find(l => l.id === leadId)?.name || 'Cliente Desconhecido';
@@ -81,7 +61,7 @@ export default function ClientAccounts({ leads, tasks, transactions }: ClientAcc
     );
   };
 
-  if (loading) {
+  if (!clientAccounts) {
     return (
       <div className="p-8 flex justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -108,7 +88,7 @@ export default function ClientAccounts({ leads, tasks, transactions }: ClientAcc
                 </div>
                 <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Contas Ativas</span>
               </div>
-              <p className="text-3xl font-black text-slate-800">{accounts.filter(a => a.status === 'ativo').length}</p>
+              <p className="text-3xl font-black text-slate-800">{clientAccounts.filter(a => a.status === 'ativo').length}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
               <div className="flex items-center gap-4 mb-2">
@@ -119,7 +99,7 @@ export default function ClientAccounts({ leads, tasks, transactions }: ClientAcc
               </div>
               <p className="text-3xl font-black text-slate-800">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  accounts.filter(a => a.status === 'ativo').reduce((acc, curr) => acc + (Number(curr.monthlyValue) || 0), 0)
+                  clientAccounts.filter(a => a.status === 'ativo').reduce((acc, curr) => acc + (Number(curr.monthlyValue) || 0), 0)
                 )}
               </p>
             </div>
@@ -146,14 +126,14 @@ export default function ClientAccounts({ leads, tasks, transactions }: ClientAcc
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {accounts.length === 0 ? (
+                {clientAccounts.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
                       Nenhum cliente ativo encontrado.
                     </td>
                   </tr>
                 ) : (
-                  accounts.map((account) => (
+                  clientAccounts.map((account) => (
                     <tr key={account.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="font-bold text-slate-800">{getLeadName(account.leadId)}</div>

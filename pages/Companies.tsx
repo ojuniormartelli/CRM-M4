@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Company, Contact } from '../types';
+import { Company, Contact, User } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
@@ -10,9 +10,10 @@ interface CompaniesProps {
   setCompanies: React.Dispatch<React.SetStateAction<Company[]>>;
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
+  currentUser: User | null;
 }
 
-const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts, setContacts }) => {
+const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts, setContacts, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -38,7 +39,10 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     
     const { data: companyData, error: companyError } = await supabase
       .from('m4_companies')
-      .insert([newCompany])
+      .insert([{
+        ...newCompany,
+        workspace_id: currentUser?.workspace_id
+      }])
       .select();
 
     if (companyError) {
@@ -52,6 +56,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           .insert([{
             ...primaryContact,
             companyId,
+            workspace_id: currentUser?.workspace_id,
             isPrimary: true
           }])
           .select();
@@ -110,6 +115,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           .insert([{
             ...primaryContact,
             companyId: editingCompany.id,
+            workspace_id: currentUser?.workspace_id,
             isPrimary: true
           }])
           .select();
@@ -414,7 +420,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>

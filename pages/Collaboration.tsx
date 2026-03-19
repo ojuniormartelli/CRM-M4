@@ -6,9 +6,10 @@ import { supabase } from '../lib/supabase';
 interface CollaborationProps {
   posts: any[];
   setPosts: React.Dispatch<React.SetStateAction<any[]>>;
+  currentUser?: any;
 }
 
-const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts }) => {
+const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentUser }) => {
   const [newPostContent, setNewPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
@@ -17,10 +18,11 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts }) => {
     setIsPosting(true);
     try {
       const { data, error } = await supabase.from('m4_posts').insert([{
-        user_name: 'Usuário CRM', // In a real app, get from auth
-        user_role: 'Administrador',
+        user_name: currentUser?.name || 'Usuário CRM',
+        user_role: currentUser?.role || 'Administrador',
         content: newPostContent,
-        type: 'update'
+        type: 'update',
+        workspace_id: currentUser?.workspace_id
       }]).select();
 
       if (data) {

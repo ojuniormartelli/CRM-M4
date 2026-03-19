@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ICONS } from '../constants';
-import { Lead, Pipeline, Contact } from '../types';
+import { Lead, Pipeline, Contact, User } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
@@ -10,9 +10,10 @@ import * as XLSX from 'xlsx';
 interface DataEnrichmentProps {
   pipelines: Pipeline[];
   onImportComplete: () => void;
+  currentUser?: User | null;
 }
 
-const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComplete }) => {
+const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComplete, currentUser }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<any[][]>([]);
@@ -265,6 +266,7 @@ Exemplo: {"0": "name", "2": "email"}`;
       ...lead,
       pipelineId: selectedPipeline,
       stageId: selectedStage,
+      workspace_id: currentUser?.workspace_id,
       createdAt: new Date().toISOString(),
       nextAction: 'Qualificar lead importado',
       nextActionDate: new Date().toISOString().split('T')[0]

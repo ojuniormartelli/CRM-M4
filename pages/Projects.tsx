@@ -8,9 +8,10 @@ interface ProjectsProps {
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  currentUser?: any;
 }
 
-const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTasks }) => {
+const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTasks, currentUser }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProject, setNewProject] = useState<Partial<Project>>({
@@ -19,9 +20,14 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    const projectData = {
+      ...newProject,
+      workspace_id: currentUser?.workspace_id
+    };
+
     const { data, error } = await supabase
       .from('m4_projects')
-      .insert([newProject])
+      .insert([projectData])
       .select();
 
     if (!error && data) {

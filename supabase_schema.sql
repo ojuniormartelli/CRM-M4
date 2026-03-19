@@ -1,10 +1,10 @@
--- SQL Migration Script for M4 CRM & Agency Suite
--- Run this in your Supabase SQL Editor
+-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
+-- Use este script apenas se estiver configurando do zero.
 
--- 1. Create Settings table
+-- 1. Tabela de Configurações
 CREATE TABLE IF NOT EXISTS m4_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT UNIQUE, -- One settings record per tenant/workspace
+    workspace_id UUID UNIQUE,
     crm_name TEXT DEFAULT 'M4 CRM',
     logo_url TEXT,
     theme TEXT DEFAULT 'light',
@@ -18,36 +18,87 @@ CREATE TABLE IF NOT EXISTS m4_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Add missing columns to m4_leads for enhanced CRM features
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS niche TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS service_type TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS proposed_ticket NUMERIC DEFAULT 0;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS next_action TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS next_action_date DATE;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS qualification TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS source TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS campaign TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS city TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS state TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS closing_forecast DATE;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS temperature TEXT DEFAULT 'Frio';
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS probability INTEGER DEFAULT 0;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_score INTEGER DEFAULT 0;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS legal_name TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS instagram TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS website TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_email TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_phone TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]';
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS responsible_name TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS responsible_id TEXT;
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS interactions JSONB DEFAULT '[]';
-ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}';
+-- 2. Tabela de Empresas
+CREATE TABLE IF NOT EXISTS public.m4_companies (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  name text NOT NULL,
+  cnpj text,
+  city text,
+  state text,
+  segment text,
+  website text,
+  instagram text,
+  phone text,
+  whatsapp text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
 
--- 3. Ensure other tables exist (Basic structure)
+-- 3. Tabela de Contatos
+CREATE TABLE IF NOT EXISTS public.m4_contacts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  role text,
+  email text,
+  phone text,
+  whatsapp text,
+  instagram text,
+  linkedin text,
+  notes text,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- 4. Tabela de Leads (Negócios/Deals)
+CREATE TABLE IF NOT EXISTS m4_leads (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    company TEXT, -- Nome da empresa (legado)
+    company_id UUID REFERENCES public.m4_companies(id),
+    contact_id UUID REFERENCES public.m4_contacts(id),
+    email TEXT,
+    phone TEXT,
+    pipelineId TEXT DEFAULT 'p1',
+    stageId TEXT DEFAULT 's1',
+    value NUMERIC DEFAULT 0,
+    notes TEXT,
+    niche TEXT,
+    service_type TEXT,
+    proposed_ticket NUMERIC DEFAULT 0,
+    next_action TEXT,
+    next_action_date DATE,
+    qualification TEXT,
+    source TEXT,
+    campaign TEXT,
+    city TEXT,
+    state TEXT,
+    closing_forecast DATE,
+    temperature TEXT DEFAULT 'Frio',
+    probability INTEGER DEFAULT 0,
+    ai_score INTEGER DEFAULT 0,
+    ai_reasoning TEXT,
+    legal_name TEXT,
+    instagram TEXT,
+    website TEXT,
+    company_email TEXT,
+    company_phone TEXT,
+    contacts JSONB DEFAULT '[]', -- Legado
+    responsible_name TEXT,
+    responsible_id TEXT,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status TEXT DEFAULT 'active',
+    interactions JSONB DEFAULT '[]',
+    custom_fields JSONB DEFAULT '{}',
+    workspace_id UUID,
+    createdAt TIMESTAMPTZ DEFAULT now()
+);
+
+-- 5. Tabela de Tarefas
 CREATE TABLE IF NOT EXISTS m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
@@ -57,20 +108,81 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     type TEXT DEFAULT 'task',
     due_date TIMESTAMP WITH TIME ZONE,
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES m4_companies(id),
+    deal_id UUID REFERENCES m4_leads(id),
+    client_account_id UUID, -- Será referenciado abaixo
+    is_recurring BOOLEAN DEFAULT FALSE,
+    recurrence_period TEXT,
+    workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. Tabela de Contas de Clientes (Follow-up)
+CREATE TABLE IF NOT EXISTS m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES m4_companies(id),
+    status TEXT DEFAULT 'ativo',
+    service_type TEXT,
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    billing_model TEXT DEFAULT 'recorrente',
+    monthly_value NUMERIC DEFAULT 0,
+    notes TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Adicionar FK em m4_tasks para m4_client_accounts
+ALTER TABLE m4_tasks ADD CONSTRAINT fk_client_account FOREIGN KEY (client_account_id) REFERENCES m4_client_accounts(id);
+
+-- 7. Módulo Financeiro
+CREATE TABLE IF NOT EXISTS m4_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    bank_type TEXT,
+    current_balance NUMERIC DEFAULT 0,
+    currency TEXT DEFAULT 'BRL',
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_credit_cards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    limit_amount NUMERIC DEFAULT 0,
+    closing_day INTEGER,
+    due_day INTEGER,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS m4_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     description TEXT NOT NULL,
     amount NUMERIC NOT NULL,
-    type TEXT NOT NULL, -- income / expense
+    type TEXT NOT NULL,
     category TEXT,
     date DATE DEFAULT CURRENT_DATE,
     status TEXT DEFAULT 'Pendente',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    bank_account_id UUID REFERENCES m4_bank_accounts(id),
+    client_account_id UUID REFERENCES m4_client_accounts(id),
+    lead_id UUID REFERENCES m4_leads(id),
+    company_id UUID REFERENCES m4_companies(id),
+    deal_id UUID REFERENCES m4_leads(id),
+    credit_card_id UUID REFERENCES m4_credit_cards(id),
+    payment_method TEXT,
+    due_date DATE,
+    paid_date DATE,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 8. Comunicação e Social
 CREATE TABLE IF NOT EXISTS m4_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_name TEXT,
@@ -80,6 +192,10 @@ CREATE TABLE IF NOT EXISTS m4_emails (
     body TEXT,
     folder TEXT DEFAULT 'inbox',
     is_read BOOLEAN DEFAULT FALSE,
+    company_id UUID REFERENCES m4_companies(id),
+    contact_id UUID REFERENCES m4_contacts(id),
+    lead_id UUID REFERENCES m4_leads(id),
+    workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -91,6 +207,7 @@ CREATE TABLE IF NOT EXISTS m4_posts (
     likes INTEGER DEFAULT 0,
     comments INTEGER DEFAULT 0,
     type TEXT DEFAULT 'update',
+    workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -102,61 +219,6 @@ CREATE TABLE IF NOT EXISTS m4_campaigns (
     sent_count INTEGER DEFAULT 0,
     open_rate TEXT DEFAULT '-',
     click_rate TEXT DEFAULT '-',
+    workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- 4. Client Accounts & Follow-up
-CREATE TABLE IF NOT EXISTS m4_client_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
-    status TEXT DEFAULT 'ativo', -- ativo, pausado, cancelado
-    service_type TEXT, -- Gestão de Tráfego, Social Media, etc.
-    start_date DATE DEFAULT CURRENT_DATE,
-    end_date DATE,
-    billing_model TEXT DEFAULT 'recorrente', -- recorrente, projeto
-    monthly_value NUMERIC DEFAULT 0,
-    notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5. Financial Module
-CREATE TABLE IF NOT EXISTS m4_bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL, -- Nubank PJ, etc.
-    bank_type TEXT, -- corrente, poupança, etc.
-    current_balance NUMERIC DEFAULT 0,
-    currency TEXT DEFAULT 'BRL',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_credit_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL, -- Cartão Nubank PJ
-    limit_amount NUMERIC DEFAULT 0,
-    closing_day INTEGER,
-    due_day INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Update Transactions with new fields
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS bank_account_id UUID REFERENCES m4_bank_accounts(id);
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS client_account_id UUID REFERENCES m4_client_accounts(id);
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS lead_id UUID REFERENCES m4_leads(id);
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS credit_card_id UUID REFERENCES m4_credit_cards(id);
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS payment_method TEXT; -- boleto, pix, cartão, etc.
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS due_date DATE;
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS paid_date DATE;
-ALTER TABLE m4_transactions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-
--- Update Tasks with client_account_id
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS client_account_id UUID REFERENCES m4_client_accounts(id);
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE;
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS recurrence_period TEXT; -- 15_days, 1_month, etc.
-
--- 6. Enable RLS (Optional but recommended)
--- ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE m4_leads ENABLE ROW LEVEL SECURITY;
--- ... add policies as needed

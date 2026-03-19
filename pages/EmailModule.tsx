@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { EmailMessage } from '../types';
+import { EmailMessage, User } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
 interface EmailModuleProps {
   emails: EmailMessage[];
   setEmails: React.Dispatch<React.SetStateAction<EmailMessage[]>>;
+  currentUser: User | null;
 }
 
-const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails }) => {
+const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails, currentUser }) => {
   const [activeFolder, setActiveFolder] = useState<'inbox' | 'sent' | 'drafts' | 'trash'>('inbox');
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -65,6 +66,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails }) => {
       body: newEmail.body,
       folder: 'sent',
       is_read: true,
+      workspace_id: currentUser?.workspace_id,
       created_at: new Date().toISOString()
     };
 

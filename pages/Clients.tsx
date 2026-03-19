@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
-import { Client } from '../types';
+import { Client, User } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface ClientsProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
+  currentUser: User | null;
 }
 
-const Clients: React.FC<ClientsProps> = ({ clients, setClients }) => {
+const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClients = clients.filter(c => 

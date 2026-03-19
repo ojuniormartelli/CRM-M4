@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import * as ICONS from 'lucide-react';
-import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode } from '../types';
+import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User } from '../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ interface FinanceProps {
   clientAccounts: ClientAccount[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   appMode: AppMode;
+  currentUser?: User | null;
 }
 
 const Finance: React.FC<FinanceProps> = ({ 
@@ -21,7 +22,8 @@ const Finance: React.FC<FinanceProps> = ({
   creditCards, 
   clientAccounts,
   setTransactions,
-  appMode
+  appMode,
+  currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'receivables' | 'payables' | 'cards'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,9 +46,14 @@ const Finance: React.FC<FinanceProps> = ({
     e.preventDefault();
     setIsSyncing(true);
     try {
+      const transactionData = {
+        ...newTransaction,
+        workspace_id: currentUser?.workspace_id
+      };
+
       const { data, error } = await supabase
         .from('m4_transactions')
-        .insert([newTransaction])
+        .insert([transactionData])
         .select();
 
       if (!error && data) {

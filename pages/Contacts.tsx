@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Contact, Company } from '../types';
+import { Contact, Company, User } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
@@ -9,9 +9,10 @@ interface ContactsProps {
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   companies: Company[];
+  currentUser: User | null;
 }
 
-const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies }) => {
+const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [newContact, setNewContact] = useState<Partial<Contact>>({
@@ -37,7 +38,10 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
     setIsSaving(true);
     const { data: companyData, error: companyError } = await supabase
       .from('m4_companies')
-      .insert([newCompany])
+      .insert([{
+        ...newCompany,
+        workspace_id: currentUser?.workspace_id
+      }])
       .select();
 
     if (companyError) {
@@ -52,6 +56,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
           .insert([{
             ...primaryContact,
             companyId,
+            workspace_id: currentUser?.workspace_id,
             isPrimary: true
           }]);
       } else if (contactMode === 'select' && selectedContactId) {
@@ -79,7 +84,10 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies })
     
     const { data, error } = await supabase
       .from('m4_contacts')
-      .insert([newContact])
+      .insert([{
+        ...newContact,
+        workspace_id: currentUser?.workspace_id
+      }])
       .select();
 
     if (error) {
