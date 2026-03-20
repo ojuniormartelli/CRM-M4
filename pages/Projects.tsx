@@ -15,7 +15,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProject, setNewProject] = useState<Partial<Project>>({
-    name: '', status: 'active', startDate: new Date().toISOString().split('T')[0], value: 0
+    name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0
   });
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -33,11 +33,11 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
     if (!error && data) {
       setProjects([...projects, data[0]]);
       setIsModalOpen(false);
-      setNewProject({ name: '', status: 'active', startDate: new Date().toISOString().split('T')[0], value: 0 });
+      setNewProject({ name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0 });
     }
   };
 
-  const projectTasks = selectedProject ? tasks.filter(t => t.projectId === selectedProject.id) : [];
+  const projectTasks = selectedProject ? tasks.filter(t => t.project_id === selectedProject.id) : [];
 
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
@@ -71,17 +71,17 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
               </span>
             </div>
             <h4 className="font-black text-slate-900 text-xl mb-2">{project.name}</h4>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Iniciado em {new Date(project.startDate).toLocaleDateString()}</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Iniciado em {new Date(project.start_date).toLocaleDateString()}</p>
             
             <div className="space-y-4">
               <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <span>Progresso</span>
-                <span>{tasks.filter(t => t.projectId === project.id && t.status === TaskStatus.DONE).length}/{tasks.filter(t => t.projectId === project.id).length} Tarefas</span>
+                <span>{tasks.filter(t => t.project_id === project.id && t.status === TaskStatus.DONE).length}/{tasks.filter(t => t.project_id === project.id).length} Tarefas</span>
               </div>
               <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-blue-600 transition-all duration-1000" 
-                  style={{ width: `${(tasks.filter(t => t.projectId === project.id && t.status === TaskStatus.DONE).length / (tasks.filter(t => t.projectId === project.id).length || 1)) * 100}%` }}
+                  style={{ width: `${(tasks.filter(t => t.project_id === project.id && t.status === TaskStatus.DONE).length / (tasks.filter(t => t.project_id === project.id).length || 1)) * 100}%` }}
                 ></div>
               </div>
             </div>
@@ -123,7 +123,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                 </div>
                 <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Início</p>
-                  <p className="text-xl font-black text-slate-900">{new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                  <p className="text-xl font-black text-slate-900">{new Date(selectedProject.start_date).toLocaleDateString()}</p>
                 </div>
               </div>
 
@@ -190,7 +190,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data de Início</label>
-                    <input type="date" value={newProject.startDate} onChange={e => setNewProject({...newProject, startDate: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white" />
+                    <input type="date" value={newProject.start_date} onChange={e => setNewProject({...newProject, start_date: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white" />
                   </div>
                 </div>
               </div>

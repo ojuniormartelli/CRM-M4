@@ -105,7 +105,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
       .from('m4_form_templates')
       .upsert([{
         ...builderForm,
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       }])
       .select();
 
@@ -135,17 +135,17 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
     // Logic Branching
     const logic = currentQuestion.logic?.find(l => {
       if (currentQuestion.type === 'checkbox' && Array.isArray(answer)) {
-        return answer.includes(l.triggerValue);
+        return answer.includes(l.trigger_value);
       }
-      return l.triggerValue === answer;
+      return l.trigger_value === answer;
     });
 
     if (logic) {
-      if (logic.goToQuestionId === 'end') {
+      if (logic.go_to_question_id === 'end') {
         finishMeeting();
         return;
       }
-      const nextIdx = selectedTemplate?.questions.findIndex(q => q.id === logic.goToQuestionId);
+      const nextIdx = selectedTemplate?.questions.findIndex(q => q.id === logic.go_to_question_id);
       if (nextIdx !== undefined && nextIdx !== -1) {
         setCurrentQuestionIndex(nextIdx);
         return;
@@ -167,10 +167,10 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
 
     setIsSaving(true);
     const response: Partial<FormResponse> = {
-      formId: selectedTemplate?.id,
-      leadId: selectedLeadId,
-      answers: Object.entries(answers).map(([questionId, value]) => ({ questionId, value })),
-      createdAt: new Date().toISOString()
+      form_id: selectedTemplate?.id,
+      lead_id: selectedLeadId,
+      answers: Object.entries(answers).map(([question_id, value]) => ({ question_id, value })),
+      created_at: new Date().toISOString()
     };
 
     const { error } = await supabase.from('m4_form_responses').insert([response]);
@@ -178,11 +178,11 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
     if (!error) {
       // Also add an interaction to the lead
       await supabase.from('m4_interactions').insert([{
-        leadId: selectedLeadId,
+        lead_id: selectedLeadId,
         type: 'ai_insight',
         title: `Sondagem Realizada: ${selectedTemplate?.title}`,
         content: `Formulário preenchido durante reunião. ${Object.keys(answers).length} perguntas respondidas.`,
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       }]);
 
       alert("Sondagem salva com sucesso!");
@@ -407,10 +407,10 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                           
                           {(q.type === 'multiple_choice' || q.type === 'checkbox') ? (
                             <select 
-                              value={l.triggerValue}
+                              value={l.trigger_value}
                               onChange={(e) => {
                                 const newLogic = [...(q.logic || [])];
-                                newLogic[lIdx].triggerValue = e.target.value;
+                                newLogic[lIdx].trigger_value = e.target.value;
                                 updateQuestion(q.id, { logic: newLogic });
                               }}
                               className="p-2 border-b border-slate-200 outline-none text-xs font-bold min-w-[120px]"
@@ -423,10 +423,10 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                           ) : (
                             <input 
                               type="text" 
-                              value={l.triggerValue}
+                              value={l.trigger_value}
                               onChange={(e) => {
                                 const newLogic = [...(q.logic || [])];
-                                newLogic[lIdx].triggerValue = e.target.value;
+                                newLogic[lIdx].trigger_value = e.target.value;
                                 updateQuestion(q.id, { logic: newLogic });
                               }}
                               className="p-2 border-b border-slate-200 outline-none text-xs font-bold w-24"
@@ -436,11 +436,11 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
 
                           <span className="text-xs font-bold text-slate-400">ir para</span>
                           <select 
-                            value={l.goToQuestionId}
+                            value={l.go_to_question_id}
                             onChange={(e) => {
-                              const newLogic = [...(q.logic || [])];
-                              newLogic[lIdx].goToQuestionId = e.target.value;
-                              updateQuestion(q.id, { logic: newLogic });
+                                const newLogic = [...(q.logic || [])];
+                                newLogic[lIdx].go_to_question_id = e.target.value;
+                                updateQuestion(q.id, { logic: newLogic });
                             }}
                             className="p-2 border-b border-slate-200 outline-none text-xs font-bold"
                           >
@@ -464,7 +464,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                         </div>
                       ))}
                       <button 
-                        onClick={() => updateQuestion(q.id, { logic: [...(q.logic || []), { triggerValue: '', goToQuestionId: '' }] })}
+                        onClick={() => updateQuestion(q.id, { logic: [...(q.logic || []), { trigger_value: '', go_to_question_id: '' }] })}
                         className="text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-600"
                       >
                         + Adicionar Lógica

@@ -31,15 +31,15 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
   };
 
   const getAccountHistory = (leadId: string) => {
-    const leadTasks = tasks.filter(t => t.leadId === leadId).map(t => ({
+    const leadTasks = tasks.filter(t => t.lead_id === leadId).map(t => ({
       type: 'Tarefa',
       title: t.title,
-      date: t.dueDate || t.createdAt,
+      date: t.due_date || t.created_at,
       status: t.status,
       icon: <ICONS.CheckCircle className="w-4 h-4" />
     }));
 
-    const leadTransactions = transactions.filter(t => t.leadId === leadId).map(t => ({
+    const leadTransactions = transactions.filter(t => t.lead_id === leadId).map(t => ({
       type: 'Financeiro',
       title: `${t.type}: ${t.description}`,
       date: t.date,
@@ -51,7 +51,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
     const leadInteractions = (lead?.interactions || []).map(i => ({
       type: 'Interação',
       title: i.title,
-      date: i.createdAt,
+      date: i.created_at,
       status: i.type,
       icon: <ICONS.MessageSquare className="w-4 h-4" />
     }));
@@ -99,7 +99,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
               </div>
               <p className="text-3xl font-black text-slate-800">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  clientAccounts.filter(a => a.status === 'ativo').reduce((acc, curr) => acc + (Number(curr.monthlyValue) || 0), 0)
+                  clientAccounts.filter(a => a.status === 'ativo').reduce((acc, curr) => acc + (Number(curr.monthly_value) || 0), 0)
                 )}
               </p>
             </div>
@@ -136,11 +136,11 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   clientAccounts.map((account) => (
                     <tr key={account.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">{getLeadName(account.leadId)}</div>
-                        <div className="text-[10px] text-slate-400 uppercase tracking-wider">Desde {format(new Date(account.startDate), 'dd/MM/yyyy')}</div>
+                        <div className="font-bold text-slate-800">{getLeadName(account.lead_id)}</div>
+                        <div className="text-[10px] text-slate-400 uppercase tracking-wider">Desde {format(new Date(account.start_date), 'dd/MM/yyyy')}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-slate-600">{account.serviceType}</span>
+                        <span className="text-xs font-medium text-slate-600">{account.service_type}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${getAccountStatusColor(account.status)}`}>
@@ -149,7 +149,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-700">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.monthlyValue)}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.monthly_value)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -183,18 +183,18 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{getLeadName(selectedAccount.leadId)}</h2>
+                      <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{getLeadName(selectedAccount.lead_id)}</h2>
                       <div className="flex items-center gap-3">
                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${getAccountStatusColor(selectedAccount.status)}`}>
                           {selectedAccount.status}
                         </span>
-                        <span className="text-xs text-slate-400 font-medium">{selectedAccount.serviceType}</span>
+                        <span className="text-xs text-slate-400 font-medium">{selectedAccount.service_type}</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor Mensal</p>
                       <p className="text-2xl font-black text-blue-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedAccount.monthlyValue)}
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedAccount.monthly_value)}
                       </p>
                     </div>
                   </div>
@@ -202,11 +202,11 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 border-t border-slate-50">
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Início</p>
-                      <p className="text-sm font-bold text-slate-700">{format(new Date(selectedAccount.startDate), 'dd/MM/yyyy')}</p>
+                      <p className="text-sm font-bold text-slate-700">{format(new Date(selectedAccount.start_date), 'dd/MM/yyyy')}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Modelo</p>
-                      <p className="text-sm font-bold text-slate-700 uppercase">{selectedAccount.billingModel}</p>
+                      <p className="text-sm font-bold text-slate-700 uppercase">{selectedAccount.billing_model}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Próximo Check-in</p>
@@ -233,7 +233,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   </div>
                   <div className="p-6">
                     <div className="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
-                      {getAccountHistory(selectedAccount.leadId).map((item, i) => (
+                      {getAccountHistory(selectedAccount.lead_id).map((item, i) => (
                         <div key={i} className="flex gap-6 relative">
                           <div className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-400 z-10 shadow-sm">
                             {item.icon}

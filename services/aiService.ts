@@ -76,7 +76,7 @@ export const aiService = {
     if (!interactions || interactions.length === 0) return "No interactions to summarize.";
 
     const historyText = interactions
-      .map(i => `[${i.createdAt}] ${i.type.toUpperCase()}: ${i.title} - ${i.content}`)
+      .map(i => `[${i.created_at}] ${i.type.toUpperCase()}: ${i.title} - ${i.content}`)
       .join('\n');
 
     const prompt = `
@@ -111,7 +111,7 @@ export const aiService = {
     const data = activeLeads.map(l => ({
       value: l.value,
       probability: l.probability || 50,
-      stage: l.stageId
+      stage: l.stage_id
     }));
 
     const prompt = `

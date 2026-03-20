@@ -16,7 +16,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [newContact, setNewContact] = useState<Partial<Contact>>({
-    name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', isPrimary: false, companyId: ''
+    name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
@@ -55,18 +55,18 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
           .from('m4_contacts')
           .insert([{
             ...primaryContact,
-            companyId,
+            company_id: companyId,
             workspace_id: currentUser?.workspace_id,
-            isPrimary: true
+            is_primary: true
           }]);
       } else if (contactMode === 'select' && selectedContactId) {
         await supabase
           .from('m4_contacts')
-          .update({ companyId, isPrimary: true })
+          .update({ company_id: companyId, is_primary: true })
           .eq('id', selectedContactId);
       }
 
-      setNewContact({ ...newContact, companyId: companyData[0].id });
+      setNewContact({ ...newContact, company_id: companyData[0].id });
       setIsCompanyModalOpen(false);
       setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: '' });
       setPrimaryContact({ name: '', email: '', phone: '', role: '' });
@@ -96,7 +96,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
       setContacts([...contacts, data[0]]);
       setIsModalOpen(false);
       setNewContact({
-        name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', isPrimary: false, companyId: ''
+        name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
       });
     }
     setIsSaving(false);
@@ -108,8 +108,8 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
     c.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getCompanyName = (companyId: string) => {
-    return companies.find(c => c.id === companyId)?.name || 'Empresa não vinculada';
+  const getCompanyName = (company_id: string) => {
+    return companies.find(c => c.id === company_id)?.name || 'Empresa não vinculada';
   };
 
   return (
@@ -150,7 +150,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                 <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm group-hover:shadow-md transition-all">
                   {contact.name.charAt(0)}
                 </div>
-                {contact.isPrimary && (
+                {contact.is_primary && (
                   <div className="px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
                     Principal
                   </div>
@@ -158,7 +158,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{contact.name}</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1 uppercase tracking-widest">{contact.role || 'Contato'}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{getCompanyName(contact.companyId)}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{getCompanyName(contact.company_id)}</p>
               
               <div className="space-y-3 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
@@ -194,7 +194,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
                     <div className="flex gap-2">
-                      <select required value={newContact.companyId} onChange={e => setNewContact({...newContact, companyId: e.target.value})} className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white">
+                      <select required value={newContact.company_id} onChange={e => setNewContact({...newContact, company_id: e.target.value})} className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white">
                         <option value="">Selecionar Empresa</option>
                         {companies.map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
@@ -244,12 +244,12 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                 <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
                   <input 
                     type="checkbox" 
-                    id="isPrimary"
-                    checked={newContact.isPrimary} 
-                    onChange={e => setNewContact({...newContact, isPrimary: e.target.checked})}
+                    id="is_primary"
+                    checked={newContact.is_primary} 
+                    onChange={e => setNewContact({...newContact, is_primary: e.target.checked})}
                     className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor="isPrimary" className="text-sm font-bold text-slate-700 dark:text-slate-300">Este é o contato principal da empresa</label>
+                  <label htmlFor="is_primary" className="text-sm font-bold text-slate-700 dark:text-slate-300">Este é o contato principal da empresa</label>
                 </div>
               </div>
               <div className="p-10 pt-0 shrink-0 flex gap-4">
@@ -294,7 +294,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                     <button 
                       type="button"
                       onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
-                      className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
+                      className="text-[10px] font-black text-slate-400 dark:text-gray-300 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
                     >
                       {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
                     </button>
@@ -302,7 +302,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
 
                   {contactMode === 'select' ? (
                     <div className="relative">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Buscar Contato</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <input 
@@ -312,7 +312,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                               setShowContactDropdown(true);
                             }} 
                             onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
+                            className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
                             placeholder="Digite nome, e-mail ou telefone..." 
                           />
                           {showContactDropdown && contactSearch && (
@@ -339,13 +339,13 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                                   >
                                     <div>
                                       <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
-                                      <p className="text-[10px] text-slate-400">{c.email} • {c.phone}</p>
+                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
                                     </div>
                                     {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
                                   </button>
                                 ))
                               ) : (
-                                <div className="p-4 text-center text-slate-400 text-xs font-bold">Nenhum contato encontrado</div>
+                                <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
                               )}
                             </div>
                           )}
@@ -356,22 +356,22 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Nome do contato" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
+                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Ex: CEO" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
+                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
-                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="email@contato.com" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
+                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>

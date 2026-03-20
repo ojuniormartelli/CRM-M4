@@ -52,11 +52,11 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'cnpj', label: 'CNPJ' },
     { id: 'website', label: 'Website' },
     { id: 'instagram', label: 'Instagram' },
-    { id: 'legalName', label: 'Razão Social Jurídica' },
+    { id: 'legal_name', label: 'Razão Social Jurídica' },
     { id: 'partners', label: 'Sócios / QSA' },
     { id: 'address', label: 'Endereço Completo' },
-    { id: 'serviceType', label: 'Tipo de Serviço' },
-    { id: 'proposedTicket', label: 'Ticket Proposto' },
+    { id: 'service_type', label: 'Tipo de Serviço' },
+    { id: 'proposed_ticket', label: 'Ticket Proposto' },
   ];
 
   useEffect(() => {
@@ -264,12 +264,12 @@ Exemplo: {"0": "name", "2": "email"}`;
 
     const toInsert = leadsToSave.map(lead => ({
       ...lead,
-      pipelineId: selectedPipeline,
-      stageId: selectedStage,
+      pipeline_id: selectedPipeline,
+      stage_id: selectedStage,
       workspace_id: currentUser?.workspace_id,
-      createdAt: new Date().toISOString(),
-      nextAction: 'Qualificar lead importado',
-      nextActionDate: new Date().toISOString().split('T')[0]
+      created_at: new Date().toISOString(),
+      next_action: 'Qualificar lead importado',
+      next_action_date: new Date().toISOString().split('T')[0]
     }));
 
     const { error } = await supabase
@@ -513,12 +513,12 @@ Exemplo: {"0": "name", "2": "email"}`;
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-wrap gap-1">
-                        {Object.entries(lead.customFields || {}).map(([key, val]) => (
+                        {Object.entries(lead.custom_fields || {}).map(([key, val]) => (
                           <span key={key} className="px-2 py-1 bg-slate-100 text-[9px] font-bold text-slate-500 rounded-lg border border-slate-200">
                             {key}: {String(val)}
                           </span>
                         ))}
-                        {Object.keys(lead.customFields || {}).length === 0 && <span className="text-slate-300 italic text-[10px]">Nenhum</span>}
+                        {Object.keys(lead.custom_fields || {}).length === 0 && <span className="text-slate-300 italic text-[10px]">Nenhum</span>}
                       </div>
                     </td>
                     <td className="px-6 py-5">
@@ -602,7 +602,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Previsão de Fechamento</label>
-                    <input type="date" value={editingLead.closingForecast || ''} onChange={(e) => setEditingLead({ ...editingLead, closingForecast: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="date" value={editingLead.closing_forecast || ''} onChange={(e) => setEditingLead({ ...editingLead, closing_forecast: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fonte</label>
@@ -651,14 +651,14 @@ Exemplo: {"0": "name", "2": "email"}`;
                         ...editingLead, 
                         contacts: [...contacts, { 
                           id: crypto.randomUUID(),
-                          companyId: '',
+                          company_id: '',
                           name: '', 
                           email: '', 
                           phone: '', 
                           role: '',
-                          isPrimary: false,
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString()
+                          is_primary: false,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
                         } as Contact] 
                       });
                     }}
@@ -750,8 +750,8 @@ Exemplo: {"0": "name", "2": "email"}`;
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Razão Social</label>
                     <textarea 
                       rows={1}
-                      value={editingLead.legalName || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, legalName: e.target.value })} 
+                      value={editingLead.legal_name || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, legal_name: e.target.value })} 
                       className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -766,11 +766,11 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail Corporativo</label>
-                    <input type="email" value={editingLead.companyEmail || ''} onChange={(e) => setEditingLead({ ...editingLead, companyEmail: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="email" value={editingLead.company_email || ''} onChange={(e) => setEditingLead({ ...editingLead, company_email: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
-                    <input type="text" value={editingLead.companyPhone || ''} onChange={(e) => setEditingLead({ ...editingLead, companyPhone: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
@@ -800,8 +800,8 @@ Exemplo: {"0": "name", "2": "email"}`;
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Responsável</label>
                     <textarea 
                       rows={1}
-                      value={editingLead.responsibleName || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, responsibleName: e.target.value })} 
+                      value={editingLead.responsible_name || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, responsible_name: e.target.value })} 
                       className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;

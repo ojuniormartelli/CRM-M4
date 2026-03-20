@@ -70,8 +70,8 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     contact_id UUID REFERENCES public.m4_contacts(id),
     email TEXT,
     phone TEXT,
-    pipelineId TEXT DEFAULT 'p1',
-    stageId TEXT DEFAULT 's1',
+    pipeline_id TEXT DEFAULT 'p1',
+    stage_id TEXT DEFAULT 's1',
     value NUMERIC DEFAULT 0,
     notes TEXT,
     niche TEXT,
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     interactions JSONB DEFAULT '[]',
     custom_fields JSONB DEFAULT '{}',
     workspace_id UUID,
-    createdAt TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 5. Tabela de Tarefas
@@ -119,7 +119,12 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     deal_id UUID REFERENCES m4_leads(id),
     client_account_id UUID,
     is_recurring BOOLEAN DEFAULT FALSE,
-    recurrence_period TEXT,
+    recurrence_type TEXT,
+    recurrence_days TEXT[],
+    recurrence_day_of_month INTEGER,
+    recurrence_month_week TEXT,
+    recurrence_end_date DATE,
+    recurrence_occurrences INTEGER,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -277,8 +282,16 @@ ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID
 
 -- 5. Vincular Tarefas às Empresas e Negócios
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS workspace_id uuid;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT false;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_days TEXT[];
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_day_of_month INTEGER;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_month_week TEXT;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_end_date DATE;
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_occurrences INTEGER;
 
 -- 6. Vincular Transações às Empresas e Negócios
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Company, Contact, User } from '../types';
+import { Company, Contact, User, Task, TaskStatus, Priority } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
@@ -21,6 +21,10 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
     name: '', cnpj: '', city: '', state: '', segment: '', website: '', instagram: '', phone: '', whatsapp: '', notes: ''
   });
+  
+  // Tasks state
+  const [companyTasks, setCompanyTasks] = useState<Task[]>([]);
+  const [activeTab, setActiveTab] = useState<'details' | 'tasks'>('details');
   
   // Contact selection states
   const [contactMode, setContactMode] = useState<'select' | 'create'>('select');
@@ -55,9 +59,9 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           .from('m4_contacts')
           .insert([{
             ...primaryContact,
-            companyId,
+            company_id: companyId,
             workspace_id: currentUser?.workspace_id,
-            isPrimary: true
+            is_primary: true
           }])
           .select();
         
@@ -71,7 +75,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         // Embora para uma NOVA empresa isso seja menos provável, o contato selecionado pode estar vindo de "sem empresa"
         const { data: contactData, error: contactError } = await supabase
           .from('m4_contacts')
-          .update({ companyId, isPrimary: true })
+          .update({ company_id: companyId, is_primary: true })
           .eq('id', selectedContactId)
           .select();
         
@@ -107,16 +111,16 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         // Desmarcar outros contatos como primários para esta empresa antes de criar o novo primário
         await supabase
           .from('m4_contacts')
-          .update({ isPrimary: false })
-          .eq('companyId', editingCompany.id);
+          .update({ is_primary: false })
+          .eq('company_id', editingCompany.id);
 
         const { data: contactData, error: contactError } = await supabase
           .from('m4_contacts')
           .insert([{
             ...primaryContact,
-            companyId: editingCompany.id,
+            company_id: editingCompany.id,
             workspace_id: currentUser?.workspace_id,
-            isPrimary: true
+            is_primary: true
           }])
           .select();
         
@@ -125,7 +129,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         } else if (contactData) {
           // Atualizar estado local: desmarcar antigos e adicionar novo
           const updatedContacts = contacts.map(c => 
-            c.companyId === editingCompany.id ? { ...c, isPrimary: false } : c
+            c.company_id === editingCompany.id ? { ...c, is_primary: false } : c
           );
           setContacts([...updatedContacts, contactData[0]]);
         }
@@ -133,12 +137,12 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         // Primeiro, desmarcar outros contatos como primários para esta empresa
         await supabase
           .from('m4_contacts')
-          .update({ isPrimary: false })
-          .eq('companyId', editingCompany.id);
+          .update({ is_primary: false })
+          .eq('company_id', editingCompany.id);
 
         const { data: contactData, error: contactError } = await supabase
           .from('m4_contacts')
-          .update({ companyId: editingCompany.id, isPrimary: true })
+          .update({ company_id: editingCompany.id, is_primary: true })
           .eq('id', selectedContactId)
           .select();
         
@@ -148,7 +152,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           // Atualizar estado local dos contatos
           const updatedContacts = contacts.map(c => {
             if (c.id === selectedContactId) return contactData[0];
-            if (c.companyId === editingCompany.id) return { ...c, isPrimary: false };
+            if (c.company_id === editingCompany.id) return { ...c, is_primary: false };
             return c;
           });
           setContacts(updatedContacts);
@@ -173,7 +177,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     setEditingCompany(null);
   };
 
-  const openEditModal = (company: Company) => {
+  const openEditModal = async (company: Company) => {
     setEditingCompany(company);
     setNewCompany({
       name: company.name,
@@ -188,8 +192,17 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
       notes: company.notes
     });
     
+    // Fetch company tasks
+    const { data: tasksData } = await supabase
+      .from('m4_tasks')
+      .select('*')
+      .eq('company_id', company.id)
+      .order('due_date', { ascending: true });
+    
+    if (tasksData) setCompanyTasks(tasksData);
+    
     // Encontrar o contato primário atual
-    const primary = contacts.find(c => c.companyId === company.id && c.isPrimary);
+    const primary = contacts.find(c => c.company_id === company.id && c.is_primary);
     if (primary) {
       setSelectedContactId(primary.id);
       setContactSearch(primary.name);
@@ -280,11 +293,11 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   <ICONS.Mail width="14" height="14" />
                   <span className="text-xs font-bold">{company.website || 'N/A'}</span>
                 </div>
-                {contacts.find(c => c.companyId === company.id && c.isPrimary) && (
+                {contacts.find(c => c.company_id === company.id && c.is_primary) && (
                   <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 pt-2">
                     <ICONS.User width="14" height="14" />
                     <span className="text-xs font-black uppercase tracking-widest">
-                      {contacts.find(c => c.companyId === company.id && c.isPrimary)?.name}
+                      {contacts.find(c => c.company_id === company.id && c.is_primary)?.name}
                     </span>
                   </div>
                 )}
@@ -345,7 +358,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                     <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
-                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
+                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center">
                     <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal (Opcional)</p>
                     <button 
@@ -359,7 +372,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
 
                   {contactMode === 'select' ? (
                     <div className="relative">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Buscar Contato</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <input 
@@ -369,7 +382,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                               setShowContactDropdown(true);
                             }} 
                             onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
+                            className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
                             placeholder="Digite nome, e-mail ou telefone..." 
                           />
                           {showContactDropdown && contactSearch && (
@@ -388,13 +401,13 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                                   >
                                     <div>
                                       <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
-                                      <p className="text-[10px] text-slate-400">{c.email} • {c.phone}</p>
+                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
                                     </div>
                                     {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
                                   </button>
                                 ))
                               ) : (
-                                <div className="p-4 text-center text-slate-400 text-xs font-bold">Nenhum contato encontrado</div>
+                                <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
                               )}
                             </div>
                           )}
@@ -405,22 +418,22 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Nome do contato" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
+                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Ex: CEO" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
+                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
-                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="email@contato.com" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
+                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>
@@ -446,13 +459,34 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Editar Empresa</h3>
-              <button onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+              <div className="flex items-center gap-8">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Editar Empresa</h3>
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('details')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Detalhes
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('tasks')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'tasks' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Tarefas ({companyTasks.length})
+                  </button>
+                </div>
+              </div>
+              <button onClick={() => { setIsEditModalOpen(false); resetForm(); setActiveTab('details'); }} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
                 <ICONS.Plus className="rotate-45" />
               </button>
             </div>
-            <form onSubmit={handleUpdateCompany} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+            
+            {activeTab === 'details' ? (
+              <form onSubmit={handleUpdateCompany} className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                  {/* ... existing form fields ... */}
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
@@ -494,7 +528,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
+                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center">
                     <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal</p>
                     <button 
@@ -508,7 +542,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
 
                   {contactMode === 'select' ? (
                     <div className="relative">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Buscar Contato</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <input 
@@ -518,7 +552,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                               setShowContactDropdown(true);
                             }} 
                             onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
+                            className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
                             placeholder="Digite nome, e-mail ou telefone..." 
                           />
                           {showContactDropdown && contactSearch && (
@@ -537,13 +571,13 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                                   >
                                     <div>
                                       <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
-                                      <p className="text-[10px] text-slate-400">{c.email} • {c.phone}</p>
+                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
                                     </div>
                                     {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
                                   </button>
                                 ))
                               ) : (
-                                <div className="p-4 text-center text-slate-400 text-xs font-bold">Nenhum contato encontrado</div>
+                                <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
                               )}
                             </div>
                           )}
@@ -554,22 +588,22 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Nome do contato" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
+                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Ex: CEO" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
+                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
-                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="email@contato.com" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
+                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>
@@ -588,6 +622,72 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                 </button>
               </div>
             </form>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tarefas Vinculadas</h4>
+                  <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-[10px] font-black uppercase">
+                    {companyTasks.length} TAREFAS
+                  </span>
+                </div>
+                
+                {companyTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
+                      <ICONS.Calendar className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Nenhuma tarefa encontrada</p>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vincule tarefas a esta empresa para visualizá-las aqui</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {companyTasks.map(task => (
+                      <div key={task.id} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${
+                                task.status === TaskStatus.DONE ? 'bg-emerald-500' :
+                                task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-500' :
+                                'bg-slate-300'
+                              }`} />
+                              <h5 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{task.title}</h5>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                <ICONS.Calendar className="w-3 h-3" />
+                                {task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR') : 'Sem data'}
+                              </div>
+                              <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter ${
+                                task.priority === Priority.HIGH ? 'bg-rose-100 text-rose-600' :
+                                task.priority === Priority.MEDIUM ? 'bg-amber-100 text-amber-600' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {task.priority}
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            task.status === TaskStatus.DONE ? 'bg-emerald-100 text-emerald-600' :
+                            task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-600' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {task.status}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="p-10 pt-0 shrink-0">
+                <button onClick={() => { setIsEditModalOpen(false); resetForm(); setActiveTab('details'); }} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Fechar</button>
+              </div>
+            </div>
+          )}
           </div>
         </div>
       )}

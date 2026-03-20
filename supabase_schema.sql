@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     contact_id UUID REFERENCES public.m4_contacts(id),
     email TEXT,
     phone TEXT,
-    pipelineId TEXT DEFAULT 'p1',
-    stageId TEXT DEFAULT 's1',
+    pipeline_id TEXT DEFAULT 'p1',
+    stage_id TEXT DEFAULT 's1',
     value NUMERIC DEFAULT 0,
     notes TEXT,
     niche TEXT,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     interactions JSONB DEFAULT '[]',
     custom_fields JSONB DEFAULT '{}',
     workspace_id UUID,
-    createdAt TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 5. Tabela de Tarefas

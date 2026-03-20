@@ -42,14 +42,14 @@ export interface Company {
   phone?: string;
   whatsapp?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Contact {
   id: string;
   workspace_id?: string;
-  companyId: string;
+  company_id: string;
   name: string;
   role?: string;
   email?: string;
@@ -58,9 +58,9 @@ export interface Contact {
   instagram?: string;
   linkedin?: string;
   notes?: string;
-  isPrimary: boolean;
-  createdAt: string;
-  updatedAt: string;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export enum LeadTemperature {
@@ -71,13 +71,13 @@ export enum LeadTemperature {
 
 export interface Interaction {
   id: string;
-  tenantId: string;
-  leadId: string;
+  tenant_id: string;
+  lead_id: string;
   type: 'email' | 'call' | 'meeting' | 'note' | 'status_change' | 'ai_insight';
   title: string;
   content: string;
-  createdAt: string;
-  createdBy?: string;
+  created_at: string;
+  created_by?: string;
   metadata?: any;
 }
 
@@ -88,55 +88,55 @@ export interface FormQuestion {
   options?: string[]; // For multiple_choice and checkbox
   required?: boolean;
   logic?: {
-    triggerValue: string;
-    goToQuestionId: string; // ID of the next question or 'end'
+    trigger_value: string;
+    go_to_question_id: string; // ID of the next question or 'end'
   }[];
 }
 
 export interface FormTemplate {
   id: string;
-  tenantId: string;
+  tenant_id: string;
   title: string;
   description?: string;
   questions: FormQuestion[];
-  createdAt: string;
+  created_at: string;
 }
 
 export interface FormResponse {
   id: string;
-  formId: string;
-  leadId: string;
+  form_id: string;
+  lead_id: string;
   answers: {
-    questionId: string;
+    question_id: string;
     value: any;
   }[];
-  createdAt: string;
+  created_at: string;
 }
 
 export interface Lead {
   id: string;
-  tenantId: string;
+  workspace_id: string;
   name: string;
   company: string;
   email: string;
   phone: string;
-  pipelineId: string;
-  stageId: string;
+  pipeline_id: string;
+  stage_id: string;
   value: number;
   notes: string;
   segment?: string;
   niche?: string; // New field
-  serviceType?: string; // New field
-  proposedTicket?: number; // New field
-  nextAction?: string; // New field
-  nextActionDate?: string; // New field
+  service_type?: string; // New field
+  proposed_ticket?: number; // New field
+  next_action?: string; // New field
+  next_action_date?: string; // New field
   address?: string;
   cnpj?: string;
   partners?: string;
-  additionalEmails?: string;
-  additionalPhones?: string;
-  legalNature?: string;
-  createdAt: string;
+  additional_emails?: string;
+  additional_phones?: string;
+  legal_nature?: string;
+  created_at: string;
   
   // New fields for enhanced CRM
   qualification?: string;
@@ -144,67 +144,73 @@ export interface Lead {
   campaign?: string;
   city?: string;
   state?: string;
-  closingForecast?: string;
+  closing_forecast?: string;
   temperature?: LeadTemperature;
   probability?: number;
-  aiScore?: number;
-  aiReasoning?: string;
+  ai_score?: number;
+  ai_reasoning?: string;
   
   // Company specific
-  legalName?: string;
+  legal_name?: string;
   instagram?: string;
   website?: string;
-  companyEmail?: string;
-  companyPhone?: string;
+  company_email?: string;
+  company_phone?: string;
   
   // Contacts and Responsibility
   contacts?: Contact[];
-  responsibleName?: string;
-  responsibleId?: string;
+  responsible_name?: string;
+  responsible_id?: string;
   
   // Bitrix24 Refactoring
-  companyId?: string;
-  contactId?: string;
+  company_id?: string;
+  contact_id?: string;
   
-  lastActivityAt?: string;
+  last_activity_at?: string;
   status?: 'active' | 'won' | 'lost' | 'paused';
   interactions?: Interaction[];
-  customFields?: Record<string, any>;
+  custom_fields?: Record<string, any>;
 }
 
 export interface Task {
   id: string;
-  tenantId: string;
+  tenant_id: string;
   title: string;
   description: string;
   status: TaskStatus;
   priority: Priority;
-  assignedTo: string;
-  dueDate: string;
-  leadId?: string;
-  dealId?: string;
-  companyId?: string;
-  projectId?: string;
-  clientAccountId?: string;
-  isRecurring?: boolean;
-  recurrencePeriod?: string;
+  assigned_to: string;
+  due_date: string;
+  lead_id?: string;
+  deal_id?: string;
+  company_id?: string;
+  contact_id?: string;
+  project_id?: string;
+  client_account_id?: string;
+  is_recurring?: boolean;
+  recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrence_days?: string; // e.g., 'MON,WED'
+  recurrence_day_of_month?: number;
+  recurrence_month_week?: string; // e.g., 'first_monday'
+  recurrence_end_date?: string;
+  recurrence_occurrences?: number;
   type: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
-  createdAt: string;
+  created_at: string;
 }
 
 export interface Project {
   id: string;
   name: string;
-  clientId: string;
-  leadId?: string;
-  companyId?: string;
+  client_id: string;
+  lead_id?: string;
+  company_id?: string;
   status: 'active' | 'completed' | 'on_hold';
-  startDate: string;
-  endDate?: string;
+  start_date: string;
+  end_date?: string;
   value: number;
   description?: string;
   type?: 'recorrente' | 'projeto';
-  paymentMethod?: string;
+  payment_method?: string;
 }
 
 export interface Client {
@@ -216,9 +222,9 @@ export interface Client {
   cnpj?: string;
   status: 'active' | 'inactive';
   mrr: number;
-  contractStart: string;
-  contractEnd?: string;
-  healthScore: number; // 0-100
+  contract_start: string;
+  contract_end?: string;
+  health_score: number; // 0-100
 }
 
 export interface Automation {
@@ -226,48 +232,48 @@ export interface Automation {
   name: string;
   trigger: {
     type: 'stage_change' | 'lead_created' | 'no_activity';
-    value?: string; // stageId or days
+    value?: string; // stage_id or days
   };
   actions: {
     type: 'create_task' | 'send_email' | 'create_project' | 'alert_user';
     config: any;
   }[];
-  isActive: boolean;
+  is_active: boolean;
 }
 
 export interface ClientAccount {
   id: string;
-  leadId: string;
-  companyId?: string;
+  lead_id: string;
+  company_id?: string;
   status: 'ativo' | 'pausado' | 'cancelado';
-  serviceType: string;
-  startDate: string;
-  endDate?: string;
-  billingModel: 'recorrente' | 'projeto';
-  monthlyValue: number;
+  service_type: string;
+  start_date: string;
+  end_date?: string;
+  billing_model: 'recorrente' | 'projeto';
+  monthly_value: number;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BankAccount {
   id: string;
   name: string;
-  bankType: string;
-  currentBalance: number;
+  bank_type: string;
+  current_balance: number;
   currency: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreditCard {
   id: string;
   name: string;
-  limitAmount: number;
-  closingDay: number;
-  dueDay: number;
-  createdAt: string;
-  updatedAt: string;
+  limit_amount: number;
+  closing_day: number;
+  due_day: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Transaction {
@@ -278,15 +284,15 @@ export interface Transaction {
   date: string;
   description: string;
   status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar';
-  bankAccountId?: string;
-  clientAccountId?: string;
-  leadId?: string;
-  companyId?: string;
-  creditCardId?: string;
-  paymentMethod?: string;
-  dueDate?: string;
-  paidDate?: string;
-  createdAt: string;
+  bank_account_id?: string;
+  client_account_id?: string;
+  lead_id?: string;
+  company_id?: string;
+  credit_card_id?: string;
+  payment_method?: string;
+  due_date?: string;
+  paid_date?: string;
+  created_at: string;
 }
 
 export enum UserRole {
@@ -320,7 +326,7 @@ export interface EmailMessage {
   is_read: boolean;
   is_starred: boolean;
   created_at: string;
-  leadId?: string;
-  companyId?: string;
-  contactId?: string;
+  lead_id?: string;
+  company_id?: string;
+  contact_id?: string;
 }

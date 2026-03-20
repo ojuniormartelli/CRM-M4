@@ -51,16 +51,16 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
   const [isWonModalOpen, setIsWonModalOpen] = useState(false);
   const [wonData, setWonData] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    monthlyValue: 0,
-    serviceType: '',
-    bankAccountId: ''
+    start_date: new Date().toISOString().split('T')[0],
+    monthly_value: 0,
+    service_type: '',
+    bank_account_id: ''
   });
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: '',
-    niche: '', serviceType: '', proposedTicket: 0,
-    companyId: '', contactId: ''
+    niche: '', service_type: '', proposed_ticket: 0,
+    company_id: '', contact_id: ''
   });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -78,7 +78,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   });
 
   const [newContact, setNewContact] = useState<Partial<Contact>>({
-    name: '', email: '', phone: '', role: '', companyId: ''
+    name: '', email: '', phone: '', role: '', company_id: ''
   });
 
   const handleCreateCompany = async (e: React.FormEvent) => {
@@ -103,18 +103,18 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
           .from('m4_contacts')
           .insert([{
             ...primaryContact,
-            companyId,
+            company_id: companyId,
             workspace_id: currentUser?.workspace_id,
-            isPrimary: true
+            is_primary: true
           }]);
       } else if (contactMode === 'select' && selectedContactId) {
         await supabase
           .from('m4_contacts')
-          .update({ companyId, isPrimary: true })
+          .update({ company_id: companyId, is_primary: true })
           .eq('id', selectedContactId);
       }
 
-      setNewLead({ ...newLead, companyId: companyData[0].id, company: companyData[0].name });
+      setNewLead({ ...newLead, company_id: companyData[0].id, company: companyData[0].name });
       setIsCompanyModalOpen(false);
       setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: '' });
       setPrimaryContact({ name: '', email: '', phone: '', role: '' });
@@ -133,7 +133,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       .from('m4_contacts')
       .insert([{ 
         ...newContact, 
-        companyId: newLead.companyId,
+        company_id: newLead.company_id,
         workspace_id: currentUser?.workspace_id
       }])
       .select();
@@ -141,9 +141,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     if (error) {
       alert("Erro ao salvar contato: " + error.message);
     } else if (data) {
-      setNewLead({ ...newLead, contactId: data[0].id, name: data[0].name, email: data[0].email, phone: data[0].phone });
+      setNewLead({ ...newLead, contact_id: data[0].id, name: data[0].name, email: data[0].email, phone: data[0].phone });
       setIsContactModalOpen(false);
-      setNewContact({ name: '', email: '', phone: '', role: '', companyId: '' });
+      setNewContact({ name: '', email: '', phone: '', role: '', company_id: '' });
       window.location.reload();
     }
     setIsSyncing(false);
@@ -156,8 +156,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     setIsSyncing(true);
     
     // Encontrar dados da empresa selecionada se houver
-    const selectedCompany = companies.find(c => c.id === newLead.companyId);
-    const selectedContact = contacts.find(c => c.id === newLead.contactId);
+    const selectedCompany = companies.find(c => c.id === newLead.company_id);
+    const selectedContact = contacts.find(c => c.id === newLead.contact_id);
 
     const leadData = {
       ...newLead,
@@ -165,10 +165,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       name: selectedContact?.name || newLead.name,
       email: selectedContact?.email || newLead.email,
       phone: selectedContact?.phone || newLead.phone,
-      pipelineId: activePipelineId,
-      stageId: activePipeline.stages[0].id,
+      pipeline_id: activePipelineId,
+      stage_id: activePipeline.stages[0].id,
       workspace_id: currentUser?.workspace_id,
-      createdAt: new Date().toISOString()
+      created_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
@@ -183,8 +183,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       setIsModalOpen(false);
       setNewLead({ 
         name: '', company: '', email: '', phone: '', value: 0, notes: '',
-        niche: '', serviceType: '', proposedTicket: 0, nextAction: '', nextActionDate: '',
-        companyId: '', contactId: ''
+        niche: '', service_type: '', proposed_ticket: 0, next_action: '', next_action_date: '',
+        company_id: '', contact_id: ''
       });
     }
     setIsSyncing(false);
@@ -203,11 +203,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     if (leadId) {
       // Otimista: atualiza UI primeiro
       const originalLeads = [...leads];
-      setLeads(leads.map(l => l.id === leadId ? { ...l, stageId: targetStageId } : l));
+      setLeads(leads.map(l => l.id === leadId ? { ...l, stage_id: targetStageId } : l));
       
       const { error } = await supabase
         .from('m4_leads')
-        .update({ stageId: targetStageId })
+        .update({ stage_id: targetStageId })
         .eq('id', leadId);
 
       if (error) {
@@ -247,12 +247,12 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
 3. Adicione um 'notes' curto com uma estratégia de abordagem.
 4. Padronize o nome.
 5. Sugira uma 'probability' (0-100) e 'temperature' (Frio, Morno, Quente).
-6. Sugira uma 'closingForecast' (ex: 2024-12-15).
+6. Sugira uma 'closing_forecast' (ex: 2024-12-15).
 7. Identifique o 'niche' (ex: Estética, E-commerce, SaaS).
-8. Sugira o 'serviceType' (ex: Tráfego Pago, SEO, Social Media).
-9. Dê um 'aiScore' de 0 a 100 baseado no fit.
+8. Sugira o 'service_type' (ex: Tráfego Pago, SEO, Social Media).
+9. Dê um 'ai_score' de 0 a 100 baseado no fit.
 
-Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closingForecast, niche, serviceType, aiScore.`;
+Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closing_forecast, niche, service_type, ai_score.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -286,11 +286,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       const result = await aiService.scoreLead(lead);
       const { error } = await supabase
         .from('m4_leads')
-        .update({ aiScore: result.score, aiReasoning: result.reasoning })
+        .update({ ai_score: result.score, ai_reasoning: result.reasoning })
         .eq('id', lead.id);
 
       if (!error) {
-        const updatedLead = { ...lead, aiScore: result.score, aiReasoning: result.reasoning };
+        const updatedLead = { ...lead, ai_score: result.score, ai_reasoning: result.reasoning };
         setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
         setSelectedLead(updatedLead);
       }
@@ -314,20 +314,20 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
   };
 
 
-  const getLeadsByStage = (stageId: string) => {
-    let filtered = leads.filter(l => l.pipelineId === activePipelineId && l.stageId === stageId && (l.status === 'active' || !l.status));
+  const getLeadsByStage = (stage_id: string) => {
+    let filtered = leads.filter(l => l.pipeline_id === activePipelineId && l.stage_id === stage_id && (l.status === 'active' || !l.status));
     
     if (filterMode === 'my_day') {
       const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(l => l.nextActionDate && l.nextActionDate <= today);
+      filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today);
     }
     
     return filtered;
   };
-  const calculateStageTotal = (stageId: string) => getLeadsByStage(stageId).reduce((acc, curr) => acc + Number(curr.value), 0);
+  const calculateStageTotal = (stage_id: string) => getLeadsByStage(stage_id).reduce((acc, curr) => acc + Number(curr.value), 0);
 
   const isStale = (lead: Lead) => {
-    const activityDate = lead.lastActivityAt ? new Date(lead.lastActivityAt) : new Date(lead.createdAt);
+    const activityDate = lead.last_activity_at ? new Date(lead.last_activity_at) : new Date(lead.created_at);
     const fiveDaysAgo = new Date();
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
     return activityDate < fiveDaysAgo;
@@ -471,10 +471,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       )}
                     </div>
                     <h4 className="font-black text-slate-900 dark:text-white text-lg mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{lead.name}</h4>
-                    {lead.nextAction && (
+                    {lead.next_action && (
                       <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-100/50 dark:border-blue-800/50">
                         <ICONS.Clock width="12" height="12" />
-                        <p className="text-[10px] font-black uppercase truncate">{lead.nextAction}</p>
+                        <p className="text-[10px] font-black uppercase truncate">{lead.next_action}</p>
                       </div>
                     )}
                     <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{lead.notes}</p>
@@ -515,16 +515,16 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Entidades (Bitrix24 Style)</p>
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Entidades (B2B)</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
                       <div className="flex gap-2">
                         <select 
-                          value={newLead.companyId} 
+                          value={newLead.company_id} 
                           onChange={e => {
                             const comp = companies.find(c => c.id === e.target.value);
-                            setNewLead({...newLead, companyId: e.target.value, company: comp?.name || ''});
+                            setNewLead({...newLead, company_id: e.target.value, company: comp?.name || ''});
                           }} 
                           className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                         >
@@ -545,15 +545,15 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Contato</label>
                       <div className="flex gap-2">
                         <select 
-                          value={newLead.contactId} 
+                          value={newLead.contact_id} 
                           onChange={e => {
                             const cont = contacts.find(c => c.id === e.target.value);
-                            setNewLead({...newLead, contactId: e.target.value, name: cont?.name || '', email: cont?.email || '', phone: cont?.phone || ''});
+                            setNewLead({...newLead, contact_id: e.target.value, name: cont?.name || '', email: cont?.email || '', phone: cont?.phone || ''});
                           }} 
                           className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                         >
                           <option value="">Selecionar Contato</option>
-                          {contacts.filter(c => !newLead.companyId || c.companyId === newLead.companyId).map(c => (
+                          {contacts.filter(c => !newLead.company_id || c.company_id === newLead.company_id).map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
                         </select>
@@ -562,7 +562,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           onClick={() => setIsContactModalOpen(true)}
                           className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 transition-all"
                           title="Novo Contato"
-                          disabled={!newLead.companyId}
+                          disabled={!newLead.company_id}
                         >
                           <ICONS.Plus />
                         </button>
@@ -570,7 +570,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                   </div>
                   
-                  {!newLead.companyId && (
+                  {!newLead.company_id && (
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
                       <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Ou cadastre manualmente:</p>
                       <div className="grid grid-cols-2 gap-4">
@@ -588,17 +588,17 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                    <input placeholder="Tipo de Serviço" value={newLead.serviceType} onChange={e => setNewLead({...newLead, serviceType: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                    <input placeholder="Tipo de Serviço" value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Total</label>
-                      <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                      <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Ticket Mensal</label>
-                      <input type="number" placeholder="Ticket Proposto" value={newLead.proposedTicket} onChange={e => setNewLead({...newLead, proposedTicket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                      <input type="number" placeholder="Ticket Proposto" value={newLead.proposed_ticket} onChange={e => setNewLead({...newLead, proposed_ticket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
                     </div>
                   </div>
                 </div>
@@ -620,7 +620,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
           <div className="w-full md:w-[750px] bg-slate-50 dark:bg-slate-950 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-700">
             <div className="p-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 dark:shadow-none">{selectedLead.name.charAt(0)}</div>
+                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 dark:shadow-none">{selectedLead.name?.charAt(0) || 'L'}</div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedLead.name}</h3>
                   <div className="flex items-center gap-2">
@@ -678,15 +678,15 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">AI Score</p>
                       <div className="flex items-center gap-2">
                         <div className={`px-3 py-1 rounded-full text-xs font-black ${
-                          (selectedLead.aiScore || 0) > 70 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                          (selectedLead.aiScore || 0) > 40 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                          (selectedLead.ai_score || 0) > 70 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                          (selectedLead.ai_score || 0) > 40 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
                           'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                         }`}>
-                          {selectedLead.aiScore || 'N/A'}
+                          {selectedLead.ai_score || 'N/A'}
                         </div>
-                        {selectedLead.aiReasoning && (
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic" title={selectedLead.aiReasoning}>
-                            {selectedLead.aiReasoning}
+                        {selectedLead.ai_reasoning && (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic" title={selectedLead.ai_reasoning}>
+                            {selectedLead.ai_reasoning}
                           </p>
                         )}
                       </div>
@@ -709,19 +709,19 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Serviço Principal</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.serviceType || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ticket Proposto</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposedTicket || 0).toLocaleString()}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposed_ticket || 0).toLocaleString()}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Próxima Ação</p>
-                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.nextAction || 'Definir ação'}</p>
+                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.next_action || 'Definir ação'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Data Próxima Ação</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.nextActionDate || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Valor total</p>
@@ -729,7 +729,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Previsão de fechamento</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closingForecast || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fonte</p>
@@ -742,10 +742,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                 </CollapsibleSection>
 
-                {selectedLead.customFields && Object.keys(selectedLead.customFields).length > 0 && (
+                {selectedLead.custom_fields && Object.keys(selectedLead.custom_fields).length > 0 && (
                   <CollapsibleSection title="Campos Personalizados">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {Object.entries(selectedLead.customFields).map(([key, value]) => (
+                      {Object.entries(selectedLead.custom_fields).map(([key, value]) => (
                         <div key={key} className="space-y-1">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{key}</p>
                           <p className="text-sm font-bold text-slate-900 dark:text-white">{String(value)}</p>
@@ -826,7 +826,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyEmail || 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_email || 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cidade</p>
@@ -838,11 +838,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Razão Social</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legalName || 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legal_name || 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.companyPhone ? formatPhoneBR(selectedLead.companyPhone) : 'N/A'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_phone ? formatPhoneBR(selectedLead.company_phone) : 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
@@ -859,11 +859,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             <CollapsibleSection title="Responsável">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 font-black">
-                  {selectedLead.responsibleName?.charAt(0) || 'U'}
+                  {selectedLead.responsible_name?.charAt(0) || 'U'}
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Responsável</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.responsibleName || 'Não atribuído'}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.responsible_name || 'Não atribuído'}</p>
                 </div>
               </div>
             </CollapsibleSection>
@@ -890,8 +890,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                 <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
                 {(selectedLead.interactions || [
-                  { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', createdAt: selectedLead.createdAt },
-                  { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', createdAt: selectedLead.createdAt }
+                  { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', created_at: selectedLead.created_at },
+                  { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', created_at: selectedLead.created_at }
                 ]).map((interaction, idx) => (
                   <div key={interaction.id} className="flex gap-6 relative">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white dark:border-slate-900 ${
@@ -908,7 +908,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <div className="flex justify-between items-start mb-2">
                         <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{interaction.title}</h5>
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">{new Date(interaction.createdAt).toLocaleString()}</span>
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">{new Date(interaction.created_at).toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{interaction.content}</p>
                     </div>
@@ -938,8 +938,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             onClick={() => {
               setWonData({
                 ...wonData,
-                monthlyValue: Number(selectedLead.proposedTicket || selectedLead.value || 0),
-                serviceType: selectedLead.serviceType || ''
+                monthly_value: Number(selectedLead.proposed_ticket || selectedLead.value || 0),
+                service_type: selectedLead.service_type || ''
               });
               setIsWonModalOpen(true);
             }}
@@ -969,8 +969,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Data de Início</label>
                 <input 
                   type="date" 
-                  value={wonData.startDate}
-                  onChange={e => setWonData({...wonData, startDate: e.target.value})}
+                  value={wonData.start_date}
+                  onChange={e => setWonData({...wonData, start_date: e.target.value})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -978,8 +978,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
                 <input 
                   type="number" 
-                  value={wonData.monthlyValue}
-                  onChange={e => setWonData({...wonData, monthlyValue: Number(e.target.value)})}
+                  value={wonData.monthly_value}
+                  onChange={e => setWonData({...wonData, monthly_value: Number(e.target.value)})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -987,8 +987,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
                 <input 
                   placeholder="Ex: Gestão de Tráfego"
-                  value={wonData.serviceType}
-                  onChange={e => setWonData({...wonData, serviceType: e.target.value})}
+                  value={wonData.service_type}
+                  onChange={e => setWonData({...wonData, service_type: e.target.value})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -1056,7 +1056,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                               setShowContactDropdown(true);
                             }} 
                             onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
+                            className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" 
                             placeholder="Digite nome, e-mail ou telefone..." 
                           />
                           {showContactDropdown && contactSearch && (
@@ -1097,25 +1097,25 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Nome do contato" />
+                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Nome do contato" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="Ex: CEO" />
+                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Ex: CEO" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
-                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="email@contato.com" />
+                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="email@contato.com" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" placeholder="(00) 00000-0000" />
+                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="(00) 00000-0000" />
                         </div>
                       </div>
                     </div>

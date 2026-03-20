@@ -63,7 +63,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   
   const myDayLeads = leads.filter(l => {
     const today = new Date().toISOString().split('T')[0];
-    return l.nextActionDate === today && (l.status === 'active' || !l.status);
+    return l.next_action_date === today && (l.status === 'active' || !l.status);
   });
 
   const averageTicket = wonLeads > 0 ? (closedRevenueMonth / wonLeads) : 0;
@@ -72,7 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   const fiveDaysAgo = new Date();
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
   const staleDeals = leads.filter(l => {
-    const activityDate = l.lastActivityAt ? new Date(l.lastActivityAt) : new Date(l.createdAt);
+    const activityDate = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
     return (l.status === 'active' || !l.status) && activityDate < fiveDaysAgo;
   });
 
@@ -86,7 +86,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   const chartData = last6Months.map(month => {
     // Filter won leads for this month (simplified logic for demo)
     const monthLeads = leads.filter(l => {
-      const d = new Date(l.createdAt);
+      const d = new Date(l.created_at);
       return d.toLocaleString('pt-BR', { month: 'short' }) === month;
     });
     const monthRevenue = monthLeads
@@ -104,7 +104,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   const ranking = leads
     .filter(l => l.status === 'won')
     .reduce((acc: any[], lead) => {
-      const seller = lead.responsibleName || 'Sistema';
+      const seller = lead.responsible_name || 'Sistema';
       const existing = acc.find(a => a.name === seller);
       if (existing) {
         existing.sales += 1;
@@ -120,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   // Dynamic Meetings
   const upcomingMeetings = tasks
     .filter(t => (t.type === 'meeting' || t.type === 'call') && t.status !== 'Concluída')
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
     .slice(0, 3);
 
   return (
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
                   </div>
                   <h4 className="font-black text-lg mb-1">{lead.name}</h4>
                   <p className="text-blue-100 text-xs font-bold mb-4 flex items-center gap-2">
-                    <ICONS.Target width="12" height="12" /> {lead.nextAction || 'Follow-up'}
+                    <ICONS.Target width="12" height="12" /> {lead.next_action || 'Follow-up'}
                   </p>
                   <div className="flex justify-between items-center pt-4 border-t border-white/10">
                     <span className="text-[10px] font-black uppercase tracking-widest text-blue-200">R$ {Number(lead.value).toLocaleString()}</span>
@@ -287,7 +287,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
                   </div>
                   <div>
                     <p className="text-sm font-black text-slate-900 dark:text-white">{t.title}</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(t.dueDate).toLocaleDateString()} às {new Date(t.dueDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(t.due_date).toLocaleDateString()} às {new Date(t.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </div>
                 <ICONS.ChevronDown className="-rotate-90 text-slate-300" />
@@ -310,7 +310,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
                     Novo lead <span className="font-black text-slate-900 dark:text-white">{l.name}</span> entrou no funil via <span className="font-black text-blue-600 dark:text-blue-400">{l.source || 'Site'}</span>
                   </p>
-                  <p className="text-[10px] font-black text-slate-400 uppercase mt-1">{new Date(l.createdAt).toLocaleDateString()}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mt-1">{new Date(l.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
             ))}

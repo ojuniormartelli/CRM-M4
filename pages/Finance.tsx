@@ -35,11 +35,11 @@ const Finance: React.FC<FinanceProps> = ({
     category: 'Mensalidade',
     status: 'Pendente',
     date: new Date().toISOString().split('T')[0],
-    dueDate: new Date().toISOString().split('T')[0],
-    paymentMethod: 'Boleto',
-    bankAccountId: '',
-    creditCardId: '',
-    clientAccountId: ''
+    due_date: new Date().toISOString().split('T')[0],
+    payment_method: 'Boleto',
+    bank_account_id: '',
+    credit_card_id: '',
+    client_account_id: ''
   });
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
@@ -66,11 +66,11 @@ const Finance: React.FC<FinanceProps> = ({
           category: 'Mensalidade',
           status: 'Pendente',
           date: new Date().toISOString().split('T')[0],
-          dueDate: new Date().toISOString().split('T')[0],
-          paymentMethod: 'Boleto',
-          bankAccountId: '',
-          creditCardId: '',
-          clientAccountId: ''
+          due_date: new Date().toISOString().split('T')[0],
+          payment_method: 'Boleto',
+          bank_account_id: '',
+          credit_card_id: '',
+          client_account_id: ''
         });
       }
     } catch (err) {
@@ -90,7 +90,7 @@ const Finance: React.FC<FinanceProps> = ({
 
   const mrr = clientAccounts
     .filter(a => a.status === 'ativo')
-    .reduce((acc, a) => acc + (Number(a.monthlyValue) || 0), 0);
+    .reduce((acc, a) => acc + (Number(a.monthly_value) || 0), 0);
 
   const pendingReceivables = transactions
     .filter(t => t.type === 'Receita' && (t.status === 'Pendente' || t.status === 'A Receber'))
@@ -121,7 +121,7 @@ const Finance: React.FC<FinanceProps> = ({
         <div className="bg-slate-900 p-6 rounded-3xl shadow-xl shadow-slate-200">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Saldo em Contas</p>
           <h3 className="text-2xl font-black text-white leading-none">
-            R$ {bankAccounts.reduce((acc, curr) => acc + (Number(curr.currentBalance) || 0), 0).toLocaleString()}
+            R$ {bankAccounts.reduce((acc, curr) => acc + (Number(curr.current_balance) || 0), 0).toLocaleString()}
           </h3>
           <div className="flex items-center gap-2 mt-3">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -149,11 +149,11 @@ const Finance: React.FC<FinanceProps> = ({
                       </div>
                       <div>
                         <p className="text-sm font-black text-slate-800">{account.name}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{account.bankType}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{account.bank_type}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-slate-800">R$ {Number(account.currentBalance).toLocaleString()}</p>
+                      <p className="text-sm font-black text-slate-800">R$ {Number(account.current_balance).toLocaleString()}</p>
                       <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Sincronizado</p>
                     </div>
                   </div>
@@ -214,12 +214,12 @@ const Finance: React.FC<FinanceProps> = ({
                     </div>
                     <div className="mb-4">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Limite Disponível</p>
-                      <p className="text-xl font-black">R$ {Number(card.limitAmount).toLocaleString()}</p>
+                      <p className="text-xl font-black">R$ {Number(card.limit_amount).toLocaleString()}</p>
                     </div>
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Vencimento</p>
-                        <p className="text-xs font-bold">Dia {card.dueDay}</p>
+                        <p className="text-xs font-bold">Dia {card.due_day}</p>
                       </div>
                       <div className="w-8 h-5 bg-slate-700/50 rounded flex items-center justify-center">
                         <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center">
@@ -296,13 +296,13 @@ const Finance: React.FC<FinanceProps> = ({
                 <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <p className="text-sm font-bold text-slate-800">{t.description}</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">{t.paymentMethod || 'Não definido'}</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">{t.payment_method || 'Não definido'}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs font-medium text-slate-600">{format(new Date(t.dueDate || t.date), 'dd/MM/yyyy')}</p>
+                    <p className="text-xs font-medium text-slate-600">{format(new Date(t.due_date || t.date), 'dd/MM/yyyy')}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
@@ -434,16 +434,16 @@ const Finance: React.FC<FinanceProps> = ({
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data Vencimento</label>
                     <input 
                       type="date" 
-                      value={newTransaction.dueDate} 
-                      onChange={e => setNewTransaction({...newTransaction, dueDate: e.target.value})}
+                      value={newTransaction.due_date} 
+                      onChange={e => setNewTransaction({...newTransaction, due_date: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Método de Pagamento</label>
                     <select 
-                      value={newTransaction.paymentMethod} 
-                      onChange={e => setNewTransaction({...newTransaction, paymentMethod: e.target.value})}
+                      value={newTransaction.payment_method} 
+                      onChange={e => setNewTransaction({...newTransaction, payment_method: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
                       <option value="Boleto">Boleto</option>
@@ -459,8 +459,8 @@ const Finance: React.FC<FinanceProps> = ({
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Conta Bancária</label>
                     <select 
-                      value={newTransaction.bankAccountId} 
-                      onChange={e => setNewTransaction({...newTransaction, bankAccountId: e.target.value})}
+                      value={newTransaction.bank_account_id} 
+                      onChange={e => setNewTransaction({...newTransaction, bank_account_id: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
                       <option value="">Nenhuma</option>
@@ -470,12 +470,12 @@ const Finance: React.FC<FinanceProps> = ({
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Cliente</label>
                     <select 
-                      value={newTransaction.clientAccountId} 
-                      onChange={e => setNewTransaction({...newTransaction, clientAccountId: e.target.value})}
+                      value={newTransaction.client_account_id} 
+                      onChange={e => setNewTransaction({...newTransaction, client_account_id: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
                       <option value="">Nenhum</option>
-                      {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.serviceType} - {acc.id.slice(0,8)}</option>)}
+                      {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.service_type} - {acc.id.slice(0,8)}</option>)}
                     </select>
                   </div>
                 </div>
@@ -533,16 +533,16 @@ const Finance: React.FC<FinanceProps> = ({
                 <div className="space-y-4">
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Limite Total</p>
-                    <p className="text-xl font-black text-slate-800">R$ {Number(card.limitAmount).toLocaleString()}</p>
+                    <p className="text-xl font-black text-slate-800">R$ {Number(card.limit_amount).toLocaleString()}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fechamento</p>
-                      <p className="text-sm font-bold text-slate-700">Dia {card.closingDay}</p>
+                      <p className="text-sm font-bold text-slate-700">Dia {card.closing_day}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vencimento</p>
-                      <p className="text-sm font-bold text-slate-700">Dia {card.dueDay}</p>
+                      <p className="text-sm font-bold text-slate-700">Dia {card.due_day}</p>
                     </div>
                   </div>
                 </div>

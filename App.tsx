@@ -165,9 +165,9 @@ const App: React.FC = () => {
         const clientAccData = {
           lead_id: lead.id,
           status: 'active',
-          service_type: extraData?.serviceType || lead.serviceType || 'Fee Mensal',
-          start_date: extraData?.startDate || new Date().toISOString().split('T')[0],
-          monthly_value: extraData?.monthlyValue || lead.proposedTicket || lead.value || 0,
+          service_type: extraData?.service_type || lead.service_type || 'Fee Mensal',
+          start_date: extraData?.start_date || new Date().toISOString().split('T')[0],
+          monthly_value: extraData?.monthly_value || lead.proposed_ticket || lead.value || 0,
           notes: `Conta criada automaticamente a partir do lead ${lead.name}`
         };
 
@@ -207,8 +207,8 @@ const App: React.FC = () => {
             company: lead.company,
             status: 'active',
             mrr: clientAccData.monthly_value,
-            contractStart: clientAccData.start_date,
-            healthScore: 100
+            contract_start: clientAccData.start_date,
+            health_score: 100
           };
 
           const { data: clientRes } = await supabase
@@ -221,10 +221,10 @@ const App: React.FC = () => {
             
             const projectData = {
               name: `Onboarding: ${lead.company}`,
-              clientId: clientRes[0].id,
-              leadId: lead.id,
+              client_id: clientRes[0].id,
+              lead_id: lead.id,
               status: 'active',
-              startDate: clientAccData.start_date,
+              start_date: clientAccData.start_date,
               value: lead.value || 0
             };
 
@@ -244,9 +244,9 @@ const App: React.FC = () => {
                 { title: 'Agendar Kickoff', type: 'meeting', priority: 'Alta', status: 'Pendente', client_account_id: accRes[0].id }
               ].map(t => ({
                 ...t,
-                projectId: projRes[0].id,
-                dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-                createdAt: new Date().toISOString()
+                project_id: projRes[0].id,
+                due_date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+                created_at: new Date().toISOString()
               }));
 
               const { data: tasksRes } = await supabase
@@ -266,10 +266,10 @@ const App: React.FC = () => {
           type: 'call',
           priority: 'Baixa',
           status: 'Pendente',
-          leadId: lead.id,
-          companyId: lead.companyId,
-          dueDate: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
-          createdAt: new Date().toISOString()
+          lead_id: lead.id,
+          company_id: lead.company_id,
+          due_date: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
+          created_at: new Date().toISOString()
         };
 
         const { data: taskRes } = await supabase
