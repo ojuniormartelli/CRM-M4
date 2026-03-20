@@ -353,14 +353,14 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
             <div 
               key={company.id}
               onClick={() => openEditModal(company)}
-              className="group bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer relative"
+              className="group bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer relative overflow-hidden min-w-0"
             >
-              <div className="flex justify-between items-start mb-6">
-                <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm group-hover:shadow-md transition-all">
+              <div className="flex justify-between items-start mb-6 gap-4">
+                <div className="w-14 h-14 shrink-0 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm group-hover:shadow-md transition-all">
                   {company.name.charAt(0)}
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                <div className="flex flex-col items-end gap-2 min-w-0">
+                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest truncate max-w-full" title={company.segment || 'Geral'}>
                     {company.segment || 'Geral'}
                   </div>
                   <button 
@@ -374,22 +374,22 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   </button>
                 </div>
               </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{company.name}</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{company.city}, {company.state}</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate" title={company.name}>{company.name}</h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6 truncate">{company.city}, {company.state}</p>
               
               <div className="space-y-3 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
-                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                  <ICONS.Phone width="14" height="14" />
-                  <span className="text-xs font-bold">{company.phone ? formatPhoneBR(company.phone) : 'N/A'}</span>
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 min-w-0">
+                  <ICONS.Phone className="shrink-0" width="14" height="14" />
+                  <span className="text-xs font-bold truncate">{company.phone ? formatPhoneBR(company.phone) : 'N/A'}</span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                  <ICONS.Mail width="14" height="14" />
-                  <span className="text-xs font-bold">{company.website || 'N/A'}</span>
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 min-w-0">
+                  <ICONS.Mail className="shrink-0" width="14" height="14" />
+                  <span className="text-xs font-bold truncate max-w-full" title={company.website}>{company.website || 'N/A'}</span>
                 </div>
                 {contacts.find(c => c.company_id === company.id && c.is_primary) && (
-                  <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 pt-2">
-                    <ICONS.User width="14" height="14" />
-                    <span className="text-xs font-black uppercase tracking-widest">
+                  <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 pt-2 min-w-0">
+                    <ICONS.User className="shrink-0" width="14" height="14" />
+                    <span className="text-xs font-black uppercase tracking-widest truncate">
                       {contacts.find(c => c.company_id === company.id && c.is_primary)?.name}
                     </span>
                   </div>
