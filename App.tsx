@@ -102,15 +102,14 @@ const App: React.FC = () => {
           buildQuery('m4_emails').order('created_at', { ascending: false }),
           buildQuery('m4_clients'),
           buildQuery('m4_projects'),
-          supabase.from('m4_settings').select('*').maybeSingle(), // Settings might be global or per workspace
+          supabase.from('m4_settings').select('*').maybeSingle(),
           buildQuery('m4_posts').order('created_at', { ascending: false }),
           buildQuery('m4_campaigns').order('created_at', { ascending: false }),
           buildQuery('m4_client_accounts'),
           buildQuery('m4_bank_accounts'),
           buildQuery('m4_credit_cards'),
-          buildQuery('m4_companies'),
-          buildQuery('m4_contacts').select('*, company:m4_companies(id, name, city, state)'),
-          buildQuery('m4_settings').maybeSingle()
+          supabase.from('m4_companies').select('*').order('name'),
+          supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').order('name')
         ]);
         
         if (resLeads.data) setLeads(resLeads.data);
@@ -119,6 +118,7 @@ const App: React.FC = () => {
         if (resEmails.data) setEmails(resEmails.data);
         if (resClients.data) setClients(resClients.data);
         if (resProjects.data) setProjects(resProjects.data);
+        if (resSettings.data) setSettings(resSettings.data);
         if (resPosts.data) setPosts(resPosts.data);
         if (resCampaigns.data) setCampaigns(resCampaigns.data);
         if (resClientAcc.data) setClientAccounts(resClientAcc.data);
@@ -126,7 +126,6 @@ const App: React.FC = () => {
         if (resCards.data) setCreditCards(resCards.data);
         if (resCompanies.data) setCompanies(resCompanies.data);
         if (resContacts.data) setContacts(resContacts.data);
-        if (resSettings.data) setSettings(resSettings.data);
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
