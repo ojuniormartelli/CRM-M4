@@ -44,6 +44,32 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
   });
 
+  useEffect(() => {
+    if (companies.length === 0) {
+      fetchCompanies();
+    }
+  }, [companies.length]);
+
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('m4_companies')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Erro ao carregar empresas:', error);
+        return;
+      }
+
+      if (data) {
+        setCompanies(data);
+      }
+    } catch (err) {
+      console.error('Erro inesperado ao carregar empresas:', err);
+    }
+  };
+
   const handleCreateContact = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
