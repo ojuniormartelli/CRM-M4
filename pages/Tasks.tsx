@@ -63,23 +63,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   // Fetch companies for autocomplete
   useEffect(() => {
     const fetchCompanies = async () => {
-      // Base query
-      let query = supabase
+      // Base query - No workspace filter for single-tenant mode
+      const { data, error } = await supabase
         .from('m4_companies')
         .select('*')
         .order('name');
 
-      // Filter by workspace only if the user has one defined
-      if (currentUser?.workspace_id) {
-        query = query.eq('workspace_id', currentUser.workspace_id);
-      }
-
-      const { data, error } = await query;
-
       // Debug logs
       console.log('EMPRESAS RETORNADAS:', data);
       console.log('ERRO SUPABASE:', error);
-      console.log('WORKSPACE ATUAL DO USUÁRIO:', currentUser?.workspace_id);
 
       if (data) {
         setCompanies(data);
@@ -112,7 +104,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     e.preventDefault();
     const taskData = {
       ...newTask,
-      workspace_id: currentUser?.workspace_id,
+      ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
       created_at: new Date().toISOString()
     };
 

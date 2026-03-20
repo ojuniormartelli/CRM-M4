@@ -51,7 +51,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
       .from('m4_contacts')
       .insert([{
         ...newContactData,
-        workspace_id: currentUser?.workspace_id
+        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
       .select();
 
@@ -110,7 +110,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
       .from('m4_companies')
       .insert([{
         ...newCompany,
-        workspace_id: currentUser?.workspace_id
+        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
       .select();
 
@@ -125,8 +125,8 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           .insert([{
             ...primaryContact,
             company_id: companyId,
-            workspace_id: currentUser?.workspace_id,
-            is_primary: true
+            is_primary: true,
+            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
           }])
           .select();
         

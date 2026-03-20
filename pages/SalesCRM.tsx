@@ -190,7 +190,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       phone: selectedContact?.phone || newLead.phone,
       pipeline_id: activePipelineId,
       stage_id: activePipeline.stages[0].id,
-      workspace_id: currentUser?.workspace_id,
+      ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
       created_at: new Date().toISOString()
     };
 

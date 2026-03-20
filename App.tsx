@@ -90,15 +90,9 @@ const App: React.FC = () => {
           if (user) setCurrentUser(user);
         }
 
-        // 2. Fetch all other data, filtered by workspace_id if user exists
-        const workspaceId = user?.workspace_id;
-
+        // 2. Fetch all other data
         const buildQuery = (table: string) => {
-          let query = supabase.from(table).select('*');
-          if (workspaceId) {
-            query = query.eq('workspace_id', workspaceId);
-          }
-          return query;
+          return supabase.from(table).select('*');
         };
 
         const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts] = await Promise.all([
@@ -168,7 +162,8 @@ const App: React.FC = () => {
           service_type: extraData?.service_type || lead.service_type || 'Fee Mensal',
           start_date: extraData?.start_date || new Date().toISOString().split('T')[0],
           monthly_value: extraData?.monthly_value || lead.proposed_ticket || lead.value || 0,
-          notes: `Conta criada automaticamente a partir do lead ${lead.name}`
+          notes: `Conta criada automaticamente a partir do lead ${lead.name}`,
+          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
         };
 
         const { data: accRes, error: accErr } = await supabase
@@ -189,7 +184,8 @@ const App: React.FC = () => {
             due_date: clientAccData.start_date,
             client_account_id: accRes[0].id,
             lead_id: lead.id,
-            payment_method: 'Boleto'
+            payment_method: 'Boleto',
+            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
           };
 
           const { data: transRes } = await supabase
@@ -208,7 +204,8 @@ const App: React.FC = () => {
             status: 'active',
             mrr: clientAccData.monthly_value,
             contract_start: clientAccData.start_date,
-            health_score: 100
+            health_score: 100,
+            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
           };
 
           const { data: clientRes } = await supabase
@@ -225,7 +222,8 @@ const App: React.FC = () => {
               lead_id: lead.id,
               status: 'active',
               start_date: clientAccData.start_date,
-              value: lead.value || 0
+              value: lead.value || 0,
+              ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
             };
 
             const { data: projRes } = await supabase
@@ -246,7 +244,8 @@ const App: React.FC = () => {
                 ...t,
                 project_id: projRes[0].id,
                 due_date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
               }));
 
               const { data: tasksRes } = await supabase
@@ -269,7 +268,8 @@ const App: React.FC = () => {
           lead_id: lead.id,
           company_id: lead.company_id,
           due_date: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
         };
 
         const { data: taskRes } = await supabase

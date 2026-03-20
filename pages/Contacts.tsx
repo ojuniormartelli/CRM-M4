@@ -44,7 +44,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
       .from('m4_companies')
       .insert([{
         ...newCompany,
-        workspace_id: currentUser?.workspace_id
+        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
       .select();
 
@@ -90,7 +90,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
       .from('m4_contacts')
       .insert([{
         ...newContact,
-        workspace_id: currentUser?.workspace_id
+        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
       .select();
 

@@ -48,7 +48,7 @@ const Finance: React.FC<FinanceProps> = ({
     try {
       const transactionData = {
         ...newTransaction,
-        workspace_id: currentUser?.workspace_id
+        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       };
 
       const { data, error } = await supabase

@@ -105,7 +105,11 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
       } else {
         const { error } = await supabase
           .from('m4_users')
-          .insert([{ ...editingUser, status: 'active' }]);
+          .insert([{ 
+            ...editingUser, 
+            status: 'active',
+            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
+          }]);
         if (error) throw error;
       }
       
