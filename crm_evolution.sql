@@ -47,6 +47,7 @@ ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS company_id uuid R
 
 -- 5. Vincular Tarefas às Empresas e Negócios
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
+ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
 ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS workspace_id uuid;
 

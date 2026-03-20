@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Pipeline, Lead, Interaction, Company, Contact, User } from '../types';
+import { Pipeline, Lead, Interaction, Company, Contact, User, LeadTemperature } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
@@ -40,6 +40,8 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
 
 const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads, companies, contacts, currentUser }) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editLead, setEditLead] = useState<Partial<Lead>>({});
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
@@ -145,6 +147,27 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       setIsContactModalOpen(false);
       setNewContact({ name: '', email: '', phone: '', role: '', company_id: '' });
       window.location.reload();
+    }
+    setIsSyncing(false);
+  };
+
+  const handleUpdateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLead) return;
+    setIsSyncing(true);
+
+    const { error } = await supabase
+      .from('m4_leads')
+      .update(editLead)
+      .eq('id', selectedLead.id);
+
+    if (error) {
+      alert("Erro ao atualizar lead: " + error.message);
+    } else {
+      const updatedLead = { ...selectedLead, ...editLead };
+      setLeads(leads.map(l => l.id === selectedLead.id ? updatedLead : l));
+      setSelectedLead(updatedLead);
+      setIsEditing(false);
     }
     setIsSyncing(false);
   };
@@ -622,43 +645,71 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               <div className="flex items-center gap-6">
                 <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 dark:shadow-none">{selectedLead.name?.charAt(0) || 'L'}</div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedLead.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <p className="text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
-                    <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                      selectedLead.status === 'won' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                      selectedLead.status === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' :
-                      'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    }`}>
-                      {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
-                    </span>
-                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                    {isEditing ? `EDITANDO: ${selectedLead.name}` : selectedLead.name}
+                  </h3>
+                  {!isEditing && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">{selectedLead.company}</p>
+                      <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        selectedLead.status === 'won' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                        selectedLead.status === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' :
+                        'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3">
-                <button 
-                  onClick={() => handleAIScore(selectedLead)}
-                  disabled={isAIScoring}
-                  className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all disabled:opacity-50"
-                  title="Score com IA"
-                >
-                  {isAIScoring ? <span className="animate-spin block">◌</span> : <ICONS.Plus width="20" height="20" />}
-                </button>
-                <button 
-                  onClick={() => handleEnrichSingleLead(selectedLead)}
-                  disabled={isEnriching}
-                  className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all disabled:opacity-50"
-                  title="Enriquecer com IA"
-                >
-                  {isEnriching ? <span className="animate-spin block">◌</span> : <ICONS.Automation width="20" height="20" />}
-                </button>
-                <button onClick={() => handleDeleteLead(selectedLead.id)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all" title="Excluir">
-                  <ICONS.X width="20" height="20" />
-                </button>
-                <button onClick={() => setSelectedLead(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                  FECHAR
-                </button>
+                {!isEditing ? (
+                  <>
+                    <button 
+                      onClick={() => {
+                        setEditLead(selectedLead);
+                        setIsEditing(true);
+                      }}
+                      className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all"
+                      title="Editar"
+                    >
+                      <ICONS.Edit width="20" height="20" />
+                    </button>
+                    <button 
+                      onClick={() => handleAIScore(selectedLead)}
+                      disabled={isAIScoring}
+                      className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all disabled:opacity-50"
+                      title="Score com IA"
+                    >
+                      {isAIScoring ? <span className="animate-spin block">◌</span> : <ICONS.Plus width="20" height="20" />}
+                    </button>
+                    <button 
+                      onClick={() => handleEnrichSingleLead(selectedLead)}
+                      disabled={isEnriching}
+                      className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all disabled:opacity-50"
+                      title="Enriquecer com IA"
+                    >
+                      {isEnriching ? <span className="animate-spin block">◌</span> : <ICONS.Automation width="20" height="20" />}
+                    </button>
+                    <button onClick={() => handleDeleteLead(selectedLead.id)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all" title="Excluir">
+                      <ICONS.X width="20" height="20" />
+                    </button>
+                    <button onClick={() => setSelectedLead(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                      <ICONS.Plus className="rotate-45 w-6 h-6" />
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditLead(selectedLead);
+                    }}
+                    className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                  >
+                    CANCELAR
+                  </button>
+                )}
               </div>
             </div>
             
@@ -668,11 +719,32 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.name}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.name || ''} 
+                          onChange={e => setEditLead({...editLead, name: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.name}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Qualificação</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.qualification || 'N/A'}</p>
+                      {isEditing ? (
+                        <select 
+                          value={editLead.qualification || ''} 
+                          onChange={e => setEditLead({...editLead, qualification: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value="">N/A</option>
+                          <option value="Inbound">Inbound</option>
+                          <option value="Outbound">Outbound</option>
+                          <option value="Indicação">Indicação</option>
+                        </select>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.qualification || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">AI Score</p>
@@ -693,51 +765,148 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Probabilidade</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.probability || 0}%</p>
+                      {isEditing ? (
+                        <input 
+                          type="number"
+                          value={editLead.probability || 0} 
+                          onChange={e => setEditLead({...editLead, probability: Number(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.probability || 0}%</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Temperatura</p>
-                      <p className={`text-sm font-bold ${
-                        selectedLead.temperature === 'Quente' ? 'text-orange-600 dark:text-orange-400' :
-                        selectedLead.temperature === 'Morno' ? 'text-blue-600 dark:text-blue-400' :
-                        'text-slate-600 dark:text-slate-400'
-                      }`}>{selectedLead.temperature || 'Frio'}</p>
+                      {isEditing ? (
+                        <select 
+                          value={editLead.temperature || ''} 
+                          onChange={e => setEditLead({...editLead, temperature: e.target.value as LeadTemperature})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value="Frio">Frio</option>
+                          <option value="Morno">Morno</option>
+                          <option value="Quente">Quente</option>
+                        </select>
+                      ) : (
+                        <p className={`text-sm font-bold ${
+                          selectedLead.temperature === 'Quente' ? 'text-orange-600 dark:text-orange-400' :
+                          selectedLead.temperature === 'Morno' ? 'text-blue-600 dark:text-blue-400' :
+                          'text-slate-600 dark:text-slate-400'
+                        }`}>{selectedLead.temperature || 'Frio'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nicho / Segmento</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.niche || ''} 
+                          onChange={e => setEditLead({...editLead, niche: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Serviço Principal</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.service_type || ''} 
+                          onChange={e => setEditLead({...editLead, service_type: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ticket Proposto</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposed_ticket || 0).toLocaleString()}</p>
+                      {isEditing ? (
+                        <input 
+                          type="number"
+                          value={editLead.proposed_ticket || 0} 
+                          onChange={e => setEditLead({...editLead, proposed_ticket: Number(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposed_ticket || 0).toLocaleString()}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Próxima Ação</p>
-                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.next_action || 'Definir ação'}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.next_action || ''} 
+                          onChange={e => setEditLead({...editLead, next_action: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.next_action || 'Definir ação'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Data Próxima Ação</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          type="date"
+                          value={editLead.next_action_date || ''} 
+                          onChange={e => setEditLead({...editLead, next_action_date: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Valor total</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                      {isEditing ? (
+                        <input 
+                          type="number"
+                          value={editLead.value || 0} 
+                          onChange={e => setEditLead({...editLead, value: Number(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Previsão de fechamento</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          type="date"
+                          value={editLead.closing_forecast || ''} 
+                          onChange={e => setEditLead({...editLead, closing_forecast: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fonte</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.source || ''} 
+                          onChange={e => setEditLead({...editLead, source: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || 'N/A'}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Campanha</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || 'N/A'}</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.campaign || ''} 
+                          onChange={e => setEditLead({...editLead, campaign: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || 'N/A'}</p>
+                      )}
                     </div>
                   </div>
                 </CollapsibleSection>
@@ -822,31 +991,88 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.company || ''} 
+                      onChange={e => setEditLead({...editLead, company: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_email || 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      type="email"
+                      value={editLead.company_email || ''} 
+                      onChange={e => setEditLead({...editLead, company_email: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_email || 'N/A'}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cidade</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.city || 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.city || ''} 
+                      onChange={e => setEditLead({...editLead, city: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.city || 'N/A'}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj ? formatCNPJ(selectedLead.cnpj) : 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.cnpj || ''} 
+                      onChange={e => setEditLead({...editLead, cnpj: formatCNPJ(e.target.value)})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj ? formatCNPJ(selectedLead.cnpj) : 'N/A'}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Razão Social</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legal_name || 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.legal_name || ''} 
+                      onChange={e => setEditLead({...editLead, legal_name: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legal_name || 'N/A'}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_phone ? formatPhoneBR(selectedLead.company_phone) : 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.company_phone || ''} 
+                      onChange={e => setEditLead({...editLead, company_phone: formatPhoneBR(e.target.value)})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_phone ? formatPhoneBR(selectedLead.company_phone) : 'N/A'}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.instagram || 'N/A'}</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.instagram || ''} 
+                      onChange={e => setEditLead({...editLead, instagram: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.instagram || 'N/A'}</p>
+                  )}
                 </div>
               </div>
               <div className="mt-8 pt-8 border-t border-slate-50 dark:border-slate-800">
@@ -934,25 +1160,34 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         </div>
 
         <div className="p-10 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-4 shrink-0">
-          <button 
-            onClick={() => {
-              setWonData({
-                ...wonData,
-                monthly_value: Number(selectedLead.proposed_ticket || selectedLead.value || 0),
-                service_type: selectedLead.service_type || ''
-              });
-              setIsWonModalOpen(true);
-            }}
-            className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'won' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-100 dark:shadow-none' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'}`}
-          >
-            MARCAR COMO GANHO
-          </button>
-          <button 
-            onClick={() => onStatusChange(selectedLead.id, 'lost')}
-            className={`flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${selectedLead.status === 'lost' ? 'bg-red-600 text-white shadow-xl shadow-red-100 dark:shadow-none' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'}`}
-          >
-            MARCAR COMO PERDIDO
-          </button>
+          {!isEditing ? (
+            <button 
+              onClick={() => setSelectedLead(null)}
+              className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
+              FECHAR
+            </button>
+          ) : (
+            <>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditLead(selectedLead);
+                }}
+                className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+              >
+                CANCELAR
+              </button>
+              <button 
+                onClick={handleUpdateLead}
+                disabled={isSyncing}
+                className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-50"
+              >
+                {isSyncing ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}
+              </button>
+            </>
+          )}
         </div>
           </div>
         </div>

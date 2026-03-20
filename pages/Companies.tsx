@@ -16,6 +16,7 @@ interface CompaniesProps {
 const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts, setContacts, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
@@ -212,6 +213,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     }
     
     setContactMode('select');
+    setIsEditing(false);
     setIsEditModalOpen(true);
   };
 
@@ -458,171 +460,297 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Header */}
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <div className="flex items-center gap-8">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Editar Empresa</h3>
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                  <button 
-                    type="button"
-                    onClick={() => setActiveTab('details')}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Detalhes
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveTab('tasks')}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'tasks' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Tarefas ({companyTasks.length})
-                  </button>
-                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
+                  {isEditing ? `EDITANDO: ${editingCompany?.name}` : editingCompany?.name}
+                </h3>
+                {!isEditing && (
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button 
+                      type="button"
+                      onClick={() => setActiveTab('details')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      Detalhes
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setActiveTab('tasks')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'tasks' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      Tarefas ({companyTasks.length})
+                    </button>
+                  </div>
+                )}
               </div>
-              <button onClick={() => { setIsEditModalOpen(false); resetForm(); setActiveTab('details'); }} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                <ICONS.Plus className="rotate-45" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!isEditing && activeTab === 'details' && (
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all"
+                    title="Editar"
+                  >
+                    <ICONS.Edit className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => { 
+                    if (isEditing) {
+                      setIsEditing(false);
+                      // Reset form to original values
+                      if (editingCompany) {
+                        setNewCompany({
+                          name: editingCompany.name,
+                          cnpj: editingCompany.cnpj,
+                          city: editingCompany.city,
+                          state: editingCompany.state,
+                          segment: editingCompany.segment,
+                          website: editingCompany.website,
+                          instagram: editingCompany.instagram,
+                          phone: editingCompany.phone,
+                          whatsapp: editingCompany.whatsapp,
+                          notes: editingCompany.notes
+                        });
+                      }
+                    } else {
+                      setIsEditModalOpen(false); 
+                      resetForm(); 
+                      setActiveTab('details');
+                    }
+                  }} 
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                >
+                  <ICONS.Plus className="rotate-45" />
+                </button>
+              </div>
             </div>
             
             {activeTab === 'details' ? (
               <form onSubmit={handleUpdateCompany} className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
-                  {/* ... existing form fields ... */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
-                    <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
-                    <input value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
-                    <input value={newCompany.state} onChange={e => setNewCompany({...newCompany, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                    <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
-                    <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
-                  </div>
-                </div>
+                  {isEditing ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                          <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                          <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
+                          <input value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
+                          <input value={newCompany.state} onChange={e => setNewCompany({...newCompany, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
+                          <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
+                          <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                          <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                          <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                        </div>
+                      </div>
 
-                <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal</p>
-                    <button 
-                      type="button"
-                      onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
-                      className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
-                    >
-                      {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
-                    </button>
-                  </div>
+                      <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
+                        <div className="flex justify-between items-center">
+                          <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal</p>
+                          <button 
+                            type="button"
+                            onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
+                            className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
+                          >
+                            {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
+                          </button>
+                        </div>
 
-                  {contactMode === 'select' ? (
-                    <div className="relative">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <input 
-                            value={contactSearch} 
-                            onChange={e => {
-                              setContactSearch(e.target.value);
-                              setShowContactDropdown(true);
-                            }} 
-                            onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
-                            placeholder="Digite nome, e-mail ou telefone..." 
-                          />
-                          {showContactDropdown && contactSearch && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[110] max-h-60 overflow-y-auto scrollbar-none">
-                              {filteredContacts.length > 0 ? (
-                                filteredContacts.map(c => (
-                                  <button
-                                    key={c.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedContactId(c.id);
-                                      setContactSearch(c.name);
-                                      setShowContactDropdown(false);
-                                    }}
-                                    className="w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between group"
-                                  >
-                                    <div>
-                                      <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
-                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
-                                    </div>
-                                    {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
-                                  </button>
-                                ))
-                              ) : (
-                                <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
-                              )}
+                        {contactMode === 'select' ? (
+                          <div className="relative">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <input 
+                                  value={contactSearch} 
+                                  onChange={e => {
+                                    setContactSearch(e.target.value);
+                                    setShowContactDropdown(true);
+                                  }} 
+                                  onFocus={() => setShowContactDropdown(true)}
+                                  className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
+                                  placeholder="Digite nome, e-mail ou telefone..." 
+                                />
+                                {showContactDropdown && contactSearch && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[110] max-h-60 overflow-y-auto scrollbar-none">
+                                    {filteredContacts.length > 0 ? (
+                                      filteredContacts.map(c => (
+                                        <button
+                                          key={c.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedContactId(c.id);
+                                            setContactSearch(c.name);
+                                            setShowContactDropdown(false);
+                                          }}
+                                          className="w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between group"
+                                        >
+                                          <div>
+                                            <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
+                                          </div>
+                                          {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
+                                <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
+                                <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
+                                <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
+                                <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(primaryContact.phone)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas</label>
+                        <textarea value={newCompany.notes} onChange={e => setNewCompany({...newCompany, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white h-32" placeholder="Observações sobre a empresa..." />
+                      </div>
+                    </>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome da Empresa</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.name}</p>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.cnpj || 'N/A'}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
-                          <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Localização</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.city}, {editingCompany?.state}</p>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Segmento</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.segment || 'Geral'}</p>
                         </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
+                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{editingCompany?.website || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.instagram || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.phone ? formatPhoneBR(editingCompany.phone) : 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.whatsapp ? formatPhoneBR(editingCompany.whatsapp) : 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contato Principal</p>
+                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                          {contacts.find(c => c.id === selectedContactId)?.name || 'Nenhum associado'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas</p>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingCompany?.notes || 'Sem observações.'}</p>
                       </div>
                     </div>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas</label>
-                  <textarea value={newCompany.notes} onChange={e => setNewCompany({...newCompany, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white h-32" placeholder="Observações sobre a empresa..." />
+                <div className="p-10 pt-0 shrink-0 flex gap-4">
+                  {isEditing ? (
+                    <>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setIsEditing(false);
+                          if (editingCompany) {
+                            setNewCompany({
+                              name: editingCompany.name,
+                              cnpj: editingCompany.cnpj,
+                              city: editingCompany.city,
+                              state: editingCompany.state,
+                              segment: editingCompany.segment,
+                              website: editingCompany.website,
+                              instagram: editingCompany.instagram,
+                              phone: editingCompany.phone,
+                              whatsapp: editingCompany.whatsapp,
+                              notes: editingCompany.notes
+                            });
+                          }
+                        }} 
+                        className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs"
+                      >
+                        Cancelar
+                      </button>
+                      <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-blue-100 dark:shadow-none">
+                        {isSaving ? "SALVANDO..." : "SALVAR"}
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Fechar</button>
+                  )}
                 </div>
-              </div>
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
-                  {isSaving ? "SALVANDO..." : "ATUALIZAR EMPRESA"}
-                </button>
-              </div>
-            </form>
-          ) : (
+              </form>
+            ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
                 <div className="flex items-center justify-between mb-4">
@@ -692,7 +820,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         </div>
       )}
     </div>
-  </div>
+    </div>
   );
 };
 

@@ -489,7 +489,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'companies' && <Companies companies={companies} setCompanies={setCompanies} contacts={contacts} setContacts={setContacts} currentUser={currentUser} />}
-          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} currentUser={currentUser} />}
+          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} setCompanies={setCompanies} currentUser={currentUser} />}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}

@@ -9,11 +9,15 @@ interface ContactsProps {
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   companies: Company[];
+  setCompanies: React.Dispatch<React.SetStateAction<Company[]>>;
   currentUser: User | null;
 }
 
-const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, currentUser }) => {
+const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, setCompanies, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newContact, setNewContact] = useState<Partial<Contact>>({
     name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
@@ -67,13 +71,13 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
       }
 
       setNewContact({ ...newContact, company_id: companyData[0].id });
+      setCompanies([...companies, companyData[0]]);
       setIsCompanyModalOpen(false);
       setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: '' });
       setPrimaryContact({ name: '', email: '', phone: '', role: '' });
       setSelectedContactId('');
       setContactSearch('');
       setContactMode('select');
-      window.location.reload();
     }
     setIsSaving(false);
   };
@@ -100,6 +104,44 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
       });
     }
     setIsSaving(false);
+  };
+
+  const handleUpdateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContact) return;
+    setIsSaving(true);
+    
+    const { error } = await supabase
+      .from('m4_contacts')
+      .update(newContact)
+      .eq('id', editingContact.id);
+
+    if (error) {
+      alert("Erro ao atualizar contato: " + error.message);
+    } else {
+      setContacts(contacts.map(c => c.id === editingContact.id ? { ...c, ...newContact } as Contact : c));
+      setIsEditModalOpen(false);
+      setIsEditing(false);
+    }
+    setIsSaving(false);
+  };
+
+  const openEditModal = (contact: Contact) => {
+    setEditingContact(contact);
+    setNewContact({
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      role: contact.role,
+      whatsapp: contact.whatsapp,
+      instagram: contact.instagram,
+      linkedin: contact.linkedin,
+      notes: contact.notes,
+      is_primary: contact.is_primary,
+      company_id: contact.company_id
+    });
+    setIsEditing(false);
+    setIsEditModalOpen(true);
   };
 
   const filteredContacts = contacts.filter(c => 
@@ -144,6 +186,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
           {filteredContacts.map(contact => (
             <div 
               key={contact.id}
+              onClick={() => openEditModal(contact)}
               className="group bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer"
             >
               <div className="flex justify-between items-start mb-6">
@@ -257,6 +300,206 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, c
                 <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
                   {isSaving ? "SALVANDO..." : "SALVAR CONTATO"}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
+                {isEditing ? `EDITANDO: ${editingContact?.name}` : editingContact?.name}
+              </h3>
+              <div className="flex items-center gap-2">
+                {!isEditing && (
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all"
+                    title="Editar"
+                  >
+                    <ICONS.Edit className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => { 
+                    if (isEditing) {
+                      setIsEditing(false);
+                      if (editingContact) {
+                        setNewContact({
+                          name: editingContact.name,
+                          email: editingContact.email,
+                          phone: editingContact.phone,
+                          role: editingContact.role,
+                          whatsapp: editingContact.whatsapp,
+                          instagram: editingContact.instagram,
+                          linkedin: editingContact.linkedin,
+                          notes: editingContact.notes,
+                          is_primary: editingContact.is_primary,
+                          company_id: editingContact.company_id
+                        });
+                      }
+                    } else {
+                      setIsEditModalOpen(false); 
+                      setEditingContact(null); 
+                    }
+                  }} 
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                >
+                  <ICONS.Plus className="rotate-45" />
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleUpdateContact} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                {isEditing ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                        <input required value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: João Silva" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
+                        <select required value={newContact.company_id} onChange={e => setNewContact({...newContact, company_id: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white">
+                          <option value="">Selecionar Empresa</option>
+                          {companies.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                        <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                        <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="joao@empresa.com" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                        <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                        <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                        <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                        <input value={newContact.linkedin} onChange={e => setNewContact({...newContact, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                      <input 
+                        type="checkbox" 
+                        id="is_primary_edit"
+                        checked={newContact.is_primary} 
+                        onChange={e => setNewContact({...newContact, is_primary: e.target.checked})}
+                        className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="is_primary_edit" className="text-sm font-bold text-slate-700 dark:text-slate-300">Este é o contato principal da empresa</label>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas</label>
+                      <textarea value={newContact.notes} onChange={e => setNewContact({...newContact, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white h-32" placeholder="Observações sobre o contato..." />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-6">
+                      <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-[2rem] flex items-center justify-center text-blue-600 dark:text-blue-400 font-black text-3xl">
+                        {editingContact?.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="text-2xl font-black text-slate-900 dark:text-white">{editingContact?.name}</h4>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest">{editingContact?.role || 'Contato'}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Empresa</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{getCompanyName(editingContact?.company_id || '')}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.phone ? formatPhoneBR(editingContact.phone) : 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.whatsapp ? formatPhoneBR(editingContact.whatsapp) : 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.instagram || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.linkedin || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas</p>
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingContact?.notes || 'Sem observações.'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                {isEditing ? (
+                  <>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setIsEditing(false);
+                        if (editingContact) {
+                          setNewContact({
+                            name: editingContact.name,
+                            email: editingContact.email,
+                            phone: editingContact.phone,
+                            role: editingContact.role,
+                            whatsapp: editingContact.whatsapp,
+                            instagram: editingContact.instagram,
+                            linkedin: editingContact.linkedin,
+                            notes: editingContact.notes,
+                            is_primary: editingContact.is_primary,
+                            company_id: editingContact.company_id
+                          });
+                        }
+                      }} 
+                      className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs"
+                    >
+                      Cancelar
+                    </button>
+                    <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-blue-100 dark:shadow-none">
+                      {isSaving ? "SALVANDO..." : "SALVAR"}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingContact(null); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Fechar</button>
+                )}
               </div>
             </form>
           </div>

@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     due_date TIMESTAMP WITH TIME ZONE,
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     company_id UUID REFERENCES m4_companies(id),
+    contact_id UUID REFERENCES m4_contacts(id),
     deal_id UUID REFERENCES m4_leads(id),
     client_account_id UUID, -- Será referenciado abaixo
     is_recurring BOOLEAN DEFAULT FALSE,

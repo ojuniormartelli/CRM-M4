@@ -13,21 +13,35 @@ interface ProjectsProps {
 
 const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTasks, currentUser }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editProject, setEditProject] = useState<Partial<Project>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0
   });
 
-  const handleCreateProject = async (e: React.FormEvent) => {
+  const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const projectData = {
-      ...newProject,
-      workspace_id: currentUser?.workspace_id
-    };
+    if (!selectedProject) return;
 
     const { data, error } = await supabase
       .from('m4_projects')
-      .insert([projectData])
+      .update(editProject)
+      .eq('id', selectedProject.id)
+      .select();
+
+    if (!error && data) {
+      setProjects(projects.map(p => p.id === selectedProject.id ? data[0] : p));
+      setSelectedProject(data[0]);
+      setIsEditing(false);
+    }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { data, error } = await supabase
+      .from('m4_projects')
+      .insert([{ ...newProject, workspace_id: currentUser?.workspace_id }])
       .select();
 
     if (!error && data) {
@@ -35,6 +49,12 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
       setIsModalOpen(false);
       setNewProject({ name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0 });
     }
+  };
+
+  const openViewModal = (project: Project) => {
+    setSelectedProject(project);
+    setEditProject(project);
+    setIsEditing(false);
   };
 
   const projectTasks = selectedProject ? tasks.filter(t => t.project_id === selectedProject.id) : [];
@@ -57,7 +77,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
         {projects.map((project) => (
           <div 
             key={project.id} 
-            onClick={() => setSelectedProject(project)}
+            onClick={() => openViewModal(project)}
             className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
           >
             <div className="flex justify-between items-start mb-6">
@@ -106,28 +126,95 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                   <ICONS.Projects width="32" height="32" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">{selectedProject.name}</h3>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                    {isEditing ? `EDITANDO: ${selectedProject.name}` : selectedProject.name}
+                  </h3>
                   <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Gestão de Projeto</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedProject(null)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all">
-                FECHAR
-              </button>
+              <div className="flex items-center gap-3">
+                {!isEditing && (
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all"
+                    title="Editar"
+                  >
+                    <ICONS.Edit className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    if (isEditing) {
+                      setIsEditing(false);
+                      setEditProject(selectedProject);
+                    } else {
+                      setSelectedProject(null);
+                    }
+                  }} 
+                  className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
+                >
+                  {isEditing ? 'CANCELAR' : 'FECHAR'}
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-10 space-y-10">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor do Projeto</p>
-                  <p className="text-3xl font-black text-slate-900">R$ {Number(selectedProject.value).toLocaleString()}</p>
+            <form onSubmit={handleUpdateProject} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-10">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor do Projeto</p>
+                    {isEditing ? (
+                      <input 
+                        type="number" 
+                        value={editProject.value} 
+                        onChange={e => setEditProject({...editProject, value: Number(e.target.value)})}
+                        className="w-full p-2 bg-slate-50 rounded-xl border-none font-bold text-slate-900"
+                      />
+                    ) : (
+                      <p className="text-3xl font-black text-slate-900">R$ {Number(selectedProject.value).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Início</p>
+                    {isEditing ? (
+                      <input 
+                        type="date" 
+                        value={editProject.start_date} 
+                        onChange={e => setEditProject({...editProject, start_date: e.target.value})}
+                        className="w-full p-2 bg-slate-50 rounded-xl border-none font-bold text-slate-900"
+                      />
+                    ) : (
+                      <p className="text-xl font-black text-slate-900">{new Date(selectedProject.start_date).toLocaleDateString()}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Início</p>
-                  <p className="text-xl font-black text-slate-900">{new Date(selectedProject.start_date).toLocaleDateString()}</p>
-                </div>
-              </div>
 
-              <div className="space-y-6">
+                {isEditing && (
+                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Projeto</label>
+                      <input 
+                        required 
+                        value={editProject.name} 
+                        onChange={e => setEditProject({...editProject, name: e.target.value})} 
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                      <select 
+                        value={editProject.status} 
+                        onChange={e => setEditProject({...editProject, status: e.target.value as any})}
+                        className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900"
+                      >
+                        <option value="active">Em Andamento</option>
+                        <option value="completed">Concluído</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">Checklist de Onboarding</h4>
                   <button className="text-blue-600 text-[10px] font-black uppercase tracking-widest hover:underline">+ Adicionar Item</button>
@@ -152,6 +239,37 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                 </div>
               </div>
             </div>
+            <div className="p-10 bg-white border-t border-slate-100 flex gap-4 shrink-0">
+              {!isEditing ? (
+                <button 
+                  type="button"
+                  onClick={() => setSelectedProject(null)}
+                  className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200"
+                >
+                  FECHAR
+                </button>
+              ) : (
+                <>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditProject(selectedProject);
+                    }}
+                    className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+                  >
+                    CANCELAR
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-200"
+                  >
+                    SALVAR ALTERAÇÕES
+                  </button>
+                </>
+              )}
+            </div>
+          </form>
           </div>
         </div>
       )}
