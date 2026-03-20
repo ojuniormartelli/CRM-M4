@@ -37,6 +37,70 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     name: '', email: '', phone: '', role: ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isContactEditModalOpen, setIsContactEditModalOpen] = useState(false);
+  const [isContactNewModalOpen, setIsContactNewModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [newContactData, setNewContactData] = useState<Partial<Contact>>({
+    name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
+  });
+
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const { data, error } = await supabase
+      .from('m4_contacts')
+      .insert([{
+        ...newContactData,
+        workspace_id: currentUser?.workspace_id
+      }])
+      .select();
+
+    if (error) {
+      alert("Erro ao salvar contato: " + error.message);
+    } else if (data) {
+      setContacts([...contacts, data[0]]);
+      setIsContactNewModalOpen(false);
+      setNewContactData({
+        name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
+      });
+    }
+    setIsSaving(false);
+  };
+
+  const handleUpdateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContact) return;
+    setIsSaving(true);
+    const { error } = await supabase
+      .from('m4_contacts')
+      .update(newContactData)
+      .eq('id', editingContact.id);
+
+    if (error) {
+      alert("Erro ao atualizar contato: " + error.message);
+    } else {
+      setContacts(contacts.map(c => c.id === editingContact.id ? { ...c, ...newContactData } as Contact : c));
+      setIsContactEditModalOpen(false);
+    }
+    setIsSaving(false);
+  };
+
+  const openEditContactModal = (contact: Contact) => {
+    setEditingContact(contact);
+    setNewContactData({
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      role: contact.role,
+      whatsapp: contact.whatsapp,
+      instagram: contact.instagram,
+      linkedin: contact.linkedin,
+      notes: contact.notes,
+      is_primary: contact.is_primary,
+      company_id: contact.company_id
+    });
+    setIsContactEditModalOpen(true);
+  };
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,6 +372,71 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
           ))}
         </div>
       </div>
+
+      {/* Modais de Contato (Novo/Editar) */}
+      {(isContactNewModalOpen || isContactEditModalOpen) && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="p-10 pb-6 flex justify-between items-center border-b border-slate-50 dark:border-slate-800">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                  {isContactNewModalOpen ? "Novo Contato" : "Editar Contato"}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Informações do Relacionamento</p>
+              </div>
+              <button onClick={() => { setIsContactNewModalOpen(false); setIsContactEditModalOpen(false); }} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors">
+                <ICONS.X className="text-slate-400" />
+              </button>
+            </div>
+
+            <form onSubmit={isContactNewModalOpen ? handleCreateContact : handleUpdateContact} className="p-10 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome</label>
+                  <input required value={newContactData.name} onChange={e => setNewContactData({...newContactData, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Nome completo" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cargo</label>
+                  <input value={newContactData.role} onChange={e => setNewContactData({...newContactData, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
+                  <input type="email" value={newContactData.email} onChange={e => setNewContactData({...newContactData, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="email@exemplo.com" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
+                  <input value={newContactData.phone} onChange={e => setNewContactData({...newContactData, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp</label>
+                  <input value={newContactData.whatsapp} onChange={e => setNewContactData({...newContactData, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="WhatsApp" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram</label>
+                  <input value={newContactData.instagram} onChange={e => setNewContactData({...newContactData, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">LinkedIn</label>
+                  <input value={newContactData.linkedin} onChange={e => setNewContactData({...newContactData, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => { setIsContactNewModalOpen(false); setIsContactEditModalOpen(false); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-blue-100 dark:shadow-none">
+                  {isSaving ? "SALVANDO..." : "SALVAR CONTATO"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -663,54 +792,133 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   ) : (
                     <div className="space-y-8">
                       <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome da Empresa</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.name}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.name}>{editingCompany?.name || '–'}</p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.cnpj || 'N/A'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.cnpj || '–'}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Localização</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.city}, {editingCompany?.state}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">
+                            {editingCompany?.city || editingCompany?.state ? `${editingCompany?.city || '–'}, ${editingCompany?.state || '–'}` : '–'}
+                          </p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Segmento</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.segment || 'Geral'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.segment || '–'}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
-                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{editingCompany?.website || 'N/A'}</p>
+                          {editingCompany?.website ? (
+                            <a 
+                              href={editingCompany.website.startsWith('http') ? editingCompany.website : `https://${editingCompany.website}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-lg font-bold text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                              title={editingCompany.website}
+                            >
+                              {editingCompany.website}
+                            </a>
+                          ) : (
+                            <p className="text-lg font-bold text-slate-400 dark:text-slate-500">–</p>
+                          )}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.instagram || 'N/A'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.instagram}>{editingCompany?.instagram || '–'}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.phone ? formatPhoneBR(editingCompany.phone) : 'N/A'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.phone ? formatPhoneBR(editingCompany.phone) : '–'}</p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white">{editingCompany?.whatsapp ? formatPhoneBR(editingCompany.whatsapp) : 'N/A'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.whatsapp ? formatPhoneBR(editingCompany.whatsapp) : '–'}</p>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contato Principal</p>
-                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {contacts.find(c => c.id === selectedContactId)?.name || 'Nenhum associado'}
-                        </p>
+                      
+                      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contato Principal</p>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setNewContactData({ ...newContactData, company_id: editingCompany?.id });
+                              setIsContactNewModalOpen(true);
+                            }}
+                            className="text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-1"
+                          >
+                            <ICONS.Plus width="12" height="12" /> Novo Contato
+                          </button>
+                        </div>
+                        
+                        {(() => {
+                          const contact = contacts.find(c => c.id === selectedContactId);
+                          if (!contact) return <p className="text-lg font-bold text-slate-400 dark:text-slate-500 italic">Nenhum associado</p>;
+                          
+                          return (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl space-y-4 relative group">
+                              <button 
+                                type="button"
+                                onClick={() => openEditContactModal(contact)}
+                                className="absolute top-4 right-4 p-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-blue-600 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                <ICONS.Edit width="14" height="14" />
+                              </button>
+                              
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Nome</p>
+                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{contact.name || '–'}</p>
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Cargo</p>
+                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{contact.role || '–'}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">E-mail</p>
+                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={contact.email}>{contact.email || '–'}</p>
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Telefone</p>
+                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{contact.phone ? formatPhoneBR(contact.phone) : '–'}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</p>
+                                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">{contact.whatsapp ? formatPhoneBR(contact.whatsapp) : '–'}</p>
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Instagram</p>
+                                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">{contact.instagram || '–'}</p>
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">LinkedIn</p>
+                                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate">{contact.linkedin || '–'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas</p>
-                        <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingCompany?.notes || 'Sem observações.'}</p>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingCompany?.notes || '–'}</p>
                       </div>
                     </div>
                   )}

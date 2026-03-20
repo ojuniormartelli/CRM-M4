@@ -805,7 +805,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -817,7 +817,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -855,7 +855,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -881,7 +881,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -893,7 +893,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -905,7 +905,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || '–'}</p>
                       )}
                     </div>
                   </div>
@@ -941,7 +941,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             </div>
                             <div className="text-left">
                               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone ? formatPhoneBR(contact.phone) : 'N/A'}</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone ? formatPhoneBR(contact.phone) : '–'}</p>
                             </div>
                           </button>
                           <button onClick={() => window.open(`mailto:${contact.email}`, '_blank')} className="flex items-center gap-4 group">
@@ -950,7 +950,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             </div>
                             <div className="text-left">
                               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.email || 'N/A'}</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.email || '–'}</p>
                             </div>
                           </button>
                           <button 
@@ -971,7 +971,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Cargo</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.role || 'N/A'}</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.role || '–'}</p>
                             </div>
                             <div>
                               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Link Whatsapp</p>

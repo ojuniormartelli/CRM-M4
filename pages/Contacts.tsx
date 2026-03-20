@@ -428,41 +428,41 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
                     </div>
 
                     <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Empresa</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{getCompanyName(editingContact?.company_id || '')}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={getCompanyName(editingContact?.company_id || '')}>{getCompanyName(editingContact?.company_id || '')}</p>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.email || 'N/A'}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingContact?.email}>{editingContact?.email || '–'}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.phone ? formatPhoneBR(editingContact.phone) : 'N/A'}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingContact?.phone ? formatPhoneBR(editingContact.phone) : '–'}</p>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.whatsapp ? formatPhoneBR(editingContact.whatsapp) : 'N/A'}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingContact?.whatsapp ? formatPhoneBR(editingContact.whatsapp) : '–'}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.instagram || 'N/A'}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingContact?.instagram}>{editingContact?.instagram || '–'}</p>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white">{editingContact?.linkedin || 'N/A'}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingContact?.linkedin}>{editingContact?.linkedin || '–'}</p>
                       </div>
                     </div>
 
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas</p>
-                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingContact?.notes || 'Sem observações.'}</p>
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{editingContact?.notes || '–'}</p>
                     </div>
                   </div>
                 )}

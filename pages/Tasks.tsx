@@ -63,13 +63,29 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   // Fetch companies for autocomplete
   useEffect(() => {
     const fetchCompanies = async () => {
-      if (!currentUser?.workspace_id) return;
-      const { data } = await supabase
+      // Base query
+      let query = supabase
         .from('m4_companies')
         .select('*')
-        .eq('workspace_id', currentUser.workspace_id)
         .order('name');
-      if (data) setCompanies(data);
+
+      // Filter by workspace only if the user has one defined
+      if (currentUser?.workspace_id) {
+        query = query.eq('workspace_id', currentUser.workspace_id);
+      }
+
+      const { data, error } = await query;
+
+      // Debug logs
+      console.log('EMPRESAS RETORNADAS:', data);
+      console.log('ERRO SUPABASE:', error);
+      console.log('WORKSPACE ATUAL DO USUÁRIO:', currentUser?.workspace_id);
+
+      if (data) {
+        setCompanies(data);
+      } else if (error) {
+        console.error('Erro ao buscar empresas:', error.message);
+      }
     };
     fetchCompanies();
   }, [currentUser]);
@@ -494,7 +510,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                               Nenhuma Empresa
                             </div>
                             {companies
-                              .filter(c => c.name.toLowerCase().includes(companySearch.toLowerCase()) || c.cnpj?.includes(companySearch))
+                              .filter(c => !companySearch || c.name.toLowerCase().includes(companySearch.toLowerCase()) || c.cnpj?.includes(companySearch))
                               .map(company => (
                                 <div 
                                   key={company.id} 
@@ -507,11 +523,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                                   className="p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer border-b border-slate-50 dark:border-slate-700 last:border-none"
                                 >
                                   <div className="flex justify-between items-center">
-                                    <div>
-                                      <p className="font-black text-slate-900 dark:text-white text-sm">{company.name}</p>
-                                      {company.cnpj && <p className="text-[10px] text-slate-400">{company.cnpj}</p>}
+                                    <div className="min-w-0">
+                                      <p className="font-black text-slate-900 dark:text-white text-sm truncate">{company.name}</p>
+                                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                        {company.city ? `${company.city}${company.state ? `, ${company.state}` : ''}` : (company.cnpj || 'Sem cidade')}
+                                      </p>
                                     </div>
-                                    {company.segment && <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-tighter">{company.segment}</span>}
+                                    {company.segment && <span className="shrink-0 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-tighter ml-2">{company.segment}</span>}
                                   </div>
                                 </div>
                               ))
@@ -521,7 +539,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                       </div>
                     ) : (
                       <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
-                        {selectedTask?.company_id ? companies.find(c => c.id === selectedTask.company_id)?.name : 'Nenhuma Empresa'}
+                        {selectedTask?.company_id ? companies.find(c => c.id === selectedTask.company_id)?.name : '–'}
                       </p>
                     )}
                   </div>
@@ -544,7 +562,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                       </select>
                     ) : (
                       <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
-                        {selectedTask?.contact_id ? contacts.find(c => c.id === selectedTask.contact_id)?.name : 'Nenhum Contato'}
+                        {selectedTask?.contact_id ? contacts.find(c => c.id === selectedTask.contact_id)?.name : '–'}
                       </p>
                     )}
                   </div>
@@ -580,7 +598,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                     {isEditing ? (
                       <input type="date" value={selectedTask ? editTask.due_date : newTask.due_date} onChange={e => selectedTask ? setEditTask({...editTask, due_date: e.target.value}) : setNewTask({...newTask, due_date: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white" />
                     ) : (
-                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">{selectedTask?.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : 'N/A'}</p>
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">{selectedTask?.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : '–'}</p>
                     )}
                   </div>
                 </div>
