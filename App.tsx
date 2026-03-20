@@ -91,41 +91,47 @@ const App: React.FC = () => {
         }
 
         // 2. Fetch all other data
-        const buildQuery = (table: string) => {
-          return supabase.from(table).select('*');
-        };
+        const { data: leadsData } = await supabase.from('m4_leads').select('*');
+        setLeads(leadsData || []);
 
-        const [resLeads, resTasks, resTrans, resEmails, resClients, resProjects, resSettings, resPosts, resCampaigns, resClientAcc, resBankAcc, resCards, resCompanies, resContacts] = await Promise.all([
-          buildQuery('m4_leads'),
-          buildQuery('m4_tasks'),
-          buildQuery('m4_transactions'),
-          buildQuery('m4_emails').order('created_at', { ascending: false }),
-          buildQuery('m4_clients'),
-          buildQuery('m4_projects'),
-          supabase.from('m4_settings').select('*').maybeSingle(),
-          buildQuery('m4_posts').order('created_at', { ascending: false }),
-          buildQuery('m4_campaigns').order('created_at', { ascending: false }),
-          buildQuery('m4_client_accounts'),
-          buildQuery('m4_bank_accounts'),
-          buildQuery('m4_credit_cards'),
-          supabase.from('m4_companies').select('*').order('name'),
-          supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').order('name')
-        ]);
-        
-        if (resLeads.data) setLeads(resLeads.data);
-        if (resTasks.data) setTasks(resTasks.data);
-        if (resTrans.data) setTransactions(resTrans.data);
-        if (resEmails.data) setEmails(resEmails.data);
-        if (resClients.data) setClients(resClients.data);
-        if (resProjects.data) setProjects(resProjects.data);
-        if (resSettings.data) setSettings(resSettings.data);
-        if (resPosts.data) setPosts(resPosts.data);
-        if (resCampaigns.data) setCampaigns(resCampaigns.data);
-        if (resClientAcc.data) setClientAccounts(resClientAcc.data);
-        if (resBankAcc.data) setBankAccounts(resBankAcc.data);
-        if (resCards.data) setCreditCards(resCards.data);
-        if (resCompanies.data) setCompanies(resCompanies.data);
-        if (resContacts.data) setContacts(resContacts.data);
+        const { data: tasksData } = await supabase.from('m4_tasks').select('*');
+        setTasks(tasksData || []);
+
+        const { data: transactionsData } = await supabase.from('m4_transactions').select('*');
+        setTransactions(transactionsData || []);
+
+        const { data: emailsData } = await supabase.from('m4_emails').select('*').order('created_at', { ascending: false });
+        setEmails(emailsData || []);
+
+        const { data: clientsData } = await supabase.from('m4_clients').select('*');
+        setClients(clientsData || []);
+
+        const { data: projectsData } = await supabase.from('m4_projects').select('*');
+        setProjects(projectsData || []);
+
+        const { data: settingsData } = await supabase.from('m4_settings').select('*').maybeSingle();
+        setSettings(settingsData);
+
+        const { data: postsData } = await supabase.from('m4_posts').select('*').order('created_at', { ascending: false });
+        setPosts(postsData || []);
+
+        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false });
+        setCampaigns(campaignsData || []);
+
+        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*');
+        setClientAccounts(clientAccountsData || []);
+
+        const { data: bankAccountsData } = await supabase.from('m4_bank_accounts').select('*');
+        setBankAccounts(bankAccountsData || []);
+
+        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*');
+        setCreditCards(creditCardsData || []);
+
+        const { data: companiesData } = await supabase.from('m4_companies').select('*').order('name');
+        setCompanies(companiesData || []);
+
+        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').order('name');
+        setContacts(contactsData || []);
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
