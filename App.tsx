@@ -109,7 +109,7 @@ const App: React.FC = () => {
           buildQuery('m4_bank_accounts'),
           buildQuery('m4_credit_cards'),
           buildQuery('m4_companies'),
-          buildQuery('m4_contacts'),
+          buildQuery('m4_contacts').select('*, company:m4_companies(id, name, city, state)'),
           buildQuery('m4_settings').maybeSingle()
         ]);
         

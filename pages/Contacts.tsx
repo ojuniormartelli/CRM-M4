@@ -92,7 +92,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
         ...newContact,
         ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
-      .select();
+      .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
       alert("Erro ao salvar contato: " + error.message);
@@ -111,15 +111,16 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
     if (!editingContact) return;
     setIsSaving(true);
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('m4_contacts')
       .update(newContact)
-      .eq('id', editingContact.id);
+      .eq('id', editingContact.id)
+      .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
       alert("Erro ao atualizar contato: " + error.message);
-    } else {
-      setContacts(contacts.map(c => c.id === editingContact.id ? { ...c, ...newContact } as Contact : c));
+    } else if (data) {
+      setContacts(contacts.map(c => c.id === editingContact.id ? data[0] : c));
       setIsEditModalOpen(false);
       setIsEditing(false);
     }
@@ -150,8 +151,8 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
     c.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getCompanyName = (company_id: string) => {
-    return companies.find(c => c.id === company_id)?.name || 'Empresa não vinculada';
+  const getCompanyName = (contact: Contact) => {
+    return contact.company?.name || companies.find(c => c.id === contact.company_id)?.name || 'Empresa não vinculada';
   };
 
   return (
@@ -201,7 +202,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{contact.name}</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1 uppercase tracking-widest">{contact.role || 'Contato'}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{getCompanyName(contact.company_id)}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-6">{getCompanyName(contact)}</p>
               
               <div className="space-y-3 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
@@ -430,7 +431,7 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, setContacts, companies, s
                     <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Empresa</p>
-                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={getCompanyName(editingContact?.company_id || '')}>{getCompanyName(editingContact?.company_id || '')}</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingContact ? getCompanyName(editingContact) : '–'}>{editingContact ? getCompanyName(editingContact) : '–'}</p>
                       </div>
                       <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>

@@ -61,6 +61,12 @@ export interface Contact {
   is_primary: boolean;
   created_at: string;
   updated_at: string;
+  company?: {
+    id: string;
+    name: string;
+    city?: string;
+    state?: string;
+  };
 }
 
 export enum LeadTemperature {

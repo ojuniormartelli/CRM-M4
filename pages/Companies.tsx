@@ -53,7 +53,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
         ...newContactData,
         ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
       }])
-      .select();
+      .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
       alert("Erro ao salvar contato: " + error.message);
@@ -71,15 +71,16 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     e.preventDefault();
     if (!editingContact) return;
     setIsSaving(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('m4_contacts')
       .update(newContactData)
-      .eq('id', editingContact.id);
+      .eq('id', editingContact.id)
+      .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
       alert("Erro ao atualizar contato: " + error.message);
-    } else {
-      setContacts(contacts.map(c => c.id === editingContact.id ? { ...c, ...newContactData } as Contact : c));
+    } else if (data) {
+      setContacts(contacts.map(c => c.id === editingContact.id ? data[0] : c));
       setIsContactEditModalOpen(false);
     }
     setIsSaving(false);
