@@ -20,7 +20,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', segment: '', website: '', instagram: '', phone: '', whatsapp: '', notes: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
   });
   
   // Tasks state
@@ -260,7 +260,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
 
   const resetForm = () => {
     setNewCompany({
-      name: '', cnpj: '', city: '', state: '', segment: '', website: '', instagram: '', phone: '', whatsapp: '', notes: ''
+      name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
     });
     setPrimaryContact({ name: '', email: '', phone: '', role: '' });
     setSelectedContactId('');
@@ -278,7 +278,9 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
       state: company.state,
       segment: company.segment,
       website: company.website,
+      email: company.email,
       instagram: company.instagram,
+      linkedin: company.linkedin,
       phone: company.phone,
       whatsapp: company.whatsapp,
       notes: company.notes
@@ -386,6 +388,18 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   <ICONS.Mail className="shrink-0" width="14" height="14" />
                   <span className="text-xs font-bold truncate max-w-full" title={company.website}>{company.website || 'N/A'}</span>
                 </div>
+                {company.email && (
+                  <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 min-w-0">
+                    <ICONS.Mail className="shrink-0" width="14" height="14" />
+                    <span className="text-xs font-bold truncate max-w-full" title={company.email}>{company.email}</span>
+                  </div>
+                )}
+                {company.instagram && (
+                  <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 min-w-0">
+                    <ICONS.Instagram className="shrink-0" width="14" height="14" />
+                    <span className="text-xs font-bold truncate max-w-full" title={company.instagram}>{company.instagram}</span>
+                  </div>
+                )}
                 {contacts.find(c => c.company_id === company.id && c.is_primary) && (
                   <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 pt-2 min-w-0">
                     <ICONS.User className="shrink-0" width="14" height="14" />
@@ -504,6 +518,20 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
                     <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                    <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                    <input value={newCompany.linkedin} onChange={e => setNewCompany({...newCompany, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
@@ -664,6 +692,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                           state: editingCompany.state,
                           segment: editingCompany.segment,
                           website: editingCompany.website,
+                          email: editingCompany.email,
                           instagram: editingCompany.instagram,
                           phone: editingCompany.phone,
                           whatsapp: editingCompany.whatsapp,
@@ -716,6 +745,20 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
                           <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                          <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                          <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                          <input value={newCompany.linkedin} onChange={e => setNewCompany({...newCompany, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-6">
@@ -840,33 +883,31 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                           <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.segment || '–'}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-1 min-w-0">
-                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
-                          {editingCompany?.website ? (
-                            <a 
-                              href={editingCompany.website.startsWith('http') ? editingCompany.website : `https://${editingCompany.website}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-lg font-bold text-blue-600 dark:text-blue-400 hover:underline truncate block"
-                              title={editingCompany.website}
-                            >
-                              {editingCompany.website}
-                            </a>
-                          ) : (
-                            <p className="text-lg font-bold text-slate-400 dark:text-slate-500">–</p>
-                          )}
-                        </div>
+                      <div className="grid grid-cols-3 gap-8">
                         <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.instagram}>{editingCompany?.instagram || '–'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.instagram || '–'}</p>
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.linkedin || '–'}</p>
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail da Empresa</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.email}>{editingCompany?.email || '–'}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-1 min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.instagram}>{editingCompany?.instagram || '–'}</p>
+                        </div>
+                        <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
                           <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.phone ? formatPhoneBR(editingCompany.phone) : '–'}</p>
                         </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
                           <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.whatsapp ? formatPhoneBR(editingCompany.whatsapp) : '–'}</p>

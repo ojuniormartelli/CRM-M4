@@ -24,6 +24,8 @@ import EmailModule from './pages/EmailModule';
 import Settings from './pages/Settings';
 import DataEnrichment from './pages/DataEnrichment';
 import MeetingForms from './pages/MeetingForms';
+import ClientsOverview from './pages/ClientsOverview';
+import SalesOverview from './pages/SalesOverview';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -31,7 +33,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedMenus, setExpandedMenus] = useState({
     sales: true,
-    clients: false
+    clients: true
   });
   const [loading, setLoading] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
@@ -287,18 +289,22 @@ const App: React.FC = () => {
     }
   };
 
-  const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle, isActive }: any) => (
+  const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle, isActive, overviewId }: any) => (
     <div className="space-y-1">
       <button
         onClick={() => {
           if (hasSubItems) {
-            onToggle();
+            if (isSidebarOpen) {
+              onToggle();
+            } else if (overviewId) {
+              setActiveTab(overviewId);
+            }
           } else {
             setActiveTab(id);
           }
         }}
         className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 ${
-          isActive && !hasSubItems
+          isActive && (!hasSubItems || !isSidebarOpen)
             ? 'bg-blue-600 text-white shadow-xl shadow-blue-100/50 scale-[1.02]' 
             : 'text-slate-500 hover:bg-blue-50 hover:text-blue-600'
         }`}
@@ -318,8 +324,8 @@ const App: React.FC = () => {
     {
       title: "Comercial",
       items: [
-        { id: 'sales', icon: ICONS.Sales, label: 'Pipelines Vendas', hasSubItems: true, menuKey: 'sales' },
-        { id: 'clients_group', icon: ICONS.Clients, label: 'Base de Clientes', hasSubItems: true, menuKey: 'clients' },
+        { id: 'sales', icon: ICONS.Sales, label: 'Pipelines Vendas', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
+        { id: 'clients_group', icon: ICONS.Clients, label: 'Base de Clientes', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
         { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
       ]
@@ -403,17 +409,29 @@ const App: React.FC = () => {
                     icon={item.icon}
                     label={item.label}
                     isActive={
-                      item.id === 'sales' ? activeTab === 'sales' :
-                      item.id === 'clients_group' ? (activeTab === 'companies' || activeTab === 'contacts') :
+                      item.id === 'sales' ? (activeTab === 'sales' || activeTab === 'sales_overview') :
+                      item.id === 'clients_group' ? (activeTab === 'companies' || activeTab === 'contacts' || activeTab === 'clients_overview') :
                       activeTab === item.id
                     }
                     hasSubItems={item.hasSubItems}
+                    overviewId={item.overviewId}
                     isExpanded={item.menuKey ? expandedMenus[item.menuKey as keyof typeof expandedMenus] : false}
                     onToggle={item.menuKey ? () => setExpandedMenus({...expandedMenus, [item.menuKey!]: !expandedMenus[item.menuKey as keyof typeof expandedMenus]}) : undefined}
                   />
                   
                   {item.id === 'sales' && expandedMenus.sales && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      <button
+                        onClick={() => setActiveTab('sales_overview')}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
+                          activeTab === 'sales_overview'
+                            ? 'text-blue-600 bg-blue-50/50' 
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Visão Geral
+                      </button>
                       {pipelines.map(p => (
                         <button
                           key={p.id}
@@ -436,6 +454,10 @@ const App: React.FC = () => {
 
                   {item.id === 'clients_group' && expandedMenus.clients && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      <button onClick={() => setActiveTab('clients_overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'clients_overview' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Visão Geral
+                      </button>
                       <button onClick={() => setActiveTab('companies')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Empresas
@@ -478,6 +500,28 @@ const App: React.FC = () => {
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
+          {activeTab === 'clients_overview' && (
+            <ClientsOverview 
+              companies={companies} 
+              contacts={contacts} 
+              setActiveTab={setActiveTab}
+              onNewCompany={() => {
+                setActiveTab('companies');
+                // We'll need a way to trigger the modal in Companies.tsx
+                // For now, navigating to companies is the first step.
+              }}
+            />
+          )}
+          {activeTab === 'sales_overview' && (
+            <SalesOverview 
+              leads={leads} 
+              pipelines={pipelines} 
+              setActiveTab={setActiveTab}
+              onNewLead={() => {
+                setActiveTab('sales');
+              }}
+            />
+          )}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
           {activeTab === 'sales' && (
             <SalesCRM 

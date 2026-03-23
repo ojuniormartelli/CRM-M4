@@ -38,7 +38,9 @@ export interface Company {
   state?: string;
   segment?: string;
   website?: string;
+  email?: string;
   instagram?: string;
+  linkedin?: string;
   phone?: string;
   whatsapp?: string;
   notes?: string;
@@ -159,9 +161,11 @@ export interface Lead {
   // Company specific
   legal_name?: string;
   instagram?: string;
+  linkedin?: string;
   website?: string;
   company_email?: string;
   company_phone?: string;
+  whatsapp?: string;
   
   // Contacts and Responsibility
   contacts?: Contact[];

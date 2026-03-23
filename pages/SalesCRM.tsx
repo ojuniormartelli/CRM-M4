@@ -62,7 +62,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: '',
     niche: '', service_type: '', proposed_ticket: 0,
-    company_id: '', contact_id: ''
+    company_id: '', contact_id: '',
+    company_email: '', company_phone: '', whatsapp: '', instagram: '', linkedin: '', website: '', city: '', state: '', cnpj: ''
   });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -188,6 +189,18 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       name: selectedContact?.name || newLead.name,
       email: selectedContact?.email || newLead.email,
       phone: selectedContact?.phone || newLead.phone,
+      
+      // Pull company fields if selected
+      company_email: selectedCompany?.email || newLead.company_email,
+      company_phone: selectedCompany?.phone || newLead.company_phone,
+      whatsapp: selectedCompany?.whatsapp || newLead.whatsapp,
+      instagram: selectedCompany?.instagram || newLead.instagram,
+      linkedin: selectedCompany?.linkedin || newLead.linkedin,
+      website: selectedCompany?.website || newLead.website,
+      city: selectedCompany?.city || newLead.city,
+      state: selectedCompany?.state || newLead.state,
+      cnpj: selectedCompany?.cnpj || newLead.cnpj,
+
       pipeline_id: activePipelineId,
       stage_id: activePipeline.stages[0].id,
       ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
@@ -207,7 +220,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       setNewLead({ 
         name: '', company: '', email: '', phone: '', value: 0, notes: '',
         niche: '', service_type: '', proposed_ticket: 0, next_action: '', next_action_date: '',
-        company_id: '', contact_id: ''
+        company_id: '', contact_id: '',
+        company_email: '', company_phone: '', whatsapp: '', instagram: '', linkedin: '', website: '', city: '', state: '', cnpj: ''
       });
     }
     setIsSyncing(false);
@@ -594,11 +608,23 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                   
                   {!newLead.company_id && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
-                      <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Ou cadastre manualmente:</p>
+                    <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-800/50 space-y-4">
+                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">Ou cadastre manualmente:</p>
                       <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="Nome da Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" />
-                        <input placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border-none text-sm font-bold" />
+                        <input placeholder="Nome da Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                        <input placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <input placeholder="E-mail da Empresa" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                        <input placeholder="WhatsApp da Empresa" value={newLead.whatsapp} onChange={e => setNewLead({...newLead, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <input placeholder="Instagram" value={newLead.instagram} onChange={e => setNewLead({...newLead, instagram: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                        <input placeholder="LinkedIn" value={newLead.linkedin} onChange={e => setNewLead({...newLead, linkedin: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <input placeholder="Website" value={newLead.website} onChange={e => setNewLead({...newLead, website: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
+                        <input placeholder="CNPJ" value={newLead.cnpj} onChange={e => setNewLead({...newLead, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
                       </div>
                     </div>
                   )}
@@ -1072,6 +1098,52 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     />
                   ) : (
                     <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.instagram || 'N/A'}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.linkedin || ''} 
+                      onChange={e => setEditLead({...editLead, linkedin: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.linkedin || 'N/A'}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp Empresa</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.whatsapp || ''} 
+                      onChange={e => setEditLead({...editLead, whatsapp: formatPhoneBR(e.target.value)})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.whatsapp ? formatPhoneBR(selectedLead.whatsapp) : 'N/A'}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
+                  {isEditing ? (
+                    <input 
+                      value={editLead.website || ''} 
+                      onChange={e => setEditLead({...editLead, website: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{selectedLead.website || 'N/A'}</p>
+                      {selectedLead.website && (
+                        <button 
+                          onClick={() => window.open(selectedLead.website?.startsWith('http') ? selectedLead.website : `https://${selectedLead.website}`, '_blank')}
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-blue-600"
+                        >
+                          <ICONS.ExternalLink size={14} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
