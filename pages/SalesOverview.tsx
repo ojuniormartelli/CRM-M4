@@ -20,9 +20,23 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [csvData, setCsvData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [selectedPipelineId, setSelectedPipelineId] = useState(pipelines[0]?.id || '');
+  const [selectedPipelineId, setSelectedPipelineId] = useState(() => {
+    const firstValid = pipelines.find(p => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id));
+    return firstValid?.id || pipelines[0]?.id || '';
+  });
   const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{ success: number; total: number } | null>(null);
+
+  React.useEffect(() => {
+    const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!selectedPipelineId || !isValidUUID(selectedPipelineId)) {
+      const firstValid = pipelines.find(p => isValidUUID(p.id));
+      if (firstValid) {
+        setSelectedPipelineId(firstValid.id);
+      }
+    }
+  }, [pipelines, selectedPipelineId]);
 
   const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
   
@@ -35,10 +49,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const crmFields = [
     { id: 'company_name', label: 'Nome da Empresa', synonyms: ['empresa', 'company', 'razao social', 'nome fantasia', 'organization'] },
     { id: 'company_cnpj', label: 'CNPJ', synonyms: ['documento', 'tax id', 'cnpj/cpf'] },
-    { id: 'city', label: 'Cidade', synonyms: ['municipio', 'city', 'localidade'] },
-    { id: 'state', label: 'Estado', synonyms: ['uf', 'state', 'provincia', 'regiao'] },
-    { id: 'segment', label: 'Segmento/Nicho', synonyms: ['nicho', 'setor', 'industria', 'industry', 'segmento'] },
-    { id: 'website', label: 'Website', synonyms: ['site', 'url', 'web'] },
+    { id: 'company_city', label: 'Cidade', synonyms: ['municipio', 'city', 'localidade'] },
+    { id: 'company_state', label: 'Estado', synonyms: ['uf', 'state', 'provincia', 'regiao'] },
+    { id: 'company_segment', label: 'Segmento/Nicho', synonyms: ['nicho', 'setor', 'industria', 'industry', 'segmento'] },
+    { id: 'company_website', label: 'Website', synonyms: ['site', 'url', 'web'] },
     { id: 'company_email', label: 'E-mail da Empresa', synonyms: ['email empresa', 'email corporativo', 'e-mail'] },
     { id: 'company_phone', label: 'Telefone da Empresa', synonyms: ['telefone empresa', 'fone empresa', 'telefone'] },
     { id: 'company_whatsapp', label: 'WhatsApp da Empresa', synonyms: ['whats empresa', 'zap empresa', 'whatsapp'] },
@@ -51,7 +65,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     { id: 'contact_whatsapp', label: 'WhatsApp do Contato', synonyms: ['whats contato', 'zap contato', 'whatsapp'] },
     { id: 'contact_instagram', label: 'Instagram do Contato', synonyms: ['insta contato', 'ig contato'] },
     { id: 'contact_linkedin', label: 'LinkedIn do Contato', synonyms: ['linkedin contato'] },
-    { id: 'value', label: 'Valor Estimado', synonyms: ['valor', 'ticket', 'preco', 'price', 'value', 'investimento'] },
+    { id: 'estimated_value', label: 'Valor Estimado', synonyms: ['valor', 'ticket', 'preco', 'price', 'value', 'investimento'] },
     { id: 'service_type', label: 'Tipo de Serviço', synonyms: ['servico', 'produto', 'service', 'oferta'] },
     { id: 'notes', label: 'Observações', synonyms: ['notas', 'obs', 'comentarios', 'description', 'detalhes'] },
   ];
@@ -153,28 +167,46 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
       setCsvData(rows);
 
-      // Auto-mapping
+      // Auto-mapping logic using a strict lookup table
+      const normalize = (str: string) => {
+        return str
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove accents
+          .replace(/_/g, ' ') // Replace underscores with spaces
+          .replace(/\s+/g, ' ') // Remove extra spaces
+          .trim();
+      };
+
+      const mappingLookup: Record<string, string> = {
+        'nome empresa': 'company_name',
+        'cnpj': 'company_cnpj',
+        'cidade': 'company_city',
+        'estado': 'company_state',
+        'segmento': 'company_segment',
+        'website': 'company_website',
+        'email': 'company_email',
+        'instagram': 'company_instagram',
+        'linkedin': 'company_linkedin',
+        'telefone': 'company_phone',
+        'whatsapp': 'company_whatsapp',
+        'nome contato': 'contact_name',
+        'cargo contato': 'contact_role',
+        'email contato': 'contact_email',
+        'telefone contato': 'contact_phone',
+        'whatsapp contato': 'contact_whatsapp',
+        'instagram contato': 'contact_instagram',
+        'linkedin contato': 'contact_linkedin',
+        'valor estimado': 'estimated_value',
+        'tipo servico': 'service_type',
+        'observacoes': 'notes',
+      };
+
       const newMapping: Record<string, string> = {};
       rawHeaders.forEach(header => {
-        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const match = crmFields.find(f => {
-          const normalizedField = f.id.replace(/[^a-z0-9]/g, '');
-          const normalizedLabel = f.label.toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          // Check ID, Label and Synonyms
-          const isMatch = normalizedHeader.includes(normalizedField) || 
-                         normalizedField.includes(normalizedHeader) ||
-                         normalizedHeader.includes(normalizedLabel) ||
-                         normalizedLabel.includes(normalizedHeader) ||
-                         (f as any).synonyms?.some((s: string) => {
-                           const normalizedSynonym = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-                           return normalizedHeader.includes(normalizedSynonym) || normalizedSynonym.includes(normalizedHeader);
-                         });
-          
-          return isMatch;
-        });
-        if (match) {
-          newMapping[header] = match.id;
+        const normalizedHeader = normalize(header);
+        if (mappingLookup[normalizedHeader]) {
+          newMapping[header] = mappingLookup[normalizedHeader];
         }
       });
       setMapping(newMapping);
@@ -185,38 +217,51 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
   const handleImport = async () => {
     setIsImporting(true);
+    setImportError(null);
+
+    const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
     const pipeline = pipelines.find(p => p.id === selectedPipelineId);
+    const validPipelineId = isValidUUID(selectedPipelineId) ? selectedPipelineId : null;
     const stageId = pipeline?.stages[0]?.id || '';
+    const validStageId = isValidUUID(stageId) ? stageId : null;
 
     const leadsToImport = csvData.map(row => {
-      const lead: any = {
-        pipeline_id: selectedPipelineId,
-        stage_id: stageId,
-        status: 'active',
-        created_at: new Date().toISOString(),
-        workspace_id: currentUser?.workspace_id,
-        responsible_id: currentUser?.id,
-        responsible_name: currentUser?.name || '',
+      const leadObj: any = {
+        pipeline_id: validPipelineId,
+        stage: validStageId,
       };
 
       Object.entries(mapping).forEach(([csvHeader, crmField]) => {
         if (crmField) {
           let value = row[csvHeader];
-          if (crmField === 'value') {
+          if (crmField === 'estimated_value') {
             value = parseFloat(value) || 0;
           }
-          lead[crmField] = value;
+          leadObj[crmField] = value;
         }
       });
 
-      // Legacy field mapping
-      lead.company = lead.company_name || '';
-      lead.name = lead.contact_name || lead.company_name || 'Lead Importado';
-      lead.email = lead.contact_email || lead.company_email || '';
-      lead.phone = lead.contact_phone || lead.company_phone || '';
-      lead.niche = lead.segment || '';
+      // Set the required 'name' field as per user request
+      leadObj.name = leadObj.company_name || leadObj.contact_name || 'Lead Importado';
 
-      return lead;
+      // Allowed fields for insert as per user request
+      const allowedFields = [
+        'name', 'company_name', 'company_cnpj', 'company_city', 'company_state', 
+        'company_segment', 'company_website', 'company_email', 'company_instagram', 
+        'company_linkedin', 'company_phone', 'company_whatsapp', 'contact_name', 
+        'contact_role', 'contact_email', 'contact_phone', 'contact_whatsapp', 
+        'contact_instagram', 'contact_linkedin', 'estimated_value', 'service_type', 
+        'notes', 'pipeline_id', 'stage'
+      ];
+
+      // Clean the lead object: remove created_at, null, undefined, and empty strings
+      const cleanLead = Object.fromEntries(
+        Object.entries(leadObj)
+          .filter(([k, v]) => allowedFields.includes(k) && v !== undefined && v !== null && v !== '')
+      );
+
+      return cleanLead;
     }).filter(lead => {
       // Filter out leads without a company name or contact name (the primary fields)
       return (lead.company_name && String(lead.company_name).trim() !== '') || 
@@ -229,11 +274,17 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       .select();
 
     if (!error && data) {
+      // Utility check for null pipeline_id as requested
+      const leadsWithoutPipeline = data.filter(l => !l.pipeline_id);
+      if (leadsWithoutPipeline.length > 0) {
+        console.warn(`Aviso: ${leadsWithoutPipeline.length} leads foram importados sem um Pipeline associado (pipeline_id nulo).`);
+      }
+
       setLeads(prev => [...prev, ...data]);
       setImportResult({ success: data.length, total: leadsToImport.length });
       setImportStep(3);
     } else {
-      alert("Erro ao importar leads: " + (error?.message || "Erro desconhecido"));
+      setImportError(error?.message || "Erro desconhecido ao importar leads.");
     }
     setIsImporting(false);
   };
@@ -245,6 +296,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     setHeaders([]);
     setMapping({});
     setImportResult(null);
+    setImportError(null);
   };
 
   return (
@@ -315,17 +367,29 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
               {importStep === 2 && (
                 <div className="space-y-8">
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Pipeline de Destino</h4>
-                    <select 
-                      value={selectedPipelineId}
-                      onChange={(e) => setSelectedPipelineId(e.target.value)}
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
-                    >
-                      {pipelines.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                  {/* Pipeline Selection Section - Highlighted */}
+                  <div className="p-8 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border-2 border-blue-100 dark:border-blue-900/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">PIPELINE DE DESTINO (OBRIGATÓRIO)</h4>
+                      {!selectedPipelineId && (
+                        <span className="text-[10px] font-bold text-rose-500 uppercase animate-pulse">Selecione um funil</span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <select 
+                        value={selectedPipelineId}
+                        onChange={(e) => setSelectedPipelineId(e.target.value)}
+                        className="w-full p-5 bg-white dark:bg-slate-900 rounded-2xl border-none font-black text-slate-900 dark:text-white appearance-none shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+                      >
+                        <option value="">Selecione o funil de destino...</option>
+                        {pipelines.filter(p => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id)).map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <ICONS.ChevronDown width="20" height="20" className="text-slate-400" />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
@@ -395,12 +459,12 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                   <div>
                     <h4 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importação Concluída</h4>
                     <p className="text-slate-400 font-bold text-lg mt-2">
-                      {importResult.success} leads importados com sucesso de um total de {importResult.total}.
+                      {importResult.success} leads importados com sucesso para {pipelines.find(p => p.id === selectedPipelineId)?.name}!
                     </p>
                   </div>
                   <button 
                     onClick={resetImport}
-                    className="px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all"
+                    className="px-12 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-blue-100 dark:shadow-none"
                   >
                     Fechar
                   </button>
@@ -409,15 +473,22 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
             </div>
 
             {importStep === 2 && (
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button onClick={() => setImportStep(1)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Voltar</button>
-                <button 
-                  onClick={handleImport}
-                  disabled={isImporting}
-                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
-                >
-                  {isImporting ? 'IMPORTANDO...' : `IMPORTAR ${csvData.length} LEADS`}
-                </button>
+              <div className="p-10 pt-0 shrink-0 flex flex-col gap-4">
+                {importError && (
+                  <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-bold">
+                    Erro ao importar: {importError}
+                  </div>
+                )}
+                <div className="flex gap-4">
+                  <button onClick={() => setImportStep(1)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Voltar</button>
+                  <button 
+                    onClick={handleImport}
+                    disabled={isImporting || !selectedPipelineId}
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50 disabled:grayscale"
+                  >
+                    {isImporting ? 'IMPORTANDO...' : `IMPORTAR ${csvData.length} LEADS`}
+                  </button>
+                </div>
               </div>
             )}
           </div>
