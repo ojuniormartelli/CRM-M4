@@ -11,10 +11,25 @@ interface CompaniesProps {
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   currentUser: User | null;
+  isModalOpen?: boolean;
+  setIsModalOpen?: (open: boolean) => void;
+  isContactNewModalOpen?: boolean;
+  setIsContactNewModalOpen?: (open: boolean) => void;
+  renderOnlyModal?: boolean;
 }
 
-const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts, setContacts, currentUser }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const Companies: React.FC<CompaniesProps> = ({ 
+  companies, setCompanies, contacts, setContacts, currentUser,
+  isModalOpen: propIsModalOpen,
+  setIsModalOpen: propSetIsModalOpen,
+  isContactNewModalOpen: propIsContactNewModalOpen,
+  setIsContactNewModalOpen: propSetIsContactNewModalOpen,
+  renderOnlyModal = false
+}) => {
+  const [localIsModalOpen, setLocalIsModalOpen] = useState(false);
+  const isModalOpen = propIsModalOpen !== undefined ? propIsModalOpen : localIsModalOpen;
+  const setIsModalOpen = propSetIsModalOpen !== undefined ? propSetIsModalOpen : setLocalIsModalOpen;
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -34,11 +49,15 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
   const [showContactDropdown, setShowContactDropdown] = useState(false);
 
   const [primaryContact, setPrimaryContact] = useState({
-    name: '', email: '', phone: '', role: ''
+    name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isContactEditModalOpen, setIsContactEditModalOpen] = useState(false);
-  const [isContactNewModalOpen, setIsContactNewModalOpen] = useState(false);
+  
+  const [localIsContactNewModalOpen, setLocalIsContactNewModalOpen] = useState(false);
+  const isContactNewModalOpen = propIsContactNewModalOpen !== undefined ? propIsContactNewModalOpen : localIsContactNewModalOpen;
+  const setIsContactNewModalOpen = propSetIsContactNewModalOpen !== undefined ? propSetIsContactNewModalOpen : setLocalIsContactNewModalOpen;
+  
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [newContactData, setNewContactData] = useState<Partial<Contact>>({
     name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '', is_primary: false, company_id: ''
@@ -262,7 +281,7 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     setNewCompany({
       name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
     });
-    setPrimaryContact({ name: '', email: '', phone: '', role: '' });
+    setPrimaryContact({ name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '' });
     setSelectedContactId('');
     setContactSearch('');
     setContactMode('select');
@@ -321,6 +340,253 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
     c.cnpj?.includes(searchTerm) ||
     c.segment?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (renderOnlyModal) {
+    return (
+      <>
+        {/* Modais de Contato (Novo/Editar) */}
+        {(isContactNewModalOpen || isContactEditModalOpen) && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+              <div className="p-10 pb-6 flex justify-between items-center border-b border-slate-50 dark:border-slate-800">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                    {isContactNewModalOpen ? "Novo Contato" : "Editar Contato"}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Informações do Relacionamento</p>
+                </div>
+                <button onClick={() => { setIsContactNewModalOpen(false); setIsContactEditModalOpen(false); }} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors">
+                  <ICONS.X className="text-slate-400" />
+                </button>
+              </div>
+
+              <form onSubmit={isContactNewModalOpen ? handleCreateContact : handleUpdateContact} className="p-10 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome</label>
+                    <input required value={newContactData.name} onChange={e => setNewContactData({...newContactData, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Nome completo" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cargo</label>
+                    <input value={newContactData.role} onChange={e => setNewContactData({...newContactData, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
+                    <input type="email" value={newContactData.email} onChange={e => setNewContactData({...newContactData, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="email@exemplo.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
+                    <input value={newContactData.phone} onChange={e => setNewContactData({...newContactData, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp</label>
+                    <input value={newContactData.whatsapp} onChange={e => setNewContactData({...newContactData, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="WhatsApp" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContactData.instagram} onChange={e => setNewContactData({...newContactData, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">LinkedIn</label>
+                    <input value={newContactData.linkedin} onChange={e => setNewContactData({...newContactData, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => { setIsContactNewModalOpen(false); setIsContactEditModalOpen(false); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                  <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-blue-100 dark:shadow-none">
+                    {isSaving ? "SALVANDO..." : "SALVAR CONTATO"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                  <ICONS.Plus className="rotate-45" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateCompany} className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                      <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                      <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
+                      <input value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
+                      <input value={newCompany.state} onChange={e => setNewCompany({...newCompany, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
+                      <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
+                      <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                      <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                      <input value={newCompany.linkedin} onChange={e => setNewCompany({...newCompany, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
+                  <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Contato Principal (Opcional)</p>
+                      <button 
+                        type="button"
+                        onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
+                        className="text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest flex items-center gap-2"
+                      >
+                        {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
+                      </button>
+                    </div>
+
+                    {contactMode === 'select' ? (
+                      <div className="relative">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Buscar Contato</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <input 
+                              value={contactSearch} 
+                              onChange={e => {
+                                setContactSearch(e.target.value);
+                                setShowContactDropdown(true);
+                              }} 
+                              onFocus={() => setShowContactDropdown(true)}
+                              className="w-full p-4 bg-white dark:bg-slate-700 rounded-2xl border-none font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" 
+                              placeholder="Digite nome, e-mail ou telefone..." 
+                            />
+                            {showContactDropdown && contactSearch && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[110] max-h-60 overflow-y-auto scrollbar-none">
+                                {filteredContacts.length > 0 ? (
+                                  filteredContacts.map(c => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedContactId(c.id);
+                                        setContactSearch(c.name);
+                                        setShowContactDropdown(false);
+                                      }}
+                                      className="w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between group"
+                                    >
+                                      <div>
+                                        <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.phone}</p>
+                                      </div>
+                                      {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-xs font-bold">Nenhum contato encontrado</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Nome</label>
+                            <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Nome do contato" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Cargo</label>
+                            <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="Ex: CEO" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">E-mail</label>
+                            <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
+                            <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 0000-0000" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">WhatsApp</label>
+                            <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Instagram</label>
+                            <input value={primaryContact.instagram} onChange={e => setPrimaryContact({...primaryContact, instagram: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="@perfil" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">LinkedIn</label>
+                            <input value={primaryContact.linkedin} onChange={e => setPrimaryContact({...primaryContact, linkedin: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="linkedin.com/..." />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Notas</label>
+                          <textarea value={primaryContact.notes} onChange={e => setPrimaryContact({...primaryContact, notes: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400 h-20" placeholder="Observações sobre o contato..." />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="p-10 pt-0 shrink-0 flex gap-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                  <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50">
+                    {isSaving ? 'SALVANDO...' : 'CADASTRAR EMPRESA'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
@@ -466,6 +732,11 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">LinkedIn</label>
                   <input value={newContactData.linkedin} onChange={e => setNewContactData({...newContactData, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notas</label>
+                <textarea value={newContactData.notes} onChange={e => setNewContactData({...newContactData, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white h-24" placeholder="Observações sobre o contato..." />
               </div>
 
               <div className="flex gap-4 pt-4">
@@ -847,8 +1118,26 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
-                                <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(primaryContact.phone)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                                <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 0000-0000" />
                               </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">WhatsApp</label>
+                                <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Instagram</label>
+                                <input value={primaryContact.instagram} onChange={e => setPrimaryContact({...primaryContact, instagram: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="@perfil" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">LinkedIn</label>
+                                <input value={primaryContact.linkedin} onChange={e => setPrimaryContact({...primaryContact, linkedin: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="linkedin.com/..." />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Notas</label>
+                              <textarea value={primaryContact.notes} onChange={e => setPrimaryContact({...primaryContact, notes: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400 h-20" placeholder="Observações sobre o contato..." />
                             </div>
                           </div>
                         )}
@@ -899,8 +1188,8 @@ const Companies: React.FC<CompaniesProps> = ({ companies, setCompanies, contacts
                       </div>
                       <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-1 min-w-0">
-                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.instagram}>{editingCompany?.instagram || '–'}</p>
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate" title={editingCompany?.website}>{editingCompany?.website || '–'}</p>
                         </div>
                         <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>

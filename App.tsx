@@ -60,6 +60,11 @@ const App: React.FC = () => {
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
   const [settings, setSettings] = useState<any>(null);
 
+  // --- MODAL STATES ---
+  const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
+  const [showNewContactModal, setShowNewContactModal] = useState(false);
+  const [showNewLeadModal, setShowNewLeadModal] = useState(false);
+
   // Update Favicon and Title based on Settings
   useEffect(() => {
     if (settings) {
@@ -505,11 +510,8 @@ const App: React.FC = () => {
               companies={companies} 
               contacts={contacts} 
               setActiveTab={setActiveTab}
-              onNewCompany={() => {
-                setActiveTab('companies');
-                // We'll need a way to trigger the modal in Companies.tsx
-                // For now, navigating to companies is the first step.
-              }}
+              onNewCompany={() => setShowNewCompanyModal(true)}
+              onNewContact={() => setShowNewContactModal(true)}
             />
           )}
           {activeTab === 'sales_overview' && (
@@ -517,13 +519,11 @@ const App: React.FC = () => {
               leads={leads} 
               pipelines={pipelines} 
               setActiveTab={setActiveTab}
-              onNewLead={() => {
-                setActiveTab('sales');
-              }}
+              onNewLead={() => setShowNewLeadModal(true)}
             />
           )}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
-          {activeTab === 'sales' && (
+          {(activeTab === 'sales' || showNewLeadModal) && (
             <SalesCRM 
               pipelines={pipelines} 
               activePipelineId={activePipelineId} 
@@ -535,10 +535,35 @@ const App: React.FC = () => {
               companies={companies}
               contacts={contacts}
               currentUser={currentUser}
+              isModalOpen={showNewLeadModal}
+              setIsModalOpen={setShowNewLeadModal}
+              renderOnlyModal={activeTab !== 'sales'}
             />
           )}
-          {activeTab === 'companies' && <Companies companies={companies} setCompanies={setCompanies} contacts={contacts} setContacts={setContacts} currentUser={currentUser} />}
-          {activeTab === 'contacts' && <Contacts contacts={contacts} setContacts={setContacts} companies={companies} setCompanies={setCompanies} currentUser={currentUser} />}
+          {(activeTab === 'companies' || showNewCompanyModal) && (
+            <Companies 
+              companies={companies} 
+              setCompanies={setCompanies} 
+              contacts={contacts} 
+              setContacts={setContacts} 
+              currentUser={currentUser}
+              isModalOpen={showNewCompanyModal}
+              setIsModalOpen={setShowNewCompanyModal}
+              renderOnlyModal={activeTab !== 'companies'}
+            />
+          )}
+          {(activeTab === 'contacts' || showNewContactModal) && (
+            <Contacts 
+              contacts={contacts} 
+              setContacts={setContacts} 
+              companies={companies} 
+              setCompanies={setCompanies} 
+              currentUser={currentUser}
+              isModalOpen={showNewContactModal}
+              setIsModalOpen={setShowNewContactModal}
+              renderOnlyModal={activeTab !== 'contacts'}
+            />
+          )}
           {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
           {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}

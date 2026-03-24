@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pipeline, Lead, Interaction, Company, Contact, User, LeadTemperature } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -18,6 +18,9 @@ interface SalesCRMProps {
   companies: Company[];
   contacts: Contact[];
   currentUser: User | null;
+  isModalOpen?: boolean;
+  setIsModalOpen?: (isOpen: boolean) => void;
+  renderOnlyModal?: boolean;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -38,12 +41,28 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setActivePipelineId, leads, setLeads, onStatusChange, onImportLeads, companies, contacts, currentUser }) => {
+const SalesCRM: React.FC<SalesCRMProps> = ({ 
+  pipelines, 
+  activePipelineId, 
+  setActivePipelineId, 
+  leads, 
+  setLeads, 
+  onStatusChange, 
+  onImportLeads, 
+  companies, 
+  contacts, 
+  currentUser,
+  isModalOpen: externalIsModalOpen,
+  setIsModalOpen: setExternalIsModalOpen,
+  renderOnlyModal = false
+}) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editLead, setEditLead] = useState<Partial<Lead>>({});
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [internalIsModalOpen, setInternalIsModalOpen] = useState(false);
+  const isModalOpen = externalIsModalOpen !== undefined ? externalIsModalOpen : internalIsModalOpen;
+  const setIsModalOpen = setExternalIsModalOpen !== undefined ? setExternalIsModalOpen : setInternalIsModalOpen;
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -61,14 +80,28 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
     name: '', company: '', email: '', phone: '', value: 0, notes: '',
-    niche: '', service_type: '', proposed_ticket: 0,
-    company_id: '', contact_id: '',
-    company_email: '', company_phone: '', whatsapp: '', instagram: '', linkedin: '', website: '', city: '', state: '', cnpj: ''
+    niche: '', segment: '', service_type: '', proposed_ticket: 0,
+    company_name: '', company_cnpj: '', company_email: '', company_phone: '', company_whatsapp: '', company_instagram: '', company_linkedin: '', 
+    contact_name: '', contact_role: '', contact_email: '', contact_phone: '', contact_whatsapp: '', contact_instagram: '', contact_linkedin: '', contact_notes: '',
+    city: '', state: '', website: '',
+    pipeline_id: activePipelineId,
+    stage_id: '',
+    closing_forecast: '',
+    responsible_id: currentUser?.id || ''
   });
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data } = await supabase.from('m4_users').select('*').eq('status', 'active');
+      if (data) setUsers(data);
+    };
+    fetchUsers();
+  }, []);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', phone: '', whatsapp: '', email: '', website: '', instagram: '', linkedin: '', notes: ''
   });
   
   // Contact selection states for New Company form
@@ -159,7 +192,16 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
 
     const { error } = await supabase
       .from('m4_leads')
-      .update(editLead)
+      .update({
+        ...editLead,
+        // Ensure legacy fields are updated too
+        company: editLead.company_name || editLead.company,
+        name: editLead.contact_name || editLead.name,
+        email: editLead.contact_email || editLead.email,
+        phone: editLead.contact_phone || editLead.phone,
+        niche: editLead.segment || editLead.niche,
+        responsible_name: users.find(u => u.id === editLead.responsible_id)?.name || editLead.responsible_name
+      })
       .eq('id', selectedLead.id);
 
     if (error) {
@@ -179,30 +221,19 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
     e.preventDefault();
     setIsSyncing(true);
     
-    // Encontrar dados da empresa selecionada se houver
-    const selectedCompany = companies.find(c => c.id === newLead.company_id);
-    const selectedContact = contacts.find(c => c.id === newLead.contact_id);
-
+    const selectedPipeline = pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId));
     const leadData = {
       ...newLead,
-      company: selectedCompany?.name || newLead.company,
-      name: selectedContact?.name || newLead.name,
-      email: selectedContact?.email || newLead.email,
-      phone: selectedContact?.phone || newLead.phone,
+      // Ensure mandatory fields are set for legacy compatibility
+      company: newLead.company_name || newLead.company,
+      name: newLead.name || newLead.contact_name || 'Novo Negócio',
+      email: newLead.contact_email || newLead.email,
+      phone: newLead.contact_phone || newLead.phone,
+      niche: newLead.segment || newLead.niche,
       
-      // Pull company fields if selected
-      company_email: selectedCompany?.email || newLead.company_email,
-      company_phone: selectedCompany?.phone || newLead.company_phone,
-      whatsapp: selectedCompany?.whatsapp || newLead.whatsapp,
-      instagram: selectedCompany?.instagram || newLead.instagram,
-      linkedin: selectedCompany?.linkedin || newLead.linkedin,
-      website: selectedCompany?.website || newLead.website,
-      city: selectedCompany?.city || newLead.city,
-      state: selectedCompany?.state || newLead.state,
-      cnpj: selectedCompany?.cnpj || newLead.cnpj,
-
-      pipeline_id: activePipelineId,
-      stage_id: activePipeline.stages[0].id,
+      pipeline_id: newLead.pipeline_id || activePipelineId,
+      stage_id: newLead.stage_id || selectedPipeline?.stages[0].id,
+      responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || '',
       ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
       created_at: new Date().toISOString()
     };
@@ -219,9 +250,14 @@ const SalesCRM: React.FC<SalesCRMProps> = ({ pipelines, activePipelineId, setAct
       setIsModalOpen(false);
       setNewLead({ 
         name: '', company: '', email: '', phone: '', value: 0, notes: '',
-        niche: '', service_type: '', proposed_ticket: 0, next_action: '', next_action_date: '',
-        company_id: '', contact_id: '',
-        company_email: '', company_phone: '', whatsapp: '', instagram: '', linkedin: '', website: '', city: '', state: '', cnpj: ''
+        niche: '', segment: '', service_type: '', proposed_ticket: 0,
+        company_name: '', company_cnpj: '', company_email: '', company_phone: '', company_whatsapp: '', company_instagram: '', company_linkedin: '', 
+        contact_name: '', contact_role: '', contact_email: '', contact_phone: '', contact_whatsapp: '', contact_instagram: '', contact_linkedin: '', contact_notes: '',
+        city: '', state: '', website: '',
+        pipeline_id: activePipelineId,
+        stage_id: '',
+        closing_forecast: '',
+        responsible_id: currentUser?.id || ''
       });
     }
     setIsSyncing(false);
@@ -384,6 +420,364 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     }
   };
 
+  if (renderOnlyModal) {
+    return (
+      <>
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Novo Negócio</h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                  <ICONS.Plus className="rotate-45" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-none">
+                  
+                  {/* Seção 1 - DADOS DA EMPRESA PROSPECTADA */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                        <ICONS.Database width="16" height="16" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Dados da Empresa Prospectada</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                        <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                        <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
+                        <input value={newLead.city} onChange={e => setNewLead({...newLead, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
+                        <input value={newLead.state} onChange={e => setNewLead({...newLead, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
+                        <input value={newLead.segment} onChange={e => setNewLead({...newLead, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
+                        <input value={newLead.website} onChange={e => setNewLead({...newLead, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                        <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                        <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                        <input value={newLead.company_linkedin} onChange={e => setNewLead({...newLead, company_linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                        <input value={newLead.company_phone} onChange={e => setNewLead({...newLead, company_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                        <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seção 2 - CONTATO / DECISOR */}
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[32px] space-y-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                        <ICONS.User width="16" height="16" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Contato / Decisor</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
+                        <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Nome do contato" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                        <input value={newLead.contact_role} onChange={e => setNewLead({...newLead, contact_role: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Ex: Diretor Comercial" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                        <input type="email" value={newLead.contact_email} onChange={e => setNewLead({...newLead, contact_email: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="email@contato.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                        <input value={newLead.contact_phone} onChange={e => setNewLead({...newLead, contact_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="(00) 0000-0000" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                        <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="WhatsApp" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                        <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="@perfil" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                        <input value={newLead.contact_linkedin} onChange={e => setNewLead({...newLead, contact_linkedin: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="linkedin.com/in/..." />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas do Contato</label>
+                      <textarea value={newLead.contact_notes} onChange={e => setNewLead({...newLead, contact_notes: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm h-24" placeholder="Observações sobre o contato..." />
+                    </div>
+                  </div>
+
+                  {/* Seção 3 - DADOS DO NEGÓCIO */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                        <ICONS.Collaboration width="16" height="16" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Dados do Negócio</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pipeline</label>
+                        <select 
+                          value={newLead.pipeline_id} 
+                          onChange={e => {
+                            const pId = e.target.value;
+                            const pipeline = pipelines.find(p => p.id === pId);
+                            setNewLead({
+                              ...newLead, 
+                              pipeline_id: pId,
+                              stage_id: pipeline?.stages[0].id || ''
+                            });
+                          }} 
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          {pipelines.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Etapa</label>
+                        <select 
+                          value={newLead.stage_id} 
+                          onChange={e => setNewLead({...newLead, stage_id: e.target.value})} 
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          <option value="">Selecione a Etapa</option>
+                          {pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId))?.stages.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Título do Negócio</label>
+                        <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Campanha de Lançamento" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
+                        <input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Previsão de Fechamento</label>
+                        <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Responsável</label>
+                        <select 
+                          value={newLead.responsible_id} 
+                          onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          <option value="">Selecione o Responsável</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tipo de Serviço</label>
+                      <input value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Gestão de Tráfego" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas do Negócio</label>
+                      <textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none" placeholder="Detalhes adicionais..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-10 pt-0 shrink-0 flex gap-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50">
+                    {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isCompanyModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
+                <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                  <ICONS.Plus className="rotate-45" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateCompany} className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                      <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                      <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
+                      <input value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
+                      <input value={newCompany.state} onChange={e => setNewCompany({...newCompany, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
+                      <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
+                      <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                      <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
+                </div>
+                <div className="p-10 pt-0 shrink-0 flex gap-4">
+                  <button type="button" onClick={() => setIsCompanyModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50">
+                    {isSyncing ? 'SALVANDO...' : 'CADASTRAR EMPRESA'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isContactModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+              <div className="p-10 pb-6 flex justify-between items-center border-b border-slate-50 dark:border-slate-800">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Novo Contato</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Informações do Relacionamento</p>
+                </div>
+                <button onClick={() => setIsContactModalOpen(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors">
+                  <ICONS.X className="text-slate-400" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateContact} className="p-10 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome</label>
+                    <input required value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Nome completo" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cargo</label>
+                    <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
+                    <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="email@exemplo.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
+                    <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setIsContactModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-blue-100 dark:shadow-none">
+                    {isSyncing ? "SALVANDO..." : "SALVAR CONTATO"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden relative animate-in fade-in duration-1000">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">
@@ -541,122 +935,230 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Negócio</h3>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Novo Negócio</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
                 <ICONS.Plus className="rotate-45" />
               </button>
             </div>
             <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Entidades (B2B)</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Empresa</label>
-                      <div className="flex gap-2">
-                        <select 
-                          value={newLead.company_id} 
-                          onChange={e => {
-                            const comp = companies.find(c => c.id === e.target.value);
-                            setNewLead({...newLead, company_id: e.target.value, company: comp?.name || ''});
-                          }} 
-                          className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                        >
-                          <option value="">Selecionar Empresa</option>
-                          {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsCompanyModalOpen(true)}
-                          className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 transition-all"
-                          title="Nova Empresa"
-                        >
-                          <ICONS.Plus />
-                        </button>
-                      </div>
+              <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-none">
+                
+                {/* Seção 1 - DADOS DA EMPRESA PROSPECTADA */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                      <ICONS.Database width="16" height="16" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Contato</label>
-                      <div className="flex gap-2">
-                        <select 
-                          value={newLead.contact_id} 
-                          onChange={e => {
-                            const cont = contacts.find(c => c.id === e.target.value);
-                            setNewLead({...newLead, contact_id: e.target.value, name: cont?.name || '', email: cont?.email || '', phone: cont?.phone || ''});
-                          }} 
-                          className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                        >
-                          <option value="">Selecionar Contato</option>
-                          {contacts.filter(c => !newLead.company_id || c.company_id === newLead.company_id).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsContactModalOpen(true)}
-                          className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 transition-all"
-                          title="Novo Contato"
-                          disabled={!newLead.company_id}
-                        >
-                          <ICONS.Plus />
-                        </button>
-                      </div>
-                    </div>
+                    <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Dados da Empresa Prospectada</h4>
                   </div>
                   
-                  {!newLead.company_id && (
-                    <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-800/50 space-y-4">
-                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">Ou cadastre manualmente:</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="Nome da Empresa" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                        <input placeholder="Nome do Contato" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="E-mail da Empresa" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                        <input placeholder="WhatsApp da Empresa" value={newLead.whatsapp} onChange={e => setNewLead({...newLead, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="Instagram" value={newLead.instagram} onChange={e => setNewLead({...newLead, instagram: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                        <input placeholder="LinkedIn" value={newLead.linkedin} onChange={e => setNewLead({...newLead, linkedin: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="Website" value={newLead.website} onChange={e => setNewLead({...newLead, website: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                        <input placeholder="CNPJ" value={newLead.cnpj} onChange={e => setNewLead({...newLead, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none text-sm font-bold" />
-                      </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                      <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: M4 Marketing" />
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">CNPJ</label>
+                      <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="00.000.000/0000-00" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cidade</label>
+                      <input value={newLead.city} onChange={e => setNewLead({...newLead, city: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: São Paulo" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
+                      <input value={newLead.state} onChange={e => setNewLead({...newLead, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
+                      <input value={newLead.segment} onChange={e => setNewLead({...newLead, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
+                      <input value={newLead.website} onChange={e => setNewLead({...newLead, website: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="https://..." />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
+                      <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                      <input value={newLead.company_linkedin} onChange={e => setNewLead({...newLead, company_linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <input value={newLead.company_phone} onChange={e => setNewLead({...newLead, company_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Dados do Negócio</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input required type="email" placeholder="E-mail" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                    <input required placeholder="WhatsApp" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input placeholder="Nicho/Segmento" value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-                    <input placeholder="Tipo de Serviço" value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Total</label>
-                      <input type="number" placeholder="Valor Estimado" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                {/* Seção 2 - CONTATO / DECISOR */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[32px] space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                      <ICONS.User width="16" height="16" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Ticket Mensal</label>
-                      <input type="number" placeholder="Ticket Proposto" value={newLead.proposed_ticket} onChange={e => setNewLead({...newLead, proposed_ticket: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                    <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Contato / Decisor</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
+                      <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Nome do contato" />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                      <input value={newLead.contact_role} onChange={e => setNewLead({...newLead, contact_role: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Ex: Diretor Comercial" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                      <input type="email" value={newLead.contact_email} onChange={e => setNewLead({...newLead, contact_email: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="email@contato.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <input value={newLead.contact_phone} onChange={e => setNewLead({...newLead, contact_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="(00) 0000-0000" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="WhatsApp" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="@perfil" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
+                      <input value={newLead.contact_linkedin} onChange={e => setNewLead({...newLead, contact_linkedin: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="linkedin.com/in/..." />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas do Contato</label>
+                    <textarea value={newLead.contact_notes} onChange={e => setNewLead({...newLead, contact_notes: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm h-24" placeholder="Observações sobre o contato..." />
+                  </div>
+                </div>
+
+                {/* Seção 3 - DADOS DO NEGÓCIO */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                      <ICONS.Collaboration width="16" height="16" />
+                    </div>
+                    <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">Dados do Negócio</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pipeline</label>
+                      <select 
+                        value={newLead.pipeline_id} 
+                        onChange={e => {
+                          const pId = e.target.value;
+                          const pipeline = pipelines.find(p => p.id === pId);
+                          setNewLead({
+                            ...newLead, 
+                            pipeline_id: pId,
+                            stage_id: pipeline?.stages[0].id || ''
+                          });
+                        }} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                      >
+                        {pipelines.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Etapa</label>
+                      <select 
+                        value={newLead.stage_id} 
+                        onChange={e => setNewLead({...newLead, stage_id: e.target.value})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                      >
+                        <option value="">Selecione a Etapa</option>
+                        {pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId))?.stages.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Título do Negócio</label>
+                      <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Campanha de Lançamento" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
+                      <input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Previsão de Fechamento</label>
+                      <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Responsável</label>
+                      <select 
+                        value={newLead.responsible_id} 
+                        onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                      >
+                        <option value="">Selecione o Responsável</option>
+                        {users.map(u => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tipo de Serviço</label>
+                    <input value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Gestão de Tráfego" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas do Negócio</label>
+                    <textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none" placeholder="Detalhes adicionais..." />
                   </div>
                 </div>
               </div>
 
               <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50">
-                  {isSyncing ? "SALVANDO..." : "CRIAR NEGÓCIO"}
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50">
+                  {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
                 </button>
               </div>
             </form>
@@ -741,10 +1243,307 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             
             <div className="flex-1 overflow-y-auto scrollbar-none">
               <div className="bg-white dark:bg-slate-900">
-                <CollapsibleSection title="Negociação">
+                
+                {/* Seção 1 - DADOS DA EMPRESA PROSPECTADA */}
+                <CollapsibleSection title="Dados da Empresa Prospectada">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome da Empresa</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_name || ''} 
+                          onChange={e => setEditLead({...editLead, company_name: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_name || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_cnpj || ''} 
+                          onChange={e => setEditLead({...editLead, company_cnpj: formatCNPJ(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_cnpj || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cidade</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.city || ''} 
+                          onChange={e => setEditLead({...editLead, city: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.city || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Estado</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.state || ''} 
+                          onChange={e => setEditLead({...editLead, state: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.state || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Segmento / Nicho</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.segment || ''} 
+                          onChange={e => setEditLead({...editLead, segment: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.segment || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.website || ''} 
+                          onChange={e => setEditLead({...editLead, website: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{selectedLead.website || '–'}</p>
+                          {selectedLead.website && (
+                            <button 
+                              onClick={() => window.open(selectedLead.website?.startsWith('http') ? selectedLead.website : `https://${selectedLead.website}`, '_blank')}
+                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-blue-600"
+                            >
+                              <ICONS.ExternalLink size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail da Empresa</p>
+                      {isEditing ? (
+                        <input 
+                          type="email"
+                          value={editLead.company_email || ''} 
+                          onChange={e => setEditLead({...editLead, company_email: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_email || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_instagram || ''} 
+                          onChange={e => setEditLead({...editLead, company_instagram: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_instagram || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_linkedin || ''} 
+                          onChange={e => setEditLead({...editLead, company_linkedin: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_linkedin || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_phone || ''} 
+                          onChange={e => setEditLead({...editLead, company_phone: formatPhoneBR(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_phone || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.company_whatsapp || ''} 
+                          onChange={e => setEditLead({...editLead, company_whatsapp: formatPhoneBR(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_whatsapp || '–'}</p>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleSection>
+
+                {/* Seção 2 - CONTATO / DECISOR */}
+                <CollapsibleSection title="Contato / Decisor">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_name || ''} 
+                          onChange={e => setEditLead({...editLead, contact_name: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_name || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cargo</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_role || ''} 
+                          onChange={e => setEditLead({...editLead, contact_role: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_role || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
+                      {isEditing ? (
+                        <input 
+                          type="email"
+                          value={editLead.contact_email || ''} 
+                          onChange={e => setEditLead({...editLead, contact_email: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_email || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_phone || ''} 
+                          onChange={e => setEditLead({...editLead, contact_phone: formatPhoneBR(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_phone || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_whatsapp || ''} 
+                          onChange={e => setEditLead({...editLead, contact_whatsapp: formatPhoneBR(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_whatsapp || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_instagram || ''} 
+                          onChange={e => setEditLead({...editLead, contact_instagram: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_instagram || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.contact_linkedin || ''} 
+                          onChange={e => setEditLead({...editLead, contact_linkedin: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.contact_linkedin || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas do Contato</p>
+                      {isEditing ? (
+                        <textarea 
+                          value={editLead.contact_notes || ''} 
+                          onChange={e => setEditLead({...editLead, contact_notes: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white h-24"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-pre-wrap">{selectedLead.contact_notes || '–'}</p>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleSection>
+
+                {/* Seção 3 - DADOS DO NEGÓCIO */}
+                <CollapsibleSection title="Dados do Negócio">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Pipeline</p>
+                      {isEditing ? (
+                        <select 
+                          value={editLead.pipeline_id} 
+                          onChange={e => {
+                            const pId = e.target.value;
+                            const pipeline = pipelines.find(p => p.id === pId);
+                            setEditLead({
+                              ...editLead, 
+                              pipeline_id: pId,
+                              stage_id: pipeline?.stages[0].id || ''
+                            });
+                          }} 
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          {pipelines.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{pipelines.find(p => p.id === selectedLead.pipeline_id)?.name || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Etapa</p>
+                      {isEditing ? (
+                        <select 
+                          value={editLead.stage_id} 
+                          onChange={e => setEditLead({...editLead, stage_id: e.target.value})} 
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          <option value="">Selecione a Etapa</option>
+                          {pipelines.find(p => p.id === (editLead.pipeline_id || activePipelineId))?.stages.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {pipelines.find(p => p.id === selectedLead.pipeline_id)?.stages.find(s => s.id === selectedLead.stage_id)?.name || '–'}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Título do Negócio</p>
                       {isEditing ? (
                         <input 
                           value={editLead.name || ''} 
@@ -752,140 +1551,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.name}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.name || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Qualificação</p>
-                      {isEditing ? (
-                        <select 
-                          value={editLead.qualification || ''} 
-                          onChange={e => setEditLead({...editLead, qualification: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        >
-                          <option value="">N/A</option>
-                          <option value="Inbound">Inbound</option>
-                          <option value="Outbound">Outbound</option>
-                          <option value="Indicação">Indicação</option>
-                        </select>
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.qualification || 'N/A'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">AI Score</p>
-                      <div className="flex items-center gap-2">
-                        <div className={`px-3 py-1 rounded-full text-xs font-black ${
-                          (selectedLead.ai_score || 0) > 70 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                          (selectedLead.ai_score || 0) > 40 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                          'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                        }`}>
-                          {selectedLead.ai_score || 'N/A'}
-                        </div>
-                        {selectedLead.ai_reasoning && (
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic" title={selectedLead.ai_reasoning}>
-                            {selectedLead.ai_reasoning}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Probabilidade</p>
-                      {isEditing ? (
-                        <input 
-                          type="number"
-                          value={editLead.probability || 0} 
-                          onChange={e => setEditLead({...editLead, probability: Number(e.target.value)})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.probability || 0}%</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Temperatura</p>
-                      {isEditing ? (
-                        <select 
-                          value={editLead.temperature || ''} 
-                          onChange={e => setEditLead({...editLead, temperature: e.target.value as LeadTemperature})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        >
-                          <option value="Frio">Frio</option>
-                          <option value="Morno">Morno</option>
-                          <option value="Quente">Quente</option>
-                        </select>
-                      ) : (
-                        <p className={`text-sm font-bold ${
-                          selectedLead.temperature === 'Quente' ? 'text-orange-600 dark:text-orange-400' :
-                          selectedLead.temperature === 'Morno' ? 'text-blue-600 dark:text-blue-400' :
-                          'text-slate-600 dark:text-slate-400'
-                        }`}>{selectedLead.temperature || 'Frio'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nicho / Segmento</p>
-                      {isEditing ? (
-                        <input 
-                          value={editLead.niche || ''} 
-                          onChange={e => setEditLead({...editLead, niche: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.niche || '–'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Serviço Principal</p>
-                      {isEditing ? (
-                        <input 
-                          value={editLead.service_type || ''} 
-                          onChange={e => setEditLead({...editLead, service_type: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || '–'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ticket Proposto</p>
-                      {isEditing ? (
-                        <input 
-                          type="number"
-                          value={editLead.proposed_ticket || 0} 
-                          onChange={e => setEditLead({...editLead, proposed_ticket: Number(e.target.value)})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.proposed_ticket || 0).toLocaleString()}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Próxima Ação</p>
-                      {isEditing ? (
-                        <input 
-                          value={editLead.next_action || ''} 
-                          onChange={e => setEditLead({...editLead, next_action: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedLead.next_action || 'Definir ação'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Data Próxima Ação</p>
-                      {isEditing ? (
-                        <input 
-                          type="date"
-                          value={editLead.next_action_date || ''} 
-                          onChange={e => setEditLead({...editLead, next_action_date: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
-                      ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.next_action_date || '–'}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Valor total</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Valor Estimado</p>
                       {isEditing ? (
                         <input 
                           type="number"
@@ -894,11 +1564,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value || 0).toLocaleString()}</p>
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Previsão de fechamento</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Previsão de Fechamento</p>
                       {isEditing ? (
                         <input 
                           type="date"
@@ -911,27 +1581,44 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fonte</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Responsável</p>
                       {isEditing ? (
-                        <input 
-                          value={editLead.source || ''} 
-                          onChange={e => setEditLead({...editLead, source: e.target.value})}
-                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                        />
+                        <select 
+                          value={editLead.responsible_id || ''} 
+                          onChange={e => setEditLead({...editLead, responsible_id: e.target.value})} 
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white appearance-none"
+                        >
+                          <option value="">Selecione o Responsável</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.source || '–'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.responsible_name || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Campanha</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tipo de Serviço</p>
                       {isEditing ? (
                         <input 
-                          value={editLead.campaign || ''} 
-                          onChange={e => setEditLead({...editLead, campaign: e.target.value})}
+                          value={editLead.service_type || ''} 
+                          onChange={e => setEditLead({...editLead, service_type: e.target.value})}
                           className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.campaign || '–'}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas do Negócio</p>
+                      {isEditing ? (
+                        <textarea 
+                          value={editLead.notes || ''} 
+                          onChange={e => setEditLead({...editLead, notes: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white h-24"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-pre-wrap">{selectedLead.notes || '–'}</p>
                       )}
                     </div>
                   </div>
@@ -950,286 +1637,63 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </CollapsibleSection>
                 )}
 
-                <CollapsibleSection title="Contatos">
-                  <div className="space-y-8">
-                    {(selectedLead.contacts || []).map((contact, idx) => (
-                      <div key={idx} className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <p className="text-base font-black text-slate-900 dark:text-white">{contact.name}</p>
-                          <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
-                            <ICONS.User width="12" height="12" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <button onClick={() => window.open(`tel:${contact.phone.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-4 group">
-                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
-                              <ICONS.Phone width="18" height="18" />
-                            </div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.phone ? formatPhoneBR(contact.phone) : '–'}</p>
-                            </div>
-                          </button>
-                          <button onClick={() => window.open(`mailto:${contact.email}`, '_blank')} className="flex items-center gap-4 group">
-                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
-                              <ICONS.Mail width="18" height="18" />
-                            </div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.email || '–'}</p>
-                            </div>
-                          </button>
-                          <button 
-                            onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(contact.email)}`, '_blank')}
-                            className="flex items-center gap-4 group"
-                          >
-                            <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl flex items-center justify-center group-hover:bg-red-50 dark:group-hover:bg-red-900/30 group-hover:text-red-600 dark:group-hover:text-red-400 transition-all">
-                              <ICONS.ExternalLink width="18" height="18" />
-                            </div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Gmail</p>
-                              <p className="text-sm font-bold text-red-600 dark:text-red-400">Ver conversas</p>
-                            </div>
-                          </button>
-                        </div>
-                        <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-4">
-                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Informações adicionais</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Cargo</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contact.role || '–'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Link Whatsapp</p>
-                              <button onClick={() => window.open(`https://wa.me/${contact.phone.replace(/\D/g, '')}`, '_blank')} className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Abrir conversa</button>
-                            </div>
-                          </div>
-                        </div>
+                <CollapsibleSection title="Histórico de Interações (Visão 360º)">
+                  <div className="space-y-6">
+                    <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                      <div className="flex justify-between items-center mb-4">
+                        <h5 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                          <ICONS.Automation width="14" height="14" /> AI Summary
+                        </h5>
+                        <button 
+                          onClick={() => handleAISummary(selectedLead.interactions || [])}
+                          disabled={isSummarizing}
+                          className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
+                        >
+                          {isSummarizing ? 'Gerando...' : 'Atualizar Resumo'}
+                        </button>
                       </div>
-                    ))}
-                    <button className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 dark:text-slate-600 text-[11px] font-black uppercase tracking-widest hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
-                      + Adicionar contato
-                    </button>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic">
+                        {aiSummary || "Clique em 'Atualizar Resumo' para gerar um resumo executivo desta conta."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
+                      {(selectedLead.interactions || [
+                        { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', created_at: selectedLead.created_at },
+                        { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', created_at: selectedLead.created_at }
+                      ]).map((interaction, idx) => (
+                        <div key={interaction.id} className="flex gap-6 relative">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white dark:border-slate-900 ${
+                            interaction.type === 'email' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                            interaction.type === 'call' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                            interaction.type === 'meeting' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
+                            'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" /> :
+                             interaction.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
+                             interaction.type === 'meeting' ? <ICONS.Collaboration width="18" height="18" /> :
+                             <ICONS.Plus width="18" height="18" />}
+                          </div>
+                          <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between items-start mb-2">
+                              <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{interaction.title}</h5>
+                              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">{new Date(interaction.created_at).toLocaleString()}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{interaction.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="pt-4 flex flex-wrap gap-3">
+                         <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Nota</button>
+                         <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Ligação</button>
+                         <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Reunião</button>
+                         <button className="flex-1 min-w-[120px] py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/50 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">Logar E-mail</button>
+                      </div>
+                    </div>
                   </div>
                 </CollapsibleSection>
-
-            <CollapsibleSection title="Empresa">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.company || ''} 
-                      onChange={e => setEditLead({...editLead, company: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">E-mail</p>
-                  {isEditing ? (
-                    <input 
-                      type="email"
-                      value={editLead.company_email || ''} 
-                      onChange={e => setEditLead({...editLead, company_email: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_email || 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cidade</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.city || ''} 
-                      onChange={e => setEditLead({...editLead, city: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.city || 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">CNPJ</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.cnpj || ''} 
-                      onChange={e => setEditLead({...editLead, cnpj: formatCNPJ(e.target.value)})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.cnpj ? formatCNPJ(selectedLead.cnpj) : 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Razão Social</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.legal_name || ''} 
-                      onChange={e => setEditLead({...editLead, legal_name: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.legal_name || 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.company_phone || ''} 
-                      onChange={e => setEditLead({...editLead, company_phone: formatPhoneBR(e.target.value)})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.company_phone ? formatPhoneBR(selectedLead.company_phone) : 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.instagram || ''} 
-                      onChange={e => setEditLead({...editLead, instagram: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.instagram || 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.linkedin || ''} 
-                      onChange={e => setEditLead({...editLead, linkedin: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.linkedin || 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp Empresa</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.whatsapp || ''} 
-                      onChange={e => setEditLead({...editLead, whatsapp: formatPhoneBR(e.target.value)})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.whatsapp ? formatPhoneBR(selectedLead.whatsapp) : 'N/A'}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Website</p>
-                  {isEditing ? (
-                    <input 
-                      value={editLead.website || ''} 
-                      onChange={e => setEditLead({...editLead, website: e.target.value})}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{selectedLead.website || 'N/A'}</p>
-                      {selectedLead.website && (
-                        <button 
-                          onClick={() => window.open(selectedLead.website?.startsWith('http') ? selectedLead.website : `https://${selectedLead.website}`, '_blank')}
-                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-blue-600"
-                        >
-                          <ICONS.ExternalLink size={14} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-8 pt-8 border-t border-slate-50 dark:border-slate-800">
-                <button onClick={() => window.open(selectedLead.website || `https://www.google.com/search?q=${encodeURIComponent(selectedLead.company)}`, '_blank')} className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-widest hover:underline">
-                  Abrir página da Empresa <ICONS.ExternalLink width="14" height="14" />
-                </button>
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Responsável">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 font-black">
-                  {selectedLead.responsible_name?.charAt(0) || 'U'}
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Responsável</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.responsible_name || 'Não atribuído'}</p>
-                </div>
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Histórico de Interações (Visão 360º)">
-              <div className="space-y-6">
-                <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                  <div className="flex justify-between items-center mb-4">
-                    <h5 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                      <ICONS.Automation width="14" height="14" /> AI Summary
-                    </h5>
-                    <button 
-                      onClick={() => handleAISummary(selectedLead.interactions || [])}
-                      disabled={isSummarizing}
-                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
-                    >
-                      {isSummarizing ? 'Gerando...' : 'Atualizar Resumo'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic">
-                    {aiSummary || "Clique em 'Atualizar Resumo' para gerar um resumo executivo desta conta."}
-                  </p>
-                </div>
-
-                <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
-                {(selectedLead.interactions || [
-                  { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil via importação.', created_at: selectedLead.created_at },
-                  { id: '2', type: 'note', title: 'Nota Adicionada', content: selectedLead.notes || 'Nenhuma nota inicial.', created_at: selectedLead.created_at }
-                ]).map((interaction, idx) => (
-                  <div key={interaction.id} className="flex gap-6 relative">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center z-10 shadow-sm border-2 border-white dark:border-slate-900 ${
-                      interaction.type === 'email' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                      interaction.type === 'call' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                      interaction.type === 'meeting' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
-                      'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}>
-                      {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" /> :
-                       interaction.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
-                       interaction.type === 'meeting' ? <ICONS.Collaboration width="18" height="18" /> :
-                       <ICONS.Plus width="18" height="18" />}
-                    </div>
-                    <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <div className="flex justify-between items-start mb-2">
-                        <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{interaction.title}</h5>
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">{new Date(interaction.created_at).toLocaleString()}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{interaction.content}</p>
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-4 flex flex-wrap gap-3">
-                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Nota</button>
-                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Ligação</button>
-                   <button className="flex-1 min-w-[120px] py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">+ Reunião</button>
-                   <button className="flex-1 min-w-[120px] py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/50 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">Logar E-mail</button>
-                </div>
               </div>
             </div>
-          </CollapsibleSection>
-          </div>
-
-          <div className="p-10 space-y-6">
-            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Notas & Insights</p>
-            <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-medium leading-relaxed shadow-sm">
-              {selectedLead.notes || "Nenhuma nota disponível."}
-            </div>
-          </div>
-        </div>
 
         <div className="p-10 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-4 shrink-0">
           {!isEditing ? (

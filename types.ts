@@ -158,13 +158,30 @@ export interface Lead {
   ai_score?: number;
   ai_reasoning?: string;
   
-  // Company specific
+  // Prospect Company Data
+  company_name?: string;
+  company_cnpj?: string;
+  company_whatsapp?: string;
+  company_instagram?: string;
+  company_linkedin?: string;
+  company_email?: string;
+  company_phone?: string;
+  website?: string;
+  
+  // Contact / Decision Maker Data
+  contact_name?: string;
+  contact_role?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_whatsapp?: string;
+  contact_instagram?: string;
+  contact_linkedin?: string;
+  contact_notes?: string;
+  
+  // Legacy / Other
   legal_name?: string;
   instagram?: string;
   linkedin?: string;
-  website?: string;
-  company_email?: string;
-  company_phone?: string;
   whatsapp?: string;
   
   // Contacts and Responsibility

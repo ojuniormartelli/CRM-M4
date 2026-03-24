@@ -8,9 +8,10 @@ interface ClientsOverviewProps {
   contacts: Contact[];
   setActiveTab: (tab: string) => void;
   onNewCompany: () => void;
+  onNewContact: () => void;
 }
 
-const ClientsOverview: React.FC<ClientsOverviewProps> = ({ companies, contacts, setActiveTab, onNewCompany }) => {
+const ClientsOverview: React.FC<ClientsOverviewProps> = ({ companies, contacts, setActiveTab, onNewCompany, onNewContact }) => {
   const recentCompanies = [...companies]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
@@ -22,12 +23,20 @@ const ClientsOverview: React.FC<ClientsOverviewProps> = ({ companies, contacts, 
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Base de Clientes</h2>
           <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Visão Geral e Resumo</p>
         </div>
-        <button 
-          onClick={onNewCompany}
-          className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
-        >
-          <ICONS.Plus /> NOVA EMPRESA
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onNewContact}
+            className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-black text-sm hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1"
+          >
+            <ICONS.Plus /> NOVO CONTATO
+          </button>
+          <button 
+            onClick={onNewCompany}
+            className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
+          >
+            <ICONS.Plus /> NOVA EMPRESA
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-4 scrollbar-none space-y-8 pb-10">
