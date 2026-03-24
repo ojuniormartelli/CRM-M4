@@ -33,27 +33,27 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     .slice(0, 5);
 
   const crmFields = [
-    { id: 'company_name', label: 'Nome da Empresa' },
-    { id: 'company_cnpj', label: 'CNPJ' },
-    { id: 'city', label: 'Cidade' },
-    { id: 'state', label: 'Estado' },
-    { id: 'segment', label: 'Segmento/Nicho' },
-    { id: 'website', label: 'Website' },
-    { id: 'company_email', label: 'E-mail da Empresa' },
-    { id: 'company_phone', label: 'Telefone da Empresa' },
-    { id: 'company_whatsapp', label: 'WhatsApp da Empresa' },
-    { id: 'company_instagram', label: 'Instagram da Empresa' },
-    { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
-    { id: 'contact_name', label: 'Nome do Contato' },
-    { id: 'contact_role', label: 'Cargo do Contato' },
-    { id: 'contact_email', label: 'E-mail do Contato' },
-    { id: 'contact_phone', label: 'Telefone do Contato' },
-    { id: 'contact_whatsapp', label: 'WhatsApp do Contato' },
-    { id: 'contact_instagram', label: 'Instagram do Contato' },
-    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
-    { id: 'value', label: 'Valor Estimado' },
-    { id: 'service_type', label: 'Tipo de Serviço' },
-    { id: 'notes', label: 'Observações' },
+    { id: 'company_name', label: 'Nome da Empresa', synonyms: ['empresa', 'company', 'razao social', 'nome fantasia', 'organization'] },
+    { id: 'company_cnpj', label: 'CNPJ', synonyms: ['documento', 'tax id', 'cnpj/cpf'] },
+    { id: 'city', label: 'Cidade', synonyms: ['municipio', 'city', 'localidade'] },
+    { id: 'state', label: 'Estado', synonyms: ['uf', 'state', 'provincia', 'regiao'] },
+    { id: 'segment', label: 'Segmento/Nicho', synonyms: ['nicho', 'setor', 'industria', 'industry', 'segmento'] },
+    { id: 'website', label: 'Website', synonyms: ['site', 'url', 'web'] },
+    { id: 'company_email', label: 'E-mail da Empresa', synonyms: ['email empresa', 'email corporativo', 'e-mail'] },
+    { id: 'company_phone', label: 'Telefone da Empresa', synonyms: ['telefone empresa', 'fone empresa', 'telefone'] },
+    { id: 'company_whatsapp', label: 'WhatsApp da Empresa', synonyms: ['whats empresa', 'zap empresa', 'whatsapp'] },
+    { id: 'company_instagram', label: 'Instagram da Empresa', synonyms: ['insta empresa', 'ig empresa', 'instagram'] },
+    { id: 'company_linkedin', label: 'LinkedIn da Empresa', synonyms: ['linkedin empresa', 'linkedin'] },
+    { id: 'contact_name', label: 'Nome do Contato', synonyms: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor'] },
+    { id: 'contact_role', label: 'Cargo do Contato', synonyms: ['cargo', 'funcao', 'role', 'position', 'departamento'] },
+    { id: 'contact_email', label: 'E-mail do Contato', synonyms: ['email contato', 'email pessoal', 'email'] },
+    { id: 'contact_phone', label: 'Telefone do Contato', synonyms: ['telefone contato', 'fone contato', 'celular'] },
+    { id: 'contact_whatsapp', label: 'WhatsApp do Contato', synonyms: ['whats contato', 'zap contato', 'whatsapp'] },
+    { id: 'contact_instagram', label: 'Instagram do Contato', synonyms: ['insta contato', 'ig contato'] },
+    { id: 'contact_linkedin', label: 'LinkedIn do Contato', synonyms: ['linkedin contato'] },
+    { id: 'value', label: 'Valor Estimado', synonyms: ['valor', 'ticket', 'preco', 'price', 'value', 'investimento'] },
+    { id: 'service_type', label: 'Tipo de Serviço', synonyms: ['servico', 'produto', 'service', 'oferta'] },
+    { id: 'notes', label: 'Observações', synonyms: ['notas', 'obs', 'comentarios', 'description', 'detalhes'] },
   ];
 
   const downloadTemplate = () => {
@@ -124,19 +124,31 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       const workbook = XLSX.read(data, { type: 'binary' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      
+      // Use defval: '' to ensure we get empty strings instead of undefined
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
       if (jsonData.length === 0) return;
 
-      const rawHeaders = jsonData[0].map(h => String(h).trim());
+      // Filter out completely empty rows (including the header if it's empty)
+      const filteredData = jsonData.filter(row => 
+        row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
+      );
+
+      if (filteredData.length === 0) return;
+
+      const rawHeaders = filteredData[0].map(h => String(h).trim());
       setHeaders(rawHeaders);
 
-      const rows = jsonData.slice(1).map(row => {
+      const rows = filteredData.slice(1).map(row => {
         const rowData: any = {};
         rawHeaders.forEach((header, index) => {
           rowData[header] = row[index];
         });
         return rowData;
+      }).filter(row => {
+        // Filter out rows that have no meaningful data
+        return Object.values(row).some(val => val !== null && val !== undefined && String(val).trim() !== '');
       });
 
       setCsvData(rows);
@@ -148,10 +160,18 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
         const match = crmFields.find(f => {
           const normalizedField = f.id.replace(/[^a-z0-9]/g, '');
           const normalizedLabel = f.label.toLowerCase().replace(/[^a-z0-9]/g, '');
-          return normalizedHeader.includes(normalizedField) || 
-                 normalizedField.includes(normalizedHeader) ||
-                 normalizedHeader.includes(normalizedLabel) ||
-                 normalizedLabel.includes(normalizedHeader);
+          
+          // Check ID, Label and Synonyms
+          const isMatch = normalizedHeader.includes(normalizedField) || 
+                         normalizedField.includes(normalizedHeader) ||
+                         normalizedHeader.includes(normalizedLabel) ||
+                         normalizedLabel.includes(normalizedHeader) ||
+                         (f as any).synonyms?.some((s: string) => {
+                           const normalizedSynonym = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                           return normalizedHeader.includes(normalizedSynonym) || normalizedSynonym.includes(normalizedHeader);
+                         });
+          
+          return isMatch;
         });
         if (match) {
           newMapping[header] = match.id;
@@ -197,6 +217,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       lead.niche = lead.segment || '';
 
       return lead;
+    }).filter(lead => {
+      // Filter out leads without a company name or contact name (the primary fields)
+      return (lead.company_name && String(lead.company_name).trim() !== '') || 
+             (lead.contact_name && String(lead.contact_name).trim() !== '');
     });
 
     const { data, error } = await supabase
