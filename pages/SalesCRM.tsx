@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Pipeline, Lead, Interaction, Company, Contact, User, LeadTemperature } from '../types';
+import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
@@ -9,13 +9,16 @@ import { aiService } from '../services/aiService';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
+  setPipelines: React.Dispatch<React.SetStateAction<Pipeline[]>>;
   activePipelineId: string;
   setActivePipelineId: (id: string) => void;
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => Promise<void>;
   companies: Company[];
+  setCompanies: React.Dispatch<React.SetStateAction<Company[]>>;
   contacts: Contact[];
+  setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   currentUser: User | null;
   isModalOpen?: boolean;
   setIsModalOpen?: (isOpen: boolean) => void;
@@ -42,13 +45,16 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
 
 const SalesCRM: React.FC<SalesCRMProps> = ({ 
   pipelines, 
+  setPipelines,
   activePipelineId, 
   setActivePipelineId, 
   leads, 
   setLeads, 
   onStatusChange, 
   companies, 
+  setCompanies,
   contacts, 
+  setContacts,
   currentUser,
   isModalOpen: externalIsModalOpen,
   setIsModalOpen: setExternalIsModalOpen,
@@ -129,33 +135,45 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     if (companyError) {
       alert("Erro ao salvar empresa: " + companyError.message);
     } else if (companyData) {
-      const companyId = companyData[0].id;
+      const createdCompany = companyData[0];
+      const companyId = createdCompany.id;
       
+      setCompanies(prev => [...prev, createdCompany].sort((a, b) => a.name.localeCompare(b.name)));
+
       // Handle primary contact
       if (contactMode === 'create' && primaryContact.name) {
-        await supabase
+        const { data: contactData } = await supabase
           .from('m4_contacts')
           .insert([{
             ...primaryContact,
             company_id: companyId,
             workspace_id: currentUser?.workspace_id,
             is_primary: true
-          }]);
+          }])
+          .select();
+        
+        if (contactData) {
+          setContacts(prev => [...prev, contactData[0]].sort((a, b) => a.name.localeCompare(b.name)));
+        }
       } else if (contactMode === 'select' && selectedContactId) {
-        await supabase
+        const { data: contactData } = await supabase
           .from('m4_contacts')
           .update({ company_id: companyId, is_primary: true })
-          .eq('id', selectedContactId);
+          .eq('id', selectedContactId)
+          .select();
+        
+        if (contactData) {
+          setContacts(prev => prev.map(c => c.id === selectedContactId ? contactData[0] : c));
+        }
       }
 
-      setNewLead({ ...newLead, company_id: companyData[0].id, company: companyData[0].name });
+      setNewLead({ ...newLead, company_id: companyId, company: createdCompany.name });
       setIsCompanyModalOpen(false);
       setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', website: '', instagram: '' });
       setPrimaryContact({ name: '', email: '', phone: '', role: '' });
       setSelectedContactId('');
       setContactSearch('');
       setContactMode('select');
-      window.location.reload();
     }
     setIsSyncing(false);
   };
@@ -175,10 +193,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     if (error) {
       alert("Erro ao salvar contato: " + error.message);
     } else if (data) {
-      setNewLead({ ...newLead, contact_id: data[0].id, name: data[0].name, email: data[0].email, phone: data[0].phone });
+      const createdContact = data[0];
+      setContacts(prev => [...prev, createdContact].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewLead({ ...newLead, contact_id: createdContact.id, name: createdContact.name, email: createdContact.email, phone: createdContact.phone });
       setIsContactModalOpen(false);
       setNewContact({ name: '', email: '', phone: '', role: '', company_id: '' });
-      window.location.reload();
     }
     setIsSyncing(false);
   };
@@ -213,7 +232,173 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setIsSyncing(false);
   };
 
+  const [isStageConfigModalOpen, setIsStageConfigModalOpen] = useState(false);
+  const [editingStageId, setEditingStageId] = useState<string | null>(null);
+  const [isAddingStage, setIsAddingStage] = useState(false);
+  const [newStageData, setNewStageData] = useState({ name: '', color: 'blue' });
+  const [deletingStageId, setDeletingStageId] = useState<string | null>(null);
+
+  const STAGE_COLORS = [
+    { name: 'Azul', value: 'blue', hex: '#2563eb' },
+    { name: 'Verde', value: 'green', hex: '#10b981' },
+    { name: 'Amarelo', value: 'yellow', hex: '#f59e0b' },
+    { name: 'Laranja', value: 'orange', hex: '#f97316' },
+    { name: 'Vermelho', value: 'red', hex: '#ef4444' },
+    { name: 'Roxo', value: 'purple', hex: '#8b5cf6' },
+    { name: 'Rosa', value: 'pink', hex: '#ec4899' },
+    { name: 'Cinza', value: 'gray', hex: '#64748b' }
+  ];
+
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
+
+  if (!activePipeline) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
+            <ICONS.Settings width="32" height="32" />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">Nenhum Funil Encontrado</h3>
+          <p className="text-slate-500 dark:text-slate-400 max-w-xs mx-auto">Não foi possível carregar os funis de vendas. Verifique sua conexão ou as configurações do banco de dados.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleCreateStage = async () => {
+    if (!newStageData.name) return;
+    setIsSyncing(true);
+    try {
+      const nextPosition = activePipeline.stages.length;
+      const { data, error } = await supabase
+        .from('m4_pipeline_stages')
+        .insert([{
+          pipeline_id: activePipelineId,
+          name: newStageData.name,
+          color: newStageData.color,
+          position: nextPosition
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedPipelines = pipelines.map(p => {
+        if (p.id === activePipelineId) {
+          return { ...p, stages: [...p.stages, data] };
+        }
+        return p;
+      });
+      setPipelines(updatedPipelines);
+      setIsAddingStage(false);
+      setNewStageData({ name: '', color: 'blue' });
+    } catch (err) {
+      console.error("Erro ao criar etapa:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUpdateStage = async (stageId: string, updates: Partial<PipelineStage>) => {
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('m4_pipeline_stages')
+        .update(updates)
+        .eq('id', stageId);
+
+      if (error) throw error;
+
+      const updatedPipelines = pipelines.map(p => {
+        if (p.id === activePipelineId) {
+          return {
+            ...p,
+            stages: p.stages.map(s => s.id === stageId ? { ...s, ...updates } : s)
+          };
+        }
+        return p;
+      });
+      setPipelines(updatedPipelines);
+      setEditingStageId(null);
+    } catch (err) {
+      console.error("Erro ao atualizar etapa:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteStage = async (stageId: string) => {
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('m4_pipeline_stages')
+        .delete()
+        .eq('id', stageId);
+
+      if (error) throw error;
+
+      // Update leads in this stage to have no stage
+      await supabase
+        .from('m4_leads')
+        .update({ stage_id: null })
+        .eq('stage_id', stageId);
+
+      const updatedPipelines = pipelines.map(p => {
+        if (p.id === activePipelineId) {
+          return {
+            ...p,
+            stages: p.stages.filter(s => s.id !== stageId)
+          };
+        }
+        return p;
+      });
+      setPipelines(updatedPipelines);
+      setDeletingStageId(null);
+      
+      // Refresh leads
+      const { data: leadsData } = await supabase.from('m4_leads').select('*');
+      if (leadsData) setLeads(leadsData);
+    } catch (err) {
+      console.error("Erro ao excluir etapa:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleMoveStage = async (stageId: string, direction: 'up' | 'down') => {
+    const currentIndex = activePipeline.stages.findIndex(s => s.id === stageId);
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === activePipeline.stages.length - 1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const stages = [...activePipeline.stages];
+    const [movedStage] = stages.splice(currentIndex, 1);
+    stages.splice(newIndex, 0, movedStage);
+
+    // Update positions locally
+    const updatedStages = stages.map((s, i) => ({ ...s, position: i }));
+
+    setIsSyncing(true);
+    try {
+      // Update all positions in Supabase
+      const updates = updatedStages.map(s => 
+        supabase.from('m4_pipeline_stages').update({ position: s.position }).eq('id', s.id)
+      );
+      await Promise.all(updates);
+
+      const updatedPipelines = pipelines.map(p => {
+        if (p.id === activePipelineId) {
+          return { ...p, stages: updatedStages };
+        }
+        return p;
+      });
+      setPipelines(updatedPipelines);
+    } catch (err) {
+      console.error("Erro ao reordenar etapas:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -790,6 +975,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               >
                 <ICONS.ChevronDown width="20" height="20" />
               </button>
+              <button 
+                onClick={() => setIsStageConfigModalOpen(true)}
+                className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+                title="Configurar Etapas"
+              >
+                <ICONS.Settings width="20" height="20" />
+              </button>
             </div>
             <div className="flex items-center gap-3 mt-1">
               <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
@@ -865,7 +1057,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             >
               <div className="p-6 flex justify-between items-center bg-white/60 dark:bg-slate-800/60 rounded-[2rem] border-b border-slate-200/50 dark:border-slate-700/50 mb-4 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
                   <h3 className="font-black text-slate-900 dark:text-white text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
                   <div className="w-5 h-5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-400 dark:text-indigo-300 rounded-lg flex items-center justify-center" title="Automações Ativas">
                     <ICONS.Automation width="12" height="12" />
@@ -1928,6 +2120,157 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isStageConfigModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-6 shrink-0 border-b border-slate-50 dark:border-slate-800">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Configurar Funil</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{activePipeline.name}</p>
+              </div>
+              <button onClick={() => setIsStageConfigModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
+              {activePipeline.stages.map((stage, index) => (
+                <div key={stage.id} className="group bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 transition-all">
+                  {editingStageId === stage.id ? (
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <input 
+                          autoFocus
+                          value={stage.name}
+                          onChange={(e) => handleUpdateStage(stage.id, { name: e.target.value })}
+                          className="flex-1 p-3 bg-white dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingStageId(null)} className="p-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 transition-all">
+                            <ICONS.X width="16" height="16" />
+                          </button>
+                          <button onClick={() => setEditingStageId(null)} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
+                            <ICONS.Check width="16" height="16" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {STAGE_COLORS.map(color => (
+                          <button
+                            key={color.value}
+                            onClick={() => handleUpdateStage(stage.id, { color: color.value })}
+                            className={`w-8 h-8 rounded-full border-2 transition-all ${stage.color === color.value ? 'border-blue-600 scale-110' : 'border-transparent hover:scale-105'}`}
+                            style={{ backgroundColor: color.hex }}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : deletingStageId === stage.id ? (
+                    <div className="flex flex-col gap-4 p-2">
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                        Excluir <span className="text-red-500">"{stage.name}"</span>? Os leads nesta etapa ficarão sem etapa.
+                      </p>
+                      <div className="flex gap-3">
+                        <button onClick={() => setDeletingStageId(null)} className="flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-xs uppercase tracking-widest">Cancelar</button>
+                        <button onClick={() => handleDeleteStage(stage.id)} className="flex-1 py-2 bg-red-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-700 transition-all">Confirmar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 text-slate-300 dark:text-slate-600">
+                          <ICONS.GripVertical width="16" height="16" />
+                        </div>
+                        <div 
+                          className="w-4 h-4 rounded-full shadow-sm" 
+                          style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}
+                        />
+                        <span className="font-bold text-slate-900 dark:text-white text-sm">{stage.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleMoveStage(stage.id, 'up')}
+                          disabled={index === 0}
+                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-20"
+                        >
+                          <ICONS.ChevronUp width="16" height="16" />
+                        </button>
+                        <button 
+                          onClick={() => handleMoveStage(stage.id, 'down')}
+                          disabled={index === activePipeline.stages.length - 1}
+                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-20"
+                        >
+                          <ICONS.ChevronDown width="16" height="16" />
+                        </button>
+                        <button 
+                          onClick={() => setEditingStageId(stage.id)}
+                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          <ICONS.Edit width="16" height="16" />
+                        </button>
+                        <button 
+                          onClick={() => setDeletingStageId(stage.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                        >
+                          <ICONS.Trash width="16" height="16" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {isAddingStage ? (
+                <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-100 dark:border-blue-900/20 space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1">Nome da Etapa</label>
+                    <input 
+                      autoFocus
+                      value={newStageData.name}
+                      onChange={e => setNewStageData({...newStageData, name: e.target.value})}
+                      className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                      placeholder="Ex: Negociação"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1">Cor da Etapa</label>
+                    <div className="flex gap-3">
+                      {STAGE_COLORS.map(color => (
+                        <button
+                          key={color.value}
+                          onClick={() => setNewStageData({...newStageData, color: color.value})}
+                          className={`w-10 h-10 rounded-full border-4 transition-all ${newStageData.color === color.value ? 'border-blue-600 scale-110 shadow-lg shadow-blue-100 dark:shadow-none' : 'border-white dark:border-slate-800 hover:scale-105'}`}
+                          style={{ backgroundColor: color.hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-4 pt-2">
+                    <button onClick={() => setIsAddingStage(false)} className="flex-1 py-4 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest">Cancelar</button>
+                    <button 
+                      onClick={handleCreateStage}
+                      disabled={!newStageData.name || isSyncing}
+                      className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
+                    >
+                      {isSyncing ? 'SALVANDO...' : 'CONFIRMAR'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setIsAddingStage(true)}
+                  className="w-full py-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] text-slate-400 font-black uppercase text-xs tracking-[0.2em] hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all flex items-center justify-center gap-3"
+                >
+                  <ICONS.Plus width="16" height="16" />
+                  Nova Etapa
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

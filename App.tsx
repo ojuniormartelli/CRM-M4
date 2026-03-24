@@ -40,7 +40,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // --- GLOBAL STATE ---
-  const [pipelines] = useState<Pipeline[]>([
+  const [pipelines, setPipelines] = useState<Pipeline[]>([
     { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
     { id: 'p2', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
   ]);
@@ -139,6 +139,20 @@ const App: React.FC = () => {
 
         const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').order('name');
         setContacts(contactsData || []);
+
+        // 3. Fetch Pipelines and Stages
+        const { data: pipelinesData } = await supabase.from('m4_pipelines').select('*');
+        const { data: stagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+
+        if (pipelinesData && stagesData) {
+          const fullPipelines = pipelinesData.map(p => ({
+            ...p,
+            stages: stagesData.filter(s => s.pipeline_id === p.id)
+          }));
+          setPipelines(fullPipelines);
+        } else if (pipelinesData) {
+          setPipelines(pipelinesData.map(p => ({ ...p, stages: [] })));
+        }
 
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
@@ -528,13 +542,16 @@ const App: React.FC = () => {
           {(activeTab === 'sales' || showNewLeadModal) && (
             <SalesCRM 
               pipelines={pipelines} 
+              setPipelines={setPipelines}
               activePipelineId={activePipelineId} 
               setActivePipelineId={setActivePipelineId} 
               leads={leads} 
               setLeads={setLeads} 
               onStatusChange={handleStatusChange} 
               companies={companies}
+              setCompanies={setCompanies}
               contacts={contacts}
+              setContacts={setContacts}
               currentUser={currentUser}
               isModalOpen={showNewLeadModal}
               setIsModalOpen={setShowNewLeadModal}

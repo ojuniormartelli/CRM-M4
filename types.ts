@@ -7,6 +7,8 @@ export enum AppMode {
 export interface PipelineStage {
   id: string;
   name: string;
+  color?: string;
+  position?: number;
 }
 
 export interface Pipeline {
