@@ -141,17 +141,91 @@ const App: React.FC = () => {
         setContacts(contactsData || []);
 
         // 3. Fetch Pipelines and Stages
-        const { data: pipelinesData } = await supabase.from('m4_pipelines').select('*');
-        const { data: stagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+        let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*');
+        let { data: stagesData, error: sError } = await supabase.from('m4_pipeline_stages').select('*').order('position');
 
-        if (pipelinesData && stagesData) {
+        const defaultPipelines = [
+          { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) },
+          { id: 'p2', name: 'Gestão de Reuniões', stages: [
+            { id: 's1', name: 'Agendadas', color: 'blue', position: 0 },
+            { id: 's2', name: 'Confirmadas', color: 'blue', position: 1 },
+            { id: 's3', name: 'Realizadas', color: 'blue', position: 2 }
+          ]}
+        ];
+
+        if (!pipelinesData || pipelinesData.length === 0 || pError) {
+          // Seed default pipelines if empty
+          if (!pError && (!pipelinesData || pipelinesData.length === 0)) {
+            const toInsert = [
+              { name: 'Vendas Comercial', workspace_id: user?.workspace_id },
+              { name: 'Gestão de Reuniões', workspace_id: user?.workspace_id }
+            ];
+            const { data: seededPipelines } = await supabase.from('m4_pipelines').insert(toInsert).select();
+            
+            if (seededPipelines) {
+              pipelinesData = seededPipelines;
+              // Seed default stages
+              const p1 = seededPipelines.find(p => p.name === 'Vendas Comercial');
+              if (p1) {
+                const p1Stages = AGENCY_PIPELINE_STAGES.map((s, i) => ({
+                  pipeline_id: p1.id,
+                  name: s.name,
+                  position: i,
+                  color: 'blue'
+                }));
+                await supabase.from('m4_pipeline_stages').insert(p1Stages);
+              }
+              const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
+              if (p2) {
+                const p2Stages = [
+                  { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue' },
+                  { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue' },
+                  { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue' }
+                ];
+                await supabase.from('m4_pipeline_stages').insert(p2Stages);
+              }
+              // Re-fetch stages
+              const { data: newStagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+              stagesData = newStagesData;
+            } else {
+              // Fallback if seeding fails
+              setPipelines(defaultPipelines);
+              setActivePipelineId('p1');
+            }
+          } else {
+            // Fallback if error or empty
+            setPipelines(defaultPipelines);
+            setActivePipelineId('p1');
+          }
+        }
+
+        if (pipelinesData && pipelinesData.length > 0) {
           const fullPipelines = pipelinesData.map(p => ({
             ...p,
-            stages: stagesData.filter(s => s.pipeline_id === p.id)
+            stages: (stagesData || []).filter(s => s.pipeline_id === p.id)
           }));
-          setPipelines(fullPipelines);
-        } else if (pipelinesData) {
-          setPipelines(pipelinesData.map(p => ({ ...p, stages: [] })));
+          
+          // If a pipeline has NO stages, give it defaults
+          const sanitizedPipelines = fullPipelines.map(p => {
+            if (p.stages.length === 0) {
+              if (p.name === 'Vendas Comercial') {
+                return { ...p, stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) };
+              }
+              if (p.name === 'Gestão de Reuniões') {
+                return { ...p, stages: [
+                  { id: 's1', name: 'Agendadas', color: 'blue', position: 0 },
+                  { id: 's2', name: 'Confirmadas', color: 'blue', position: 1 },
+                  { id: 's3', name: 'Realizadas', color: 'blue', position: 2 }
+                ]};
+              }
+            }
+            return p;
+          });
+
+          setPipelines(sanitizedPipelines);
+          if (sanitizedPipelines.length > 0) {
+            setActivePipelineId(sanitizedPipelines[0].id);
+          }
         }
 
       } catch (err: any) {

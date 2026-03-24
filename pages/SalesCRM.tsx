@@ -239,14 +239,14 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [deletingStageId, setDeletingStageId] = useState<string | null>(null);
 
   const STAGE_COLORS = [
-    { name: 'Azul', value: 'blue', hex: '#2563eb' },
-    { name: 'Verde', value: 'green', hex: '#10b981' },
-    { name: 'Amarelo', value: 'yellow', hex: '#f59e0b' },
+    { name: 'Azul', value: 'blue', hex: '#3b82f6' },
+    { name: 'Verde', value: 'green', hex: '#22c55e' },
+    { name: 'Amarelo', value: 'yellow', hex: '#eab308' },
     { name: 'Laranja', value: 'orange', hex: '#f97316' },
     { name: 'Vermelho', value: 'red', hex: '#ef4444' },
     { name: 'Roxo', value: 'purple', hex: '#8b5cf6' },
     { name: 'Rosa', value: 'pink', hex: '#ec4899' },
-    { name: 'Cinza', value: 'gray', hex: '#64748b' }
+    { name: 'Cinza', value: 'gray', hex: '#94a3b8' }
   ];
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
@@ -2141,19 +2141,19 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               {activePipeline.stages.map((stage, index) => (
                 <div key={stage.id} className="group bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 transition-all">
                   {editingStageId === stage.id ? (
-                    <div className="space-y-4">
+                    <div className="flex-1 space-y-4">
                       <div className="flex gap-4">
                         <input 
                           autoFocus
-                          value={stage.name}
-                          onChange={(e) => handleUpdateStage(stage.id, { name: e.target.value })}
-                          className="flex-1 p-3 bg-white dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white text-sm"
+                          value={newStageData.name}
+                          onChange={(e) => setNewStageData({...newStageData, name: e.target.value})}
+                          className="flex-1 p-3 bg-white dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white text-sm shadow-sm"
                         />
                         <div className="flex gap-2">
                           <button onClick={() => setEditingStageId(null)} className="p-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 transition-all">
                             <ICONS.X width="16" height="16" />
                           </button>
-                          <button onClick={() => setEditingStageId(null)} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
+                          <button onClick={() => handleUpdateStage(stage.id, { name: newStageData.name, color: newStageData.color })} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
                             <ICONS.Check width="16" height="16" />
                           </button>
                         </div>
@@ -2162,8 +2162,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         {STAGE_COLORS.map(color => (
                           <button
                             key={color.value}
-                            onClick={() => handleUpdateStage(stage.id, { color: color.value })}
-                            className={`w-8 h-8 rounded-full border-2 transition-all ${stage.color === color.value ? 'border-blue-600 scale-110' : 'border-transparent hover:scale-105'}`}
+                            onClick={() => setNewStageData({...newStageData, color: color.value})}
+                            className={`w-8 h-8 rounded-full border-2 transition-all ${newStageData.color === color.value ? 'border-blue-600 scale-110' : 'border-transparent hover:scale-105'}`}
                             style={{ backgroundColor: color.hex }}
                             title={color.name}
                           />
