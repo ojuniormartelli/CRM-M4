@@ -14,7 +14,6 @@ interface SalesCRMProps {
   leads: Lead[];
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => Promise<void>;
-  onImportLeads?: () => void;
   companies: Company[];
   contacts: Contact[];
   currentUser: User | null;
@@ -48,7 +47,6 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   leads, 
   setLeads, 
   onStatusChange, 
-  onImportLeads, 
   companies, 
   contacts, 
   currentUser,
@@ -802,13 +800,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         </div>
 
         <div className="flex gap-4">
-          <button 
-            onClick={onImportLeads}
-            className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm"
-          >
-            <ICONS.Database width="16" height="16" />
-            Importar Leads (Planilha)
-          </button>
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mr-4">
             <button 
               onClick={() => setFilterMode('all')}

@@ -1,16 +1,29 @@
 
-import React from 'react';
-import { Lead, Pipeline } from '../types';
+import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
+import { Lead, Pipeline, User } from '../types';
 import { ICONS } from '../constants';
+import { supabase } from '../lib/supabase';
 
 interface SalesOverviewProps {
   leads: Lead[];
+  setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   pipelines: Pipeline[];
   setActiveTab: (tab: string) => void;
   onNewLead: () => void;
+  currentUser: User | null;
 }
 
-const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, pipelines, setActiveTab, onNewLead }) => {
+const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, onNewLead, currentUser }) => {
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importStep, setImportStep] = useState(1);
+  const [csvData, setCsvData] = useState<any[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [selectedPipelineId, setSelectedPipelineId] = useState(pipelines[0]?.id || '');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; total: number } | null>(null);
+
   const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
   
   const totalValue = activeLeads.reduce((acc, lead) => acc + (lead.value || 0), 0);
@@ -19,6 +32,197 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, pipelines, setActi
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
+  const crmFields = [
+    { id: 'company_name', label: 'Nome da Empresa' },
+    { id: 'company_cnpj', label: 'CNPJ' },
+    { id: 'city', label: 'Cidade' },
+    { id: 'state', label: 'Estado' },
+    { id: 'segment', label: 'Segmento/Nicho' },
+    { id: 'website', label: 'Website' },
+    { id: 'company_email', label: 'E-mail da Empresa' },
+    { id: 'company_phone', label: 'Telefone da Empresa' },
+    { id: 'company_whatsapp', label: 'WhatsApp da Empresa' },
+    { id: 'company_instagram', label: 'Instagram da Empresa' },
+    { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
+    { id: 'contact_name', label: 'Nome do Contato' },
+    { id: 'contact_role', label: 'Cargo do Contato' },
+    { id: 'contact_email', label: 'E-mail do Contato' },
+    { id: 'contact_phone', label: 'Telefone do Contato' },
+    { id: 'contact_whatsapp', label: 'WhatsApp do Contato' },
+    { id: 'contact_instagram', label: 'Instagram do Contato' },
+    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
+    { id: 'value', label: 'Valor Estimado' },
+    { id: 'service_type', label: 'Tipo de Serviço' },
+    { id: 'notes', label: 'Observações' },
+  ];
+
+  const downloadTemplate = () => {
+    const headersTemplate = ["nome_empresa", "cnpj", "cidade", "estado", "segmento", "website", "email", "instagram", "linkedin", "telefone", "whatsapp", "nome_contato", "cargo_contato", "email_contato", "telefone_contato", "whatsapp_contato", "instagram_contato", "linkedin_contato", "valor_estimado", "tipo_servico", "observacoes"];
+    
+    const exampleData = [
+      {
+        nome_empresa: "Exemplo Empresa A",
+        cnpj: "00.000.000/0001-00",
+        cidade: "São Paulo",
+        estado: "SP",
+        segmento: "Tecnologia",
+        website: "https://exemplo.com",
+        email: "contato@exemplo.com",
+        instagram: "@exemplo",
+        linkedin: "linkedin.com/company/exemplo",
+        telefone: "(11) 99999-9999",
+        whatsapp: "(11) 99999-9999",
+        nome_contato: "João Silva",
+        cargo_contato: "Diretor",
+        email_contato: "joao@exemplo.com",
+        telefone_contato: "(11) 99999-9999",
+        whatsapp_contato: "(11) 99999-9999",
+        instagram_contato: "@joao_silva",
+        linkedin_contato: "linkedin.com/in/joaosilva",
+        valor_estimado: 5000,
+        tipo_servico: "Consultoria",
+        observacoes: "Lead quente vindo de indicação"
+      },
+      {
+        nome_empresa: "Exemplo Empresa B",
+        cnpj: "11.111.111/0001-11",
+        cidade: "Rio de Janeiro",
+        estado: "RJ",
+        segmento: "Varejo",
+        website: "https://lojaexemplo.com",
+        email: "vendas@lojaexemplo.com",
+        instagram: "@lojaexemplo",
+        linkedin: "linkedin.com/company/lojaexemplo",
+        telefone: "(21) 88888-8888",
+        whatsapp: "(21) 88888-8888",
+        nome_contato: "Maria Souza",
+        cargo_contato: "Gerente",
+        email_contato: "maria@lojaexemplo.com",
+        telefone_contato: "(21) 88888-8888",
+        whatsapp_contato: "(21) 88888-8888",
+        instagram_contato: "@maria_souza",
+        linkedin_contato: "linkedin.com/in/mariasouza",
+        valor_estimado: 2500,
+        tipo_servico: "Implementação",
+        observacoes: "Interessada em novos sistemas"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(exampleData, { header: headersTemplate });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leads");
+    XLSX.writeFile(wb, "modelo_leads_m4.xlsx");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      if (jsonData.length === 0) return;
+
+      const rawHeaders = jsonData[0].map(h => String(h).trim());
+      setHeaders(rawHeaders);
+
+      const rows = jsonData.slice(1).map(row => {
+        const rowData: any = {};
+        rawHeaders.forEach((header, index) => {
+          rowData[header] = row[index];
+        });
+        return rowData;
+      });
+
+      setCsvData(rows);
+
+      // Auto-mapping
+      const newMapping: Record<string, string> = {};
+      rawHeaders.forEach(header => {
+        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const match = crmFields.find(f => {
+          const normalizedField = f.id.replace(/[^a-z0-9]/g, '');
+          const normalizedLabel = f.label.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normalizedHeader.includes(normalizedField) || 
+                 normalizedField.includes(normalizedHeader) ||
+                 normalizedHeader.includes(normalizedLabel) ||
+                 normalizedLabel.includes(normalizedHeader);
+        });
+        if (match) {
+          newMapping[header] = match.id;
+        }
+      });
+      setMapping(newMapping);
+      setImportStep(2);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleImport = async () => {
+    setIsImporting(true);
+    const pipeline = pipelines.find(p => p.id === selectedPipelineId);
+    const stageId = pipeline?.stages[0]?.id || '';
+
+    const leadsToImport = csvData.map(row => {
+      const lead: any = {
+        pipeline_id: selectedPipelineId,
+        stage_id: stageId,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        workspace_id: currentUser?.workspace_id,
+        responsible_id: currentUser?.id,
+        responsible_name: currentUser?.name || '',
+      };
+
+      Object.entries(mapping).forEach(([csvHeader, crmField]) => {
+        if (crmField) {
+          let value = row[csvHeader];
+          if (crmField === 'value') {
+            value = parseFloat(value) || 0;
+          }
+          lead[crmField] = value;
+        }
+      });
+
+      // Legacy field mapping
+      lead.company = lead.company_name || '';
+      lead.name = lead.contact_name || lead.company_name || 'Lead Importado';
+      lead.email = lead.contact_email || lead.company_email || '';
+      lead.phone = lead.contact_phone || lead.company_phone || '';
+      lead.niche = lead.segment || '';
+
+      return lead;
+    });
+
+    const { data, error } = await supabase
+      .from('m4_leads')
+      .insert(leadsToImport)
+      .select();
+
+    if (!error && data) {
+      setLeads(prev => [...prev, ...data]);
+      setImportResult({ success: data.length, total: leadsToImport.length });
+      setImportStep(3);
+    } else {
+      alert("Erro ao importar leads: " + (error?.message || "Erro desconhecido"));
+    }
+    setIsImporting(false);
+  };
+
+  const resetImport = () => {
+    setIsImportModalOpen(false);
+    setImportStep(1);
+    setCsvData([]);
+    setHeaders([]);
+    setMapping({});
+    setImportResult(null);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">
@@ -26,13 +230,175 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, pipelines, setActi
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Pipelines de Vendas</h2>
           <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Visão Geral e Desempenho</p>
         </div>
-        <button 
-          onClick={onNewLead}
-          className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
-        >
-          <ICONS.Plus /> NOVO LEAD
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-3 px-6 py-4 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all hover:-translate-y-1"
+          >
+            <ICONS.Upload width="20" height="20" /> IMPORTAR
+          </button>
+          <button 
+            onClick={onNewLead}
+            className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
+          >
+            <ICONS.Plus /> NOVO LEAD
+          </button>
+        </div>
       </div>
+
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importar Leads</h3>
+              <button onClick={resetImport} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10 scrollbar-none">
+              {importStep === 1 && (
+                <div className="space-y-8">
+                  <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-900/20 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-black text-blue-900 dark:text-blue-100 uppercase tracking-tight">Modelo de Planilha</h4>
+                      <p className="text-blue-600 dark:text-blue-400 text-sm font-bold">Baixe o modelo para garantir que os dados estejam no formato correto.</p>
+                    </div>
+                    <button 
+                      onClick={downloadTemplate}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all"
+                    >
+                      Download .XLSX
+                    </button>
+                  </div>
+
+                  <div className="border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-16 text-center space-y-6">
+                    <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 mx-auto">
+                      <ICONS.Upload width="40" height="40" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Arraste seu arquivo CSV ou XLSX</h4>
+                      <p className="text-slate-400 font-bold text-sm">ou clique no botão abaixo para selecionar</p>
+                    </div>
+                    <label className="inline-block px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer hover:scale-105 transition-all">
+                      Selecionar Arquivo
+                      <input type="file" accept=".csv,.xlsx" className="hidden" onChange={handleFileUpload} />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {importStep === 2 && (
+                <div className="space-y-8">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Pipeline de Destino</h4>
+                    <select 
+                      value={selectedPipelineId}
+                      onChange={(e) => setSelectedPipelineId(e.target.value)}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                    >
+                      {pipelines.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Mapeamento de Colunas</h4>
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 dark:bg-slate-800">
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Coluna da Planilha</th>
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Campo no CRM</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {headers.map(header => (
+                            <tr key={header}>
+                              <td className="p-4 font-bold text-slate-700 dark:text-slate-300 text-sm">{header}</td>
+                              <td className="p-4">
+                                <select 
+                                  value={mapping[header] || ''}
+                                  onChange={(e) => setMapping({...mapping, [header]: e.target.value})}
+                                  className="w-full p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                                >
+                                  <option value="">Ignorar coluna</option>
+                                  {crmFields.map(f => (
+                                    <option key={f.id} value={f.id}>{f.label}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Preview dos Dados (Primeiras 3 linhas)</h4>
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-x-auto border border-slate-100 dark:border-slate-800 scrollbar-none">
+                      <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-800/50">
+                            {headers.map(h => (
+                              <th key={h} className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                          {csvData.slice(0, 3).map((row, idx) => (
+                            <tr key={idx}>
+                              {headers.map(h => (
+                                <td key={h} className="p-3 text-xs font-medium text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{row[h]}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {importStep === 3 && importResult && (
+                <div className="py-12 text-center space-y-8">
+                  <div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-900/30 rounded-[2rem] flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
+                    <ICONS.Check width="48" height="48" />
+                  </div>
+                  <div>
+                    <h4 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importação Concluída</h4>
+                    <p className="text-slate-400 font-bold text-lg mt-2">
+                      {importResult.success} leads importados com sucesso de um total de {importResult.total}.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={resetImport}
+                    className="px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {importStep === 2 && (
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button onClick={() => setImportStep(1)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Voltar</button>
+                <button 
+                  onClick={handleImport}
+                  disabled={isImporting}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
+                >
+                  {isImporting ? 'IMPORTANDO...' : `IMPORTAR ${csvData.length} LEADS`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto pr-4 scrollbar-none space-y-8 pb-10">
         {/* Stats Grid */}

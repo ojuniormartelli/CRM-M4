@@ -517,9 +517,11 @@ const App: React.FC = () => {
           {activeTab === 'sales_overview' && (
             <SalesOverview 
               leads={leads} 
+              setLeads={setLeads}
               pipelines={pipelines} 
               setActiveTab={setActiveTab}
               onNewLead={() => setShowNewLeadModal(true)}
+              currentUser={currentUser}
             />
           )}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
@@ -531,7 +533,6 @@ const App: React.FC = () => {
               leads={leads} 
               setLeads={setLeads} 
               onStatusChange={handleStatusChange} 
-              onImportLeads={() => setActiveTab('enrichment')}
               companies={companies}
               contacts={contacts}
               currentUser={currentUser}
