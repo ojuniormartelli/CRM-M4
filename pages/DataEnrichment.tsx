@@ -42,7 +42,9 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'name', label: 'Nome / Título' },
     { id: 'company', label: 'Empresa / Razão Social' },
     { id: 'email', label: 'E-mail Principal' },
-    { id: 'phone', label: 'Telefone / WhatsApp' },
+    { id: 'phone', label: 'Telefone' },
+    { id: 'whatsapp', label: 'WhatsApp' },
+    { id: 'linkedin', label: 'LinkedIn' },
     { id: 'segment', label: 'Segmento / Setor' },
     { id: 'niche', label: 'Nicho' },
     { id: 'city', label: 'Cidade' },
@@ -57,6 +59,10 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'address', label: 'Endereço Completo' },
     { id: 'service_type', label: 'Tipo de Serviço' },
     { id: 'proposed_ticket', label: 'Ticket Proposto' },
+    { id: 'company_whatsapp', label: 'WhatsApp da Empresa' },
+    { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
+    { id: 'contact_whatsapp', label: 'WhatsApp do Contato' },
+    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
   ];
 
   useEffect(() => {
@@ -173,7 +179,17 @@ Exemplo: {"0": "name", "2": "email"}`;
         const lower = h.toLowerCase();
         if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping[index] = { target: 'name' };
         else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) newMapping[index] = { target: 'email' };
-        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('whatsapp') || lower.includes('tel')) newMapping[index] = { target: 'phone' };
+        else if (lower.includes('whatsapp') || lower.includes('wpp') || lower.includes('zap')) {
+          if (lower.includes('empresa') || lower.includes('company')) newMapping[index] = { target: 'company_whatsapp' };
+          else if (lower.includes('contato') || lower.includes('pessoal')) newMapping[index] = { target: 'contact_whatsapp' };
+          else newMapping[index] = { target: 'whatsapp' };
+        }
+        else if (lower.includes('linkedin') || lower.includes('linked in')) {
+          if (lower.includes('empresa') || lower.includes('company')) newMapping[index] = { target: 'company_linkedin' };
+          else if (lower.includes('contato') || lower.includes('pessoal')) newMapping[index] = { target: 'contact_linkedin' };
+          else newMapping[index] = { target: 'linkedin' };
+        }
+        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('tel')) newMapping[index] = { target: 'phone' };
         else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company' };
         else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping[index] = { target: 'segment' };
         else if (lower.includes('cidade') || lower.includes('city') || lower.includes('município')) newMapping[index] = { target: 'city' };
@@ -262,15 +278,18 @@ Exemplo: {"0": "name", "2": "email"}`;
       return;
     }
 
-    const toInsert = leadsToSave.map(lead => ({
-      ...lead,
-      pipeline_id: selectedPipeline,
-      stage_id: selectedStage,
-      workspace_id: currentUser?.workspace_id,
-      created_at: new Date().toISOString(),
-      next_action: 'Qualificar lead importado',
-      next_action_date: new Date().toISOString().split('T')[0]
-    }));
+    const toInsert = leadsToSave.map(lead => {
+      const { contacts, ...leadData } = lead;
+      return {
+        ...leadData,
+        pipeline_id: selectedPipeline,
+        stage_id: selectedStage,
+        workspace_id: currentUser?.workspace_id,
+        created_at: new Date().toISOString(),
+        next_action: 'Qualificar lead importado',
+        next_action_date: new Date().toISOString().split('T')[0]
+      };
+    });
 
     const { error } = await supabase
       .from('m4_leads')
@@ -597,6 +616,14 @@ Exemplo: {"0": "name", "2": "email"}`;
                     </select>
                   </div>
                   <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp</label>
+                    <input type="text" value={editingLead.whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LinkedIn</label>
+                    <input type="text" value={editingLead.linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, linkedin: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor Total</label>
                     <input type="number" value={editingLead.value || 0} onChange={(e) => setEditingLead({ ...editingLead, value: Number(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
@@ -707,6 +734,22 @@ Exemplo: {"0": "name", "2": "email"}`;
                           }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
                         <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">WhatsApp</label>
+                          <input type="text" value={contact.whatsapp || ''} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx] = { ...contacts[idx], whatsapp: formatPhoneBR(e.target.value) };
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">LinkedIn</label>
+                          <input type="text" value={contact.linkedin || ''} onChange={(e) => {
+                            const contacts = [...(editingLead.contacts || [])];
+                            contacts[idx] = { ...contacts[idx], linkedin: e.target.value };
+                            setEditingLead({ ...editingLead, contacts });
+                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                        </div>
+                        <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Cargo</label>
                           <input type="text" value={contact.role} onChange={(e) => {
                             const contacts = [...(editingLead.contacts || [])];
@@ -771,6 +814,14 @@ Exemplo: {"0": "name", "2": "email"}`;
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
                     <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Empresa</label>
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LinkedIn Empresa</label>
+                    <input type="text" value={editingLead.company_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, company_linkedin: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>

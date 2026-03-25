@@ -27,6 +27,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{ success: number; total: number } | null>(null);
+  const [movingLeadId, setMovingLeadId] = useState<string | null>(null);
+  const [recentLeadsFilter, setRecentLeadsFilter] = useState<'all' | 'with_pipeline' | 'without_pipeline'>('all');
+  const [showAllRecentLeads, setShowAllRecentLeads] = useState(false);
 
   React.useEffect(() => {
     const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -42,9 +45,15 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   
   const totalValue = activeLeads.reduce((acc, lead) => acc + (lead.value || 0), 0);
   
-  const recentLeads = [...leads]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 5);
+  const filteredRecentLeads = [...leads]
+    .filter(l => {
+      if (recentLeadsFilter === 'with_pipeline') return !!l.pipeline_id;
+      if (recentLeadsFilter === 'without_pipeline') return !l.pipeline_id;
+      return true;
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const recentLeads = showAllRecentLeads ? filteredRecentLeads : filteredRecentLeads.slice(0, 10);
 
   const crmFields = [
     { id: 'company_name', label: 'Nome da Empresa', synonyms: ['empresa', 'company', 'razao social', 'nome fantasia', 'organization'] },
@@ -287,6 +296,33 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       setImportError(error?.message || "Erro desconhecido ao importar leads.");
     }
     setIsImporting(false);
+  };
+
+  const handleMoveLead = async (leadId: string, pipelineId: string) => {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pipelineId);
+    
+    if (!isUuid) {
+      console.warn('Aguardando sincronização de pipelines com o servidor...');
+      // Atualizamos o estado local para remover o badge imediatamente
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId } : l));
+      setMovingLeadId(null);
+      return;
+    }
+
+    const pipeline = pipelines.find(p => p.id === pipelineId);
+    const stageId = pipeline?.stages[0]?.id || '';
+
+    const { error } = await supabase
+      .from('m4_leads')
+      .update({ pipeline_id: pipelineId, stage: stageId })
+      .eq('id', leadId);
+
+    if (!error) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId, stage: stageId } : l));
+      setMovingLeadId(null);
+    } else {
+      console.error('Erro ao mover lead:', error);
+    }
   };
 
   const resetImport = () => {
@@ -555,8 +591,29 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
         {/* Recent Leads */}
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+          <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Leads Recentes</h3>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button 
+                onClick={() => setRecentLeadsFilter('all')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${recentLeadsFilter === 'all' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setRecentLeadsFilter('with_pipeline')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${recentLeadsFilter === 'with_pipeline' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Com Pipeline
+              </button>
+              <button 
+                onClick={() => setRecentLeadsFilter('without_pipeline')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${recentLeadsFilter === 'without_pipeline' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Sem Pipeline
+              </button>
+            </div>
           </div>
           <div className="divide-y divide-slate-50 dark:divide-slate-800">
             {recentLeads.length > 0 ? (
@@ -564,16 +621,46 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                 <div key={lead.id} className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black">
-                      {lead.name.charAt(0)}
+                      {lead.name ? lead.name.charAt(0) : '?'}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{lead.name}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">{lead.name || 'Sem Nome'}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-black">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.value || 0)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
+                    {!lead.pipeline_id && (
+                      <div className="relative">
+                        <button 
+                          onClick={() => setMovingLeadId(movingLeadId === lead.id ? null : lead.id)}
+                          className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest hover:bg-rose-100 transition-colors flex items-center gap-1"
+                        >
+                          Sem Pipeline
+                          <ICONS.ChevronDown width="12" height="12" />
+                        </button>
+                        
+                        {movingLeadId === lead.id && (
+                          <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 p-2 space-y-1">
+                            <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1">Mover para:</p>
+                            {(pipelines.length > 0 ? pipelines : [
+                              { id: 'fallback_p1', name: 'Vendas Comercial' },
+                              { id: 'fallback_p2', name: 'Gestão de Reuniões' }
+                            ]).map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => handleMoveLead(lead.id, p.id)}
+                                className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center justify-between group"
+                              >
+                                {p.name}
+                                <ICONS.ArrowRight width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
                       lead.status === 'lost' ? 'bg-rose-50 text-rose-600' :
@@ -588,6 +675,18 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
               <div className="p-10 text-center text-slate-400 font-bold italic">Nenhum lead cadastrado</div>
             )}
           </div>
+          
+          {filteredRecentLeads.length > 10 && (
+            <div className="p-6 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-50 dark:border-slate-800 flex justify-center">
+              <button 
+                onClick={() => setShowAllRecentLeads(!showAllRecentLeads)}
+                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                {showAllRecentLeads ? 'Mostrar Menos' : 'Ver Todos'}
+                <ICONS.ChevronDown className={`transition-transform duration-300 ${showAllRecentLeads ? 'rotate-180' : ''}`} width="14" height="14" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

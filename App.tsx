@@ -60,6 +60,15 @@ const App: React.FC = () => {
   const [activePipelineId, setActivePipelineId] = useState<string>('p1');
   const [settings, setSettings] = useState<any>(null);
 
+  // Handle navigation to specific pipelines from overview
+  useEffect(() => {
+    if (activeTab.startsWith('pipeline_')) {
+      const pipelineId = activeTab.replace('pipeline_', '');
+      setActivePipelineId(pipelineId);
+      setActiveTab('sales');
+    }
+  }, [activeTab]);
+
   // --- MODAL STATES ---
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
@@ -153,47 +162,42 @@ const App: React.FC = () => {
           ]}
         ];
 
-        if (!pipelinesData || pipelinesData.length === 0 || pError) {
+        if (!pipelinesData || pipelinesData.length === 0) {
           // Seed default pipelines if empty
-          if (!pError && (!pipelinesData || pipelinesData.length === 0)) {
-            const toInsert = [
-              { name: 'Vendas Comercial', workspace_id: user?.workspace_id },
-              { name: 'Gestão de Reuniões', workspace_id: user?.workspace_id }
-            ];
-            const { data: seededPipelines } = await supabase.from('m4_pipelines').insert(toInsert).select();
-            
-            if (seededPipelines) {
-              pipelinesData = seededPipelines;
-              // Seed default stages
-              const p1 = seededPipelines.find(p => p.name === 'Vendas Comercial');
-              if (p1) {
-                const p1Stages = AGENCY_PIPELINE_STAGES.map((s, i) => ({
-                  pipeline_id: p1.id,
-                  name: s.name,
-                  position: i,
-                  color: 'blue'
-                }));
-                await supabase.from('m4_pipeline_stages').insert(p1Stages);
-              }
-              const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
-              if (p2) {
-                const p2Stages = [
-                  { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue' },
-                  { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue' },
-                  { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue' }
-                ];
-                await supabase.from('m4_pipeline_stages').insert(p2Stages);
-              }
-              // Re-fetch stages
-              const { data: newStagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-              stagesData = newStagesData;
-            } else {
-              // Fallback if seeding fails
-              setPipelines(defaultPipelines);
-              setActivePipelineId('p1');
+          const toInsert = [
+            { name: 'Vendas Comercial', workspace_id: user?.workspace_id || null },
+            { name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null }
+          ];
+          const { data: seededPipelines, error: insertError } = await supabase.from('m4_pipelines').insert(toInsert).select();
+          
+          if (seededPipelines && seededPipelines.length > 0) {
+            pipelinesData = seededPipelines;
+            // Seed default stages
+            const p1 = seededPipelines.find(p => p.name === 'Vendas Comercial');
+            if (p1) {
+              const p1Stages = AGENCY_PIPELINE_STAGES.map((s, i) => ({
+                pipeline_id: p1.id,
+                name: s.name,
+                position: i,
+                color: 'blue'
+              }));
+              await supabase.from('m4_pipeline_stages').insert(p1Stages);
             }
+            const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
+            if (p2) {
+              const p2Stages = [
+                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue' },
+                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue' },
+                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue' }
+              ];
+              await supabase.from('m4_pipeline_stages').insert(p2Stages);
+            }
+            // Re-fetch stages to get UUIDs
+            const { data: newStagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+            stagesData = newStagesData;
           } else {
-            // Fallback if error or empty
+            console.error("Erro ao semear pipelines:", insertError);
+            // Fallback if seeding fails
             setPipelines(defaultPipelines);
             setActivePipelineId('p1');
           }
@@ -226,6 +230,10 @@ const App: React.FC = () => {
           if (sanitizedPipelines.length > 0) {
             setActivePipelineId(sanitizedPipelines[0].id);
           }
+        } else if (!pipelinesData || pipelinesData.length === 0) {
+          // Final fallback if everything fails
+          setPipelines(defaultPipelines);
+          setActivePipelineId('p1');
         }
 
       } catch (err: any) {

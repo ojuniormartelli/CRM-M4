@@ -87,7 +87,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     niche: '', segment: '', service_type: '', proposed_ticket: 0,
     company_name: '', company_cnpj: '', company_email: '', company_phone: '', company_whatsapp: '', company_instagram: '', company_linkedin: '', 
     contact_name: '', contact_role: '', contact_email: '', contact_phone: '', contact_whatsapp: '', contact_instagram: '', contact_linkedin: '', contact_notes: '',
-    city: '', state: '', website: '',
+    city: '', state: '', website: '', whatsapp: '', linkedin: '',
     pipeline_id: activePipelineId,
     stage_id: '',
     closing_forecast: '',
@@ -474,6 +474,19 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setDraggedLeadId(null);
   };
 
+  const handleMoveLeadStage = async (lead: Lead, direction: 'next' | 'prev') => {
+    const currentStageIndex = activePipeline.stages.findIndex(s => s.id === lead.stage_id);
+    if (direction === 'next' && currentStageIndex < activePipeline.stages.length - 1) {
+      const nextStageId = activePipeline.stages[currentStageIndex + 1].id;
+      setLeads(leads.map(l => l.id === lead.id ? { ...l, stage_id: nextStageId } : l));
+      await supabase.from('m4_leads').update({ stage_id: nextStageId }).eq('id', lead.id);
+    } else if (direction === 'prev' && currentStageIndex > 0) {
+      const prevStageId = activePipeline.stages[currentStageIndex - 1].id;
+      setLeads(leads.map(l => l.id === lead.id ? { ...l, stage_id: prevStageId } : l));
+      await supabase.from('m4_leads').update({ stage_id: prevStageId }).eq('id', lead.id);
+    }
+  };
+
   const handleDeleteLead = async (id: string) => {
     if (!confirm("Excluir este negócio permanentemente?")) return;
     
@@ -571,7 +584,14 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
 
   const getLeadsByStage = (stage_id: string) => {
-    let filtered = leads.filter(l => l.pipeline_id === activePipelineId && l.stage_id === stage_id && (l.status === 'active' || !l.status));
+    const isFirstStage = activePipeline.stages[0]?.id === stage_id;
+    
+    let filtered = leads.filter(l => {
+      const matchesPipeline = l.pipeline_id === activePipelineId;
+      const matchesStage = l.stage_id === stage_id || (isFirstStage && !l.stage_id);
+      const isActive = l.status === 'active' || !l.status;
+      return matchesPipeline && matchesStage && isActive;
+    });
     
     if (filterMode === 'my_day') {
       const today = new Date().toISOString().split('T')[0];
@@ -1106,6 +1126,22 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                     <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-slate-700/50">
                       <div className="font-black text-slate-900 dark:text-white text-base">R$ {Number(lead.value).toLocaleString()}</div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
+                          className="p-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                          title="Mover para etapa anterior"
+                        >
+                          <ICONS.ArrowRight className="rotate-180" width="14" height="14" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'next'); }}
+                          className="p-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                          title="Mover para próxima etapa"
+                        >
+                          <ICONS.ArrowRight width="14" height="14" />
+                        </button>
+                      </div>
                       <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className="w-9 h-9 rounded-2xl border-4 border-white dark:border-slate-800 shadow-xl" alt="Owner" />
                     </div>
                   </div>
@@ -1303,6 +1339,17 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
                       <input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp (Lead)</label>
+                      <input value={newLead.whatsapp} onChange={e => setNewLead({...newLead, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn (Lead)</label>
+                      <input value={newLead.linkedin} onChange={e => setNewLead({...newLead, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
                     </div>
                   </div>
 
@@ -1748,6 +1795,30 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         />
                       ) : (
                         <p className="text-sm font-bold text-slate-900 dark:text-white">R$ {Number(selectedLead.value || 0).toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp (Lead)</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.whatsapp || ''} 
+                          onChange={e => setEditLead({...editLead, whatsapp: formatPhoneBR(e.target.value)})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.whatsapp || '–'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">LinkedIn (Lead)</p>
+                      {isEditing ? (
+                        <input 
+                          value={editLead.linkedin || ''} 
+                          onChange={e => setEditLead({...editLead, linkedin: e.target.value})}
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white"
+                        />
+                      ) : (
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.linkedin || '–'}</p>
                       )}
                     </div>
                     <div className="space-y-1">
