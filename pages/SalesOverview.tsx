@@ -238,7 +238,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     const leadsToImport = csvData.map(row => {
       const leadObj: any = {
         pipeline_id: validPipelineId,
-        stage: validStageId,
+        stage_id: validStageId,
       };
 
       Object.entries(mapping).forEach(([csvHeader, crmField]) => {
@@ -261,7 +261,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
         'company_linkedin', 'company_phone', 'company_whatsapp', 'contact_name', 
         'contact_role', 'contact_email', 'contact_phone', 'contact_whatsapp', 
         'contact_instagram', 'contact_linkedin', 'estimated_value', 'service_type', 
-        'notes', 'pipeline_id', 'stage'
+        'notes', 'pipeline_id', 'stage_id'
       ];
 
       // Clean the lead object: remove created_at, null, undefined, and empty strings
@@ -299,13 +299,14 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   };
 
   const handleMoveLead = async (leadId: string, pipelineId: string) => {
+    console.log('Iniciando atualização de pipeline do lead:', leadId);
+    console.log('Pipeline selecionado:', pipelineId);
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pipelineId);
     
     if (!isUuid) {
-      console.warn('Aguardando sincronização de pipelines com o servidor...');
-      // Atualizamos o estado local para remover o badge imediatamente
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId } : l));
-      setMovingLeadId(null);
+      console.warn('ID do Pipeline não é um UUID válido:', pipelineId);
+      alert('Erro: O pipeline selecionado não possui um ID válido (UUID).');
       return;
     }
 
@@ -314,15 +315,22 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
     const { error } = await supabase
       .from('m4_leads')
-      .update({ pipeline_id: pipelineId, stage: stageId })
+      .update({ 
+        pipeline_id: pipelineId, 
+        stage_id: stageId 
+      })
       .eq('id', leadId);
 
-    if (!error) {
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId, stage: stageId } : l));
-      setMovingLeadId(null);
-    } else {
-      console.error('Erro ao mover lead:', error);
+    if (error) {
+      console.error('Erro ao atualizar pipeline do lead:', error);
+      alert('Erro ao salvar: ' + error.message);
+      return;
     }
+
+    console.log('Lead atualizado com sucesso no Supabase');
+    
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId, stage_id: stageId } : l));
+    setMovingLeadId(null);
   };
 
   const resetImport = () => {
