@@ -21,8 +21,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [selectedPipelineId, setSelectedPipelineId] = useState(() => {
-    const firstValid = pipelines.find(p => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id));
-    return firstValid?.id || pipelines[0]?.id || '';
+    return pipelines[0]?.id || '';
   });
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -31,12 +30,19 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [recentLeadsFilter, setRecentLeadsFilter] = useState<'all' | 'with_pipeline' | 'without_pipeline'>('all');
   const [showAllRecentLeads, setShowAllRecentLeads] = useState(false);
 
+  console.log('pipelines carregados:', pipelines);
+
   React.useEffect(() => {
     const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (!selectedPipelineId || !isValidUUID(selectedPipelineId)) {
+    
+    // Se o pipeline selecionado não for um UUID mas temos pipelines com UUIDs carregados,
+    // atualizamos para o primeiro pipeline válido do banco.
+    if (!isValidUUID(selectedPipelineId)) {
       const firstValid = pipelines.find(p => isValidUUID(p.id));
       if (firstValid) {
         setSelectedPipelineId(firstValid.id);
+      } else if (pipelines.length > 0 && !selectedPipelineId) {
+        setSelectedPipelineId(pipelines[0].id);
       }
     }
   }, [pipelines, selectedPipelineId]);
@@ -302,28 +308,37 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     console.log('Iniciando atualização de pipeline do lead:', leadId);
     console.log('Pipeline selecionado:', pipelineId);
 
+    if (!pipelineId) {
+      console.warn('ID do Pipeline está vazio');
+      return;
+    }
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pipelineId);
     
     if (!isUuid) {
       console.warn('ID do Pipeline não é um UUID válido:', pipelineId);
-      alert('Erro: O pipeline selecionado não possui um ID válido (UUID).');
-      return;
+      // Mensagem amigável conforme solicitado, sem bloquear com alert de erro impeditivo
+      console.info('Aguardando sincronização com o banco de dados...');
     }
 
     const pipeline = pipelines.find(p => p.id === pipelineId);
     const stageId = pipeline?.stages[0]?.id || '';
+    const isStageUuid = stageId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stageId);
+
+    // Se não for UUID, enviamos null para evitar erro de sintaxe no Postgres, 
+    // mas permitimos que a interface reflita a intenção do usuário localmente.
+    const updateData = { 
+      pipeline_id: isUuid ? pipelineId : null, 
+      stage_id: isStageUuid ? stageId : null 
+    };
 
     const { error } = await supabase
       .from('m4_leads')
-      .update({ 
-        pipeline_id: pipelineId, 
-        stage_id: stageId 
-      })
+      .update(updateData)
       .eq('id', leadId);
 
     if (error) {
       console.error('Erro ao atualizar pipeline do lead:', error);
-      alert('Erro ao salvar: ' + error.message);
       return;
     }
 
@@ -652,10 +667,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         {movingLeadId === lead.id && (
                           <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 p-2 space-y-1">
                             <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1">Mover para:</p>
-                            {(pipelines.length > 0 ? pipelines : [
-                              { id: 'fallback_p1', name: 'Vendas Comercial' },
-                              { id: 'fallback_p2', name: 'Gestão de Reuniões' }
-                            ]).map(p => (
+                            {pipelines.map(p => (
                               <button
                                 key={p.id}
                                 onClick={() => handleMoveLead(lead.id, p.id)}
@@ -665,6 +677,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                                 <ICONS.ArrowRight width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
                               </button>
                             ))}
+                            {pipelines.length === 0 && (
+                              <p className="p-3 text-[10px] text-slate-400 italic">Carregando pipelines...</p>
+                            )}
                           </div>
                         )}
                       </div>

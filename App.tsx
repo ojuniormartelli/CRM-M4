@@ -153,6 +153,9 @@ const App: React.FC = () => {
         let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*');
         let { data: stagesData, error: sError } = await supabase.from('m4_pipeline_stages').select('*').order('position');
 
+        console.log('Pipelines do banco:', pipelinesData);
+        console.log('Stages do banco:', stagesData);
+
         const defaultPipelines = [
           { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) },
           { id: 'p2', name: 'Gestão de Reuniões', stages: [
