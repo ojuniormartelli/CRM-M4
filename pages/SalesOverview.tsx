@@ -1,9 +1,13 @@
 
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Lead, Pipeline, User } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
+import { formatCurrency, formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
 interface SalesOverviewProps {
   leads: Lead[];

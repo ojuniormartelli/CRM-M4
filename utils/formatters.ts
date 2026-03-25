@@ -47,3 +47,15 @@ export const formatPhoneBR = (value: string): string => {
   // Celular: (XX) XXXXX-XXXX
   return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7, 11)}`;
 };
+
+/**
+ * Formata um valor numérico para o padrão de moeda BRL (R$)
+ * @param value Valor numérico
+ * @returns Valor formatado como moeda
+ */
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+};
