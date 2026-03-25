@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Lead, Pipeline, User } from '../types';
 import { ICONS } from '../constants';
+import { ChevronRight, Building, DollarSign, User as UserIcon, Globe, Mail, Instagram, Linkedin, Phone, MessageSquare, Briefcase, FileText, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
@@ -18,6 +19,11 @@ interface SalesOverviewProps {
   onNewLead: () => void;
   currentUser: User | null;
 }
+
+const PIPELINE_OPTIONS = [
+  { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial' },
+  { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões' }
+];
 
 const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser }) => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -33,23 +39,19 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [importResult, setImportResult] = useState<{ success: number; total: number } | null>(null);
   const [recentLeadsFilter, setRecentLeadsFilter] = useState<'all' | 'with_pipeline' | 'without_pipeline'>('all');
   const [showAllRecentLeads, setShowAllRecentLeads] = useState(false);
-  const [dbPipelines, setDbPipelines] = useState<Pipeline[]>([]);
+  const [dbPipelines, setDbPipelines] = useState<any[]>(PIPELINE_OPTIONS);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editedLead, setEditedLead] = useState<Partial<Lead>>({});
 
   React.useEffect(() => {
-    const fetchPipelines = async () => {
-      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('name');
-      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-      
-      if (pData) {
-        const full = pData.map(p => ({
-          ...p,
-          stages: (sData || []).filter(s => s.pipeline_id === p.id)
-        }));
-        setDbPipelines(full);
-      }
-    };
-    fetchPipelines();
+    supabase.from('m4_pipelines').select('id, name').order('name').then(({ data, error }) => {
+      console.log('dbPipelines carregados:', data, error);
+      if (data?.length) setDbPipelines(data);
+    });
   }, []);
+
+  const pipelineOptions = dbPipelines;
 
   console.log('pipelines carregados (prop):', pipelines);
   console.log('pipelines do banco (local):', dbPipelines);
@@ -630,9 +632,13 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
           <div className="divide-y divide-slate-50 dark:divide-slate-800">
             {recentLeads.length > 0 ? (
               recentLeads.map(lead => (
-                <div key={lead.id} className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div 
+                  key={lead.id} 
+                  onClick={() => setSelectedLead(lead)}
+                  className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black">
+                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       {lead.name ? lead.name.charAt(0) : '?'}
                     </div>
                     <div>
@@ -643,44 +649,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <select
-                      onChange={async (e) => {
-                        const pipelineId = e.target.value;
-                        if (!pipelineId) return;
-                        
-                        console.log('Movendo lead', lead.id, 'para pipeline', pipelineId);
-
-                        // Encontrar o primeiro estágio do pipeline para garantir que o lead apareça no CRM
-                        const pipeline = dbPipelines.find(p => p.id === pipelineId);
-                        const stageId = pipeline?.stages[0]?.id;
-
-                        const { error } = await supabase
-                          .from('m4_leads')
-                          .update({ 
-                            pipeline_id: pipelineId,
-                            stage_id: stageId || null
-                          })
-                          .eq('id', lead.id);
-                        
-                        console.log('Resultado do update:', error);
-
-                        if (error) {
-                          alert('Erro: ' + error.message);
-                        } else {
-                          // atualizar estado local
-                          setLeads(prev => prev.map(l => 
-                            l.id === lead.id ? {...l, pipeline_id: pipelineId, stage_id: stageId || l.stage_id} : l
-                          ));
-                        }
-                      }}
-                      value={lead.pipeline_id || ""}
-                      className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 border-none cursor-pointer text-slate-600 dark:text-slate-400 uppercase tracking-widest"
-                    >
-                      <option value="" disabled>{dbPipelines.length === 0 ? 'Carregando...' : 'Mover para...'}</option>
-                      {dbPipelines.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                      {pipelines.find(p => p.id === lead.pipeline_id)?.name || 'Sem Pipeline'}
+                    </span>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
                       lead.status === 'lost' ? 'bg-rose-50 text-rose-600' :
@@ -688,6 +659,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     }`}>
                       {lead.status}
                     </span>
+                    <ChevronRight className="text-slate-300 group-hover:text-blue-600 transition-colors" size={16} />
                   </div>
                 </div>
               ))
@@ -709,8 +681,360 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
           )}
         </div>
       </div>
+
+      {/* Lead Details Modal */}
+      <AnimatePresence>
+        {selectedLead && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                      {isEditingLead ? 'Editando Lead' : (selectedLead.company_name || selectedLead.name || 'Detalhes do Lead')}
+                    </h2>
+                    {!isEditingLead && (
+                      <button
+                        onClick={() => {
+                          setIsEditingLead(true);
+                          setEditedLead(selectedLead);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-4"
+                      >
+                        ✏️ Editar Lead
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] font-black px-2 py-1 bg-blue-600 text-white rounded-lg uppercase tracking-widest">
+                      {pipelines.find(p => p.id === selectedLead.pipeline_id)?.name || 'Sem Pipeline'}
+                    </span>
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                      selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
+                      selectedLead.status === 'lost' ? 'bg-rose-100 text-rose-600' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {selectedLead.status}
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedLead(null);
+                    setIsEditingLead(false);
+                  }}
+                  className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-slate-600 transition-all shadow-sm border border-slate-100 dark:border-slate-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                {/* Pipeline Selector (Only if no pipeline and editing) */}
+                {isEditingLead && !selectedLead.pipeline_id && (
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mover para Pipeline</h4>
+                    <select
+                      value={(editedLead as any).pipeline_id || (editedLead as any).pipelineid || ''}
+                      onChange={e => setEditedLead({...editedLead, pipeline_id: e.target.value} as any)}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    >
+                      <option value="">Selecione um Pipeline...</option>
+                      {dbPipelines.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Empresa */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                      <Building size={14} />
+                      Informações da Empresa
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                      <EditableInfoItem 
+                        label="Nome da Empresa" 
+                        value={editedLead.company_name} 
+                        originalValue={selectedLead.company_name}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_name: val })}
+                      />
+                      <EditableInfoItem 
+                        label="CNPJ" 
+                        value={editedLead.company_cnpj} 
+                        originalValue={selectedLead.company_cnpj}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_cnpj: val })}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <EditableInfoItem 
+                          label="Cidade" 
+                          value={editedLead.city} 
+                          originalValue={selectedLead.city}
+                          isEditing={isEditingLead}
+                          onChange={(val) => setEditedLead({ ...editedLead, city: val })}
+                        />
+                        <EditableInfoItem 
+                          label="Estado" 
+                          value={editedLead.state} 
+                          originalValue={selectedLead.state}
+                          isEditing={isEditingLead}
+                          onChange={(val) => setEditedLead({ ...editedLead, state: val })}
+                        />
+                      </div>
+                      <EditableInfoItem 
+                        label="Segmento" 
+                        value={editedLead.segment} 
+                        originalValue={selectedLead.segment}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, segment: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Website" 
+                        value={editedLead.website} 
+                        originalValue={selectedLead.website}
+                        isEditing={isEditingLead}
+                        isLink
+                        onChange={(val) => setEditedLead({ ...editedLead, website: val })}
+                      />
+                      <EditableInfoItem 
+                        label="E-mail" 
+                        value={editedLead.company_email} 
+                        originalValue={selectedLead.company_email}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_email: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Instagram" 
+                        value={editedLead.company_instagram} 
+                        originalValue={selectedLead.company_instagram}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_instagram: val })}
+                      />
+                      <EditableInfoItem 
+                        label="LinkedIn" 
+                        value={editedLead.company_linkedin} 
+                        originalValue={selectedLead.company_linkedin}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_linkedin: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Telefone" 
+                        value={editedLead.company_phone} 
+                        originalValue={selectedLead.company_phone}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: val })}
+                      />
+                      <EditableInfoItem 
+                        label="WhatsApp" 
+                        value={editedLead.company_whatsapp} 
+                        originalValue={selectedLead.company_whatsapp}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: val })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contato */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                      <UserIcon size={14} />
+                      Informações de Contato
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                      <EditableInfoItem 
+                        label="Nome" 
+                        value={editedLead.contact_name} 
+                        originalValue={selectedLead.contact_name}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_name: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Cargo" 
+                        value={editedLead.contact_role} 
+                        originalValue={selectedLead.contact_role}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_role: val })}
+                      />
+                      <EditableInfoItem 
+                        label="E-mail" 
+                        value={editedLead.contact_email} 
+                        originalValue={selectedLead.contact_email}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_email: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Telefone" 
+                        value={editedLead.contact_phone} 
+                        originalValue={selectedLead.contact_phone}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_phone: val })}
+                      />
+                      <EditableInfoItem 
+                        label="WhatsApp" 
+                        value={editedLead.contact_whatsapp} 
+                        originalValue={selectedLead.contact_whatsapp}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: val })}
+                      />
+                      <EditableInfoItem 
+                        label="Instagram" 
+                        value={editedLead.contact_instagram} 
+                        originalValue={selectedLead.contact_instagram}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_instagram: val })}
+                      />
+                      <EditableInfoItem 
+                        label="LinkedIn" 
+                        value={editedLead.contact_linkedin} 
+                        originalValue={selectedLead.contact_linkedin}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_linkedin: val })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Negócio */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                    <DollarSign size={14} />
+                    Detalhes do Negócio
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                    <EditableInfoItem 
+                      label="Valor Estimado" 
+                      value={editedLead.value} 
+                      originalValue={formatCurrency(selectedLead.value || 0)}
+                      isEditing={isEditingLead}
+                      type="number"
+                      onChange={(val) => setEditedLead({ ...editedLead, value: Number(val) })}
+                    />
+                    <EditableInfoItem 
+                      label="Tipo de Serviço" 
+                      value={editedLead.service_type} 
+                      originalValue={selectedLead.service_type}
+                      isEditing={isEditingLead}
+                      onChange={(val) => setEditedLead({ ...editedLead, service_type: val })}
+                    />
+                    <div className="md:col-span-3">
+                      <EditableInfoItem 
+                        label="Observações" 
+                        value={editedLead.notes} 
+                        originalValue={selectedLead.notes}
+                        isEditing={isEditingLead}
+                        isTextArea
+                        onChange={(val) => setEditedLead({ ...editedLead, notes: val })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/50">
+                {isEditingLead ? (
+                  <>
+                    <button 
+                      onClick={() => setIsEditingLead(false)}
+                      className="px-8 py-4 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-300 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const pid = (editedLead as any).pipeline_id || (editedLead as any).pipelineid || null;
+                          
+                          const { error } = await supabase
+                            .from('m4_leads')
+                            .update({ pipeline_id: pid })
+                            .eq('id', selectedLead.id);
+                          
+                          if (error) throw error;
+                          
+                          const updated = { ...selectedLead, pipeline_id: pid, pipelineid: pid } as Lead;
+                          setSelectedLead(updated);
+                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l));
+                          setIsEditingLead(false);
+                          alert('Pipeline atualizado com sucesso!');
+                        } catch (e: any) {
+                          alert('Erro: ' + e.message);
+                        }
+                      }}
+                      className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                    >
+                      Salvar Alterações
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={() => setSelectedLead(null)}
+                    className="px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all"
+                  >
+                    Fechar
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
+const EditableInfoItem: React.FC<{ 
+  label: string; 
+  value: any; 
+  originalValue: any;
+  isEditing: boolean;
+  isLink?: boolean;
+  isTextArea?: boolean;
+  type?: string;
+  onChange: (val: string) => void;
+}> = ({ label, value, originalValue, isEditing, isLink, isTextArea, type = "text", onChange }) => (
+  <div>
+    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+    {isEditing ? (
+      isTextArea ? (
+        <textarea
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[100px]"
+        />
+      ) : (
+        <input
+          type={type}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+        />
+      )
+    ) : (
+      originalValue ? (
+        isLink ? (
+          <a href={originalValue.startsWith('http') ? originalValue : `https://${originalValue}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 hover:underline break-all">
+            {originalValue}
+          </a>
+        ) : (
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 break-all">{originalValue}</p>
+        )
+      ) : (
+        <p className="text-sm font-medium text-slate-300 italic">Não informado</p>
+      )
+    )}
+  </div>
+);
 
 export default SalesOverview;
