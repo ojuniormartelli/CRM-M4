@@ -308,9 +308,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     setIsImporting(false);
   };
 
-  const handleMoveLead = async (leadId: string, pipelineId: string) => {
-    console.log('Iniciando atualização de pipeline do lead:', leadId);
-    console.log('Pipeline selecionado:', pipelineId);
+  const handleMoveLead = async (leadId: string, pipelineId: string, pipelineName: string) => {
+    console.log('handleMoveLead chamado:', leadId, pipelineId, pipelineName);
+    console.log('pipelines disponíveis:', pipelines);
 
     if (!pipelineId) {
       console.warn('ID do Pipeline está vazio');
@@ -658,36 +658,46 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {!lead.pipeline_id && (
-                      <div className="relative">
-                        <button 
-                          onClick={() => setMovingLeadId(movingLeadId === lead.id ? null : lead.id)}
-                          className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest hover:bg-rose-100 transition-colors flex items-center gap-1"
-                        >
-                          Sem Pipeline
-                          <ICONS.ChevronDown width="12" height="12" />
-                        </button>
-                        
-                        {movingLeadId === lead.id && (
-                          <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 p-2 space-y-1">
-                            <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1">Mover para:</p>
-                            {pipelines.map(p => (
-                              <button
-                                key={p.id}
-                                onClick={() => handleMoveLead(lead.id, p.id)}
-                                className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center justify-between group"
-                              >
-                                {p.name}
-                                <ICONS.ArrowRight width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </button>
-                            ))}
-                            {pipelines.length === 0 && (
-                              <p className="p-3 text-[10px] text-slate-400 italic">Carregando pipelines...</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div className="relative">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMovingLeadId(movingLeadId === lead.id ? null : lead.id);
+                        }}
+                        className={`${
+                          lead.pipeline_id 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                            : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
+                        } text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest hover:opacity-80 transition-colors flex items-center gap-1`}
+                      >
+                        {lead.pipeline_id 
+                          ? (pipelines.find(p => p.id === lead.pipeline_id)?.name || 'Pipeline') 
+                          : 'Sem Pipeline'}
+                        <ICONS.ChevronDown width="12" height="12" />
+                      </button>
+                      
+                      {movingLeadId === lead.id && (
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 p-2 space-y-1">
+                          <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1">Mover para:</p>
+                          {pipelines.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveLead(lead.id, p.id, p.name);
+                              }}
+                              className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center justify-between group"
+                            >
+                              {p.name}
+                              <ICONS.ArrowRight width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ))}
+                          {pipelines.length === 0 && (
+                            <p className="p-3 text-[10px] text-slate-400 italic">Carregando pipelines...</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
                       lead.status === 'lost' ? 'bg-rose-50 text-rose-600' :
