@@ -153,7 +153,7 @@ const App: React.FC = () => {
         let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*');
         let { data: stagesData, error: sError } = await supabase.from('m4_pipeline_stages').select('*').order('position');
 
-        console.log('Pipelines do banco:', pipelinesData);
+        console.log('pipelines do banco:', pipelinesData, 'erro:', pError);
         console.log('Stages do banco:', stagesData);
 
         const defaultPipelines = [
@@ -619,6 +619,7 @@ const App: React.FC = () => {
               setLeads={setLeads}
               pipelines={pipelines} 
               setActiveTab={setActiveTab}
+              setActivePipelineId={setActivePipelineId}
               onNewLead={() => setShowNewLeadModal(true)}
               currentUser={currentUser}
             />

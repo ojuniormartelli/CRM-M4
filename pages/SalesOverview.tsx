@@ -14,11 +14,12 @@ interface SalesOverviewProps {
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   pipelines: Pipeline[];
   setActiveTab: (tab: string) => void;
+  setActivePipelineId?: (id: string) => void;
   onNewLead: () => void;
   currentUser: User | null;
 }
 
-const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, onNewLead, currentUser }) => {
+const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser }) => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState(1);
   const [csvData, setCsvData] = useState<any[]>([]);
@@ -30,11 +31,28 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{ success: number; total: number } | null>(null);
-  const [movingLeadId, setMovingLeadId] = useState<string | null>(null);
   const [recentLeadsFilter, setRecentLeadsFilter] = useState<'all' | 'with_pipeline' | 'without_pipeline'>('all');
   const [showAllRecentLeads, setShowAllRecentLeads] = useState(false);
+  const [dbPipelines, setDbPipelines] = useState<Pipeline[]>([]);
 
-  console.log('pipelines carregados:', pipelines);
+  React.useEffect(() => {
+    const fetchPipelines = async () => {
+      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('name');
+      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+      
+      if (pData) {
+        const full = pData.map(p => ({
+          ...p,
+          stages: (sData || []).filter(s => s.pipeline_id === p.id)
+        }));
+        setDbPipelines(full);
+      }
+    };
+    fetchPipelines();
+  }, []);
+
+  console.log('pipelines carregados (prop):', pipelines);
+  console.log('pipelines do banco (local):', dbPipelines);
 
   React.useEffect(() => {
     const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -308,50 +326,6 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     setIsImporting(false);
   };
 
-  const handleMoveLead = async (leadId: string, pipelineId: string, pipelineName: string) => {
-    console.log('handleMoveLead chamado:', leadId, pipelineId, pipelineName);
-    console.log('pipelines disponíveis:', pipelines);
-
-    if (!pipelineId) {
-      console.warn('ID do Pipeline está vazio');
-      return;
-    }
-
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pipelineId);
-    
-    if (!isUuid) {
-      console.warn('ID do Pipeline não é um UUID válido:', pipelineId);
-      // Mensagem amigável conforme solicitado, sem bloquear com alert de erro impeditivo
-      console.info('Aguardando sincronização com o banco de dados...');
-    }
-
-    const pipeline = pipelines.find(p => p.id === pipelineId);
-    const stageId = pipeline?.stages[0]?.id || '';
-    const isStageUuid = stageId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stageId);
-
-    // Se não for UUID, enviamos null para evitar erro de sintaxe no Postgres, 
-    // mas permitimos que a interface reflita a intenção do usuário localmente.
-    const updateData = { 
-      pipeline_id: isUuid ? pipelineId : null, 
-      stage_id: isStageUuid ? stageId : null 
-    };
-
-    const { error } = await supabase
-      .from('m4_leads')
-      .update(updateData)
-      .eq('id', leadId);
-
-    if (error) {
-      console.error('Erro ao atualizar pipeline do lead:', error);
-      return;
-    }
-
-    console.log('Lead atualizado com sucesso no Supabase');
-    
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipeline_id: pipelineId, stage_id: stageId } : l));
-    setMovingLeadId(null);
-  };
-
   const resetImport = () => {
     setIsImportModalOpen(false);
     setImportStep(1);
@@ -588,31 +562,42 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
         <div className="space-y-4">
           <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight ml-2">Seus Funis</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pipelines.map(pipeline => {
-              const pipelineLeads = activeLeads.filter(l => l.pipeline_id === pipeline.id);
-              const pipelineValue = pipelineLeads.reduce((acc, l) => acc + (l.value || 0), 0);
-              
-              return (
-                <button 
-                  key={pipeline.id}
-                  onClick={() => setActiveTab(`pipeline_${pipeline.id}`)}
-                  className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-blue-500 dark:hover:border-blue-400 transition-all text-left group"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
-                      <ICONS.Sales width="20" height="20" />
+            {pipelines.length === 0 ? (
+              <div className="col-span-full p-10 text-center text-slate-400 font-bold italic animate-pulse">Carregando pipelines...</div>
+            ) : (
+              pipelines.map(pipeline => {
+                const pipelineLeads = activeLeads.filter(l => l.pipeline_id === pipeline.id);
+                const pipelineValue = pipelineLeads.reduce((acc, l) => acc + (l.value || 0), 0);
+                
+                return (
+                  <button 
+                    key={pipeline.id}
+                    onClick={() => {
+                      if (setActivePipelineId) {
+                        setActivePipelineId(pipeline.id);
+                        setActiveTab('sales');
+                      } else {
+                        setActiveTab(`pipeline_${pipeline.id}`);
+                      }
+                    }}
+                    className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-blue-500 dark:hover:border-blue-400 transition-all text-left group"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+                        <ICONS.Sales width="20" height="20" />
+                      </div>
+                      <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">
+                        {pipelineLeads.length} leads
+                      </span>
                     </div>
-                    <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">
-                      {pipelineLeads.length} leads
-                    </span>
-                  </div>
-                  <h4 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">{pipeline.name}</h4>
-                  <p className="text-slate-400 text-xs font-bold">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pipelineValue)}
-                  </p>
-                </button>
-              );
-            })}
+                    <h4 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">{pipeline.name}</h4>
+                    <p className="text-slate-400 text-xs font-bold">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pipelineValue)}
+                    </p>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -658,46 +643,44 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMovingLeadId(movingLeadId === lead.id ? null : lead.id);
-                        }}
-                        className={`${
-                          lead.pipeline_id 
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
-                            : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'
-                        } text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest hover:opacity-80 transition-colors flex items-center gap-1`}
-                      >
-                        {lead.pipeline_id 
-                          ? (pipelines.find(p => p.id === lead.pipeline_id)?.name || 'Pipeline') 
-                          : 'Sem Pipeline'}
-                        <ICONS.ChevronDown width="12" height="12" />
-                      </button>
-                      
-                      {movingLeadId === lead.id && (
-                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 p-2 space-y-1">
-                          <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1">Mover para:</p>
-                          {pipelines.map(p => (
-                            <button
-                              key={p.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMoveLead(lead.id, p.id, p.name);
-                              }}
-                              className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center justify-between group"
-                            >
-                              {p.name}
-                              <ICONS.ArrowRight width="14" height="14" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                          ))}
-                          {pipelines.length === 0 && (
-                            <p className="p-3 text-[10px] text-slate-400 italic">Carregando pipelines...</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <select
+                      onChange={async (e) => {
+                        const pipelineId = e.target.value;
+                        if (!pipelineId) return;
+                        
+                        console.log('Movendo lead', lead.id, 'para pipeline', pipelineId);
+
+                        // Encontrar o primeiro estágio do pipeline para garantir que o lead apareça no CRM
+                        const pipeline = dbPipelines.find(p => p.id === pipelineId);
+                        const stageId = pipeline?.stages[0]?.id;
+
+                        const { error } = await supabase
+                          .from('m4_leads')
+                          .update({ 
+                            pipeline_id: pipelineId,
+                            stage_id: stageId || null
+                          })
+                          .eq('id', lead.id);
+                        
+                        console.log('Resultado do update:', error);
+
+                        if (error) {
+                          alert('Erro: ' + error.message);
+                        } else {
+                          // atualizar estado local
+                          setLeads(prev => prev.map(l => 
+                            l.id === lead.id ? {...l, pipeline_id: pipelineId, stage_id: stageId || l.stage_id} : l
+                          ));
+                        }
+                      }}
+                      value={lead.pipeline_id || ""}
+                      className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 border-none cursor-pointer text-slate-600 dark:text-slate-400 uppercase tracking-widest"
+                    >
+                      <option value="" disabled>{dbPipelines.length === 0 ? 'Carregando...' : 'Mover para...'}</option>
+                      {dbPipelines.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
                       lead.status === 'lost' ? 'bg-rose-50 text-rose-600' :
