@@ -18,6 +18,7 @@ interface SalesOverviewProps {
   setActivePipelineId?: (id: string) => void;
   onNewLead: () => void;
   currentUser: User | null;
+  fetchLeads?: () => Promise<void>;
 }
 
 const PIPELINE_OPTIONS = [
@@ -25,7 +26,7 @@ const PIPELINE_OPTIONS = [
   { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões' }
 ];
 
-const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser }) => {
+const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser, fetchLeads }) => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState(1);
   const [csvData, setCsvData] = useState<any[]>([]);
@@ -43,6 +44,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isEditingLead, setIsEditingLead] = useState(false);
   const [editedLead, setEditedLead] = useState<Partial<Lead>>({});
+  const [selectedPipelineForEdit, setSelectedPipelineForEdit] = React.useState<string>('');
 
   React.useEffect(() => {
     supabase.from('m4_pipelines').select('id, name').order('name').then(({ data, error }) => {
@@ -77,8 +79,8 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   
   const filteredRecentLeads = [...leads]
     .filter(l => {
-      if (recentLeadsFilter === 'with_pipeline') return !!l.pipeline_id;
-      if (recentLeadsFilter === 'without_pipeline') return !l.pipeline_id;
+      if (recentLeadsFilter === 'with_pipeline') return !!(l as any).pipeline_id;
+      if (recentLeadsFilter === 'without_pipeline') return !(l as any).pipeline_id;
       return true;
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -338,6 +340,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     setImportError(null);
   };
 
+  console.log('pipelines disponíveis:', pipelines.map(p => ({id: p.id, name: p.name})))
+  console.log('primeiro lead pipeline_id:', leads[0] && (leads[0] as any).pipeline_id)
+
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">
@@ -568,7 +573,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
               <div className="col-span-full p-10 text-center text-slate-400 font-bold italic animate-pulse">Carregando pipelines...</div>
             ) : (
               pipelines.map(pipeline => {
-                const pipelineLeads = activeLeads.filter(l => l.pipeline_id === pipeline.id);
+                const pipelineLeads = activeLeads.filter(l => (l as any).pipeline_id === pipeline.id);
                 const pipelineValue = pipelineLeads.reduce((acc, l) => acc + (l.value || 0), 0);
                 
                 return (
@@ -650,7 +655,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                      {pipelines.find(p => p.id === lead.pipeline_id)?.name || 'Sem Pipeline'}
+                      {pipelines.find(p => p.id === (lead as any).pipeline_id)?.name || 'Sem Pipeline'}
                     </span>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
@@ -704,6 +709,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onClick={() => {
                           setIsEditingLead(true);
                           setEditedLead(selectedLead);
+                          setSelectedPipelineForEdit(selectedLead.pipeline_id || '');
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-4"
                       >
@@ -713,7 +719,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-[10px] font-black px-2 py-1 bg-blue-600 text-white rounded-lg uppercase tracking-widest">
-                      {pipelines.find(p => p.id === selectedLead.pipeline_id)?.name || 'Sem Pipeline'}
+                      {pipelines.find(p => p.id === (selectedLead as any).pipeline_id)?.name || 'Sem Pipeline'}
                     </span>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
                       selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
@@ -737,16 +743,16 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                {/* Pipeline Selector (Only if no pipeline and editing) */}
-                {isEditingLead && !selectedLead.pipeline_id && (
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mover para Pipeline</h4>
+                {/* Pipeline Selector (Always show when editing) */}
+                {isEditingLead && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-4">PIPELINE</h4>
                     <select
-                      value={(editedLead as any).pipeline_id || (editedLead as any).pipelineid || ''}
-                      onChange={e => setEditedLead({...editedLead, pipeline_id: e.target.value} as any)}
+                      value={selectedPipelineForEdit}
+                      onChange={e => setSelectedPipelineForEdit(e.target.value)}
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     >
-                      <option value="">Selecione um Pipeline...</option>
+                      <option value="">— Selecione um Pipeline —</option>
                       {dbPipelines.map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
@@ -954,22 +960,30 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <button 
                       onClick={async () => {
                         try {
-                          const pid = (editedLead as any).pipeline_id || (editedLead as any).pipelineid || null;
-                          
                           const { error } = await supabase
                             .from('m4_leads')
-                            .update({ pipeline_id: pid })
-                            .eq('id', selectedLead.id);
+                            .update({ pipeline_id: selectedPipelineForEdit || null })
+                            .eq('id', selectedLead.id)
                           
-                          if (error) throw error;
+                          if (error) throw error
                           
-                          const updated = { ...selectedLead, pipeline_id: pid, pipelineid: pid } as Lead;
-                          setSelectedLead(updated);
-                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l));
-                          setIsEditingLead(false);
-                          alert('Pipeline atualizado com sucesso!');
+                          const updated = { 
+                            ...selectedLead, 
+                            pipeline_id: selectedPipelineForEdit || null 
+                          } as Lead
+                          
+                          setSelectedLead(updated)
+                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l))
+                          
+                          // Refresh all leads to ensure state is fully updated
+                          if (fetchLeads) {
+                            await fetchLeads();
+                          }
+                          
+                          setIsEditingLead(false)
+                          
                         } catch (e: any) {
-                          alert('Erro: ' + e.message);
+                          alert('Erro ao salvar: ' + e.message)
                         }
                       }}
                       className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-200 dark:shadow-none"

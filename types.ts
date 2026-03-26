@@ -130,7 +130,7 @@ export interface Lead {
   company: string;
   email: string;
   phone: string;
-  pipeline_id: string;
+  pipeline_id?: string;
   stage_id: string;
   value: number;
   notes: string;

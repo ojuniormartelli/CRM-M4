@@ -92,6 +92,14 @@ const App: React.FC = () => {
     }
   }, [settings]);
 
+  const fetchLeads = async () => {
+    const { data, error } = await supabase
+      .from('m4_leads')
+      .select('*');
+    if (error) console.error('Erro ao buscar leads:', error);
+    else if (data) setLeads(data);
+  };
+
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
@@ -107,8 +115,7 @@ const App: React.FC = () => {
         }
 
         // 2. Fetch all other data
-        const { data: leadsData } = await supabase.from('m4_leads').select('*');
-        setLeads(leadsData || []);
+        await fetchLeads();
 
         const { data: tasksData } = await supabase.from('m4_tasks').select('*');
         setTasks(tasksData || []);
@@ -622,6 +629,7 @@ const App: React.FC = () => {
               setActivePipelineId={setActivePipelineId}
               onNewLead={() => setShowNewLeadModal(true)}
               currentUser={currentUser}
+              fetchLeads={fetchLeads}
             />
           )}
           {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
