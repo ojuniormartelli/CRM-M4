@@ -340,9 +340,6 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     setImportError(null);
   };
 
-  console.log('pipelines disponíveis:', pipelines.map(p => ({id: p.id, name: p.name})))
-  console.log('primeiro lead pipeline_id:', leads[0] && (leads[0] as any).pipeline_id)
-
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">

@@ -41,8 +41,8 @@ const App: React.FC = () => {
 
   // --- GLOBAL STATE ---
   const [pipelines, setPipelines] = useState<Pipeline[]>([
-    { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
-    { id: 'p2', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
+    { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
+    { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
   ]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -57,7 +57,7 @@ const App: React.FC = () => {
   const [creditCards, setCreditCards] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [activePipelineId, setActivePipelineId] = useState<string>('p1');
+  const [activePipelineId, setActivePipelineId] = useState<string>('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
   const [settings, setSettings] = useState<any>(null);
 
   // Handle navigation to specific pipelines from overview
@@ -164,8 +164,8 @@ const App: React.FC = () => {
         console.log('Stages do banco:', stagesData);
 
         const defaultPipelines = [
-          { id: 'p1', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) },
-          { id: 'p2', name: 'Gestão de Reuniões', stages: [
+          { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) },
+          { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
             { id: 's1', name: 'Agendadas', color: 'blue', position: 0 },
             { id: 's2', name: 'Confirmadas', color: 'blue', position: 1 },
             { id: 's3', name: 'Realizadas', color: 'blue', position: 2 }
@@ -175,8 +175,8 @@ const App: React.FC = () => {
         if (!pipelinesData || pipelinesData.length === 0) {
           // Seed default pipelines if empty
           const toInsert = [
-            { name: 'Vendas Comercial', workspace_id: user?.workspace_id || null },
-            { name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null }
+            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: user?.workspace_id || null },
+            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null }
           ];
           const { data: seededPipelines, error: insertError } = await supabase.from('m4_pipelines').insert(toInsert).select();
           
@@ -209,7 +209,7 @@ const App: React.FC = () => {
             console.error("Erro ao semear pipelines:", insertError);
             // Fallback if seeding fails
             setPipelines(defaultPipelines);
-            setActivePipelineId('p1');
+            setActivePipelineId('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
           }
         }
 
@@ -243,7 +243,7 @@ const App: React.FC = () => {
         } else if (!pipelinesData || pipelinesData.length === 0) {
           // Final fallback if everything fails
           setPipelines(defaultPipelines);
-          setActivePipelineId('p1');
+          setActivePipelineId('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
         }
 
       } catch (err: any) {
