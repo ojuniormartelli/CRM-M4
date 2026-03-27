@@ -24,28 +24,32 @@ export const formatPhoneBR = (value: string): string => {
   // 1. Remove tudo que não for dígito
   let digits = value.replace(/\D/g, '');
 
-  // 2. Se começar com 55 e tiver 12 ou 13 dígitos (DDI + DDD + número)
-  //    remove os dois primeiros dígitos (55)
-  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+  // 2. Se começar com 55, remove para tratar uniformemente
+  if (digits.startsWith('55')) {
     digits = digits.slice(2);
   }
 
-  // 3. Limita a 11 dígitos (DDD + número celular)
+  // 3. Limita a 11 dígitos (DDD + número)
   const limited = digits.slice(0, 11);
   
   if (limited.length === 0) return '';
   
-  // 4. Aplicação parcial (enquanto o usuário está digitando)
-  if (limited.length <= 2) return limited;
-  if (limited.length <= 6) return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
-  
-  if (limited.length <= 10) {
-    // Fixo: (XX) XXXX-XXXX
-    return `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
+  // 4. Aplicação do formato +55 (XX) XXXXX-XXXX
+  if (limited.length <= 2) {
+    return `+55 (${limited}`;
   }
   
-  // Celular: (XX) XXXXX-XXXX
-  return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7, 11)}`;
+  if (limited.length <= 6) {
+    return `+55 (${limited.slice(0, 2)}) ${limited.slice(2)}`;
+  }
+  
+  if (limited.length <= 10) {
+    // Formato para fixo ou durante a digitação: +55 (XX) XXXX-XXXX
+    return `+55 (${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
+  }
+  
+  // Formato para celular: +55 (XX) XXXXX-XXXX
+  return `+55 (${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
 };
 
 /**

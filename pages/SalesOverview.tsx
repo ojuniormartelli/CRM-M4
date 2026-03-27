@@ -889,14 +889,14 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         value={editedLead.company_phone} 
                         originalValue={selectedLead.company_phone}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
                         label="WhatsApp" 
                         value={editedLead.company_whatsapp} 
                         originalValue={selectedLead.company_whatsapp}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: formatPhoneBR(val) })}
                       />
                     </div>
                   </div>
@@ -934,14 +934,14 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         value={editedLead.phone} 
                         originalValue={selectedLead.phone}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, phone: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, phone: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
                         label="WhatsApp" 
                         value={editedLead.contact_whatsapp} 
                         originalValue={selectedLead.contact_whatsapp}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
                         label="Instagram" 

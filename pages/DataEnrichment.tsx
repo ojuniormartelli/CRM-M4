@@ -30,6 +30,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const [editingLead, setEditingLead] = useState<Partial<Lead> | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSuggestingMapping, setIsSuggestingMapping] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(pipelines[0]?.id || '');
@@ -540,9 +541,40 @@ Exemplo: {"0": "name", "2": "email"}`;
                       </div>
                     </td>
                     <td className="px-6 py-5">
-                      <button onClick={() => handleEditLead(i)} className="p-2 text-slate-400 hover:text-blue-600 transition-all">
-                        <ICONS.Settings width="16" height="16" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEditLead(i)} className="p-2 text-slate-400 hover:text-blue-600 transition-all" title="Editar">
+                          <ICONS.Settings width="16" height="16" />
+                        </button>
+                        
+                        {deletingIndex === i ? (
+                          <div className="flex gap-1 animate-in fade-in zoom-in duration-200">
+                            <button 
+                              onClick={() => {
+                                setImportedLeads(prev => prev.filter((_, idx) => idx !== i));
+                                setSelectedIndices(prev => prev.filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx));
+                                setDeletingIndex(null);
+                              }}
+                              className="px-2 py-1 bg-rose-600 text-white text-[9px] font-black rounded-lg uppercase tracking-tighter"
+                            >
+                              Sim
+                            </button>
+                            <button 
+                              onClick={() => setDeletingIndex(null)}
+                              className="px-2 py-1 bg-slate-200 text-slate-600 text-[9px] font-black rounded-lg uppercase tracking-tighter"
+                            >
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => setDeletingIndex(i)} 
+                            className="p-2 text-slate-300 hover:text-rose-600 transition-all"
+                            title="Remover da lista"
+                          >
+                            <ICONS.Plus className="rotate-45" width="16" height="16" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

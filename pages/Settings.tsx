@@ -4,6 +4,7 @@ import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import TechnicalPanel from './TechnicalPanel';
 import { useTheme } from '../ThemeContext';
+import { formatPhoneBR } from '../utils/formatters';
 
 import { AppMode, User, UserRole, JobRole } from '../types';
 
@@ -26,7 +27,7 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState({
     id: undefined as string | undefined,
-    tenant_id: 'default-tenant', // Default for single-tenant apps
+    workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || 'default-workspace', // Default for single-tenant apps
     crm_name: 'M4 CRM',
     company_name: 'Agency Cloud',
     theme: theme, // Use theme from context initially
@@ -339,14 +340,23 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
       console.log('Attempting to save settings to Supabase...', settings);
       
       const payload = { 
-        ...settings, 
-        tenant_id: settings.tenant_id || 'default-tenant',
+        crm_name: settings.crm_name,
+        company_name: settings.company_name,
+        theme: settings.theme,
+        primary_color: settings.primary_color,
+        logo_url: settings.logo_url,
+        city: settings.city,
+        state: settings.state,
+        website_url: settings.website_url,
+        whatsapp_number: settings.whatsapp_number,
+        language: settings.language,
+        workspace_id: settings.workspace_id || currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || 'default-workspace',
         updated_at: new Date().toISOString() 
       };
 
       const { data, error } = await supabase
         .from('m4_settings')
-        .upsert(payload, { onConflict: 'tenant_id' })
+        .upsert(payload, { onConflict: 'workspace_id' })
         .select()
         .single();
 
@@ -506,7 +516,7 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                 <input 
                   type="text" 
                   value={settings.whatsapp_number} 
-                  onChange={e => setSettings({...settings, whatsapp_number: e.target.value})}
+                  onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="+55 (11) 99999-9999"
                 />
