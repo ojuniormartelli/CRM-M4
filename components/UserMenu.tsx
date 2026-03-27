@@ -36,7 +36,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onNavigate, onLogout }) => {
 
   const initials = user.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
-    : user.email.substring(0, 2).toUpperCase();
+    : (user.username || user.email).substring(0, 2).toUpperCase();
 
   return (
     <div className="relative" ref={menuRef}>
@@ -60,7 +60,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onNavigate, onLogout }) => {
         <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="px-4 py-3 border-bottom border-slate-50 dark:border-slate-800/50 mb-1">
             <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name || 'Usuário'}</p>
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate uppercase tracking-wider">{user.email}</p>
+            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate uppercase tracking-wider">{user.username || user.email.split('@')[0]}</p>
             <div className="mt-2 inline-flex px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-tighter">
               {user.role}
             </div>

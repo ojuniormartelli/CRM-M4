@@ -10,22 +10,33 @@ interface DashboardProps {
   tasks: any[];
 }
 
-const StatCard = ({ title, value, change, icon: Icon, color }: any) => (
-  <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-    <div className="flex justify-between items-start">
-      <div>
-        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{value}</h3>
-        <p className={`text-xs mt-2 flex items-center gap-1 ${change.startsWith('+') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-          {change.startsWith('+') ? '▲' : '▼'} {change} vs mês anterior
-        </p>
-      </div>
-      <div className={`p-3 rounded-xl bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400`}>
-        <Icon />
+const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
+  const isPositive = change.startsWith('+');
+  const isNeutral = change === '0%' || change === '—';
+  
+  const textColor = isNeutral 
+    ? 'text-slate-400' 
+    : isPositive 
+      ? 'text-emerald-600 dark:text-emerald-400' 
+      : 'text-red-600 dark:text-red-400';
+
+  return (
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">{title}</p>
+          <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{value}</h3>
+          <p className={`text-xs mt-2 flex items-center gap-1 ${textColor}`}>
+            {!isNeutral && (isPositive ? '▲' : '▼')} {change} vs mês anterior
+          </p>
+        </div>
+        <div className={`p-3 rounded-xl bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400`}>
+          <Icon />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => {
   const [forecast, setForecast] = useState<{ predictedRevenue: number; confidence: number } | null>(null);
@@ -61,6 +72,43 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
   
+  // Calculate dynamic changes vs previous month
+  const now = new Date();
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+  const currentMonthLeads = leads.filter(l => new Date(l.created_at) >= startOfCurrentMonth);
+  const lastMonthLeads = leads.filter(l => {
+    const d = new Date(l.created_at);
+    return d >= startOfLastMonth && d <= endOfLastMonth;
+  });
+
+  const currentActiveLeads = currentMonthLeads.filter(l => l.status === 'active' || !l.status).length;
+  const lastActiveLeads = lastMonthLeads.filter(l => l.status === 'active' || !l.status).length;
+
+  const currentWonLeads = currentMonthLeads.filter(l => l.status === 'won');
+  const currentRevenue = currentWonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
+  const currentAvgTicket = currentWonLeads.length > 0 ? currentRevenue / currentWonLeads.length : 0;
+
+  const lastWonLeads = lastMonthLeads.filter(l => l.status === 'won');
+  const lastRevenue = lastWonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
+  const lastAvgTicket = lastWonLeads.length > 0 ? lastRevenue / lastWonLeads.length : 0;
+
+  const currentConvRate = currentMonthLeads.length > 0 ? (currentWonLeads.length / currentMonthLeads.length) * 100 : 0;
+  const lastConvRate = lastMonthLeads.length > 0 ? (lastWonLeads.length / lastMonthLeads.length) * 100 : 0;
+
+  const calculateChange = (current: number, last: number) => {
+    if (last === 0) return current > 0 ? '+100%' : '0%';
+    const change = ((current - last) / last) * 100;
+    return `${change >= 0 ? '+' : ''}${change.toFixed(0)}%`;
+  };
+
+  const leadsChange = calculateChange(currentActiveLeads, lastActiveLeads);
+  const ticketChange = calculateChange(currentAvgTicket, lastAvgTicket);
+  const revenueChange = calculateChange(currentRevenue, lastRevenue);
+  const convRateChange = calculateChange(currentConvRate, lastConvRate);
+
   const myDayLeads = leads.filter(l => {
     const today = new Date().toISOString().split('T')[0];
     return l.next_action_date === today && (l.status === 'active' || !l.status);
@@ -139,11 +187,11 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <StatCard title="Leads Ativos" value={activeLeads} change="+12%" icon={ICONS.Sales} color="blue" />
-        <StatCard title="Ticket Médio" value={`R$ ${averageTicket.toLocaleString()}`} change="+5%" icon={ICONS.TrendingUp} color="indigo" />
-        <StatCard title="Fechado (Mês)" value={`R$ ${closedRevenueMonth.toLocaleString()}`} change="+24%" icon={ICONS.Plus} color="emerald" />
-        <StatCard title="Taxa Conversão" value={`${conversionRate}%`} change="+2%" icon={ICONS.Automation} color="amber" />
-        <StatCard title="Tarefas" value={pendingTasks} change="-2" icon={ICONS.Tasks} color="red" />
+        <StatCard title="Leads Ativos" value={activeLeads} change={leadsChange} icon={ICONS.Sales} color="blue" />
+        <StatCard title="Ticket Médio" value={`R$ ${averageTicket.toLocaleString()}`} change={ticketChange} icon={ICONS.TrendingUp} color="indigo" />
+        <StatCard title="Fechado (Mês)" value={`R$ ${closedRevenueMonth.toLocaleString()}`} change={revenueChange} icon={ICONS.Plus} color="emerald" />
+        <StatCard title="Taxa Conversão" value={`${conversionRate}%`} change={convRateChange} icon={ICONS.Automation} color="amber" />
+        <StatCard title="Tarefas" value={pendingTasks} change="0%" icon={ICONS.Tasks} color="red" />
       </div>
 
       {myDayLeads.length > 0 && (

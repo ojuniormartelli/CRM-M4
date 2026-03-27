@@ -30,7 +30,7 @@ export const aiService = {
       
       Lead Data:
       - Company: ${lead.company}
-      - Segment: ${lead.segment || 'N/A'}
+      - Segment: ${lead.niche || 'N/A'}
       - Value: ${lead.value}
       - Notes: ${lead.notes}
       - History: ${lead.interactions?.map(i => `${i.type}: ${i.title}`).join(', ') || 'No history'}
@@ -111,7 +111,7 @@ export const aiService = {
     const data = activeLeads.map(l => ({
       value: l.value,
       probability: l.probability || 50,
-      stage: l.stage_id
+      stage: l.stage
     }));
 
     const prompt = `

@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     email TEXT,
     phone TEXT,
     pipeline_id TEXT DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
-    stage_id TEXT DEFAULT 's1',
+    stage TEXT DEFAULT 's1',
     value NUMERIC DEFAULT 0,
     notes TEXT,
     niche TEXT,

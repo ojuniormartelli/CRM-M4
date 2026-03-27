@@ -43,10 +43,9 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'company', label: 'Empresa / Razão Social' },
     { id: 'email', label: 'E-mail Principal' },
     { id: 'phone', label: 'Telefone' },
-    { id: 'whatsapp', label: 'WhatsApp' },
-    { id: 'linkedin', label: 'LinkedIn' },
-    { id: 'segment', label: 'Segmento / Setor' },
-    { id: 'niche', label: 'Nicho' },
+    { id: 'company_whatsapp', label: 'WhatsApp' },
+    { id: 'company_linkedin', label: 'LinkedIn' },
+    { id: 'niche', label: 'Segmento / Setor' },
     { id: 'city', label: 'Cidade' },
     { id: 'state', label: 'Estado' },
     { id: 'source', label: 'Origem / Fonte' },
@@ -85,7 +84,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
       const prompt = `Você é um engenheiro de dados especialista em CRM. 
 Analise estes cabeçalhos de uma planilha de leads: ${JSON.stringify(csvHeaders)}.
 Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(CRM_FIELDS.map(f => f.id))}.
-Considere variações: "tel", "celular", "whatsapp" -> phone; "empresa", "negócio", "razão social" -> company; "nicho", "setor" -> segment; "município" -> city.
+Considere variações: "tel", "celular", "whatsapp" -> phone; "empresa", "negócio", "razão social" -> company; "nicho", "setor" -> niche; "município" -> city; "cnpj" -> cnpj.
 Retorne APENAS um objeto JSON onde as chaves são os ÍNDICES (0-based) das colunas da planilha e os valores são o ID do campo correspondente no CRM.
 Se não encontrar correspondência clara, não inclua no objeto ou use null.
 Exemplo: {"0": "name", "2": "email"}`;
@@ -190,11 +189,11 @@ Exemplo: {"0": "name", "2": "email"}`;
           else newMapping[index] = { target: 'linkedin' };
         }
         else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('tel')) newMapping[index] = { target: 'phone' };
-        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company' };
+        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company_name' };
         else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping[index] = { target: 'segment' };
         else if (lower.includes('cidade') || lower.includes('city') || lower.includes('município')) newMapping[index] = { target: 'city' };
-        else if (lower.includes('cnpj')) newMapping[index] = { target: 'cnpj' };
-        else if (lower.includes('instagram')) newMapping[index] = { target: 'instagram' };
+        else if (lower.includes('cnpj')) newMapping[index] = { target: 'company_cnpj' };
+        else if (lower.includes('instagram')) newMapping[index] = { target: 'company_instagram' };
         else if (lower.includes('site') || lower.includes('website')) newMapping[index] = { target: 'website' };
         else if (lower.includes('fonte') || lower.includes('source') || lower.includes('origem')) newMapping[index] = { target: 'source' };
         else if (lower.includes('nota') || lower.includes('obs') || lower.includes('notes')) newMapping[index] = { target: 'notes' };
@@ -283,7 +282,7 @@ Exemplo: {"0": "name", "2": "email"}`;
       return {
         ...leadData,
         pipeline_id: selectedPipeline,
-        stage_id: selectedStage,
+        stage: selectedStage,
         workspace_id: currentUser?.workspace_id,
         created_at: new Date().toISOString(),
         next_action: 'Qualificar lead importado',
@@ -527,7 +526,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                       <p className="text-[10px] text-slate-400 font-bold">{lead.phone ? formatPhoneBR(lead.phone) : ''}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="text-blue-500 font-black text-[10px] uppercase">{lead.segment || 'Pendente'}</p>
+                      <p className="text-blue-500 font-black text-[10px] uppercase">{lead.niche || 'Pendente'}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.source || 'Importação'}</p>
                     </td>
                     <td className="px-6 py-5">
@@ -617,11 +616,11 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp</label>
-                    <input type="text" value={editingLead.whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LinkedIn</label>
-                    <input type="text" value={editingLead.linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, linkedin: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, company_linkedin: e.target.value })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor Total</label>

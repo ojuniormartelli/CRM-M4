@@ -38,7 +38,7 @@ export interface Company {
   cnpj?: string;
   city?: string;
   state?: string;
-  segment?: string;
+  niche?: string;
   website?: string;
   email?: string;
   instagram?: string;
@@ -131,15 +131,14 @@ export interface Lead {
   email: string;
   phone: string;
   pipeline_id?: string;
-  stage_id: string;
+  stage: string;
   value: number;
   notes: string;
-  segment?: string;
-  niche?: string; // New field
-  service_type?: string; // New field
-  proposed_ticket?: number; // New field
-  next_action?: string; // New field
-  next_action_date?: string; // New field
+  niche?: string;
+  service_type?: string;
+  proposed_ticket?: number;
+  next_action?: string;
+  next_action_date?: string;
   address?: string;
   cnpj?: string;
   partners?: string;
@@ -161,20 +160,15 @@ export interface Lead {
   ai_reasoning?: string;
   
   // Prospect Company Data
-  company_name?: string;
-  company_cnpj?: string;
   company_whatsapp?: string;
-  company_instagram?: string;
+  instagram?: string;
   company_linkedin?: string;
   company_email?: string;
   company_phone?: string;
   website?: string;
   
   // Contact / Decision Maker Data
-  contact_name?: string;
   contact_role?: string;
-  contact_email?: string;
-  contact_phone?: string;
   contact_whatsapp?: string;
   contact_instagram?: string;
   contact_linkedin?: string;
@@ -182,9 +176,6 @@ export interface Lead {
   
   // Legacy / Other
   legal_name?: string;
-  instagram?: string;
-  linkedin?: string;
-  whatsapp?: string;
   
   // Contacts and Responsibility
   contacts?: Contact[];
@@ -261,7 +252,7 @@ export interface Automation {
   name: string;
   trigger: {
     type: 'stage_change' | 'lead_created' | 'no_activity';
-    value?: string; // stage_id or days
+    value?: string; // stage or days
   };
   actions: {
     type: 'create_task' | 'send_email' | 'create_project' | 'alert_user';
@@ -330,18 +321,31 @@ export enum UserRole {
   USER = 'user'
 }
 
+export interface JobRole {
+  id: string;
+  workspace_id?: string;
+  name: string;
+  level: number;
+  permissions: Record<string, any>;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   auth_user_id?: string;
   name: string;
+  username?: string;
   email: string;
   password?: string;
   avatar_url?: string;
   role: UserRole;
+  job_role_id?: string;
   workspace_id?: string;
   status: 'active' | 'inactive';
+  must_change_password?: boolean;
   created_at: string;
   updated_at: string;
+  job_role?: JobRole;
 }
 
 export interface EmailMessage {

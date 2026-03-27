@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import TechnicalPanel from './TechnicalPanel';
 import { useTheme } from '../ThemeContext';
 
-import { AppMode, User, UserRole } from '../types';
+import { AppMode, User, UserRole, JobRole } from '../types';
 
 interface SettingsProps {
   appMode: AppMode;
@@ -15,11 +15,15 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'profile'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
+  const [editingRole, setEditingRole] = useState<Partial<JobRole> | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState({
     id: undefined as string | undefined,
     tenant_id: 'default-tenant', // Default for single-tenant apps
@@ -56,14 +60,24 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
   }, [theme]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (activeTab === 'users' && appMode === AppMode.AGENCIA) {
-        const { data } = await supabase.from('m4_users').select('*').order('name');
-        if (data) setUsers(data);
+    const fetchData = async () => {
+      console.log('fetchData triggered. activeTab:', activeTab, 'currentUser:', currentUser);
+      if (activeTab === 'users' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER)) {
+        const { data: usersData } = await supabase.from('m4_users').select('*, job_role:m4_job_roles(*)').order('name');
+        if (usersData) setUsers(usersData);
+        
+        const { data: rolesData } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
+        if (rolesData) setJobRoles(rolesData);
+      }
+      if (activeTab === 'roles') {
+        console.log('Buscando cargos...');
+        const { data: rolesData, error } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
+        console.log('Cargos retornados:', rolesData, 'Erro:', error);
+        if (rolesData) setJobRoles(rolesData);
       }
     };
-    fetchUsers();
-  }, [activeTab, appMode]);
+    fetchData();
+  }, [activeTab, currentUser]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,32 +107,227 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingUser || !currentUser) return;
+    
+    // Map role based on job role level
+    const selectedJobRole = jobRoles.find(r => r.id === editingUser.job_role_id);
+    let mappedRole = UserRole.USER;
+    if (selectedJobRole) {
+      if (selectedJobRole.level >= 100) mappedRole = UserRole.OWNER;
+      else if (selectedJobRole.level >= 50) mappedRole = UserRole.ADMIN;
+    }
+    
+    // Permission check
+    if (currentUser.role === UserRole.ADMIN && mappedRole === UserRole.OWNER) {
+      alert('Admins não podem criar ou editar Owners.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      if (editingUser.id) {
+      const userData = { ...editingUser, role: mappedRole };
+      
+      // If it's a new user, we need to set the internal email
+      if (!userData.id && userData.username) {
+        userData.email = `${userData.username}@crm.com`;
+        userData.must_change_password = true;
+      }
+
+      // Remove job_role object if it exists before saving
+      const { job_role, ...payload } = userData as any;
+
+      if (payload.id) {
         const { error } = await supabase
           .from('m4_users')
-          .update(editingUser)
-          .eq('id', editingUser.id);
+          .update(payload)
+          .eq('id', payload.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('m4_users')
           .insert([{ 
-            ...editingUser, 
+            ...payload, 
             status: 'active',
             ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
           }]);
         if (error) throw error;
       }
       
-      const { data } = await supabase.from('m4_users').select('*').order('name');
+      const { data } = await supabase.from('m4_users').select('*, job_role:m4_job_roles(*)').order('name');
       if (data) setUsers(data);
       setIsUserModalOpen(false);
       setEditingUser(null);
+      alert('Usuário salvo com sucesso!');
     } catch (error: any) {
       alert('Erro ao salvar usuário: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const userToDelete = users.find(u => u.id === userId);
+    if (!userToDelete || !currentUser) return;
+
+    if (userId === currentUser.id) {
+      alert('Você não pode excluir seu próprio usuário.');
+      return;
+    }
+
+    if (userToDelete.role === UserRole.OWNER) {
+      const owners = users.filter(u => u.role === UserRole.OWNER);
+      if (owners.length <= 1) {
+        alert('Não é possível excluir o último Owner do sistema.');
+        return;
+      }
+      if (currentUser.role !== UserRole.OWNER) {
+        alert('Apenas Owners podem excluir outros Owners.');
+        return;
+      }
+    }
+
+    if (currentUser.role === UserRole.ADMIN && userToDelete.role !== UserRole.USER) {
+      alert('Admins só podem excluir usuários comuns.');
+      return;
+    }
+
+    if (!window.confirm(`Tem certeza que deseja excluir o usuário ${userToDelete.name}? Esta ação não pode ser desfeita.`)) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('m4_users').delete().eq('id', userId);
+      if (error) throw error;
+      
+      setUsers(users.filter(u => u.id !== userId));
+      alert('Usuário excluído com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao excluir usuário: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRole || !currentUser) return;
+    setIsSaving(true);
+    try {
+      if (editingRole.id) {
+        const { error } = await supabase
+          .from('m4_job_roles')
+          .update(editingRole)
+          .eq('id', editingRole.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('m4_job_roles')
+          .insert([{ 
+            ...editingRole,
+            workspace_id: currentUser.workspace_id 
+          }]);
+        if (error) throw error;
+      }
+      
+      const { data } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
+      if (data) setJobRoles(data);
+      setIsRoleModalOpen(false);
+      setEditingRole(null);
+      alert('Cargo salvo com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao salvar cargo: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRole = async (roleId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este cargo?')) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('m4_job_roles').delete().eq('id', roleId);
+      if (error) throw error;
+      setJobRoles(jobRoles.filter(r => r.id !== roleId));
+      alert('Cargo excluído com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao excluir cargo: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResetPassword = async (userId: string) => {
+    if (!window.confirm('Tem certeza que deseja resetar a senha deste usuário para "Trocar@123"?')) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('m4_users')
+        .update({ 
+          password: 'Trocar@123',
+          must_change_password: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      alert('Senha resetada com sucesso! O usuário deverá trocar a senha no próximo acesso.');
+    } catch (error: any) {
+      alert('Erro ao resetar senha: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const [passwordChange, setPasswordChange] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    
+    if (passwordChange.new !== passwordChange.confirm) {
+      alert('As senhas não coincidem!');
+      return;
+    }
+
+    if (passwordChange.new.length < 6) {
+      alert('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // 1. Verify current password
+      const { data: user, error: fetchError } = await supabase
+        .from('m4_users')
+        .select('password')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (user.password !== passwordChange.current) {
+        throw new Error('Senha atual incorreta.');
+      }
+
+      // 2. Update password
+      const { error: updateError } = await supabase
+        .from('m4_users')
+        .update({ 
+          password: passwordChange.new,
+          must_change_password: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentUser.id);
+
+      if (updateError) throw updateError;
+
+      alert('Senha alterada com sucesso!');
+      setPasswordChange({ current: '', new: '', confirm: '' });
+    } catch (error: any) {
+      alert('Erro ao alterar senha: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -233,6 +442,12 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
           className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Usuários
+        </button>
+        <button 
+          onClick={() => setActiveTab('roles')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Cargos
         </button>
         <button 
           onClick={() => setActiveTab('profile')}
@@ -449,25 +664,23 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
 
       {activeTab === 'technical' && <TechnicalPanel />}
 
-      {activeTab === 'users' && (
+      {activeTab === 'users' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Gestão de Equipe</h3>
               <p className="text-xs text-slate-500 font-medium">Gerencie os usuários e permissões do seu workspace.</p>
             </div>
-            {appMode === AppMode.AGENCIA && (
-              <button 
-                onClick={() => {
-                  setEditingUser({ role: UserRole.USER });
-                  setIsUserModalOpen(true);
-                }}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
-              >
-                <ICONS.Plus size={14} />
-                Adicionar Usuário
-              </button>
-            )}
+            <button 
+              onClick={() => {
+                setEditingUser({ role: UserRole.USER });
+                setIsUserModalOpen(true);
+              }}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
+            >
+              <ICONS.Plus size={14} />
+              NOVO USUÁRIO
+            </button>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -475,13 +688,15 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
               <thead>
                 <tr className="border-b border-slate-50 dark:border-slate-800/50">
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuário</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Permissão</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cargo</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                {(appMode === AppMode.EUGENCIA ? (currentUser ? [currentUser] : []) : users).map(user => (
+                {users.map(user => (
                   <tr key={user.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-8 py-4">
                       <div className="flex items-center gap-4">
@@ -499,9 +714,19 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                       </div>
                     </td>
                     <td className="px-8 py-4">
-                      <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-tighter">
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{user.username || user.email.split('@')[0]}</p>
+                    </td>
+                    <td className="px-8 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                        user.role === UserRole.OWNER ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                        user.role === UserRole.ADMIN ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                      }`}>
                         {user.role}
                       </span>
+                    </td>
+                    <td className="px-8 py-4">
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{user.job_role?.name || '—'}</p>
                     </td>
                     <td className="px-8 py-4">
                       <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${user.status === 'active' ? 'text-emerald-600' : 'text-slate-400'}`}>
@@ -510,17 +735,102 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                       </span>
                     </td>
                     <td className="px-8 py-4 text-right">
-                      {appMode === AppMode.AGENCIA && (
+                      <div className="flex justify-end gap-1">
                         <button 
                           onClick={() => {
                             setEditingUser(user);
                             setIsUserModalOpen(true);
                           }}
-                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                          title="Editar"
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"
                         >
-                          <ICONS.Settings size={16} />
+                          <ICONS.Edit size={14} />
                         </button>
-                      )}
+                        <button 
+                          onClick={() => handleResetPassword(user.id)}
+                          title="Resetar Senha"
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Lock size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteUser(user.id)}
+                          title="Excluir"
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Trash size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'roles' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Cargos da Equipe</h3>
+              <p className="text-xs text-slate-500 font-medium">Defina os cargos que podem ser atribuídos aos usuários.</p>
+            </div>
+            <button 
+              onClick={() => {
+                setEditingRole({});
+                setIsRoleModalOpen(true);
+              }}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
+            >
+              <ICONS.Plus size={14} />
+              NOVO CARGO
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-50 dark:border-slate-800/50">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome do Cargo</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nível</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Criado em</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                {jobRoles.map(role => (
+                  <tr key={role.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-8 py-4">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{role.name}</p>
+                    </td>
+                    <td className="px-8 py-4">
+                      <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-[10px] font-black">
+                        {role.level}
+                      </span>
+                    </td>
+                    <td className="px-8 py-4">
+                      <p className="text-xs font-medium text-slate-500">{new Date(role.created_at).toLocaleDateString('pt-BR')}</p>
+                    </td>
+                    <td className="px-8 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button 
+                          onClick={() => {
+                            setEditingRole(role);
+                            setIsRoleModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Edit size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteRole(role.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Trash size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -578,10 +888,10 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail (Não editável)</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Usuário</label>
                   <input 
-                    type="email" 
-                    value={currentUser.email}
+                    type="text" 
+                    value={currentUser.username || currentUser.email.split('@')[0]}
                     readOnly
                     className="w-full p-4 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border-none font-bold outline-none text-slate-400 cursor-not-allowed" 
                   />
@@ -597,6 +907,80 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                   {isSaving ? 'SALVANDO...' : 'ATUALIZAR PERFIL'}
                 </button>
               </div>
+            </form>
+
+            <div className="h-px bg-slate-100 dark:bg-slate-800 my-4" />
+
+            <form onSubmit={handleChangePassword} className="space-y-6">
+              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Alterar Senha</h4>
+              <div className="space-y-4">
+                <div className="relative">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha Atual</label>
+                  <div className="relative">
+                    <input 
+                      type={showPasswords.current ? "text" : "password"} 
+                      required
+                      value={passwordChange.current}
+                      onChange={e => setPasswordChange({ ...passwordChange, current: e.target.value })}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                    >
+                      {showPasswords.current ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nova Senha</label>
+                    <div className="relative">
+                      <input 
+                        type={showPasswords.new ? "text" : "password"} 
+                        required
+                        value={passwordChange.new}
+                        onChange={e => setPasswordChange({ ...passwordChange, new: e.target.value })}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        {showPasswords.new ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Confirmar Nova Senha</label>
+                    <div className="relative">
+                      <input 
+                        type={showPasswords.confirm ? "text" : "password"} 
+                        required
+                        value={passwordChange.confirm}
+                        onChange={e => setPasswordChange({ ...passwordChange, confirm: e.target.value })}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        {showPasswords.confirm ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button 
+                type="submit"
+                disabled={isSaving}
+                className="w-full py-4 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+              >
+                {isSaving ? 'ALTERANDO...' : 'ALTERAR SENHA'}
+              </button>
             </form>
           </div>
         </div>
@@ -614,62 +998,154 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
               </button>
             </div>
             <form onSubmit={handleSaveUser} className="p-8 space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome</label>
-                <input 
-                  type="text" 
-                  required
-                  value={editingUser.name || ''}
-                  onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingUser.name || ''}
+                    onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Username</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingUser.username || ''}
+                    onChange={e => setEditingUser({ ...editingUser, username: e.target.value })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                    placeholder="ex: joao.silva"
+                    disabled={!!editingUser.id}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cargo</label>
+                  <select 
+                    value={editingUser.job_role_id || ''}
+                    onChange={e => setEditingUser({ ...editingUser, job_role_id: e.target.value })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">Selecione um cargo...</option>
+                    {jobRoles.map(role => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={editingUser.id ? "col-span-2" : ""}>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                  <select 
+                    value={editingUser.status}
+                    onChange={e => setEditingUser({ ...editingUser, status: e.target.value as 'active' | 'inactive' })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                  </select>
+                </div>
+                {!editingUser.id && (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha Inicial</label>
+                    <div className="relative">
+                      <input 
+                        type={showPasswords.initial ? "text" : "password"} 
+                        required
+                        value={editingUser.password || ''}
+                        onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12"
+                        placeholder="admin123"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, initial: !prev.initial }))}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        {showPasswords.initial ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-1 font-medium italic">O usuário será obrigado a trocar a senha no primeiro acesso.</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">E-mail</label>
-                <input 
-                  type="email" 
-                  required
-                  value={editingUser.email || ''}
-                  onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha</label>
-                <input 
-                  type="text" 
-                  value={editingUser.password || ''}
-                  onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder="admin"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cargo / Permissão</label>
-                <select 
-                  value={editingUser.role}
-                  onChange={e => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value={UserRole.USER}>Usuário Padrão</option>
-                  <option value={UserRole.ADMIN}>Administrador</option>
-                  <option value={UserRole.OWNER}>Proprietário</option>
-                </select>
-              </div>
-              <div className="pt-4 flex gap-4">
+              
+              <div className="flex gap-4 pt-4">
                 <button 
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
                   className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
                 >
-                  Cancelar
+                  CANCELAR
                 </button>
                 <button 
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50"
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
                 >
-                  {isSaving ? 'SALVANDO...' : 'SALVAR'}
+                  {isSaving ? 'SALVANDO...' : (editingUser.id ? 'SALVAR' : 'CRIAR USUÁRIO')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isRoleModalOpen && editingRole && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                {editingRole.id ? 'Editar Cargo' : 'Novo Cargo'}
+              </h3>
+              <button onClick={() => setIsRoleModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <ICONS.X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveRole} className="p-8 space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Cargo</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingRole.name || ''}
+                    onChange={e => setEditingRole({ ...editingRole, name: e.target.value })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                    placeholder="ex: Gestor de Tráfego"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nível de Permissão</label>
+                  <select 
+                    required
+                    value={editingRole.level || 10}
+                    onChange={e => setEditingRole({ ...editingRole, level: parseInt(e.target.value) })}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value={100}>Owner (100)</option>
+                    <option value={50}>Administrador (50)</option>
+                    <option value={40}>Coordenador (40)</option>
+                    <option value={30}>Supervisor (30)</option>
+                    <option value={10}>Usuário (10)</option>
+                  </select>
+                  <p className="text-[9px] text-slate-400 mt-1 font-medium italic">Define as permissões automáticas do cargo.</p>
+                </div>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsRoleModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'SALVANDO...' : (editingRole.id ? 'SALVAR' : 'CRIAR CARGO')}
                 </button>
               </div>
             </form>

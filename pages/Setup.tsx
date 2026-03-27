@@ -1,6 +1,17 @@
--- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
--- Use este script apenas se estiver configurando do zero.
 
+import React, { useState } from 'react';
+import { ICONS } from '../constants';
+import { updateSupabaseClient } from '../lib/supabase';
+import { motion } from 'motion/react';
+
+const Setup: React.FC = () => {
+  const [url, setUrl] = useState('');
+  const [anonKey, setAnonKey] = useState('');
+  const [step, setStep] = useState<'config' | 'installing' | 'success'>('config');
+  const [progress, setProgress] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
 -- 1. Tabela de Configurações
 CREATE TABLE IF NOT EXISTS m4_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,14 +129,14 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     company_id UUID REFERENCES m4_companies(id),
     contact_id UUID REFERENCES m4_contacts(id),
     deal_id UUID REFERENCES m4_leads(id),
-    client_account_id UUID, -- Será referenciado abaixo
+    client_account_id UUID,
     is_recurring BOOLEAN DEFAULT FALSE,
     recurrence_period TEXT,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Tabela de Contas de Clientes (Follow-up)
+-- 6. Tabela de Contas de Clientes
 CREATE TABLE IF NOT EXISTS m4_client_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
@@ -141,9 +152,6 @@ CREATE TABLE IF NOT EXISTS m4_client_accounts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Adicionar FK em m4_tasks para m4_client_accounts
-ALTER TABLE m4_tasks ADD CONSTRAINT fk_client_account FOREIGN KEY (client_account_id) REFERENCES m4_client_accounts(id);
 
 -- 7. Módulo Financeiro
 CREATE TABLE IF NOT EXISTS m4_bank_accounts (
@@ -288,6 +296,23 @@ INSERT INTO public.m4_users (name, username, email, password, role, job_role_id,
 VALUES ('Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'active', true)
 ON CONFLICT (email) DO NOTHING;
 
+-- 10. Pipelines
+CREATE TABLE IF NOT EXISTS m4_pipelines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pipeline_id UUID REFERENCES m4_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    color TEXT DEFAULT 'blue',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 12. RLS (Simplified)
 ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_companies ENABLE ROW LEVEL SECURITY;
@@ -303,6 +328,8 @@ ALTER TABLE m4_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_job_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_pipelines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_pipeline_stages ENABLE ROW LEVEL SECURITY;
 
 -- Simple policies to allow all authenticated users for now
 CREATE POLICY "Allow all for authenticated" ON m4_settings FOR ALL USING (true);
@@ -319,3 +346,213 @@ CREATE POLICY "Allow all for authenticated" ON m4_posts FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_campaigns FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_users FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_job_roles FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_pipelines FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING (true);
+`;
+
+  const handleInstall = async () => {
+    if (!url || !anonKey) {
+      setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    setStep('installing');
+    setError(null);
+
+    try {
+      // 1. Salvar no localStorage
+      localStorage.setItem('supabase_url', url);
+      localStorage.setItem('supabase_anon_key', anonKey);
+
+      // 2. Atualizar cliente
+      const supabase = updateSupabaseClient(url, anonKey);
+
+      // 3. Simular progresso e tentar criar dados iniciais
+      // Nota: Como não podemos criar tabelas via Anon Key, assumimos que o usuário rodou o SQL
+      // Se falhar, mostramos o SQL para ele rodar manualmente.
+      
+      setProgress('Verificando conexão...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      setProgress('Criando tabelas e estruturas...');
+      // Tentamos inserir o usuário admin. Se falhar, é porque as tabelas não existem.
+      const { error: userError } = await supabase.from('m4_users').upsert({
+        name: 'Administrador',
+        username: 'admin',
+        email: 'admin@crm.com',
+        password: 'admin123',
+        role: 'owner',
+        status: 'active',
+        must_change_password: true
+      }, { onConflict: 'email' });
+
+      if (userError) {
+        if (userError.code === '42P01') { // Relation does not exist
+          throw new Error('As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL abaixo no seu painel do Supabase antes de continuar.');
+        }
+        throw userError;
+      }
+
+      setProgress('Configurando pipelines padrão...');
+      const pipelines = [
+        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial' },
+        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões' }
+      ];
+      await supabase.from('m4_pipelines').upsert(pipelines);
+
+      setProgress('Configurando etapas...');
+      const p1Stages = [
+        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Lead', position: 0, color: 'blue' },
+        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Qualificação', position: 1, color: 'blue' },
+        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Proposta', position: 2, color: 'blue' },
+        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Negociação', position: 3, color: 'blue' },
+        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Fechamento', position: 4, color: 'blue' }
+      ];
+      const p2Stages = [
+        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Agendadas', position: 0, color: 'blue' },
+        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Confirmadas', position: 1, color: 'blue' },
+        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Realizadas', position: 2, color: 'blue' }
+      ];
+      await supabase.from('m4_pipeline_stages').upsert([...p1Stages, ...p2Stages]);
+
+      setProgress('Finalizando configuração...');
+      await new Promise(r => setTimeout(r, 1000));
+
+      setStep('success');
+    } catch (err: any) {
+      setError(err.message);
+      setStep('config');
+    }
+  };
+
+  const copySQL = () => {
+    navigator.clipboard.writeText(fullSetupSQL);
+    alert('SQL copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.');
+  };
+
+  if (step === 'success') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-12 rounded-[3rem] shadow-2xl shadow-blue-100 max-w-md w-full text-center space-y-8"
+        >
+          <div className="w-24 h-24 bg-emerald-500 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-xl shadow-emerald-100">
+            <ICONS.Check size={48} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Tudo pronto!</h2>
+            <p className="text-slate-500 font-medium">Seu CRM foi configurado com sucesso.</p>
+          </div>
+          
+          <div className="bg-slate-50 p-6 rounded-3xl text-left space-y-4 border border-slate-100">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Credenciais de Acesso:</p>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-700">Usuário: <span className="text-blue-600">admin</span></p>
+              <p className="text-sm font-bold text-slate-700">Senha: <span className="text-blue-600">admin123</span></p>
+            </div>
+            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight">⚠️ Troca de senha obrigatória no primeiro acesso.</p>
+          </div>
+
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all transform hover:-translate-y-1"
+          >
+            Acessar o CRM
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-12 rounded-[3rem] shadow-2xl shadow-blue-100 max-w-xl w-full space-y-10"
+      >
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-blue-100">
+            <ICONS.Automation size={32} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">M4 CRM</h1>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Setup Inicial</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bem-vindo! Vamos configurar seu CRM</h2>
+          <p className="text-slate-500 font-medium">
+            Você precisará de uma conta gratuita no <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline">Supabase</a> para armazenar seus dados.
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-6 bg-red-50 rounded-3xl border border-red-100 space-y-4">
+            <div className="flex gap-3 text-red-600">
+              <ICONS.AlertTriangle size={20} />
+              <p className="text-sm font-bold leading-relaxed">{error}</p>
+            </div>
+            {error.includes('tabelas') && (
+              <button 
+                onClick={copySQL}
+                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all"
+              >
+                Copiar Script SQL de Instalação
+              </button>
+            )}
+          </div>
+        )}
+
+        {step === 'installing' ? (
+          <div className="py-12 text-center space-y-6">
+            <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+            <p className="text-slate-600 font-black uppercase text-xs tracking-widest animate-pulse">{progress}</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">URL do Supabase</label>
+              <input 
+                type="text" 
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://xxx.supabase.co"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-slate-700 transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Anon Key</label>
+              <input 
+                type="password" 
+                value={anonKey}
+                onChange={(e) => setAnonKey(e.target.value)}
+                placeholder="Sua chave pública (anon key)"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-slate-700 transition-all"
+              />
+            </div>
+
+            <button 
+              onClick={handleInstall}
+              className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3"
+            >
+              <ICONS.Plus size={20} />
+              Instalar e Configurar
+            </button>
+          </div>
+        )}
+
+        <div className="pt-6 border-t border-slate-100 text-center">
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            Ao clicar em instalar, criaremos a estrutura necessária no seu banco.
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default Setup;

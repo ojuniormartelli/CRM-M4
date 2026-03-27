@@ -7,7 +7,8 @@ import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
 import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User } from './types';
-import { supabase } from './lib/supabase';
+import { supabase, getSupabaseConfig } from './lib/supabase';
+import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
 import Dashboard from './pages/Dashboard';
 import SalesCRM from './pages/SalesCRM';
@@ -59,6 +60,9 @@ const App: React.FC = () => {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
   const [settings, setSettings] = useState<any>(null);
+
+  const config = getSupabaseConfig();
+  const hasConfig = !!(config.url && config.key);
 
   // Handle navigation to specific pipelines from overview
   useEffect(() => {
@@ -258,6 +262,15 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     localStorage.removeItem('m4_crm_user_id');
     setCurrentUser(null);
+  };
+
+  const handleResetConfig = () => {
+    if (window.confirm('Tem certeza que deseja reconfigurar a conexão? Isso limpará as credenciais do Supabase salvas localmente.')) {
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_anon_key');
+      localStorage.removeItem('m4_crm_user_id');
+      window.location.reload();
+    }
   };
 
   const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => {
@@ -474,6 +487,10 @@ const App: React.FC = () => {
         <p className="font-black text-slate-400 uppercase tracking-widest text-[10px] animate-pulse">Iniciando Cloud M4...</p>
       </div>
     );
+  }
+
+  if (!hasConfig) {
+    return <Setup />;
   }
 
   if (!currentUser) {
@@ -698,6 +715,15 @@ const App: React.FC = () => {
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
           {activeTab === 'settings' && <Settings appMode={appMode} currentUser={currentUser} onUserUpdate={setCurrentUser} />}
+        </div>
+        
+        <div className="px-10 pb-6 flex justify-center">
+          <button 
+            onClick={handleResetConfig}
+            className="text-[10px] font-black text-slate-300 hover:text-slate-500 uppercase tracking-widest transition-colors"
+          >
+            Reconfigurar conexão
+          </button>
         </div>
       </main>
     </div>

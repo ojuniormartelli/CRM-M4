@@ -84,7 +84,7 @@ const ClientsOverview: React.FC<ClientsOverviewProps> = ({ companies, contacts, 
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white">{company.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-black">{company.segment || 'Geral'}</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-black">{company.niche || 'Geral'}</p>
                     </div>
                   </div>
                   <button 

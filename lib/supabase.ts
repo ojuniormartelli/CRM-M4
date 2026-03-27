@@ -1,30 +1,33 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Captura as chaves usando os múltiplos formatos possíveis
-// Suporta tanto o padrão Vite (VITE_) quanto o padrão Next.js/Vercel (NEXT_PUBLIC_)
-const supabaseUrl = 
-  import.meta.env.VITE_SUPABASE_URL || 
-  import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 
-  '';
+// Função para obter as configurações do Supabase (localStorage ou env)
+export const getSupabaseConfig = () => {
+  const localUrl = localStorage.getItem('supabase_url');
+  const localKey = localStorage.getItem('supabase_anon_key');
 
-const supabaseAnonKey = 
-  import.meta.env.VITE_SUPABASE_ANON_KEY || 
-  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-  import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 
-  '';
+  if (localUrl && localKey) {
+    return {
+      url: localUrl,
+      key: localKey,
+      isCustom: true
+    };
+  }
 
-if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-  console.warn('⚠️ Supabase URL is missing or using placeholder. Database calls will fail.');
-} else {
-  console.log('✅ Supabase initialized with URL:', supabaseUrl.substring(0, 20) + '...');
-}
+  return {
+    url: import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    key: import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '',
+    isCustom: false
+  };
+};
+
+const config = getSupabaseConfig();
 
 // Se as chaves não forem encontradas, o cliente ainda é criado para não quebrar o import,
 // mas as chamadas falharão graciosamente.
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder',
+export let supabase = createClient(
+  config.url || 'https://placeholder.supabase.co', 
+  config.key || 'placeholder',
   {
     auth: {
       persistSession: true,
@@ -32,3 +35,14 @@ export const supabase = createClient(
     }
   }
 );
+
+// Função para re-inicializar o cliente quando as configurações mudarem
+export const updateSupabaseClient = (url: string, key: string) => {
+  supabase = createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  });
+  return supabase;
+};
