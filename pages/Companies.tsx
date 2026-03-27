@@ -35,7 +35,7 @@ const Companies: React.FC<CompaniesProps> = ({
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', niche: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
   });
   
   // Tasks state
@@ -279,7 +279,7 @@ const Companies: React.FC<CompaniesProps> = ({
 
   const resetForm = () => {
     setNewCompany({
-      name: '', cnpj: '', city: '', state: '', niche: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
+      name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', instagram: '', linkedin: '', phone: '', whatsapp: '', notes: ''
     });
     setPrimaryContact({ name: '', email: '', phone: '', role: '', whatsapp: '', instagram: '', linkedin: '', notes: '' });
     setSelectedContactId('');
@@ -295,7 +295,7 @@ const Companies: React.FC<CompaniesProps> = ({
       cnpj: company.cnpj,
       city: company.city,
       state: company.state,
-      niche: company.niche,
+      segment: company.segment,
       website: company.website,
       email: company.email,
       instagram: company.instagram,
@@ -338,7 +338,7 @@ const Companies: React.FC<CompaniesProps> = ({
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.cnpj?.includes(searchTerm) ||
-    c.niche?.toLowerCase().includes(searchTerm.toLowerCase())
+    c.segment?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (renderOnlyModal) {
@@ -443,7 +443,7 @@ const Companies: React.FC<CompaniesProps> = ({
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                      <input value={newCompany.niche} onChange={e => setNewCompany({...newCompany, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                      <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
@@ -467,7 +467,7 @@ const Companies: React.FC<CompaniesProps> = ({
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                      <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                      <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
@@ -549,7 +549,7 @@ const Companies: React.FC<CompaniesProps> = ({
                           </div>
                           <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
-                            <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 0000-0000" />
+                            <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
@@ -628,8 +628,8 @@ const Companies: React.FC<CompaniesProps> = ({
                   {company.name.charAt(0)}
                 </div>
                 <div className="flex flex-col items-end gap-2 min-w-0">
-                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest truncate max-w-full" title={company.niche || 'Geral'}>
-                    {company.niche || 'Geral'}
+                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest truncate max-w-full" title={company.segment || 'Geral'}>
+                    {company.segment || 'Geral'}
                   </div>
                   <button 
                     onClick={(e) => {
@@ -784,7 +784,7 @@ const Companies: React.FC<CompaniesProps> = ({
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                    <input value={newCompany.niche} onChange={e => setNewCompany({...newCompany, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                    <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
@@ -808,7 +808,7 @@ const Companies: React.FC<CompaniesProps> = ({
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                    <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
@@ -961,7 +961,7 @@ const Companies: React.FC<CompaniesProps> = ({
                           cnpj: editingCompany.cnpj,
                           city: editingCompany.city,
                           state: editingCompany.state,
-                          niche: editingCompany.niche,
+                          segment: editingCompany.segment,
                           website: editingCompany.website,
                           email: editingCompany.email,
                           instagram: editingCompany.instagram,
@@ -1011,7 +1011,7 @@ const Companies: React.FC<CompaniesProps> = ({
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                          <input value={newCompany.niche} onChange={e => setNewCompany({...newCompany, niche: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
+                          <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Energia Solar" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Website</label>
@@ -1035,7 +1035,7 @@ const Companies: React.FC<CompaniesProps> = ({
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                          <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 0000-0000" />
+                          <input value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
@@ -1118,7 +1118,7 @@ const Companies: React.FC<CompaniesProps> = ({
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
-                                <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 0000-0000" />
+                                <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                               </div>
                             </div>
                             <div className="grid grid-cols-3 gap-4">
@@ -1169,7 +1169,7 @@ const Companies: React.FC<CompaniesProps> = ({
                         </div>
                         <div className="space-y-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Segmento</p>
-                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.niche || '–'}</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.segment || '–'}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-8">
@@ -1293,7 +1293,7 @@ const Companies: React.FC<CompaniesProps> = ({
                               cnpj: editingCompany.cnpj,
                               city: editingCompany.city,
                               state: editingCompany.state,
-                              niche: editingCompany.niche,
+                              segment: editingCompany.segment,
                               website: editingCompany.website,
                               instagram: editingCompany.instagram,
                               phone: editingCompany.phone,

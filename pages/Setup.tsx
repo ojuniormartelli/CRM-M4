@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.m4_companies (
   cnpj text,
   city text,
   state text,
-  niche text,
+  segment text,
   website text,
   instagram text,
   phone text,

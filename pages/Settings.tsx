@@ -518,7 +518,7 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
                   value={settings.whatsapp_number} 
                   onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  placeholder="+55 (11) 99999-9999"
+                  placeholder="(00) 00000-0000"
                 />
               </div>
             </div>

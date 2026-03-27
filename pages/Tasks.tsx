@@ -521,7 +521,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                                         {company.city ? `${company.city}${company.state ? `, ${company.state}` : ''}` : (company.cnpj || 'Sem cidade')}
                                       </p>
                                     </div>
-                                    {company.niche && <span className="shrink-0 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-tighter ml-2">{company.niche}</span>}
+                                    {company.segment && <span className="shrink-0 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-tighter ml-2">{company.segment}</span>}
                                   </div>
                                 </div>
                               ))

@@ -648,7 +648,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp</label>
-                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LinkedIn</label>
@@ -762,7 +762,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                             const contacts = [...(editingLead.contacts || [])];
                             contacts[idx] = { ...contacts[idx], phone: formatPhoneBR(e.target.value) };
                             setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                          }} placeholder="(00) 00000-0000" className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">WhatsApp</label>
@@ -770,7 +770,7 @@ Exemplo: {"0": "name", "2": "email"}`;
                             const contacts = [...(editingLead.contacts || [])];
                             contacts[idx] = { ...contacts[idx], whatsapp: formatPhoneBR(e.target.value) };
                             setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
+                          }} placeholder="(00) 00000-0000" className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none" />
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">LinkedIn</label>
@@ -844,11 +844,11 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telefone Corporativo</label>
-                    <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Empresa</label>
-                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LinkedIn Empresa</label>

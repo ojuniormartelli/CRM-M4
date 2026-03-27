@@ -38,7 +38,7 @@ export interface Company {
   cnpj?: string;
   city?: string;
   state?: string;
-  niche?: string;
+  segment?: string;
   website?: string;
   email?: string;
   instagram?: string;
