@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus } from '../types';
+import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
@@ -23,6 +23,7 @@ interface SalesCRMProps {
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   currentUser: User | null;
+  services: Service[];
   isModalOpen?: boolean;
   setIsModalOpen?: (isOpen: boolean) => void;
   renderOnlyModal?: boolean;
@@ -95,6 +96,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   contacts, 
   setContacts,
   currentUser,
+  services,
   isModalOpen: externalIsModalOpen,
   setIsModalOpen: setExternalIsModalOpen,
   renderOnlyModal = false
@@ -1593,7 +1595,23 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tipo de Serviço</label>
-                    <input value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Gestão de Tráfego" />
+                    <select 
+                      value={newLead.service_type} 
+                      onChange={e => {
+                        const selectedService = services.find(s => s.name === e.target.value);
+                        setNewLead({
+                          ...newLead, 
+                          service_type: e.target.value,
+                          value: selectedService ? selectedService.default_price : newLead.value
+                        });
+                      }} 
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                    >
+                      <option value="">Selecione um serviço...</option>
+                      {services.map(service => (
+                        <option key={service.id} value={service.name}>{service.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="space-y-2">
@@ -1726,6 +1744,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <span className="text-sm font-black text-slate-900 dark:text-white">R$ {Number(selectedLead.value || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviço</span>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.service_type || '–'}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Previsão</span>
                           <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.closing_forecast || '–'}</span>
                         </div>
@@ -1758,6 +1780,26 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             onChange={e => setEditLead({...editLead, value: Number(e.target.value)})}
                             className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
                           />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
+                          <select 
+                            value={editLead.service_type || ''} 
+                            onChange={e => {
+                              const selectedService = services.find(s => s.name === e.target.value);
+                              setEditLead({
+                                ...editLead, 
+                                service_type: e.target.value,
+                                value: selectedService ? selectedService.default_price : editLead.value
+                              });
+                            }}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                          >
+                            <option value="">Selecione um serviço</option>
+                            {services.map(service => (
+                              <option key={service.id} value={service.name}>{service.name}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Previsão</label>
@@ -2271,12 +2313,23 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
-                <input 
-                  placeholder="Ex: Gestão de Tráfego"
+                <select 
                   value={wonData.service_type}
-                  onChange={e => setWonData({...wonData, service_type: e.target.value})}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                />
+                  onChange={e => {
+                    const selectedService = services.find(s => s.name === e.target.value);
+                    setWonData({
+                      ...wonData, 
+                      service_type: e.target.value,
+                      monthly_value: selectedService ? selectedService.default_price : wonData.monthly_value
+                    });
+                  }}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                >
+                  <option value="">Selecione um serviço...</option>
+                  {services.map(service => (
+                    <option key={service.id} value={service.name}>{service.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="p-10 pt-0 shrink-0 flex gap-4">

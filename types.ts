@@ -261,6 +261,14 @@ export interface Automation {
   is_active: boolean;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  default_price: number;
+  workspace_id?: string;
+  created_at: string;
+}
+
 export interface ClientAccount {
   id: string;
   lead_id?: string;

@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -54,6 +54,7 @@ const App: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clientAccounts, setClientAccounts] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [creditCards, setCreditCards] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
@@ -104,6 +105,17 @@ const App: React.FC = () => {
     else if (data) setLeads(data);
   };
 
+  const fetchServices = async () => {
+    try {
+      const { data: servicesData, error } = await supabase.from('m4_services').select('*').order('name');
+      if (error) throw error;
+      console.log('fetchServices result:', servicesData);
+      setServices(servicesData || []);
+    } catch (error) {
+      console.error('Erro ao buscar serviços:', error);
+    }
+  };
+
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
@@ -147,6 +159,8 @@ const App: React.FC = () => {
 
         const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*');
         setClientAccounts(clientAccountsData || []);
+
+        await fetchServices();
 
         const { data: bankAccountsData } = await supabase.from('m4_bank_accounts').select('*');
         setBankAccounts(bankAccountsData || []);
@@ -669,6 +683,7 @@ const App: React.FC = () => {
               isModalOpen={showNewLeadModal}
               setIsModalOpen={setShowNewLeadModal}
               renderOnlyModal={activeTab !== 'sales'}
+              services={services}
             />
           )}
           {(activeTab === 'companies' || showNewCompanyModal) && (
@@ -701,7 +716,7 @@ const App: React.FC = () => {
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
-          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} />}
+          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
           {activeTab === 'finance' && (
             <Finance 
@@ -717,7 +732,7 @@ const App: React.FC = () => {
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
-          {activeTab === 'settings' && <Settings appMode={appMode} currentUser={currentUser} onUserUpdate={setCurrentUser} />}
+          {activeTab === 'settings' && <Settings appMode={appMode} currentUser={currentUser} onUserUpdate={setCurrentUser} services={services} setServices={setServices} fetchServices={fetchServices} />}
         </div>
         
         <div className="px-10 pb-6 flex justify-center">

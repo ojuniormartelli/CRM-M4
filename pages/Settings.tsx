@@ -6,18 +6,23 @@ import TechnicalPanel from './TechnicalPanel';
 import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
 
-import { AppMode, User, UserRole, JobRole } from '../types';
+import { AppMode, User, UserRole, JobRole, Service } from '../types';
 
 interface SettingsProps {
   appMode: AppMode;
   currentUser: User | null;
   onUserUpdate: (user: User) => void;
+  services: Service[];
+  setServices: (services: Service[]) => void;
+  fetchServices: () => Promise<void>;
 }
 
-const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate }) => {
+const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate, services, setServices, fetchServices }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services'>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -39,6 +44,15 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
     whatsapp_number: '',
     language: 'pt-BR'
   });
+
+  useEffect(() => {
+    if (activeTab === 'services') {
+      console.log('Aba SERVIÇOS aberta, buscando dados...');
+      fetchServices().then(() => {
+        console.log('Serviços carregados:', services);
+      });
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -203,6 +217,43 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
       alert('Usuário excluído com sucesso!');
     } catch (error: any) {
       alert('Erro ao excluir usuário: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveService = async () => {
+    if (!editingService?.name) return;
+    console.log('Dados do novo serviço:', editingService);
+    console.log('workspace_id usado:', currentUser?.workspace_id);
+    
+    setIsSaving(true);
+    try {
+      if (editingService.id) {
+        const { error } = await supabase
+          .from('m4_services')
+          .update({ name: editingService.name, default_price: editingService.default_price })
+          .eq('id', editingService.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('m4_services')
+          .insert([{ 
+            name: editingService.name, 
+            default_price: editingService.default_price,
+            workspace_id: currentUser?.workspace_id || 'default-workspace'
+          }]);
+        if (error) throw error;
+      }
+      
+      console.log('Serviço salvo com sucesso, recarregando lista...');
+      await fetchServices();
+      setIsServiceModalOpen(false);
+      setEditingService(null);
+      alert('Serviço salvo com sucesso!');
+    } catch (err: any) {
+      console.error('Erro ao salvar serviço:', err);
+      alert('Erro ao salvar serviço: ' + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -465,7 +516,153 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate 
         >
           Meu Perfil
         </button>
+        <button 
+          onClick={() => setActiveTab('services')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Serviços
+        </button>
       </div>
+
+      {activeTab === 'services' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Catálogo de Serviços</h3>
+              <p className="text-xs text-slate-500 font-medium">Gerencie os serviços e produtos oferecidos pela sua empresa.</p>
+            </div>
+            <button 
+              onClick={() => {
+                setEditingService({ name: '', default_price: 0 });
+                setIsServiceModalOpen(true);
+              }}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
+            >
+              <ICONS.Plus size={14} />
+              NOVO SERVIÇO
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-50 dark:border-slate-800/50">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome do Serviço</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Padrão</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                {services.map(service => (
+                  <tr key={service.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-8 py-4">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{service.name}</p>
+                    </td>
+                    <td className="px-8 py-4">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.default_price)}
+                      </p>
+                    </td>
+                    <td className="px-8 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button 
+                          onClick={() => {
+                            setEditingService(service);
+                            setIsServiceModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Edit size={14} />
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (window.confirm('Tem certeza que deseja excluir este serviço?')) {
+                              const { error } = await supabase.from('m4_services').delete().eq('id', service.id);
+                              if (!error) {
+                                setServices(services.filter(s => s.id !== service.id));
+                              }
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
+                        >
+                          <ICONS.Trash size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {services.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-8 py-10 text-center text-slate-500 font-medium">
+                      Nenhum serviço cadastrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {isServiceModalOpen && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+                <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                    {editingService?.id ? 'EDITAR SERVIÇO' : 'NOVO SERVIÇO'}
+                  </h3>
+                  <button 
+                    onClick={() => setIsServiceModalOpen(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                  >
+                    <ICONS.X size={20} className="text-slate-400" />
+                  </button>
+                </div>
+                
+                <div className="p-10 space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Serviço</label>
+                    <input
+                      type="text"
+                      value={editingService?.name || ''}
+                      onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                      placeholder="Ex: Gestão de Tráfego"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor Padrão (Sugestão)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input
+                        type="number"
+                        value={editingService?.default_price === 0 ? '' : editingService?.default_price}
+                        onChange={(e) => setEditingService({ ...editingService, default_price: parseFloat(e.target.value) || 0 })}
+                        className="w-full p-4 pl-12 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-10 py-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setIsServiceModalOpen(false)}
+                    className="px-6 py-3 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all"
+                  >
+                    CANCELAR
+                  </button>
+                  <button
+                    onClick={handleSaveService}
+                    disabled={isSaving}
+                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all disabled:opacity-50"
+                  >
+                    {isSaving ? 'SALVANDO...' : 'SALVAR SERVIÇO'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

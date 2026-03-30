@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as ICONS from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { ClientAccount, Lead, Task, Transaction, Interaction, Company } from '../types';
+import { ClientAccount, Lead, Task, Transaction, Interaction, Company, Service } from '../types';
 import { format, addMonths, setDate, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -12,9 +12,10 @@ interface ClientAccountsProps {
   clientAccounts: ClientAccount[];
   setClientAccounts: React.Dispatch<React.SetStateAction<ClientAccount[]>>;
   companies: Company[];
+  services: Service[];
 }
 
-export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts, companies }: ClientAccountsProps) {
+export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts, companies, services }: ClientAccountsProps) {
   const [selectedAccount, setSelectedAccount] = useState<ClientAccount | null>(null);
   const [view, setView] = useState<'list' | 'details'>('list');
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
@@ -399,13 +400,24 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
 
                 <div>
                   <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Serviço Contratado</label>
-                  <input 
+                  <select 
                     required
-                    placeholder="Ex: Gestão de Tráfego"
                     value={newAccountData.service_name}
-                    onChange={e => setNewAccountData({...newAccountData, service_name: e.target.value})}
+                    onChange={e => {
+                      const selectedService = services.find(s => s.name === e.target.value);
+                      setNewAccountData({
+                        ...newAccountData, 
+                        service_name: e.target.value,
+                        monthly_value: selectedService ? selectedService.default_price : newAccountData.monthly_value
+                      });
+                    }}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
+                  >
+                    <option value="">Selecione um serviço...</option>
+                    {services.map(service => (
+                      <option key={service.id} value={service.name}>{service.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
