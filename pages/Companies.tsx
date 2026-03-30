@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Company, Contact, User, Task, TaskStatus, Priority } from '../types';
+import { Company, Contact, User, Task, TaskStatus, Priority, ClientAccount } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
@@ -16,6 +16,7 @@ interface CompaniesProps {
   isContactNewModalOpen?: boolean;
   setIsContactNewModalOpen?: (open: boolean) => void;
   renderOnlyModal?: boolean;
+  clientAccounts?: ClientAccount[];
 }
 
 const Companies: React.FC<CompaniesProps> = ({ 
@@ -24,7 +25,8 @@ const Companies: React.FC<CompaniesProps> = ({
   setIsModalOpen: propSetIsModalOpen,
   isContactNewModalOpen: propIsContactNewModalOpen,
   setIsContactNewModalOpen: propSetIsContactNewModalOpen,
-  renderOnlyModal = false
+  renderOnlyModal = false,
+  clientAccounts = []
 }) => {
   const [localIsModalOpen, setLocalIsModalOpen] = useState(false);
   const isModalOpen = propIsModalOpen !== undefined ? propIsModalOpen : localIsModalOpen;
@@ -617,17 +619,27 @@ const Companies: React.FC<CompaniesProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCompanies.map(company => (
-            <div 
-              key={company.id}
-              onClick={() => openEditModal(company)}
-              className="group bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer relative overflow-hidden min-w-0"
-            >
-              <div className="flex justify-between items-start mb-6 gap-4">
-                <div className="w-14 h-14 shrink-0 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm group-hover:shadow-md transition-all">
-                  {company.name.charAt(0)}
-                </div>
-                <div className="flex flex-col items-end gap-2 min-w-0">
+          {filteredCompanies.map(company => {
+            const hasActiveAccount = clientAccounts.some(acc => acc.company_id === company.id && acc.status === 'ativo');
+            
+            return (
+              <div 
+                key={company.id}
+                onClick={() => openEditModal(company)}
+                className="group bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer relative overflow-hidden min-w-0"
+              >
+                <div className="flex justify-between items-start mb-6 gap-4">
+                  <div className="relative">
+                    <div className="w-14 h-14 shrink-0 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm group-hover:shadow-md transition-all">
+                      {company.name.charAt(0)}
+                    </div>
+                    {hasActiveAccount && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 animate-in zoom-in duration-300" title="Conta Ativa">
+                        <ICONS.Check width="12" height="12" strokeWidth={4} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2 min-w-0">
                   <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest truncate max-w-full" title={company.segment || 'Geral'}>
                     {company.segment || 'Geral'}
                   </div>
@@ -676,7 +688,7 @@ const Companies: React.FC<CompaniesProps> = ({
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
 

@@ -263,14 +263,16 @@ export interface Automation {
 
 export interface ClientAccount {
   id: string;
-  lead_id: string;
-  company_id?: string;
+  lead_id?: string;
+  company_id: string;
   status: 'ativo' | 'pausado' | 'cancelado';
   service_type: string;
+  service_name?: string;
   start_date: string;
   end_date?: string;
   billing_model: 'recorrente' | 'projeto';
   monthly_value: number;
+  due_day?: number;
   notes?: string;
   created_at: string;
   updated_at: string;

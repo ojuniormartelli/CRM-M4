@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import * as ICONS from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { ClientAccount, Lead, Task, Transaction, Interaction } from '../types';
-import { format } from 'date-fns';
+import { ClientAccount, Lead, Task, Transaction, Interaction, Company } from '../types';
+import { format, addMonths, setDate, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ClientAccountsProps {
@@ -11,14 +11,28 @@ interface ClientAccountsProps {
   transactions: Transaction[];
   clientAccounts: ClientAccount[];
   setClientAccounts: React.Dispatch<React.SetStateAction<ClientAccount[]>>;
+  companies: Company[];
 }
 
-export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts }: ClientAccountsProps) {
+export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts, companies }: ClientAccountsProps) {
   const [selectedAccount, setSelectedAccount] = useState<ClientAccount | null>(null);
   const [view, setView] = useState<'list' | 'details'>('list');
+  const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const getLeadName = (leadId: string) => {
-    return leads.find(l => l.id === leadId)?.name || 'Cliente Desconhecido';
+  const [newAccountData, setNewAccountData] = useState<Partial<ClientAccount>>({
+    company_id: '',
+    service_name: '',
+    service_type: 'Gestão de Tráfego',
+    monthly_value: 0,
+    due_day: 10,
+    status: 'ativo',
+    billing_model: 'recorrente',
+    start_date: new Date().toISOString().split('T')[0]
+  });
+
+  const getCompanyName = (companyId: string) => {
+    return companies.find(c => c.id === companyId)?.name || 'Empresa Desconhecida';
   };
 
   const getAccountStatusColor = (status: string) => {
@@ -30,8 +44,58 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
     }
   };
 
-  const getAccountHistory = (leadId: string) => {
-    const leadTasks = tasks.filter(t => t.lead_id === leadId).map(t => ({
+  const getNextDueDate = (dueDay: number) => {
+    const today = new Date();
+    let dueDate = setDate(today, dueDay);
+    
+    if (isBefore(dueDate, today)) {
+      dueDate = addMonths(dueDate, 1);
+    }
+    
+    return dueDate;
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccountData.company_id) return;
+
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('m4_client_accounts')
+        .insert([{
+          ...newAccountData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setClientAccounts([...clientAccounts, data[0]]);
+        setIsNewAccountModalOpen(false);
+        setNewAccountData({
+          company_id: '',
+          service_name: '',
+          service_type: 'Gestão de Tráfego',
+          monthly_value: 0,
+          due_day: 10,
+          status: 'ativo',
+          billing_model: 'recorrente',
+          start_date: new Date().toISOString().split('T')[0]
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao criar conta:', error);
+      alert('Erro ao criar conta. Verifique os campos e tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getAccountHistory = (leadId?: string, companyId?: string) => {
+    const leadTasks = tasks.filter(t => (leadId && t.lead_id === leadId) || (companyId && t.company_id === companyId)).map(t => ({
       type: 'Tarefa',
       title: t.title,
       date: t.due_date || t.created_at,
@@ -39,7 +103,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
       icon: <ICONS.CheckCircle className="w-4 h-4" />
     }));
 
-    const leadTransactions = transactions.filter(t => t.lead_id === leadId).map(t => ({
+    const leadTransactions = transactions.filter(t => (leadId && t.lead_id === leadId) || (companyId && t.company_id === companyId)).map(t => ({
       type: 'Financeiro',
       title: `${t.type}: ${t.description}`,
       date: t.date,
@@ -78,6 +142,13 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
               <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Clientes Ativos</h1>
               <p className="text-slate-500 text-sm">Acompanhamento e gestão de contas em dia.</p>
             </div>
+            <button 
+              onClick={() => setIsNewAccountModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+            >
+              <ICONS.Plus className="w-4 h-4" />
+              Nova Conta
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -122,13 +193,14 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Serviço</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Mensal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Próx. Vencimento</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {clientAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                       Nenhum cliente ativo encontrado.
                     </td>
                   </tr>
@@ -136,11 +208,11 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   clientAccounts.map((account) => (
                     <tr key={account.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">{getLeadName(account.lead_id)}</div>
+                        <div className="font-bold text-slate-800">{getCompanyName(account.company_id)}</div>
                         <div className="text-[10px] text-slate-400 uppercase tracking-wider">Desde {format(new Date(account.start_date), 'dd/MM/yyyy')}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-slate-600">{account.service_type}</span>
+                        <span className="text-xs font-medium text-slate-600">{account.service_name || account.service_type}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${getAccountStatusColor(account.status)}`}>
@@ -150,6 +222,11 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-700">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.monthly_value)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-bold text-slate-500">
+                          {account.due_day ? format(getNextDueDate(account.due_day), 'dd/MM/yyyy') : '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -183,12 +260,12 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{getLeadName(selectedAccount.lead_id)}</h2>
+                      <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-1">{getCompanyName(selectedAccount.company_id)}</h2>
                       <div className="flex items-center gap-3">
                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${getAccountStatusColor(selectedAccount.status)}`}>
                           {selectedAccount.status}
                         </span>
-                        <span className="text-xs text-slate-400 font-medium">{selectedAccount.service_type}</span>
+                        <span className="text-xs text-slate-400 font-medium">{selectedAccount.service_name || selectedAccount.service_type}</span>
                       </div>
                     </div>
                     <div className="text-right">
@@ -209,8 +286,10 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                       <p className="text-sm font-bold text-slate-700 uppercase">{selectedAccount.billing_model}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Próximo Check-in</p>
-                      <p className="text-sm font-bold text-emerald-600">Em 3 dias</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Próximo Vencimento</p>
+                      <p className="text-sm font-bold text-emerald-600">
+                        {selectedAccount.due_day ? format(getNextDueDate(selectedAccount.due_day), 'dd/MM/yyyy') : '-'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saúde</p>
@@ -233,7 +312,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   </div>
                   <div className="p-6">
                     <div className="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
-                      {getAccountHistory(selectedAccount.lead_id).map((item, i) => (
+                      {getAccountHistory(selectedAccount.lead_id, selectedAccount.company_id).map((item, i) => (
                         <div key={i} className="flex gap-6 relative">
                           <div className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-400 z-10 shadow-sm">
                             {item.icon}
@@ -288,6 +367,128 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
             </div>
           </div>
         )
+      )}
+
+      {/* Modal Nova Conta */}
+      {isNewAccountModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-0 shrink-0 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Nova Conta Ativa</h3>
+              <button onClick={() => setIsNewAccountModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                <ICONS.X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Selecionar Empresa</label>
+                  <select 
+                    required
+                    value={newAccountData.company_id}
+                    onChange={e => setNewAccountData({...newAccountData, company_id: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    <option value="">Selecione uma empresa...</option>
+                    {companies.map(company => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Serviço Contratado</label>
+                  <input 
+                    required
+                    placeholder="Ex: Gestão de Tráfego"
+                    value={newAccountData.service_name}
+                    onChange={e => setNewAccountData({...newAccountData, service_name: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Valor Mensal (MRR)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input 
+                        type="number"
+                        required
+                        min="0"
+                        step="0.01"
+                        value={newAccountData.monthly_value}
+                        onChange={e => setNewAccountData({...newAccountData, monthly_value: Number(e.target.value)})}
+                        className="w-full p-4 pl-12 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Dia de Vencimento</label>
+                    <input 
+                      type="number"
+                      required
+                      min="1"
+                      max="31"
+                      value={newAccountData.due_day}
+                      onChange={e => setNewAccountData({...newAccountData, due_day: Number(e.target.value)})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Status</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['ativo', 'pausado', 'cancelado'].map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setNewAccountData({...newAccountData, status: status as any})}
+                        className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          newAccountData.status === status 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' 
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-slate-100'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Data de Início</label>
+                  <input 
+                    type="date"
+                    required
+                    value={newAccountData.start_date}
+                    onChange={e => setNewAccountData({...newAccountData, start_date: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsNewAccountModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50"
+                >
+                  {isSaving ? 'Salvando...' : 'Criar Conta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

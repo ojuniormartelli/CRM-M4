@@ -658,6 +658,8 @@ const App: React.FC = () => {
               setActivePipelineId={setActivePipelineId} 
               leads={leads} 
               setLeads={setLeads} 
+              tasks={tasks}
+              setTasks={setTasks}
               onStatusChange={handleStatusChange} 
               companies={companies}
               setCompanies={setCompanies}
@@ -679,6 +681,7 @@ const App: React.FC = () => {
               isModalOpen={showNewCompanyModal}
               setIsModalOpen={setShowNewCompanyModal}
               renderOnlyModal={activeTab !== 'companies'}
+              clientAccounts={clientAccounts}
             />
           )}
           {(activeTab === 'contacts' || showNewContactModal) && (
@@ -698,7 +701,7 @@ const App: React.FC = () => {
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
-          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} />}
+          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
           {activeTab === 'finance' && (
             <Finance 
