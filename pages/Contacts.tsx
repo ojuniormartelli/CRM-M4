@@ -49,7 +49,14 @@ const Contacts: React.FC<ContactsProps> = ({
   const [contactSearch, setContactSearch] = useState('');
   const [showContactDropdown, setShowContactDropdown] = useState(false);
   const [primaryContact, setPrimaryContact] = useState({
-    name: '', email: '', phone: '', role: ''
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    whatsapp: '',
+    instagram: '',
+    linkedin: '',
+    notes: ''
   });
 
   const handleCreateCompany = async (e: React.FormEvent) => {
@@ -89,7 +96,16 @@ const Contacts: React.FC<ContactsProps> = ({
       setCompanies([...companies, companyData[0]]);
       setIsCompanyModalOpen(false);
       setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', phone: '', whatsapp: '', email: '', website: '', instagram: '', linkedin: '', notes: '' });
-      setPrimaryContact({ name: '', email: '', phone: '', role: '' });
+      setPrimaryContact({ 
+      name: '', 
+      email: '', 
+      phone: '', 
+      role: '',
+      whatsapp: '',
+      instagram: '',
+      linkedin: '',
+      notes: ''
+    });
       setSelectedContactId('');
       setContactSearch('');
       setContactMode('select');
@@ -207,6 +223,26 @@ const Contacts: React.FC<ContactsProps> = ({
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone</label>
                     <input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp</label>
+                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">LinkedIn</label>
+                    <input value={newContact.linkedin} onChange={e => setNewContact({...newContact, linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/..." />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notas</label>
+                  <textarea value={newContact.notes} onChange={e => setNewContact({...newContact, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white h-32" placeholder="Observações sobre o contato..." />
                 </div>
 
                 <div className="space-y-2">
@@ -781,6 +817,24 @@ const Contacts: React.FC<ContactsProps> = ({
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone</label>
                           <input value={primaryContact.phone} onChange={e => setPrimaryContact({...primaryContact, phone: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
                         </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">WhatsApp</label>
+                          <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Instagram</label>
+                          <input value={primaryContact.instagram} onChange={e => setPrimaryContact({...primaryContact, instagram: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="@perfil" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">LinkedIn</label>
+                          <input value={primaryContact.linkedin} onChange={e => setPrimaryContact({...primaryContact, linkedin: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="linkedin.com/..." />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Notas</label>
+                        <textarea value={primaryContact.notes} onChange={e => setPrimaryContact({...primaryContact, notes: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400 h-20" placeholder="Observações sobre o contato..." />
                       </div>
                     </div>
                   )}
