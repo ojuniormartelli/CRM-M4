@@ -132,7 +132,7 @@ const Finance: React.FC<FinanceProps> = ({
     return [...baseTransactions, ...projections].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, clientAccounts, dateRange, customStartDate, customEndDate]);
 
-  const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({
+  const [newTransaction, setNewTransaction] = useState<Partial<Transaction> & { to_bank_account_id?: string }>({
     description: '',
     amount: 0,
     type: 'Receita',
@@ -142,6 +142,7 @@ const Finance: React.FC<FinanceProps> = ({
     due_date: new Date().toISOString().split('T')[0],
     payment_method: 'Boleto',
     bank_account_id: '',
+    to_bank_account_id: '',
     credit_card_id: '',
     client_account_id: ''
   });
@@ -216,52 +217,113 @@ const Finance: React.FC<FinanceProps> = ({
     e.preventDefault();
     setIsSyncing(true);
     try {
-      const transactionData = {
-        ...newTransaction,
-        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-      };
-
-      const { data, error } = await supabase
-        .from('m4_transactions')
-        .insert([transactionData])
-        .select();
-
-      if (!error && data) {
-        const createdTransaction = data[0];
-        setTransactions([...transactions, createdTransaction]);
-        
-        // Update bank account balance if linked and paid
-        if (createdTransaction.bank_account_id && (createdTransaction.status === 'Pago' || createdTransaction.status === 'Recebido')) {
-          const account = bankAccounts.find(a => a.id === createdTransaction.bank_account_id);
-          if (account) {
-            const newBalance = createdTransaction.type === 'Receita' 
-              ? Number(account.current_balance) + Number(createdTransaction.amount)
-              : Number(account.current_balance) - Number(createdTransaction.amount);
-            
-            await supabase
-              .from('m4_bank_accounts')
-              .update({ current_balance: newBalance })
-              .eq('id', account.id);
-              
-            setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, current_balance: newBalance } : a));
-          }
+      if (newTransaction.type === 'Transferência') {
+        if (!newTransaction.bank_account_id || !newTransaction.to_bank_account_id) {
+          alert("Selecione as contas de origem e destino.");
+          return;
         }
 
-        setIsModalOpen(false);
-        setNewTransaction({
-          description: '',
-          amount: 0,
+        const fromAccount = bankAccounts.find(a => a.id === newTransaction.bank_account_id);
+        const toAccount = bankAccounts.find(a => a.id === newTransaction.to_bank_account_id);
+
+        if (!fromAccount || !toAccount) return;
+
+        const description = `Transferência: ${fromAccount.name} → ${toAccount.name}`;
+        const amount = Number(newTransaction.amount);
+
+        // 1. Create Outgoing Transaction
+        const outData = {
+          description,
+          amount,
+          type: 'Despesa',
+          category: 'Transferência',
+          status: 'Confirmado',
+          date: newTransaction.date,
+          due_date: newTransaction.date,
+          bank_account_id: fromAccount.id,
+          workspace_id: currentUser?.workspace_id
+        };
+
+        // 2. Create Incoming Transaction
+        const inData = {
+          description,
+          amount,
           type: 'Receita',
-          category: 'Mensalidade',
-          status: 'Pendente',
-          date: new Date().toISOString().split('T')[0],
-          due_date: new Date().toISOString().split('T')[0],
-          payment_method: 'Boleto',
-          bank_account_id: '',
-          credit_card_id: '',
-          client_account_id: ''
-        });
+          category: 'Transferência',
+          status: 'Confirmado',
+          date: newTransaction.date,
+          due_date: newTransaction.date,
+          bank_account_id: toAccount.id,
+          workspace_id: currentUser?.workspace_id
+        };
+
+        const { data: res, error: err } = await supabase.from('m4_transactions').insert([outData, inData]).select();
+        
+        if (!err && res) {
+          setTransactions(prev => [...prev, ...res]);
+          
+          // Update Balances
+          const newFromBalance = Number(fromAccount.current_balance) - amount;
+          const newToBalance = Number(toAccount.current_balance) + amount;
+          
+          await supabase.from('m4_bank_accounts').update({ current_balance: newFromBalance }).eq('id', fromAccount.id);
+          await supabase.from('m4_bank_accounts').update({ current_balance: newToBalance }).eq('id', toAccount.id);
+          
+          setBankAccounts(prev => prev.map(a => {
+            if (a.id === fromAccount.id) return { ...a, current_balance: newFromBalance };
+            if (a.id === toAccount.id) return { ...a, current_balance: newToBalance };
+            return a;
+          }));
+        }
+      } else {
+        const transactionData = {
+          ...newTransaction,
+          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
+        };
+
+        const { data, error } = await supabase
+          .from('m4_transactions')
+          .insert([transactionData])
+          .select();
+
+        if (!error && data) {
+          const createdTransaction = data[0];
+          setTransactions([...transactions, createdTransaction]);
+          
+          // Update bank account balance if linked and paid
+          if (createdTransaction.bank_account_id && (createdTransaction.status === 'Pago' || createdTransaction.status === 'Recebido')) {
+            const account = bankAccounts.find(a => a.id === createdTransaction.bank_account_id);
+            if (account) {
+              const newBalance = createdTransaction.type === 'Receita' 
+                ? Number(account.current_balance) + Number(createdTransaction.amount)
+                : Number(account.current_balance) - Number(createdTransaction.amount);
+              
+              await supabase
+                .from('m4_bank_accounts')
+                .update({ current_balance: newBalance })
+                .eq('id', account.id);
+                
+              setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, current_balance: newBalance } : a));
+            }
+          }
+        }
       }
+
+      setIsModalOpen(false);
+      setNewTransaction({
+        description: '',
+        amount: 0,
+        type: 'Receita',
+        category: 'Mensalidade',
+        status: 'Pendente',
+        date: new Date().toISOString().split('T')[0],
+        due_date: new Date().toISOString().split('T')[0],
+        payment_method: 'Boleto',
+        bank_account_id: '',
+        to_bank_account_id: '',
+        credit_card_id: '',
+        client_account_id: ''
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -513,7 +575,10 @@ const Finance: React.FC<FinanceProps> = ({
                   {filteredTransactions.slice(0, 5).map(t => (
                     <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-slate-800">{t.description}</p>
+                        <div className="flex items-center gap-2">
+                          {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
+                          <p className="text-sm font-bold text-slate-800">{t.description}</p>
+                        </div>
                         <p className="text-[10px] text-slate-400">{format(new Date(t.date), 'dd/MM/yyyy')}</p>
                       </td>
                       <td className="px-6 py-4">
@@ -631,6 +696,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {t.isProjected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
+                      {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
                       <p className="text-sm font-bold text-slate-800">{t.description}</p>
                     </div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest">
@@ -645,7 +711,7 @@ const Finance: React.FC<FinanceProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
-                      t.status === 'Pago' || t.status === 'Recebido' 
+                      t.status === 'Pago' || t.status === 'Recebido' || t.status === 'Confirmado'
                         ? 'bg-emerald-100 text-emerald-700' 
                         : t.isProjected 
                           ? 'bg-blue-50 text-blue-600 border border-blue-100' 
@@ -767,6 +833,7 @@ const Finance: React.FC<FinanceProps> = ({
                     >
                       <option value="Receita">Receita (+)</option>
                       <option value="Despesa">Despesa (-)</option>
+                      <option value="Transferência">Transferência (⇄)</option>
                     </select>
                   </div>
                   <div>
@@ -793,46 +860,48 @@ const Finance: React.FC<FinanceProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
-                    <select 
-                      value={newTransaction.category} 
-                      onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
-                    >
-                      <option value="">Selecione...</option>
-                      {financeCategories
-                        .filter(c => c.type === newTransaction.type)
-                        .map(c => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                      {financeCategories.length === 0 && (
-                        <>
-                          <option value="Mensalidade">Mensalidade</option>
-                          <option value="Serviço Avulso">Serviço Avulso</option>
-                          <option value="Infraestrutura">Infraestrutura</option>
-                          <option value="Marketing">Marketing</option>
-                          <option value="Salários">Salários</option>
-                          <option value="Impostos">Impostos</option>
-                          <option value="Outros">Outros</option>
-                        </>
-                      )}
-                    </select>
+                {newTransaction.type !== 'Transferência' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
+                      <select 
+                        value={newTransaction.category} 
+                        onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                      >
+                        <option value="">Selecione...</option>
+                        {financeCategories
+                          .filter(c => c.type === newTransaction.type)
+                          .map(c => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        {financeCategories.length === 0 && (
+                          <>
+                            <option value="Mensalidade">Mensalidade</option>
+                            <option value="Serviço Avulso">Serviço Avulso</option>
+                            <option value="Infraestrutura">Infraestrutura</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Salários">Salários</option>
+                            <option value="Impostos">Impostos</option>
+                            <option value="Outros">Outros</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Status</label>
+                      <select 
+                        value={newTransaction.status} 
+                        onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                      >
+                        <option value="Pendente">Pendente</option>
+                        <option value="Pago">Pago / Recebido</option>
+                        <option value="Atrasado">Atrasado</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Status</label>
-                    <select 
-                      value={newTransaction.status} 
-                      onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
-                    >
-                      <option value="Pendente">Pendente</option>
-                      <option value="Pago">Pago / Recebido</option>
-                      <option value="Atrasado">Atrasado</option>
-                    </select>
-                  </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -870,7 +939,9 @@ const Finance: React.FC<FinanceProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Conta Bancária</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">
+                      {newTransaction.type === 'Transferência' ? 'Sair da Conta' : 'Conta Bancária'}
+                    </label>
                     <select 
                       value={newTransaction.bank_account_id} 
                       onChange={e => setNewTransaction({...newTransaction, bank_account_id: e.target.value})}
@@ -880,17 +951,34 @@ const Finance: React.FC<FinanceProps> = ({
                       {bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Cliente</label>
-                    <select 
-                      value={newTransaction.client_account_id} 
-                      onChange={e => setNewTransaction({...newTransaction, client_account_id: e.target.value})}
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
-                    >
-                      <option value="">Nenhum</option>
-                      {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.service_type} - {acc.id.slice(0,8)}</option>)}
-                    </select>
-                  </div>
+                  {newTransaction.type === 'Transferência' ? (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Entrar na Conta</label>
+                      <select 
+                        required
+                        value={newTransaction.to_bank_account_id} 
+                        onChange={e => setNewTransaction({...newTransaction, to_bank_account_id: e.target.value})}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                      >
+                        <option value="">Selecione a conta...</option>
+                        {bankAccounts
+                          .filter(acc => acc.id !== newTransaction.bank_account_id)
+                          .map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Cliente</label>
+                      <select 
+                        value={newTransaction.client_account_id} 
+                        onChange={e => setNewTransaction({...newTransaction, client_account_id: e.target.value})}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                      >
+                        <option value="">Nenhum</option>
+                        {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.service_type} - {acc.id.slice(0,8)}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 

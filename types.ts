@@ -328,7 +328,7 @@ export interface Transaction {
   amount: number;
   date: string;
   description: string;
-  status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar';
+  status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar' | 'Confirmado';
   bank_account_id?: string;
   client_account_id?: string;
   lead_id?: string;
