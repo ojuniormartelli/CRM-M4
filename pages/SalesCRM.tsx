@@ -242,15 +242,30 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   });
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
-    name: '', company: '', company_email: '', company_phone: '', value: 0, notes: '',
-    niche: '', service_type: '', proposed_ticket: 0,
-    cnpj: '', company_whatsapp: '', company_linkedin: '', instagram: '', 
-    responsible_name: '', contact_role: '', email: '', phone: '', contact_whatsapp: '', contact_instagram: '', contact_linkedin: '', contact_notes: '',
-    city: '', state: '', website: '',
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    value: 0,
+    status: 'active',
     pipeline_id: activePipelineId,
     stage: '',
     closing_forecast: '',
-    responsible_id: currentUser?.id || ''
+    responsible_id: currentUser?.id || '',
+    cnpj: '',
+    website: '',
+    niche: '',
+    city: '',
+    state: '',
+    company_email: '',
+    company_linkedin: '',
+    company_phone: '',
+    company_whatsapp: '',
+    contact_role: '',
+    contact_whatsapp: '',
+    contact_instagram: '',
+    contact_linkedin: '',
+    notes: ''
   });
   const [users, setUsers] = useState<User[]>([]);
 
@@ -1412,7 +1427,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Estado</label>
-                      <input value={newLead.state} onChange={e => setNewLead({...newLead, state: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
+                      <input value={newLead.state} onChange={e => setNewLead({...newLead, state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: SP" />
                     </div>
                   </div>
 
@@ -1427,28 +1442,24 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail da Empresa</label>
                       <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
-                      <input value={newLead.instagram} onChange={e => setNewLead({...newLead, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@perfil" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn</label>
-                      <input value={newLead.company_linkedin} onChange={e => setNewLead({...newLead, company_linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn da Empresa</label>
+                      <input value={newLead.company_linkedin} onChange={e => setNewLead({...newLead, company_linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/company/..." />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone da Empresa</label>
                       <input value={newLead.company_phone} onChange={e => setNewLead({...newLead, company_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp da Empresa</label>
                       <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                     </div>
                   </div>
@@ -1465,8 +1476,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome</label>
-                      <input required value={newLead.responsible_name} onChange={e => setNewLead({...newLead, responsible_name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Nome do contato" />
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Nome do Contato</label>
+                      <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="Nome do contato" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
@@ -1476,18 +1487,18 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail do Contato</label>
                       <input type="email" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="email@contato.com" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone do Contato</label>
                       <input value={newLead.phone} onChange={e => setNewLead({...newLead, phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="(00) 00000-0000" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp do Contato</label>
                       <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white shadow-sm" placeholder="WhatsApp" />
                     </div>
                     <div className="space-y-2">
@@ -1537,13 +1548,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Etapa</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Etapa Inicial</label>
                       <select 
                         value={newLead.stage} 
                         onChange={e => setNewLead({...newLead, stage: e.target.value})} 
                         className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
                       >
-                        <option value="">Selecione a Etapa</option>
+                        <option value="">Primeira Etapa</option>
                         {pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId))?.stages.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
@@ -1553,33 +1564,38 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Título do Negócio</label>
-                      <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Campanha de Lançamento" />
-                    </div>
-                    <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
                       <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp (Lead)</label>
-                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">LinkedIn (Lead)</label>
-                      <input value={newLead.company_linkedin} onChange={e => setNewLead({...newLead, company_linkedin: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="linkedin.com/in/..." />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Previsão de Fechamento</label>
                       <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Responsável</label>
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tipo de Serviço</label>
+                      <select 
+                        value={newLead.service_type} 
+                        onChange={e => {
+                          const selectedService = services.find(s => s.name === e.target.value);
+                          setNewLead({
+                            ...newLead, 
+                            service_type: e.target.value,
+                            value: selectedService ? selectedService.default_price : newLead.value
+                          });
+                        }} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                      >
+                        <option value="">Selecione um serviço...</option>
+                        {services.map(service => (
+                          <option key={service.id} value={service.name}>{service.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Responsável Interno</label>
                       <select 
                         value={newLead.responsible_id} 
                         onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
@@ -1594,29 +1610,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tipo de Serviço</label>
-                    <select 
-                      value={newLead.service_type} 
-                      onChange={e => {
-                        const selectedService = services.find(s => s.name === e.target.value);
-                        setNewLead({
-                          ...newLead, 
-                          service_type: e.target.value,
-                          value: selectedService ? selectedService.default_price : newLead.value
-                        });
-                      }} 
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
-                    >
-                      <option value="">Selecione um serviço...</option>
-                      {services.map(service => (
-                        <option key={service.id} value={service.name}>{service.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas do Negócio</label>
-                    <textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none" placeholder="Detalhes adicionais..." />
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas da Negociação</label>
+                    <textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none" placeholder="Detalhes adicionais sobre a negociação..." />
                   </div>
                 </div>
               </div>
@@ -1844,7 +1839,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Responsável / Contato" defaultOpen={false}>
+                <CollapsibleSection title="Responsável / Contato" defaultOpen={true}>
                   <div className="space-y-4">
                     {!isEditing ? (
                       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50">
@@ -1855,27 +1850,33 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             <ICONS.Mail width="14" height="14" className="text-slate-400" />
                             <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLead.email || '–'}</span>
                           </div>
+                          {selectedLead.phone && (
+                            <div className="flex items-center gap-2">
+                              <ICONS.Phone width="14" height="14" className="text-slate-400" />
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLead.phone}</span>
+                            </div>
+                          )}
                           {selectedLead.contact_whatsapp && (
                             <div className="flex items-center gap-2">
                               <MessageSquare width="14" height="14" className="text-emerald-500" />
                               <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLead.contact_whatsapp}</span>
+                              <button 
+                                onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
+                                className="p-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+                                title="Conversar no WhatsApp"
+                              >
+                                <MessageSquare width="10" height="10" />
+                              </button>
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
-                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 transition-all"
-                            title="Conversar no WhatsApp"
-                          >
-                            <MessageSquare width="12" height="12" /> WhatsApp
-                          </button>
-                          <button 
                             onClick={() => window.location.href = `mailto:${selectedLead.email}`}
-                            className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200"
+                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-all"
                             title="Enviar E-mail"
                           >
-                            <ICONS.Mail width="14" height="14" />
+                            <ICONS.Mail width="14" height="14" /> E-mail
                           </button>
                           {selectedLead.contact_instagram && (
                             <a 
@@ -1925,6 +1926,14 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             type="email"
                             value={editLead.email || ''} 
                             onChange={e => setEditLead({...editLead, email: e.target.value})}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Telefone</label>
+                          <input 
+                            value={editLead.phone || ''} 
+                            onChange={e => setEditLead({...editLead, phone: formatPhoneBR(e.target.value)})}
                             className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
                           />
                         </div>

@@ -981,6 +981,23 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       type="date"
                       onChange={(val) => setEditedLead({ ...editedLead, closing_forecast: val })}
                     />
+                    <EditableInfoItem 
+                      label="Temperatura" 
+                      value={editedLead.temperature} 
+                      originalValue={selectedLead.temperature}
+                      isEditing={isEditingLead}
+                      type="select"
+                      options={['Frio', 'Morno', 'Quente']}
+                      onChange={(val) => setEditedLead({ ...editedLead, temperature: val as any })}
+                    />
+                    <EditableInfoItem 
+                      label="Probabilidade (%)" 
+                      value={editedLead.probability} 
+                      originalValue={selectedLead.probability ? `${selectedLead.probability}%` : '0%'}
+                      isEditing={isEditingLead}
+                      type="number"
+                      onChange={(val) => setEditedLead({ ...editedLead, probability: Number(val) })}
+                    />
                     <div className="md:col-span-3">
                       <EditableInfoItem 
                         label="Notas da Negociação" 
@@ -1033,6 +1050,8 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                               value: editedLead.value,
                               service_type: editedLead.service_type,
                               closing_forecast: editedLead.closing_forecast,
+                              temperature: editedLead.temperature,
+                              probability: editedLead.probability,
                               notes: editedLead.notes,
                               pipeline_id: selectedPipelineForEdit || null 
                             })
@@ -1091,8 +1110,9 @@ const EditableInfoItem: React.FC<{
   isWhatsApp?: boolean;
   isTextArea?: boolean;
   type?: string;
+  options?: string[];
   onChange: (val: string) => void;
-}> = ({ label, value, originalValue, isEditing, isLink, isWhatsApp, isTextArea, type = "text", onChange }) => (
+}> = ({ label, value, originalValue, isEditing, isLink, isWhatsApp, isTextArea, type = "text", options = [], onChange }) => (
   <div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
     {isEditing ? (
@@ -1102,6 +1122,17 @@ const EditableInfoItem: React.FC<{
           onChange={(e) => onChange(e.target.value)}
           className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[100px]"
         />
+      ) : type === "select" ? (
+        <select
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+        >
+          <option value="">Selecione...</option>
+          {options.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
       ) : (
         <input
           type={type}

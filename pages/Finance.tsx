@@ -38,6 +38,7 @@ const Finance: React.FC<FinanceProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
   // Date Filters
@@ -86,6 +87,7 @@ const Finance: React.FC<FinanceProps> = ({
               date: projectedDate.toISOString(),
               due_date: projectedDate.toISOString(),
               client_account_id: acc.id,
+              bank_account_id: acc.bank_account_id,
               isProjected: true,
               created_at: new Date().toISOString()
             } as Transaction);
@@ -171,7 +173,8 @@ const Finance: React.FC<FinanceProps> = ({
         due_date: projection.due_date || projection.date,
         client_account_id: projection.client_account_id,
         workspace_id: currentUser?.workspace_id || 'default-workspace',
-        payment_method: 'Boleto' // Default for projections
+        payment_method: 'Boleto', // Default for projections
+        bank_account_id: projection.bank_account_id
       };
 
       const { data, error } = await supabase
@@ -183,6 +186,23 @@ const Finance: React.FC<FinanceProps> = ({
       
       if (data) {
         setTransactions(prev => [...prev, data[0]]);
+        
+        // Update bank account balance if linked
+        if (projection.bank_account_id) {
+          const account = bankAccounts.find(a => a.id === projection.bank_account_id);
+          if (account) {
+            const newBalance = projection.type === 'Receita' 
+              ? Number(account.current_balance) + Number(projection.amount)
+              : Number(account.current_balance) - Number(projection.amount);
+            
+            await supabase
+              .from('m4_bank_accounts')
+              .update({ current_balance: newBalance })
+              .eq('id', account.id);
+              
+            setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, current_balance: newBalance } : a));
+          }
+        }
       }
     } catch (err: any) {
       console.error('Erro ao quitar projeção:', err);
@@ -207,7 +227,26 @@ const Finance: React.FC<FinanceProps> = ({
         .select();
 
       if (!error && data) {
-        setTransactions([...transactions, data[0]]);
+        const createdTransaction = data[0];
+        setTransactions([...transactions, createdTransaction]);
+        
+        // Update bank account balance if linked and paid
+        if (createdTransaction.bank_account_id && (createdTransaction.status === 'Pago' || createdTransaction.status === 'Recebido')) {
+          const account = bankAccounts.find(a => a.id === createdTransaction.bank_account_id);
+          if (account) {
+            const newBalance = createdTransaction.type === 'Receita' 
+              ? Number(account.current_balance) + Number(createdTransaction.amount)
+              : Number(account.current_balance) - Number(createdTransaction.amount);
+            
+            await supabase
+              .from('m4_bank_accounts')
+              .update({ current_balance: newBalance })
+              .eq('id', account.id);
+              
+            setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, current_balance: newBalance } : a));
+          }
+        }
+
         setIsModalOpen(false);
         setNewTransaction({
           description: '',
@@ -243,6 +282,53 @@ const Finance: React.FC<FinanceProps> = ({
         setBankAccounts([...bankAccounts, data[0]]);
         setIsBankModalOpen(false);
         setNewBankAccount({ name: '', bank_type: 'Corrente', current_balance: 0, currency: 'BRL' });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUpdateBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase
+        .from('m4_bank_accounts')
+        .update({
+          name: selectedAccount.name,
+          bank_type: selectedAccount.bank_type,
+          current_balance: selectedAccount.current_balance,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedAccount.id)
+        .select();
+
+      if (!error && data) {
+        setBankAccounts(prev => prev.map(acc => acc.id === selectedAccount.id ? data[0] : acc));
+        setSelectedAccount(null);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteBankAccount = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta conta? Todas as transações vinculadas perderão a referência.')) return;
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('m4_bank_accounts')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        setBankAccounts(prev => prev.filter(acc => acc.id !== id));
+        setSelectedAccount(null);
       }
     } catch (err) {
       console.error(err);
@@ -385,7 +471,11 @@ const Finance: React.FC<FinanceProps> = ({
                 <div className="col-span-2 py-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhuma conta cadastrada</div>
               ) : (
                 bankAccounts.map(account => (
-                  <div key={account.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center group hover:bg-white hover:shadow-md transition-all cursor-pointer">
+                  <div 
+                    key={account.id} 
+                    onClick={() => setSelectedAccount(account)}
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center group hover:bg-white hover:shadow-md transition-all cursor-pointer"
+                  >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
                         <ICONS.Building2 className="w-5 h-5" />
@@ -870,6 +960,109 @@ const Finance: React.FC<FinanceProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {selectedAccount && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Detalhes da Conta</h3>
+              <button onClick={() => setSelectedAccount(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-10 py-6 space-y-8 scrollbar-none">
+              <form onSubmit={handleUpdateBankAccount} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome da Conta</label>
+                    <input 
+                      required
+                      value={selectedAccount.name}
+                      onChange={e => setSelectedAccount({...selectedAccount, name: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                    <select 
+                      value={selectedAccount.bank_type}
+                      onChange={e => setSelectedAccount({...selectedAccount, bank_type: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                    >
+                      <option value="Corrente">Corrente</option>
+                      <option value="Poupança">Poupança</option>
+                      <option value="Investimento">Investimento</option>
+                      <option value="Caixa">Caixa (Dinheiro)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Saldo Atual</label>
+                  <input 
+                    type="number"
+                    required
+                    value={selectedAccount.current_balance}
+                    onChange={e => setSelectedAccount({...selectedAccount, current_balance: parseFloat(e.target.value) || 0})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <button 
+                    type="button" 
+                    onClick={() => handleDeleteBankAccount(selectedAccount.id)}
+                    className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-xs hover:bg-rose-100 transition-all"
+                  >
+                    EXCLUIR CONTA
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSyncing}
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all disabled:opacity-50"
+                  >
+                    {isSyncing ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}
+                  </button>
+                </div>
+              </form>
+
+              <div className="space-y-4">
+                <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Histórico Recente</h4>
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {transactions
+                        .filter(t => t.bank_account_id === selectedAccount.id)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .slice(0, 10)
+                        .map(t => (
+                          <tr key={t.id} className="text-xs">
+                            <td className="px-6 py-4 font-bold text-slate-500">{format(new Date(t.date), 'dd/MM/yyyy')}</td>
+                            <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">{t.description}</td>
+                            <td className={`px-6 py-4 text-right font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {t.type === 'Receita' ? '+' : '-'} R$ {Math.abs(Number(t.amount)).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      {transactions.filter(t => t.bank_account_id === selectedAccount.id).length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-8 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma transação encontrada</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -294,6 +294,7 @@ export interface ClientAccount {
   billing_model: 'recorrente' | 'projeto';
   monthly_value: number;
   due_day?: number;
+  bank_account_id?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
