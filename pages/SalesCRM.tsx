@@ -47,36 +47,72 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
   );
 };
 
-const PipelineProgress = ({ stages, currentStageId }: { stages: PipelineStage[], currentStageId: string }) => {
+const PipelineProgress = ({ 
+  stages, 
+  currentStageId, 
+  onMove, 
+  isUpdating 
+}: { 
+  stages: PipelineStage[], 
+  currentStageId: string, 
+  onMove?: (direction: 'next' | 'prev') => void,
+  isUpdating?: boolean
+}) => {
   const currentIndex = stages.findIndex(s => s.id === currentStageId);
   return (
     <div className="flex items-center w-full px-10 py-6 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-none gap-4">
-      {stages.map((stage, index) => (
-        <React.Fragment key={stage.id}>
-          <div className="flex flex-col items-center min-w-[140px] relative group">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black z-10 transition-all duration-500 border-4 ${
-              index <= currentIndex 
-                ? 'bg-blue-600 text-white border-blue-100 dark:border-blue-900/50 shadow-lg shadow-blue-100 dark:shadow-none' 
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-transparent'
-            }`}>
-              {index < currentIndex ? <ICONS.Check width="16" height="16" /> : index + 1}
+      {onMove && (
+        <button 
+          onClick={() => onMove('prev')}
+          disabled={currentIndex <= 0 || isUpdating}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all disabled:opacity-30 shrink-0 font-black text-[10px] uppercase tracking-widest"
+        >
+          <ArrowRight className="w-3 h-3 rotate-180" />
+          Voltar Etapa
+        </button>
+      )}
+
+      <div className="flex items-center flex-1 justify-center gap-4 min-w-max">
+        {stages.map((stage, index) => (
+          <React.Fragment key={stage.id}>
+            <div className="flex flex-col items-center min-w-[120px] relative group">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black z-10 transition-all duration-500 border-4 ${
+                index === currentIndex 
+                  ? 'bg-blue-600 text-white border-blue-100 dark:border-blue-900/50 shadow-xl shadow-blue-600/20 scale-110 ring-4 ring-blue-500/10' 
+                  : index < currentIndex
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-transparent'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-transparent'
+              }`}>
+                {index < currentIndex ? <ICONS.Check width="16" height="16" /> : index + 1}
+              </div>
+              <span className={`mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-center transition-colors duration-500 ${
+                index === currentIndex ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
+              }`}>
+                {stage.name}
+              </span>
+              {index === currentIndex && (
+                <div className="absolute -top-1 w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+              )}
             </div>
-            <span className={`mt-3 text-[10px] font-black uppercase tracking-[0.15em] text-center transition-colors duration-500 ${
-              index <= currentIndex ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
-            }`}>
-              {stage.name}
-            </span>
-            {index === currentIndex && (
-              <div className="absolute -top-1 w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            {index < stages.length - 1 && (
+              <div className={`flex-1 h-[2px] min-w-[30px] -mt-8 rounded-full transition-colors duration-1000 ${
+                index < currentIndex ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'
+              }`} />
             )}
-          </div>
-          {index < stages.length - 1 && (
-            <div className={`flex-1 h-[3px] min-w-[40px] -mt-8 rounded-full transition-colors duration-1000 ${
-              index < currentIndex ? 'bg-blue-600' : 'bg-slate-100 dark:bg-slate-800'
-            }`} />
-          )}
-        </React.Fragment>
-      ))}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {onMove && (
+        <button 
+          onClick={() => onMove('next')}
+          disabled={currentIndex >= stages.length - 1 || isUpdating}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl transition-all disabled:opacity-30 shadow-lg shadow-blue-600/20 shrink-0 font-black text-[10px] uppercase tracking-widest"
+        >
+          Próxima Etapa
+          <ArrowRight className="w-3 h-3" />
+        </button>
+      )}
     </div>
   );
 };
@@ -287,6 +323,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   });
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
   const [isWonModalOpen, setIsWonModalOpen] = useState(false);
+  const [showWonSuccess, setShowWonSuccess] = useState(false);
+  const [showLostSuccess, setShowLostSuccess] = useState(false);
   const [wonData, setWonData] = useState({
     monthly_value: 0,
     service_type: '',
@@ -709,14 +747,57 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
   const handleMoveLeadStage = async (lead: Lead, direction: 'next' | 'prev') => {
     const currentStageIndex = activePipeline.stages.findIndex(s => s.id === lead.stage);
+    let targetStageId = '';
+    let targetStageName = '';
+
     if (direction === 'next' && currentStageIndex < activePipeline.stages.length - 1) {
-      const nextStageId = activePipeline.stages[currentStageIndex + 1].id;
-      setLeads(leads.map(l => l.id === lead.id ? { ...l, stage: nextStageId } : l));
-      await supabase.from('m4_leads').update({ stage: nextStageId }).eq('id', lead.id);
+      targetStageId = activePipeline.stages[currentStageIndex + 1].id;
+      targetStageName = activePipeline.stages[currentStageIndex + 1].name;
     } else if (direction === 'prev' && currentStageIndex > 0) {
-      const prevStageId = activePipeline.stages[currentStageIndex - 1].id;
-      setLeads(leads.map(l => l.id === lead.id ? { ...l, stage: prevStageId } : l));
-      await supabase.from('m4_leads').update({ stage: prevStageId }).eq('id', lead.id);
+      targetStageId = activePipeline.stages[currentStageIndex - 1].id;
+      targetStageName = activePipeline.stages[currentStageIndex - 1].name;
+    }
+
+    if (targetStageId) {
+      setIsSyncing(true);
+      try {
+        // Update local state
+        const updatedLeads = leads.map(l => l.id === lead.id ? { ...l, stage: targetStageId } : l);
+        setLeads(updatedLeads);
+        
+        if (selectedLead?.id === lead.id) {
+          setSelectedLead({ ...selectedLead, stage: targetStageId });
+        }
+
+        // Update Supabase
+        await supabase.from('m4_leads').update({ stage: targetStageId }).eq('id', lead.id);
+
+        // Log interaction
+        if (currentUser) {
+          const interaction = {
+            lead_id: lead.id,
+            type: 'Outro',
+            note: `Lead movido para a etapa: ${targetStageName}`,
+            success: true,
+            workspace_id: currentUser.workspace_id,
+            created_at: new Date().toISOString()
+          };
+          
+          const { data: interactionData } = await supabase
+            .from('m4_interactions')
+            .insert([interaction])
+            .select()
+            .single();
+            
+          if (interactionData && selectedLead?.id === lead.id) {
+            setInteractions([interactionData, ...interactions]);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao mover lead:", error);
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 
@@ -853,8 +934,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     setIsSyncing(true);
     try {
       await onStatusChange(selectedLead.id, 'won', wonData);
-      setIsWonModalOpen(false);
-      setSelectedLead(null);
+      setShowWonSuccess(true);
+      setTimeout(() => {
+        setIsWonModalOpen(false);
+        setShowWonSuccess(false);
+        setSelectedLead(null);
+      }, 3000);
     } catch (error) {
       console.error(error);
     } finally {
@@ -867,8 +952,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     setIsSyncing(true);
     try {
       await onStatusChange(selectedLead.id, 'lost', lostData);
-      setIsLostModalOpen(false);
-      setSelectedLead(null);
+      setShowLostSuccess(true);
+      setTimeout(() => {
+        setIsLostModalOpen(false);
+        setShowLostSuccess(false);
+        setSelectedLead(null);
+      }, 3000);
     } catch (error) {
       console.error(error);
     } finally {
@@ -1782,6 +1871,8 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             <PipelineProgress 
               stages={activePipeline.stages} 
               currentStageId={selectedLead.stage || activePipeline.stages[0]?.id} 
+              onMove={(direction) => handleMoveLeadStage(selectedLead, direction)}
+              isUpdating={isSyncing}
             />
             {/* Main Content 360 */}
             <div className="flex-1 flex overflow-hidden">
@@ -2564,56 +2655,71 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6 uppercase">Configurar Nova Conta</h3>
             </div>
             <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Data de Início</label>
-                <input 
-                  type="date" 
-                  value={wonData.start_date}
-                  onChange={e => setWonData({...wonData, start_date: e.target.value})}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
-                <input 
-                  type="number" 
-                  placeholder="0,00"
-                  value={wonData.monthly_value === 0 ? '' : wonData.monthly_value}
-                  onChange={e => setWonData({...wonData, monthly_value: parseFloat(e.target.value) || 0})}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
-                <select 
-                  value={wonData.service_type}
-                  onChange={e => {
-                    const selectedService = services.find(s => s.name === e.target.value);
-                    setWonData({
-                      ...wonData, 
-                      service_type: e.target.value,
-                      monthly_value: selectedService ? selectedService.default_price : wonData.monthly_value
-                    });
-                  }}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+              {showWonSuccess ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase">Venda Confirmada!</h4>
+                  <p className="text-sm text-slate-500 font-bold">Parabéns pela venda! O lead agora é um cliente.</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase mt-4 tracking-widest">A conta ativa e o onboarding foram criados.</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Data de Início</label>
+                    <input 
+                      type="date" 
+                      value={wonData.start_date}
+                      onChange={e => setWonData({...wonData, start_date: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
+                    <input 
+                      type="number" 
+                      placeholder="0,00"
+                      value={wonData.monthly_value === 0 ? '' : wonData.monthly_value}
+                      onChange={e => setWonData({...wonData, monthly_value: parseFloat(e.target.value) || 0})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
+                    <select 
+                      value={wonData.service_type}
+                      onChange={e => {
+                        const selectedService = services.find(s => s.name === e.target.value);
+                        setWonData({
+                          ...wonData, 
+                          service_type: e.target.value,
+                          monthly_value: selectedService ? selectedService.default_price : wonData.monthly_value
+                        });
+                      }}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white appearance-none"
+                    >
+                      <option value="">Selecione um serviço...</option>
+                      {services.map(service => (
+                        <option key={service.id} value={service.name}>{service.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+            {!showWonSuccess && (
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button 
+                  onClick={handleWonConfirm}
+                  disabled={isSyncing}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-100 dark:shadow-none disabled:opacity-50"
                 >
-                  <option value="">Selecione um serviço...</option>
-                  {services.map(service => (
-                    <option key={service.id} value={service.name}>{service.name}</option>
-                  ))}
-                </select>
+                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
+                </button>
               </div>
-            </div>
-            <div className="p-10 pt-0 shrink-0 flex gap-4">
-              <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-              <button 
-                onClick={handleWonConfirm}
-                disabled={isSyncing}
-                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-100 dark:shadow-none disabled:opacity-50"
-              >
-                {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -2625,26 +2731,39 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6 uppercase">Marcar Perda</h3>
             </div>
             <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Motivo da Perda</label>
-                <textarea 
-                  placeholder="Descreva o motivo pelo qual o negócio foi perdido..."
-                  value={lostData.reason}
-                  onChange={e => setLostData({...lostData, reason: e.target.value})}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none"
-                />
+              {showLostSuccess ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                    <AlertCircle className="w-10 h-10 text-red-600" />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase">Lead Perdido</h4>
+                  <p className="text-sm text-slate-500 font-bold">O status do lead foi atualizado para perdido.</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase mt-4 tracking-widest">Uma tarefa de follow-up foi agendada para o futuro.</p>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Motivo da Perda</label>
+                  <textarea 
+                    placeholder="Descreva o motivo pelo qual o negócio foi perdido..."
+                    value={lostData.reason}
+                    onChange={e => setLostData({...lostData, reason: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white min-h-[120px] resize-none"
+                  />
+                </div>
+              )}
+            </div>
+            {!showLostSuccess && (
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button onClick={() => setIsLostModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                <button 
+                  onClick={handleLostConfirm}
+                  disabled={isSyncing}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-red-100 dark:shadow-none disabled:opacity-50"
+                >
+                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR PERDA"}
+                </button>
               </div>
-            </div>
-            <div className="p-10 pt-0 shrink-0 flex gap-4">
-              <button onClick={() => setIsLostModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">Cancelar</button>
-              <button 
-                onClick={handleLostConfirm}
-                disabled={isSyncing}
-                className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg shadow-red-100 dark:shadow-none disabled:opacity-50"
-              >
-                {isSyncing ? "PROCESSANDO..." : "CONFIRMAR PERDA"}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
