@@ -1031,7 +1031,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
-                        <input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
+                        <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
                       </div>
                     </div>
 
@@ -1558,7 +1558,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Valor Estimado</label>
-                      <input type="number" value={newLead.value} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
+                      <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="R$ 0,00" />
                     </div>
                   </div>
 
@@ -2306,8 +2306,9 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
                 <input 
                   type="number" 
-                  value={wonData.monthly_value}
-                  onChange={e => setWonData({...wonData, monthly_value: Number(e.target.value)})}
+                  placeholder="0,00"
+                  value={wonData.monthly_value === 0 ? '' : wonData.monthly_value}
+                  onChange={e => setWonData({...wonData, monthly_value: parseFloat(e.target.value) || 0})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                 />
               </div>

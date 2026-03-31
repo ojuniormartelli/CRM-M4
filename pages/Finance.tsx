@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import * as ICONS from 'lucide-react';
 import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User } from '../types';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface FinanceProps {
   transactions: Transaction[];
@@ -12,6 +13,8 @@ interface FinanceProps {
   creditCards: CreditCard[];
   clientAccounts: ClientAccount[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+  setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
+  setCreditCards: React.Dispatch<React.SetStateAction<CreditCard[]>>;
   appMode: AppMode;
   currentUser?: User | null;
 }
@@ -22,12 +25,22 @@ const Finance: React.FC<FinanceProps> = ({
   creditCards, 
   clientAccounts,
   setTransactions,
+  setBankAccounts,
+  setCreditCards,
   appMode,
   currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'receivables' | 'payables' | 'cards'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Date Filters
+  const [dateRange, setDateRange] = useState<'current_month' | 'previous_month' | 'last_3_months' | 'all' | 'custom'>('current_month');
+  const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+
   const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({
     description: '',
     amount: 0,
@@ -41,6 +54,43 @@ const Finance: React.FC<FinanceProps> = ({
     credit_card_id: '',
     client_account_id: ''
   });
+
+  const [newBankAccount, setNewBankAccount] = useState<Partial<BankAccount>>({
+    name: '',
+    bank_type: 'Corrente',
+    current_balance: 0,
+    currency: 'BRL'
+  });
+
+  const [newCreditCard, setNewCreditCard] = useState<Partial<CreditCard>>({
+    name: '',
+    limit_amount: 0,
+    closing_day: 1,
+    due_day: 10
+  });
+
+  const filteredTransactions = useMemo(() => {
+    let start = startOfMonth(new Date());
+    let end = endOfMonth(new Date());
+
+    if (dateRange === 'previous_month') {
+      start = startOfMonth(subMonths(new Date(), 1));
+      end = endOfMonth(subMonths(new Date(), 1));
+    } else if (dateRange === 'last_3_months') {
+      start = startOfMonth(subMonths(new Date(), 2));
+      end = endOfMonth(new Date());
+    } else if (dateRange === 'custom') {
+      start = parseISO(customStartDate);
+      end = parseISO(customEndDate);
+    } else if (dateRange === 'all') {
+      return transactions;
+    }
+
+    return transactions.filter(t => {
+      const tDate = parseISO(t.date);
+      return isWithinInterval(tDate, { start, end });
+    });
+  }, [transactions, dateRange, customStartDate, customEndDate]);
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,11 +130,53 @@ const Finance: React.FC<FinanceProps> = ({
     }
   };
 
-  const totalRevenue = transactions
+  const handleCreateBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase
+        .from('m4_bank_accounts')
+        .insert([{ ...newBankAccount, workspace_id: currentUser?.workspace_id }])
+        .select();
+
+      if (!error && data) {
+        setBankAccounts([...bankAccounts, data[0]]);
+        setIsBankModalOpen(false);
+        setNewBankAccount({ name: '', bank_type: 'Corrente', current_balance: 0, currency: 'BRL' });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleCreateCreditCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase
+        .from('m4_credit_cards')
+        .insert([{ ...newCreditCard, workspace_id: currentUser?.workspace_id }])
+        .select();
+
+      if (!error && data) {
+        setCreditCards([...creditCards, data[0]]);
+        setIsCardModalOpen(false);
+        setNewCreditCard({ name: '', limit_amount: 0, closing_day: 1, due_day: 10 });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const totalRevenue = filteredTransactions
     .filter(t => t.type === 'Receita' && (t.status === 'Pago' || t.status === 'Recebido'))
     .reduce((acc, t) => acc + Number(t.amount), 0);
   
-  const totalExpenses = transactions
+  const totalExpenses = filteredTransactions
     .filter(t => t.type === 'Despesa' && (t.status === 'Pago' || t.status === 'Recebido'))
     .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0);
 
@@ -92,21 +184,50 @@ const Finance: React.FC<FinanceProps> = ({
     .filter(a => a.status === 'ativo')
     .reduce((acc, a) => acc + (Number(a.monthly_value) || 0), 0);
 
-  const pendingReceivables = transactions
+  const pendingReceivables = filteredTransactions
     .filter(t => t.type === 'Receita' && (t.status === 'Pendente' || t.status === 'A Receber'))
     .reduce((acc, t) => acc + Number(t.amount), 0);
 
-  const pendingPayables = transactions
-    .filter(t => t.type === 'Despesa' && (t.status === 'Pendente' || t.status === 'A Pagar'))
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+  const chartData = useMemo(() => {
+    return [
+      { name: 'Entradas', value: totalRevenue, color: '#10b981' },
+      { name: 'Saídas', value: totalExpenses, color: '#f43f5e' }
+    ];
+  }, [totalRevenue, totalExpenses]);
+
+  const dueAlerts = transactions.filter(t => 
+    t.status === 'Pendente' && 
+    t.due_date && 
+    (isToday(parseISO(t.due_date)) || isTomorrow(parseISO(t.due_date)))
+  );
 
   const renderOverview = () => (
     <div className="space-y-8">
+      {dueAlerts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+              <ICONS.AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Vencimentos Próximos</p>
+              <p className="text-xs font-bold text-amber-700">{dueAlerts.length} contas vencem hoje ou amanhã. Clique para detalhar.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setActiveTab('receivables')}
+            className="px-4 py-2 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all"
+          >
+            VER DETALHES
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Receita Total (Mês)</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Receita Total (Período)</p>
           <h3 className="text-2xl font-black text-slate-900 leading-none">R$ {totalRevenue.toLocaleString()}</h3>
-          <p className="text-xs font-bold text-emerald-600 mt-3 flex items-center gap-1">▲ {transactions.filter(t => t.type === 'Receita').length} <span className="text-slate-400 font-medium">entradas</span></p>
+          <p className="text-xs font-bold text-emerald-600 mt-3 flex items-center gap-1">▲ {filteredTransactions.filter(t => t.type === 'Receita').length} <span className="text-slate-400 font-medium">entradas</span></p>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">MRR (Recorrência)</p>
@@ -132,10 +253,32 @@ const Finance: React.FC<FinanceProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-6">
+            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-6">Resultado Financeiro</h3>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={60}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center">
               <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Contas Bancárias</h3>
-              <button className="p-2 hover:bg-slate-50 text-blue-600 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
+              <button onClick={() => setIsBankModalOpen(true)} className="p-2 hover:bg-slate-50 text-blue-600 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {bankAccounts.length === 0 ? (
@@ -145,7 +288,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <div key={account.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center group hover:bg-white hover:shadow-md transition-all cursor-pointer">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
-                        <ICONS.CreditCard className="w-5 h-5" />
+                        <ICONS.Building2 className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="text-sm font-black text-slate-800">{account.name}</p>
@@ -165,7 +308,7 @@ const Finance: React.FC<FinanceProps> = ({
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center">
               <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Últimas Movimentações</h3>
-              <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Ver Todas</button>
+              <button onClick={() => setActiveTab('receivables')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Ver Todas</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -177,7 +320,7 @@ const Finance: React.FC<FinanceProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {transactions.slice(0, 5).map(t => (
+                  {filteredTransactions.slice(0, 5).map(t => (
                     <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <p className="text-sm font-bold text-slate-800">{t.description}</p>
@@ -201,7 +344,10 @@ const Finance: React.FC<FinanceProps> = ({
 
         <div className="space-y-8">
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-6">Cartões de Crédito</h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Cartões de Crédito</h3>
+              <button onClick={() => setIsCardModalOpen(true)} className="p-2 hover:bg-slate-50 text-blue-600 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
+            </div>
             <div className="space-y-4">
               {creditCards.length === 0 ? (
                 <div className="py-4 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">Nenhum cartão</div>
@@ -230,14 +376,11 @@ const Finance: React.FC<FinanceProps> = ({
                   </div>
                 ))
               )}
-              <button className="w-full py-3 rounded-2xl border border-dashed border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all text-xs font-bold uppercase tracking-widest">
-                Adicionar Cartão
-              </button>
             </div>
           </div>
 
           <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-200">
-            <h3 className="font-black uppercase tracking-widest text-[10px] text-blue-200 mb-4">Fluxo de Caixa</h3>
+            <h3 className="font-black uppercase tracking-widest text-[10px] text-blue-200 mb-4">Fluxo de Caixa (Período)</h3>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-1">
@@ -337,10 +480,45 @@ const Finance: React.FC<FinanceProps> = ({
               : 'Controle total de caixa, contas e cartões da agência.'}
           </p>
         </div>
-        <div className="flex gap-3">
-          <button className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 shadow-sm transition-all">
-            Relatórios
-          </button>
+        <div className="flex flex-wrap gap-3">
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+            {[
+              { id: 'current_month', label: 'Mês Atual' },
+              { id: 'previous_month', label: 'Mês Anterior' },
+              { id: 'last_3_months', label: '3 Meses' },
+              { id: 'all', label: 'Tudo' },
+              { id: 'custom', label: 'Personalizado' }
+            ].map(range => (
+              <button
+                key={range.id}
+                onClick={() => setDateRange(range.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  dateRange === range.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+          
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+              <input 
+                type="date" 
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2"
+              />
+              <span className="text-slate-400 text-[10px] font-black">ATÉ</span>
+              <input 
+                type="date" 
+                value={customEndDate}
+                onChange={e => setCustomEndDate(e.target.value)}
+                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2"
+              />
+            </div>
+          )}
+
           <button 
             onClick={() => setIsModalOpen(true)}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-200 transition-all hover:bg-blue-700 flex items-center gap-2"
@@ -380,8 +558,9 @@ const Finance: React.FC<FinanceProps> = ({
                     <input 
                       type="number" 
                       required
-                      value={newTransaction.amount} 
-                      onChange={e => setNewTransaction({...newTransaction, amount: Number(e.target.value)})}
+                      placeholder="0,00"
+                      value={newTransaction.amount === 0 ? '' : newTransaction.amount} 
+                      onChange={e => setNewTransaction({...newTransaction, amount: parseFloat(e.target.value) || 0})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     />
                   </div>
@@ -489,6 +668,131 @@ const Finance: React.FC<FinanceProps> = ({
                   className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50"
                 >
                   {isSyncing ? "SALVANDO..." : "CRIAR LANÇAMENTO"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isBankModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Conta</h3>
+              <button onClick={() => setIsBankModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateBankAccount} className="p-10 pt-0 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome da Conta</label>
+                <input 
+                  required
+                  placeholder="Ex: Itaú Principal"
+                  value={newBankAccount.name}
+                  onChange={e => setNewBankAccount({...newBankAccount, name: e.target.value})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                <select 
+                  value={newBankAccount.bank_type}
+                  onChange={e => setNewBankAccount({...newBankAccount, bank_type: e.target.value})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                >
+                  <option value="Corrente">Corrente</option>
+                  <option value="Poupança">Poupança</option>
+                  <option value="Investimento">Investimento</option>
+                  <option value="Caixa">Caixa (Dinheiro)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Saldo Inicial</label>
+                <input 
+                  type="number"
+                  required
+                  placeholder="0,00"
+                  value={newBankAccount.current_balance === 0 ? '' : newBankAccount.current_balance}
+                  onChange={e => setNewBankAccount({...newBankAccount, current_balance: parseFloat(e.target.value) || 0})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setIsBankModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">CANCELAR</button>
+                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50">
+                  {isSyncing ? "SALVANDO..." : "CRIAR CONTA"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isCardModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Cartão</h3>
+              <button onClick={() => setIsCardModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <ICONS.X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCreditCard} className="p-10 pt-0 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome do Cartão</label>
+                <input 
+                  required
+                  placeholder="Ex: Nubank Corporativo"
+                  value={newCreditCard.name}
+                  onChange={e => setNewCreditCard({...newCreditCard, name: e.target.value})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Limite Total</label>
+                <input 
+                  type="number"
+                  required
+                  placeholder="0,00"
+                  value={newCreditCard.limit_amount === 0 ? '' : newCreditCard.limit_amount}
+                  onChange={e => setNewCreditCard({...newCreditCard, limit_amount: parseFloat(e.target.value) || 0})}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia Fechamento</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    max="31"
+                    placeholder="Ex: 1"
+                    value={newCreditCard.closing_day === 0 ? '' : newCreditCard.closing_day}
+                    onChange={e => setNewCreditCard({...newCreditCard, closing_day: parseInt(e.target.value) || 0})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia Vencimento</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    max="31"
+                    placeholder="Ex: 10"
+                    value={newCreditCard.due_day === 0 ? '' : newCreditCard.due_day}
+                    onChange={e => setNewCreditCard({...newCreditCard, due_day: parseInt(e.target.value) || 0})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setIsCardModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs">CANCELAR</button>
+                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50">
+                  {isSyncing ? "SALVANDO..." : "ADICIONAR CARTÃO"}
                 </button>
               </div>
             </form>

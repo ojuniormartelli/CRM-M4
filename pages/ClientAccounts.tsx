@@ -430,8 +430,9 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                         required
                         min="0"
                         step="0.01"
-                        value={newAccountData.monthly_value}
-                        onChange={e => setNewAccountData({...newAccountData, monthly_value: Number(e.target.value)})}
+                        placeholder="0,00"
+                        value={newAccountData.monthly_value === 0 ? '' : newAccountData.monthly_value}
+                        onChange={e => setNewAccountData({...newAccountData, monthly_value: parseFloat(e.target.value) || 0})}
                         className="w-full p-4 pl-12 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
                       />
                     </div>
@@ -443,8 +444,9 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                       required
                       min="1"
                       max="31"
-                      value={newAccountData.due_day}
-                      onChange={e => setNewAccountData({...newAccountData, due_day: Number(e.target.value)})}
+                      placeholder="Ex: 10"
+                      value={newAccountData.due_day === 0 ? '' : newAccountData.due_day}
+                      onChange={e => setNewAccountData({...newAccountData, due_day: parseInt(e.target.value) || 0})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                   </div>

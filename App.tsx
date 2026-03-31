@@ -724,7 +724,9 @@ const App: React.FC = () => {
               bankAccounts={bankAccounts} 
               creditCards={creditCards} 
               clientAccounts={clientAccounts}
-              setTransactions={setTransactions} 
+              setTransactions={setTransactions}
+              setBankAccounts={setBankAccounts}
+              setCreditCards={setCreditCards}
               appMode={appMode}
               currentUser={currentUser}
             />

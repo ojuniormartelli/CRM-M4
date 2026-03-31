@@ -250,7 +250,6 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate,
       await fetchServices();
       setIsServiceModalOpen(false);
       setEditingService(null);
-      alert('Serviço salvo com sucesso!');
     } catch (err: any) {
       console.error('Erro ao salvar serviço:', err);
       alert('Erro ao salvar serviço: ' + err.message);
