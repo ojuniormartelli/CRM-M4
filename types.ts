@@ -284,6 +284,7 @@ export interface ClientAccount {
   notes?: string;
   created_at: string;
   updated_at: string;
+  company?: { name: string };
 }
 
 export interface BankAccount {
@@ -323,6 +324,7 @@ export interface Transaction {
   due_date?: string;
   paid_date?: string;
   created_at: string;
+  isProjected?: boolean;
 }
 
 export enum UserRole {

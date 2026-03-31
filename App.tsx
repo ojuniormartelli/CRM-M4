@@ -157,7 +157,7 @@ const App: React.FC = () => {
         const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false });
         setCampaigns(campaignsData || []);
 
-        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*');
+        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)');
         setClientAccounts(clientAccountsData || []);
 
         await fetchServices();

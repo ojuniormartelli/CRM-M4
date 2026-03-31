@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import * as ICONS from 'lucide-react';
 import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User } from '../types';
-import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, isWithinInterval, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -37,9 +37,94 @@ const Finance: React.FC<FinanceProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   
   // Date Filters
-  const [dateRange, setDateRange] = useState<'current_month' | 'previous_month' | 'last_3_months' | 'all' | 'custom'>('current_month');
+  const [dateRange, setDateRange] = useState<'current_month' | 'previous_month' | 'last_3_months' | 'next_3_months' | 'all' | 'custom'>('current_month');
   const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+
+  const generateProjections = (start: Date, end: Date) => {
+    const projections: Transaction[] = [];
+    clientAccounts.filter(acc => acc.status === 'ativo').forEach(acc => {
+      let current = new Date(start);
+      // Ensure we start from the current month if start is in the past
+      const todayStart = startOfMonth(new Date());
+      if (current < todayStart) {
+        current = new Date(todayStart);
+      }
+      
+      // Limit projections to a reasonable future (e.g., 12 months)
+      const maxFuture = addMonths(new Date(), 12);
+      const effectiveEnd = end > maxFuture ? maxFuture : end;
+
+      while (current <= effectiveEnd) {
+        const month = current.getMonth();
+        const year = current.getFullYear();
+        const day = acc.due_day || 10;
+        
+        const projectedDate = new Date(year, month, day);
+        
+        if (isWithinInterval(projectedDate, { start, end })) {
+          // Check if a real transaction already exists for this client and month
+          const alreadyPaid = transactions.find(t => 
+            t.client_account_id === acc.id && 
+            t.type === 'Receita' &&
+            new Date(t.date).getMonth() === month &&
+            new Date(t.date).getFullYear() === year
+          );
+
+          if (!alreadyPaid) {
+            projections.push({
+              id: `proj-${acc.id}-${year}-${month}`,
+              description: `Mensalidade - ${acc.company?.name || acc.id.slice(0,8)}`,
+              amount: acc.monthly_value,
+              type: 'Receita',
+              category: 'Mensalidade',
+              status: 'A Receber',
+              date: projectedDate.toISOString(),
+              due_date: projectedDate.toISOString(),
+              client_account_id: acc.id,
+              isProjected: true,
+              created_at: new Date().toISOString()
+            } as Transaction);
+          }
+        }
+        current = addMonths(current, 1);
+        current.setDate(1);
+      }
+    });
+    return projections;
+  };
+
+  const filteredTransactions = useMemo(() => {
+    let start = startOfMonth(new Date());
+    let end = endOfMonth(new Date());
+
+    if (dateRange === 'previous_month') {
+      start = startOfMonth(subMonths(new Date(), 1));
+      end = endOfMonth(subMonths(new Date(), 1));
+    } else if (dateRange === 'last_3_months') {
+      start = startOfMonth(subMonths(new Date(), 2));
+      end = endOfMonth(new Date());
+    } else if (dateRange === 'next_3_months') {
+      start = startOfMonth(new Date());
+      end = endOfMonth(addMonths(new Date(), 2));
+    } else if (dateRange === 'custom') {
+      start = parseISO(customStartDate);
+      end = parseISO(customEndDate);
+    } else if (dateRange === 'all') {
+      const baseTransactions = [...transactions];
+      const projections = generateProjections(startOfMonth(new Date()), addMonths(new Date(), 6));
+      return [...baseTransactions, ...projections].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+
+    const baseTransactions = transactions.filter(t => {
+      const tDate = parseISO(t.date);
+      return isWithinInterval(tDate, { start, end });
+    });
+
+    const projections = generateProjections(start, end);
+    
+    return [...baseTransactions, ...projections].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, clientAccounts, dateRange, customStartDate, customEndDate]);
 
   const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({
     description: '',
@@ -69,28 +154,39 @@ const Finance: React.FC<FinanceProps> = ({
     due_day: 10
   });
 
-  const filteredTransactions = useMemo(() => {
-    let start = startOfMonth(new Date());
-    let end = endOfMonth(new Date());
+  const handleMarkAsPaid = async (projection: Transaction) => {
+    setIsSyncing(true);
+    try {
+      const transactionData = {
+        description: projection.description,
+        amount: projection.amount,
+        type: projection.type,
+        category: projection.category,
+        status: 'Pago',
+        date: new Date().toISOString().split('T')[0],
+        due_date: projection.due_date || projection.date,
+        client_account_id: projection.client_account_id,
+        workspace_id: currentUser?.workspace_id || 'default-workspace',
+        payment_method: 'Boleto' // Default for projections
+      };
 
-    if (dateRange === 'previous_month') {
-      start = startOfMonth(subMonths(new Date(), 1));
-      end = endOfMonth(subMonths(new Date(), 1));
-    } else if (dateRange === 'last_3_months') {
-      start = startOfMonth(subMonths(new Date(), 2));
-      end = endOfMonth(new Date());
-    } else if (dateRange === 'custom') {
-      start = parseISO(customStartDate);
-      end = parseISO(customEndDate);
-    } else if (dateRange === 'all') {
-      return transactions;
+      const { data, error } = await supabase
+        .from('m4_transactions')
+        .insert([transactionData])
+        .select();
+
+      if (error) throw error;
+      
+      if (data) {
+        setTransactions(prev => [...prev, data[0]]);
+      }
+    } catch (err: any) {
+      console.error('Erro ao quitar projeção:', err);
+      alert('Erro ao processar pagamento: ' + err.message);
+    } finally {
+      setIsSyncing(false);
     }
-
-    return transactions.filter(t => {
-      const tDate = parseISO(t.date);
-      return isWithinInterval(tDate, { start, end });
-    });
-  }, [transactions, dateRange, customStartDate, customEndDate]);
+  };
 
   const handleCreateTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -430,16 +526,22 @@ const Finance: React.FC<FinanceProps> = ({
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Vencimento</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {transactions
+            {filteredTransactions
               .filter(t => !filterType || t.type === filterType)
               .map(t => (
-                <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={t.id || `proj-${t.client_account_id}-${t.date}`} className={`hover:bg-slate-50/50 transition-colors group ${t.isProjected ? 'bg-slate-50/30 italic' : ''}`}>
                   <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-slate-800">{t.description}</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">{t.payment_method || 'Não definido'}</p>
+                    <div className="flex items-center gap-2">
+                      {t.isProjected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
+                      <p className="text-sm font-bold text-slate-800">{t.description}</p>
+                    </div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">
+                      {t.isProjected ? 'Projeção Automática' : (t.payment_method || 'Não definido')}
+                    </p>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
@@ -449,15 +551,34 @@ const Finance: React.FC<FinanceProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
-                      t.status === 'Pago' || t.status === 'Recebido' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      t.status === 'Pago' || t.status === 'Recebido' 
+                        ? 'bg-emerald-100 text-emerald-700' 
+                        : t.isProjected 
+                          ? 'bg-blue-50 text-blue-600 border border-blue-100' 
+                          : 'bg-amber-100 text-amber-700'
                     }`}>
-                      {t.status}
+                      {t.isProjected ? 'Projetado' : t.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <span className={`text-sm font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-slate-800'}`}>
                       {t.type === 'Receita' ? '+' : '-'} R$ {Math.abs(Number(t.amount)).toLocaleString()}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {t.isProjected ? (
+                      <button 
+                        onClick={() => handleMarkAsPaid(t)}
+                        disabled={isSyncing}
+                        className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-lg shadow-sm hover:bg-emerald-700 transition-all disabled:opacity-50"
+                      >
+                        Receber
+                      </button>
+                    ) : (
+                      <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                        <ICONS.MoreVertical className="w-4 h-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -486,6 +607,7 @@ const Finance: React.FC<FinanceProps> = ({
               { id: 'current_month', label: 'Mês Atual' },
               { id: 'previous_month', label: 'Mês Anterior' },
               { id: 'last_3_months', label: '3 Meses' },
+              { id: 'next_3_months', label: 'Próximos 3 Meses' },
               { id: 'all', label: 'Tudo' },
               { id: 'custom', label: 'Personalizado' }
             ].map(range => (
