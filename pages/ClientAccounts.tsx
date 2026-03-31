@@ -115,7 +115,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
     const lead = leads.find(l => l.id === leadId);
     const leadInteractions = (lead?.interactions || []).map(i => ({
       type: 'Interação',
-      title: i.title,
+      title: i.note,
       date: i.created_at,
       status: i.type,
       icon: <ICONS.MessageSquare className="w-4 h-4" />

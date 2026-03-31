@@ -81,14 +81,12 @@ export enum LeadTemperature {
 
 export interface Interaction {
   id: string;
-  tenant_id: string;
   lead_id: string;
-  type: 'email' | 'call' | 'meeting' | 'note' | 'status_change' | 'ai_insight';
-  title: string;
-  content: string;
+  type: 'WhatsApp' | 'Ligação' | 'E-mail' | 'Reunião' | 'Outro';
+  note: string;
+  success: boolean;
+  workspace_id: string;
   created_at: string;
-  created_by?: string;
-  metadata?: any;
 }
 
 export interface FormQuestion {

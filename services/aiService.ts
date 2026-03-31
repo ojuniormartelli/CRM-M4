@@ -33,7 +33,7 @@ export const aiService = {
       - Segment: ${lead.niche || 'N/A'}
       - Value: ${lead.value}
       - Notes: ${lead.notes}
-      - History: ${lead.interactions?.map(i => `${i.type}: ${i.title}`).join(', ') || 'No history'}
+      - History: ${lead.interactions?.map(i => `${i.type}: ${i.note}`).join(', ') || 'No history'}
       
       Return the result in JSON format with "score" (number) and "reasoning" (string).
     `;
@@ -76,7 +76,7 @@ export const aiService = {
     if (!interactions || interactions.length === 0) return "No interactions to summarize.";
 
     const historyText = interactions
-      .map(i => `[${i.created_at}] ${i.type.toUpperCase()}: ${i.title} - ${i.content}`)
+      .map(i => `[${i.created_at}] ${i.type.toUpperCase()}: ${i.note} (${i.success ? 'Success' : 'No Answer'})`)
       .join('\n');
 
     const prompt = `

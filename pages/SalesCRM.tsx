@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
-import { Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram } from 'lucide-react';
+import { Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -206,6 +206,58 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       fetchFormResponses();
     }
   }, [selectedLead]);
+
+  useEffect(() => {
+    if (selectedLead) {
+      const fetchInteractions = async () => {
+        const { data, error } = await supabase
+          .from('m4_interactions')
+          .select('*')
+          .eq('lead_id', selectedLead.id)
+          .order('created_at', { ascending: false });
+        
+        if (data) {
+          setInteractions(data);
+        }
+      };
+      fetchInteractions();
+    }
+  }, [selectedLead]);
+
+  const handleRegisterInteraction = async () => {
+    if (!selectedLead || !interactionNote.trim() || !currentUser) return;
+
+    setIsRegisteringInteraction(true);
+    try {
+      const newInteraction = {
+        lead_id: selectedLead.id,
+        type: interactionType,
+        note: interactionNote,
+        success: interactionSuccess,
+        workspace_id: currentUser.workspace_id,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('m4_interactions')
+        .insert([newInteraction])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setInteractions([data, ...interactions]);
+        setInteractionNote('');
+        // Reset success to true for next interaction
+        setInteractionSuccess(true);
+      }
+    } catch (error) {
+      console.error('Error registering interaction:', error);
+    } finally {
+      setIsRegisteringInteraction(false);
+    }
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editLead, setEditLead] = useState<Partial<Lead>>({});
@@ -219,6 +271,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [isAIScoring, setIsAIScoring] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [interactionNote, setInteractionNote] = useState('');
+  const [interactionType, setInteractionType] = useState<Interaction['type']>('WhatsApp');
+  const [interactionSuccess, setInteractionSuccess] = useState(true);
+  const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
@@ -2178,13 +2235,89 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <div className="flex-1 overflow-y-auto p-10 scrollbar-none">
                   {activeTab360 === 'history' && (
                     <div className="space-y-8">
+                      {/* Registrar Interação Form */}
+                      <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <h5 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                          <Plus className="w-3 h-3 text-blue-600" /> Registrar Interação
+                        </h5>
+                        
+                        <div className="space-y-6">
+                          <textarea
+                            value={interactionNote}
+                            onChange={(e) => setInteractionNote(e.target.value)}
+                            placeholder="O que foi conversado com o lead?"
+                            className="w-full p-5 bg-slate-50 dark:bg-slate-800/50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 transition-all min-h-[120px] resize-none"
+                          />
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Canal</label>
+                              <div className="flex flex-wrap gap-2">
+                                {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro'].map((type) => (
+                                  <button
+                                    key={type}
+                                    onClick={() => setInteractionType(type as any)}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                      interactionType === type 
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    }`}
+                                  >
+                                    {type}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sucesso</label>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setInteractionSuccess(true)}
+                                  className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    interactionSuccess === true 
+                                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                  }`}
+                                >
+                                  Consegui falar ✅
+                                </button>
+                                <button
+                                  onClick={() => setInteractionSuccess(false)}
+                                  className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    interactionSuccess === false 
+                                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/20' 
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                  }`}
+                                >
+                                  Não atendeu ❌
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={handleRegisterInteraction}
+                            disabled={isRegisteringInteraction || !interactionNote.trim()}
+                            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                          >
+                            {isRegisteringInteraction ? (
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <>REGISTRAR INTERAÇÃO</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* AI Summary */}
                       <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
                         <div className="flex justify-between items-center mb-4">
                           <h5 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                             <ICONS.Automation width="14" height="14" /> Resumo IA
                           </h5>
                           <button 
-                            onClick={() => handleAISummary(selectedLead.interactions || [])}
+                            onClick={() => handleAISummary(interactions)}
                             disabled={isSummarizing}
                             className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
                           >
@@ -2196,26 +2329,51 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         </p>
                       </div>
 
+                      {/* Interactions Timeline */}
                       <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-                        {(selectedLead.interactions || [
-                          { id: '1', type: 'status_change', title: 'Lead Criado', content: 'Lead entrou no funil.', created_at: selectedLead.created_at }
-                        ]).map((interaction) => (
-                          <div key={interaction.id} className="flex gap-6 relative">
+                        {interactions.length === 0 ? (
+                          <div className="flex gap-6 relative">
                             <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center z-10 shadow-sm border border-slate-100 dark:border-slate-700">
-                              {interaction.type === 'email' ? <ICONS.Mail width="18" height="18" className="text-blue-500" /> :
-                               interaction.type === 'call' ? <ICONS.Phone width="18" height="18" className="text-emerald-500" /> :
-                               interaction.type === 'meeting' ? <Calendar width="18" height="18" className="text-amber-500" /> :
-                               <MessageSquare width="18" height="18" className="text-slate-400" />}
+                              <Clock className="w-5 h-5 text-slate-300" />
                             </div>
                             <div className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                              <div className="flex justify-between items-start mb-2">
-                                <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{interaction.title}</h5>
-                                <span className="text-[10px] font-black text-slate-400 uppercase">{new Date(interaction.created_at).toLocaleString()}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{interaction.content}</p>
+                              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Nenhuma interação registrada ainda.</p>
                             </div>
                           </div>
-                        ))}
+                        ) : (
+                          interactions.map((interaction) => (
+                            <div key={interaction.id} className="flex gap-6 relative">
+                              <div className={`w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center z-10 shadow-sm border border-slate-100 dark:border-slate-700 ${!interaction.success ? 'opacity-60' : ''}`}>
+                                {interaction.type === 'E-mail' ? <Mail width="18" height="18" className="text-blue-500" /> :
+                                 interaction.type === 'Ligação' ? <Phone width="18" height="18" className="text-emerald-500" /> :
+                                 interaction.type === 'Reunião' ? <Users width="18" height="18" className="text-amber-500" /> :
+                                 <MessageSquare width="18" height="18" className="text-slate-400" />}
+                              </div>
+                              <div className={`flex-1 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm ${!interaction.success ? 'border-rose-100 dark:border-rose-900/20' : ''}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                                      {interaction.type}
+                                    </h5>
+                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                      interaction.success 
+                                        ? 'bg-emerald-100 text-emerald-600' 
+                                        : 'bg-rose-100 text-rose-600'
+                                    }`}>
+                                      {interaction.success ? 'Sucesso' : 'Sem Resposta'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-black text-slate-400 uppercase">
+                                    {new Date(interaction.created_at).toLocaleString()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">
+                                  {interaction.note}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
