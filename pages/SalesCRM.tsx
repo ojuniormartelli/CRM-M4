@@ -1764,7 +1764,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedLead.probability || 0}%</span>
                         </div>
                         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notas</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notas da Negociação</span>
                           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">
                             {selectedLead.notes || 'Nenhuma observação...'}
                           </p>
@@ -1832,7 +1832,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Notas</label>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Notas da Negociação</label>
                           <textarea 
                             value={editLead.notes || ''} 
                             onChange={e => setEditLead({...editLead, notes: e.target.value})}
@@ -1844,22 +1844,36 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Contatos" defaultOpen={false}>
+                <CollapsibleSection title="Responsável / Contato" defaultOpen={false}>
                   <div className="space-y-4">
                     {!isEditing ? (
                       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50">
                         <p className="text-xs font-black text-slate-900 dark:text-white mb-1">{selectedLead.name}</p>
                         <p className="text-[10px] text-slate-400 font-bold mb-3">{selectedLead.contact_role || 'Decisor'}</p>
+                        <div className="space-y-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            <ICONS.Mail width="14" height="14" className="text-slate-400" />
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLead.email || '–'}</span>
+                          </div>
+                          {selectedLead.contact_whatsapp && (
+                            <div className="flex items-center gap-2">
+                              <MessageSquare width="14" height="14" className="text-emerald-500" />
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLead.contact_whatsapp}</span>
+                            </div>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
                             className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 transition-all"
+                            title="Conversar no WhatsApp"
                           >
                             <MessageSquare width="12" height="12" /> WhatsApp
                           </button>
                           <button 
                             onClick={() => window.location.href = `mailto:${selectedLead.email}`}
                             className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200"
+                            title="Enviar E-mail"
                           >
                             <ICONS.Mail width="14" height="14" />
                           </button>
@@ -1869,6 +1883,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                               target="_blank" 
                               rel="noreferrer" 
                               className="p-2 bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 rounded-lg hover:bg-pink-100"
+                              title="Instagram"
                             >
                               <Instagram width="14" height="14" />
                             </a>
@@ -1879,6 +1894,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                               target="_blank" 
                               rel="noreferrer" 
                               className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100"
+                              title="LinkedIn"
                             >
                               <Linkedin width="14" height="14" />
                             </a>
@@ -1963,6 +1979,41 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Segmento</p>
                           <p className="text-xs font-bold text-slate-900 dark:text-white">{selectedLead.niche || '–'}</p>
                         </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cidade/Estado</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">{selectedLead.city ? `${selectedLead.city}${selectedLead.state ? `/${selectedLead.state}` : ''}` : '–'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail da Empresa</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">{selectedLead.company_email || '–'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LinkedIn da Empresa</p>
+                          {selectedLead.company_linkedin ? (
+                            <a href={selectedLead.company_linkedin} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate block">{selectedLead.company_linkedin}</a>
+                          ) : (
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">–</p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telefone da Empresa</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">{selectedLead.company_phone || '–'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp da Empresa</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">{selectedLead.company_whatsapp || '–'}</p>
+                            {selectedLead.company_whatsapp && (
+                              <button 
+                                onClick={() => window.open(`https://wa.me/55${selectedLead.company_whatsapp?.replace(/\D/g, '')}`, '_blank')}
+                                className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+                                title="Conversar no WhatsApp"
+                              >
+                                <MessageSquare width="12" height="12" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </>
                     ) : (
                       <div className="space-y-4">
@@ -1995,6 +2046,59 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <input 
                             value={editLead.niche || ''} 
                             onChange={e => setEditLead({...editLead, niche: e.target.value})}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Cidade</label>
+                            <input 
+                              value={editLead.city || ''} 
+                              onChange={e => setEditLead({...editLead, city: e.target.value})}
+                              className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Estado</label>
+                            <input 
+                              value={editLead.state || ''} 
+                              onChange={e => setEditLead({...editLead, state: e.target.value})}
+                              className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                              maxLength={2}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">E-mail da Empresa</label>
+                          <input 
+                            type="email"
+                            value={editLead.company_email || ''} 
+                            onChange={e => setEditLead({...editLead, company_email: e.target.value})}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">LinkedIn da Empresa</label>
+                          <input 
+                            value={editLead.company_linkedin || ''} 
+                            onChange={e => setEditLead({...editLead, company_linkedin: e.target.value})}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                            placeholder="linkedin.com/company/..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Telefone da Empresa</label>
+                          <input 
+                            value={editLead.company_phone || ''} 
+                            onChange={e => setEditLead({...editLead, company_phone: formatPhoneBR(e.target.value)})}
+                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">WhatsApp da Empresa</label>
+                          <input 
+                            value={editLead.company_whatsapp || ''} 
+                            onChange={e => setEditLead({...editLead, company_whatsapp: formatPhoneBR(e.target.value)})}
                             className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none text-xs font-bold"
                           />
                         </div>

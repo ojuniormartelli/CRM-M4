@@ -269,6 +269,19 @@ export interface Service {
   created_at: string;
 }
 
+export interface FinanceCategory {
+  id: string;
+  name: string;
+  type: 'Receita' | 'Despesa';
+  workspace_id?: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  workspace_id?: string;
+}
+
 export interface ClientAccount {
   id: string;
   lead_id?: string;

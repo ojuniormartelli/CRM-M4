@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -57,6 +57,8 @@ const App: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [creditCards, setCreditCards] = useState<any[]>([]);
+  const [financeCategories, setFinanceCategories] = useState<FinanceCategory[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
@@ -167,6 +169,12 @@ const App: React.FC = () => {
 
         const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*');
         setCreditCards(creditCardsData || []);
+
+        const { data: financeCategoriesData } = await supabase.from('m4_finance_categories').select('*').order('name');
+        setFinanceCategories(financeCategoriesData || []);
+
+        const { data: paymentMethodsData } = await supabase.from('m4_payment_methods').select('*').order('name');
+        setPaymentMethods(paymentMethodsData || []);
 
         const { data: companiesData } = await supabase.from('m4_companies').select('*').order('name');
         setCompanies(companiesData || []);
@@ -729,12 +737,27 @@ const App: React.FC = () => {
               setCreditCards={setCreditCards}
               appMode={appMode}
               currentUser={currentUser}
+              financeCategories={financeCategories}
+              paymentMethods={paymentMethods}
             />
           )}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
-          {activeTab === 'settings' && <Settings appMode={appMode} currentUser={currentUser} onUserUpdate={setCurrentUser} services={services} setServices={setServices} fetchServices={fetchServices} />}
+          {activeTab === 'settings' && (
+            <Settings 
+              appMode={appMode} 
+              currentUser={currentUser} 
+              onUserUpdate={setCurrentUser} 
+              services={services} 
+              setServices={setServices} 
+              fetchServices={fetchServices} 
+              financeCategories={financeCategories}
+              setFinanceCategories={setFinanceCategories}
+              paymentMethods={paymentMethods}
+              setPaymentMethods={setPaymentMethods}
+            />
+          )}
         </div>
         
         <div className="px-10 pb-6 flex justify-center">

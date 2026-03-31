@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import * as ICONS from 'lucide-react';
-import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User } from '../types';
+import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User, FinanceCategory, PaymentMethod } from '../types';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isWithinInterval, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
@@ -12,6 +12,8 @@ interface FinanceProps {
   bankAccounts: BankAccount[];
   creditCards: CreditCard[];
   clientAccounts: ClientAccount[];
+  financeCategories: FinanceCategory[];
+  paymentMethods: PaymentMethod[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
   setCreditCards: React.Dispatch<React.SetStateAction<CreditCard[]>>;
@@ -24,6 +26,8 @@ const Finance: React.FC<FinanceProps> = ({
   bankAccounts, 
   creditCards, 
   clientAccounts,
+  financeCategories,
+  paymentMethods,
   setTransactions,
   setBankAccounts,
   setCreditCards,
@@ -707,13 +711,23 @@ const Finance: React.FC<FinanceProps> = ({
                       onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
-                      <option value="Mensalidade">Mensalidade</option>
-                      <option value="Serviço Avulso">Serviço Avulso</option>
-                      <option value="Infraestrutura">Infraestrutura</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Salários">Salários</option>
-                      <option value="Impostos">Impostos</option>
-                      <option value="Outros">Outros</option>
+                      <option value="">Selecione...</option>
+                      {financeCategories
+                        .filter(c => c.type === newTransaction.type)
+                        .map(c => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      {financeCategories.length === 0 && (
+                        <>
+                          <option value="Mensalidade">Mensalidade</option>
+                          <option value="Serviço Avulso">Serviço Avulso</option>
+                          <option value="Infraestrutura">Infraestrutura</option>
+                          <option value="Marketing">Marketing</option>
+                          <option value="Salários">Salários</option>
+                          <option value="Impostos">Impostos</option>
+                          <option value="Outros">Outros</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div>
@@ -747,11 +761,19 @@ const Finance: React.FC<FinanceProps> = ({
                       onChange={e => setNewTransaction({...newTransaction, payment_method: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
-                      <option value="Boleto">Boleto</option>
-                      <option value="Pix">Pix</option>
-                      <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      <option value="Transferência">Transferência</option>
-                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="">Selecione...</option>
+                      {paymentMethods.map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
+                      ))}
+                      {paymentMethods.length === 0 && (
+                        <>
+                          <option value="Boleto">Boleto</option>
+                          <option value="Pix">Pix</option>
+                          <option value="Cartão de Crédito">Cartão de Crédito</option>
+                          <option value="Transferência">Transferência</option>
+                          <option value="Dinheiro">Dinheiro</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>

@@ -6,7 +6,7 @@ import TechnicalPanel from './TechnicalPanel';
 import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
 
-import { AppMode, User, UserRole, JobRole, Service } from '../types';
+import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod } from '../types';
 
 interface SettingsProps {
   appMode: AppMode;
@@ -15,14 +15,33 @@ interface SettingsProps {
   services: Service[];
   setServices: (services: Service[]) => void;
   fetchServices: () => Promise<void>;
+  financeCategories: FinanceCategory[];
+  setFinanceCategories: (categories: FinanceCategory[]) => void;
+  paymentMethods: PaymentMethod[];
+  setPaymentMethods: (methods: PaymentMethod[]) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate, services, setServices, fetchServices }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+  appMode, 
+  currentUser, 
+  onUserUpdate, 
+  services, 
+  setServices, 
+  fetchServices,
+  financeCategories,
+  setFinanceCategories,
+  paymentMethods,
+  setPaymentMethods
+}) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'finance'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isMethodModalOpen, setIsMethodModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Partial<FinanceCategory> | null>(null);
+  const [editingMethod, setEditingMethod] = useState<Partial<PaymentMethod> | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -329,6 +348,97 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate,
     }
   };
 
+  const handleSaveCategory = async () => {
+    if (!editingCategory?.name || !editingCategory?.type) return;
+    setIsSaving(true);
+    try {
+      if (editingCategory.id) {
+        const { error } = await supabase
+          .from('m4_finance_categories')
+          .update({ name: editingCategory.name, type: editingCategory.type })
+          .eq('id', editingCategory.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('m4_finance_categories')
+          .insert([{ 
+            name: editingCategory.name, 
+            type: editingCategory.type,
+            workspace_id: currentUser?.workspace_id || 'default-workspace'
+          }]);
+        if (error) throw error;
+      }
+      
+      const { data } = await supabase.from('m4_finance_categories').select('*').order('name');
+      if (data) setFinanceCategories(data);
+      setIsCategoryModalOpen(false);
+      setEditingCategory(null);
+    } catch (err: any) {
+      alert('Erro ao salvar categoria: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta categoria?')) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('m4_finance_categories').delete().eq('id', id);
+      if (error) throw error;
+      setFinanceCategories(financeCategories.filter(c => c.id !== id));
+    } catch (err: any) {
+      alert('Erro ao excluir categoria: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveMethod = async () => {
+    if (!editingMethod?.name) return;
+    setIsSaving(true);
+    try {
+      if (editingMethod.id) {
+        const { error } = await supabase
+          .from('m4_payment_methods')
+          .update({ name: editingMethod.name })
+          .eq('id', editingMethod.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('m4_payment_methods')
+          .insert([{ 
+            name: editingMethod.name, 
+            workspace_id: currentUser?.workspace_id || 'default-workspace'
+          }]);
+        if (error) throw error;
+      }
+      
+      const { data } = await supabase.from('m4_payment_methods').select('*').order('name');
+      if (data) setPaymentMethods(data);
+      setIsMethodModalOpen(false);
+      setEditingMethod(null);
+    } catch (err: any) {
+      alert('Erro ao salvar método: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMethod = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este método?')) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('m4_payment_methods').delete().eq('id', id);
+      if (error) throw error;
+      setPaymentMethods(paymentMethods.filter(m => m.id !== id));
+    } catch (err: any) {
+      alert('Erro ao excluir método: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const [passwordChange, setPasswordChange] = useState({
     current: '',
     new: '',
@@ -520,6 +630,12 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate,
           className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Serviços
+        </button>
+        <button 
+          onClick={() => setActiveTab('finance')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'finance' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Financeiro
         </button>
       </div>
 
@@ -1192,6 +1308,194 @@ const Settings: React.FC<SettingsProps> = ({ appMode, currentUser, onUserUpdate,
         </div>
       )}
 
+      {activeTab === 'finance' && (
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Categorias */}
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Categorias de Lançamento</h3>
+                  <p className="text-xs text-slate-500 font-medium">Organize suas receitas e despesas.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setEditingCategory({ name: '', type: 'Receita' });
+                    setIsCategoryModalOpen(true);
+                  }}
+                  className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all"
+                >
+                  <ICONS.Plus size={18} />
+                </button>
+              </div>
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {financeCategories.map(cat => (
+                      <tr key={cat.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{cat.name}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${cat.type === 'Receita' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {cat.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button onClick={() => { setEditingCategory(cat); setIsCategoryModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ICONS.Edit size={14} /></button>
+                          <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><ICONS.Trash size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Métodos de Pagamento */}
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Métodos de Pagamento</h3>
+                  <p className="text-xs text-slate-500 font-medium">Formas que sua empresa transaciona.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setEditingMethod({ name: '' });
+                    setIsMethodModalOpen(true);
+                  }}
+                  className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all"
+                >
+                  <ICONS.Plus size={18} />
+                </button>
+              </div>
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {paymentMethods.map(method => (
+                      <tr key={method.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{method.name}</td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button onClick={() => { setEditingMethod(method); setIsMethodModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ICONS.Edit size={14} /></button>
+                          <button onClick={() => handleDeleteMethod(method.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><ICONS.Trash size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCategoryModalOpen && editingCategory && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                {editingCategory.id ? 'Editar Categoria' : 'Nova Categoria'}
+              </h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <ICONS.X size={24} />
+              </button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Categoria</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingCategory.name || ''}
+                  onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  placeholder="ex: Aluguel"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo</label>
+                <select 
+                  value={editingCategory.type}
+                  onChange={e => setEditingCategory({ ...editingCategory, type: e.target.value as any })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                >
+                  <option value="Receita">Receita</option>
+                  <option value="Despesa">Despesa</option>
+                </select>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  onClick={handleSaveCategory}
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'SALVANDO...' : 'SALVAR'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMethodModalOpen && editingMethod && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                {editingMethod.id ? 'Editar Método' : 'Novo Método'}
+              </h3>
+              <button onClick={() => setIsMethodModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <ICONS.X size={24} />
+              </button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Método</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingMethod.name || ''}
+                  onChange={e => setEditingMethod({ ...editingMethod, name: e.target.value })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  placeholder="ex: Pix"
+                />
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  onClick={() => setIsMethodModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  onClick={handleSaveMethod}
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'SALVANDO...' : 'SALVAR'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isUserModalOpen && editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">

@@ -830,7 +830,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         value={editedLead.cnpj} 
                         originalValue={selectedLead.cnpj}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, cnpj: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, cnpj: formatCNPJ(val) })}
                       />
                       <div className="grid grid-cols-2 gap-4">
                         <EditableInfoItem 
@@ -864,38 +864,33 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, website: val })}
                       />
                       <EditableInfoItem 
-                        label="E-mail" 
+                        label="E-mail da Empresa" 
                         value={editedLead.company_email} 
                         originalValue={selectedLead.company_email}
                         isEditing={isEditingLead}
                         onChange={(val) => setEditedLead({ ...editedLead, company_email: val })}
                       />
                       <EditableInfoItem 
-                        label="Instagram" 
-                        value={editedLead.instagram} 
-                        originalValue={selectedLead.instagram}
-                        isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, instagram: val })}
-                      />
-                      <EditableInfoItem 
-                        label="LinkedIn" 
+                        label="LinkedIn da Empresa" 
                         value={editedLead.company_linkedin} 
                         originalValue={selectedLead.company_linkedin}
                         isEditing={isEditingLead}
+                        isLink
                         onChange={(val) => setEditedLead({ ...editedLead, company_linkedin: val })}
                       />
                       <EditableInfoItem 
-                        label="Telefone" 
+                        label="Telefone da Empresa" 
                         value={editedLead.company_phone} 
                         originalValue={selectedLead.company_phone}
                         isEditing={isEditingLead}
                         onChange={(val) => setEditedLead({ ...editedLead, company_phone: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
-                        label="WhatsApp" 
+                        label="WhatsApp da Empresa" 
                         value={editedLead.company_whatsapp} 
                         originalValue={selectedLead.company_whatsapp}
                         isEditing={isEditingLead}
+                        isWhatsApp
                         onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: formatPhoneBR(val) })}
                       />
                     </div>
@@ -910,10 +905,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                       <EditableInfoItem 
                         label="Nome" 
-                        value={editedLead.responsible_name} 
-                        originalValue={selectedLead.responsible_name}
+                        value={editedLead.name} 
+                        originalValue={selectedLead.name}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, responsible_name: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, name: val })}
                       />
                       <EditableInfoItem 
                         label="Cargo" 
@@ -930,17 +925,11 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, email: val })}
                       />
                       <EditableInfoItem 
-                        label="Telefone" 
-                        value={editedLead.phone} 
-                        originalValue={selectedLead.phone}
-                        isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, phone: formatPhoneBR(val) })}
-                      />
-                      <EditableInfoItem 
                         label="WhatsApp" 
                         value={editedLead.contact_whatsapp} 
                         originalValue={selectedLead.contact_whatsapp}
                         isEditing={isEditingLead}
+                        isWhatsApp
                         onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
@@ -955,6 +944,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         value={editedLead.contact_linkedin} 
                         originalValue={selectedLead.contact_linkedin}
                         isEditing={isEditingLead}
+                        isLink
                         onChange={(val) => setEditedLead({ ...editedLead, contact_linkedin: val })}
                       />
                     </div>
@@ -983,9 +973,17 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       isEditing={isEditingLead}
                       onChange={(val) => setEditedLead({ ...editedLead, service_type: val })}
                     />
+                    <EditableInfoItem 
+                      label="Previsão" 
+                      value={editedLead.closing_forecast} 
+                      originalValue={selectedLead.closing_forecast}
+                      isEditing={isEditingLead}
+                      type="date"
+                      onChange={(val) => setEditedLead({ ...editedLead, closing_forecast: val })}
+                    />
                     <div className="md:col-span-3">
                       <EditableInfoItem 
-                        label="Observações" 
+                        label="Notas da Negociação" 
                         value={editedLead.notes} 
                         originalValue={selectedLead.notes}
                         isEditing={isEditingLead}
@@ -1013,6 +1011,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                           const { error } = await supabase
                             .from('m4_leads')
                             .update({ 
+                              name: editedLead.name,
                               company: editedLead.company,
                               cnpj: editedLead.cnpj,
                               city: editedLead.city,
@@ -1033,6 +1032,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                               contact_linkedin: editedLead.contact_linkedin,
                               value: editedLead.value,
                               service_type: editedLead.service_type,
+                              closing_forecast: editedLead.closing_forecast,
                               notes: editedLead.notes,
                               pipeline_id: selectedPipelineForEdit || null 
                             })
@@ -1088,10 +1088,11 @@ const EditableInfoItem: React.FC<{
   originalValue: any;
   isEditing: boolean;
   isLink?: boolean;
+  isWhatsApp?: boolean;
   isTextArea?: boolean;
   type?: string;
   onChange: (val: string) => void;
-}> = ({ label, value, originalValue, isEditing, isLink, isTextArea, type = "text", onChange }) => (
+}> = ({ label, value, originalValue, isEditing, isLink, isWhatsApp, isTextArea, type = "text", onChange }) => (
   <div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
     {isEditing ? (
@@ -1111,13 +1112,24 @@ const EditableInfoItem: React.FC<{
       )
     ) : (
       originalValue ? (
-        isLink ? (
-          <a href={originalValue.startsWith('http') ? originalValue : `https://${originalValue}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 hover:underline break-all">
-            {originalValue}
-          </a>
-        ) : (
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 break-all">{originalValue}</p>
-        )
+        <div className="flex items-center gap-2">
+          {isLink ? (
+            <a href={originalValue.startsWith('http') ? originalValue : `https://${originalValue}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 hover:underline break-all">
+              {originalValue}
+            </a>
+          ) : (
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 break-all">{originalValue}</p>
+          )}
+          {isWhatsApp && (
+            <button 
+              onClick={() => window.open(`https://wa.me/55${originalValue.replace(/\D/g, '')}`, '_blank')}
+              className="p-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+              title="Conversar no WhatsApp"
+            >
+              <MessageSquare width="12" height="12" />
+            </button>
+          )}
+        </div>
       ) : (
         <p className="text-sm font-medium text-slate-300 italic">Não informado</p>
       )
