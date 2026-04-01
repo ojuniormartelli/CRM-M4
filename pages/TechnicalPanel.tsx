@@ -152,12 +152,27 @@ CREATE TABLE IF NOT EXISTS m4_client_accounts (
 CREATE TABLE IF NOT EXISTS m4_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    bank_type TEXT,
-    current_balance NUMERIC DEFAULT 0,
+    type TEXT,
+    balance NUMERIC DEFAULT 0,
     currency TEXT DEFAULT 'BRL',
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_finance_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS m4_credit_cards (
@@ -189,11 +204,24 @@ CREATE TABLE IF NOT EXISTS m4_transactions (
     due_date DATE,
     paid_date DATE,
     workspace_id UUID,
+    recurring_id UUID,
+    recurrence_type TEXT,
+    recurrence_period TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 8. Comunicação e Social
+CREATE TABLE IF NOT EXISTS m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    type TEXT,
+    note TEXT,
+    success BOOLEAN,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS m4_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_name TEXT,
@@ -232,7 +260,12 @@ CREATE TABLE IF NOT EXISTS m4_campaigns (
     click_rate TEXT DEFAULT '-',
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
+);
+
+-- RLS Policies
+ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated users" ON m4_interactions FOR ALL USING (auth.role() = 'authenticated');
+`;
 
   const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (M4 CRM - CRM Evolution)
 -- Use este script para adicionar novas funcionalidades a um banco já existente.
@@ -301,6 +334,9 @@ ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_occurrences INTE
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
 ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS workspace_id uuid;
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurring_id UUID;
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurrence_type TEXT;
+ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurrence_period TEXT;
 
 -- 7. Vincular E-mails às Empresas, Contatos e Negócios
 ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
@@ -313,7 +349,52 @@ ALTER TABLE m4_bank_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
 ALTER TABLE m4_credit_cards ADD COLUMN IF NOT EXISTS workspace_id UUID;
 ALTER TABLE m4_posts ADD COLUMN IF NOT EXISTS workspace_id UUID;
 ALTER TABLE m4_campaigns ADD COLUMN IF NOT EXISTS workspace_id UUID;
-ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID;`;
+ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID;
+
+-- 9. Novas Tabelas e Correções
+CREATE TABLE IF NOT EXISTS m4_finance_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    type TEXT,
+    note TEXT,
+    success BOOLEAN,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all for authenticated users' AND tablename = 'm4_interactions') THEN
+    CREATE POLICY "Enable all for authenticated users" ON m4_interactions FOR ALL USING (auth.role() = 'authenticated');
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN 
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='bank_type') THEN
+    ALTER TABLE m4_bank_accounts RENAME COLUMN bank_type TO type;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='current_balance') THEN
+    ALTER TABLE m4_bank_accounts RENAME COLUMN current_balance TO balance;
+  END IF;
+END $$;
+`;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

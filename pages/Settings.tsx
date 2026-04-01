@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import TechnicalPanel from './TechnicalPanel';
 import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
+import { format } from 'date-fns';
 
 import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod } from '../types';
 
@@ -21,6 +22,175 @@ interface SettingsProps {
   setPaymentMethods: (methods: PaymentMethod[]) => void;
 }
 
+const BackupTab = () => {
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const tables = [
+    'm4_settings',
+    'm4_job_roles',
+    'm4_users',
+    'm4_services',
+    'm4_finance_categories',
+    'm4_payment_methods',
+    'm4_bank_accounts',
+    'm4_credit_cards',
+    'm4_client_accounts',
+    'm4_pipelines',
+    'm4_stages',
+    'm4_companies',
+    'm4_contacts',
+    'm4_leads',
+    'm4_tasks',
+    'm4_interactions',
+    'm4_transactions'
+  ];
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    setProgress('Iniciando exportação...');
+    try {
+      const backupData: any = {};
+      for (const table of tables) {
+        setProgress(`Exportando ${table}...`);
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) throw error;
+        backupData[table] = data;
+      }
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const date = format(new Date(), 'dd_MM_yyyy');
+      link.href = url;
+      link.download = `backup_m4crm_${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setProgress('Backup concluído com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao exportar backup: ' + error.message);
+      setProgress(null);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm('ATENÇÃO: A restauração irá sobrescrever ou atualizar dados existentes com os mesmos IDs. Deseja continuar?')) return;
+
+    setIsImporting(true);
+    setProgress('Lendo arquivo de backup...');
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const backupData = JSON.parse(event.target?.result as string);
+          
+          for (const table of tables) {
+            if (backupData[table] && backupData[table].length > 0) {
+              setProgress(`Restaurando ${table} (${backupData[table].length} registros)...`);
+              const { error } = await supabase.from(table).upsert(backupData[table]);
+              if (error) {
+                console.error(`Erro ao restaurar ${table}:`, error);
+                if (!window.confirm(`Erro ao restaurar ${table}: ${error.message}. Deseja continuar com as outras tabelas?`)) {
+                  throw new Error('Importação interrompida pelo usuário.');
+                }
+              }
+            }
+          }
+
+          setProgress('Restauração concluída com sucesso! Recarregando...');
+          setTimeout(() => window.location.reload(), 2000);
+        } catch (err: any) {
+          alert('Erro ao processar arquivo: ' + err.message);
+          setIsImporting(false);
+          setProgress(null);
+        }
+      };
+      reader.readAsText(file);
+    } catch (error: any) {
+      alert('Erro ao importar backup: ' + error.message);
+      setIsImporting(false);
+      setProgress(null);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+        <div>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Backup e Restauração</h3>
+          <p className="text-xs text-slate-500 font-medium">Exporte todos os dados do seu CRM ou restaure de um arquivo anterior.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center">
+              <ICONS.Download size={24} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Exportar Dados</h4>
+              <p className="text-xs text-slate-500 mt-1">Gere um arquivo JSON contendo todos os registros do sistema.</p>
+            </div>
+            <button 
+              onClick={handleExport}
+              disabled={isExporting || isImporting}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isExporting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  EXPORTANDO...
+                </>
+              ) : (
+                'GERAR BACKUP COMPLETO (.json)'
+              )}
+            </button>
+          </div>
+
+          <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
+            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl flex items-center justify-center">
+              <ICONS.Upload size={24} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Restaurar Dados</h4>
+              <p className="text-xs text-slate-500 mt-1">Importe dados de um arquivo JSON de backup anterior.</p>
+            </div>
+            <label className="block">
+              <div className={`w-full py-4 bg-white dark:bg-slate-900 border-2 border-dashed ${isImporting ? 'border-emerald-500' : 'border-slate-200 dark:border-slate-700'} rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-all group`}>
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  onChange={handleImport}
+                  disabled={isExporting || isImporting}
+                  className="hidden" 
+                />
+                <span className="text-xs font-black text-slate-400 group-hover:text-emerald-600 uppercase tracking-widest">
+                  {isImporting ? 'RESTAURANDO...' : 'RESTAURAR BACKUP (.json)'}
+                </span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {progress && (
+          <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center gap-4 animate-in slide-in-from-top-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            <p className="text-xs font-bold tracking-widest uppercase">{progress}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Settings: React.FC<SettingsProps> = ({ 
   appMode, 
   currentUser, 
@@ -34,7 +204,7 @@ const Settings: React.FC<SettingsProps> = ({
   setPaymentMethods
 }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'finance'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'finance' | 'backup'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -637,6 +807,15 @@ const Settings: React.FC<SettingsProps> = ({
         >
           Financeiro
         </button>
+
+        {currentUser?.role === UserRole.OWNER && (
+          <button 
+            onClick={() => setActiveTab('backup')}
+            className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'backup' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            Backup
+          </button>
+        )}
       </div>
 
       {activeTab === 'services' && (
@@ -1398,6 +1577,10 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'backup' && currentUser?.role === UserRole.OWNER && (
+        <BackupTab />
       )}
 
       {isCategoryModalOpen && editingCategory && (

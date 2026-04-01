@@ -54,7 +54,9 @@ const Finance: React.FC<FinanceProps> = ({
     amount: 0,
     notes: ''
   });
-  const [editTransaction, setEditTransaction] = useState<Partial<Transaction>>({});
+  const [editTransaction, setEditTransaction] = useState<Partial<Transaction> & { updateScope?: 'single' | 'future' | 'all' }>({});
+  const [isUpdateScopeModalOpen, setIsUpdateScopeModalOpen] = useState(false);
+  const [isDeleteScopeModalOpen, setIsDeleteScopeModalOpen] = useState(false);
   
   // Date Filters
   const [dateRange, setDateRange] = useState<'current_month' | 'previous_month' | 'last_3_months' | 'next_3_months' | 'all' | 'custom'>('current_month');
@@ -147,7 +149,7 @@ const Finance: React.FC<FinanceProps> = ({
     return [...baseTransactions, ...projections].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, clientAccounts, dateRange, customStartDate, customEndDate]);
 
-  const [newTransaction, setNewTransaction] = useState<Partial<Transaction> & { to_bank_account_id?: string }>({
+  const [newTransaction, setNewTransaction] = useState<Partial<Transaction> & { to_bank_account_id?: string; recurrence?: 'none' | 'fixed' | 'variable'; months?: number | 'indefinite' }>({
     description: '',
     amount: 0,
     type: 'Receita',
@@ -159,7 +161,9 @@ const Finance: React.FC<FinanceProps> = ({
     bank_account_id: '',
     to_bank_account_id: '',
     credit_card_id: '',
-    client_account_id: ''
+    client_account_id: '',
+    recurrence: 'none',
+    months: 12
   });
 
   const [newBankAccount, setNewBankAccount] = useState<Partial<BankAccount>>({
@@ -240,24 +244,45 @@ const Finance: React.FC<FinanceProps> = ({
     }
   };
 
-  const handleUpdateTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateTransaction = async (e?: React.FormEvent, scope?: 'single' | 'future' | 'all') => {
+    if (e) e.preventDefault();
     if (!selectedTransaction) return;
+
+    // If it's recurring and no scope is provided, open the scope modal
+    if (selectedTransaction.recurring_id && !scope) {
+      setIsUpdateScopeModalOpen(true);
+      return;
+    }
+
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase
-        .from('m4_transactions')
-        .update({
-          ...editTransaction,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedTransaction.id)
-        .select();
+      const updateData = {
+        ...editTransaction,
+        updated_at: new Date().toISOString()
+      };
+
+      let query = supabase.from('m4_transactions').update(updateData);
+
+      if (scope === 'all') {
+        query = query.eq('recurring_id', selectedTransaction.recurring_id).neq('status', 'Pago').neq('status', 'Recebido');
+      } else if (scope === 'future') {
+        query = query.eq('recurring_id', selectedTransaction.recurring_id).gte('date', selectedTransaction.date);
+      } else {
+        query = query.eq('id', selectedTransaction.id);
+      }
+
+      const { data, error } = await query.select();
 
       if (error) throw error;
       if (data) {
-        setTransactions(prev => prev.map(t => t.id === selectedTransaction.id ? data[0] : t));
+        setTransactions(prev => {
+          return prev.map(t => {
+            const updated = data.find(d => d.id === t.id);
+            return updated ? updated : t;
+          });
+        });
         setIsEditModalOpen(false);
+        setIsUpdateScopeModalOpen(false);
         setIsDetailOpen(false);
         setSelectedTransaction(null);
       }
@@ -269,11 +294,18 @@ const Finance: React.FC<FinanceProps> = ({
     }
   };
 
-  const handleDeleteTransaction = async (deleteAllFuture = false) => {
+  const handleDeleteTransaction = async (scope?: 'single' | 'future' | 'all') => {
     if (!selectedTransaction) return;
+
+    // If it's recurring and no scope is provided, open the scope modal
+    if (selectedTransaction.recurring_id && !scope) {
+      setIsDeleteScopeModalOpen(true);
+      return;
+    }
+
     setIsSyncing(true);
     try {
-      // Revert balance if paid/received
+      // Revert balance if paid/received (only for the single transaction being deleted)
       if (selectedTransaction.status === 'Pago' || selectedTransaction.status === 'Recebido') {
         const accountId = selectedTransaction.account_id || selectedTransaction.bank_account_id;
         if (accountId) {
@@ -295,15 +327,32 @@ const Finance: React.FC<FinanceProps> = ({
       }
 
       // Delete from Supabase
-      const { error } = await supabase
-        .from('m4_transactions')
-        .delete()
-        .eq('id', selectedTransaction.id);
+      let query = supabase.from('m4_transactions').delete();
+
+      if (scope === 'all') {
+        query = query.eq('recurring_id', selectedTransaction.recurring_id).neq('status', 'Pago').neq('status', 'Recebido');
+      } else if (scope === 'future') {
+        query = query.eq('recurring_id', selectedTransaction.recurring_id).gte('date', selectedTransaction.date).neq('status', 'Pago').neq('status', 'Recebido');
+      } else {
+        query = query.eq('id', selectedTransaction.id);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
-      setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
+      setTransactions(prev => {
+        if (scope === 'all') {
+          return prev.filter(t => t.recurring_id !== selectedTransaction.recurring_id || t.status === 'Pago' || t.status === 'Recebido');
+        } else if (scope === 'future') {
+          return prev.filter(t => t.recurring_id !== selectedTransaction.recurring_id || t.date < selectedTransaction.date || t.status === 'Pago' || t.status === 'Recebido');
+        } else {
+          return prev.filter(t => t.id !== selectedTransaction.id);
+        }
+      });
+
       setIsDeleteModalOpen(false);
+      setIsDeleteScopeModalOpen(false);
       setIsDetailOpen(false);
       setSelectedTransaction(null);
     } catch (err: any) {
@@ -377,36 +426,66 @@ const Finance: React.FC<FinanceProps> = ({
           }));
         }
       } else {
-        const transactionData = {
-          ...newTransaction,
-          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-        };
+        const transactionsToCreate: any[] = [];
+        const isRecurring = newTransaction.recurrence && newTransaction.recurrence !== 'none';
+        const recurringId = isRecurring ? crypto.randomUUID() : null;
+        const numMonths = newTransaction.months === 'indefinite' ? 24 : (newTransaction.months || 1);
+
+        const baseDate = new Date(newTransaction.date || new Date());
+        const baseDueDate = new Date(newTransaction.due_date || new Date());
+
+        for (let i = 0; i < (isRecurring ? numMonths : 1); i++) {
+          const currentDate = new Date(baseDate);
+          currentDate.setMonth(baseDate.getMonth() + i);
+          
+          const currentDueDate = new Date(baseDueDate);
+          currentDueDate.setMonth(baseDueDate.getMonth() + i);
+
+          const amount = (i > 0 && newTransaction.recurrence === 'variable') ? 0 : Number(newTransaction.amount);
+          const status = i > 0 ? 'Pendente' : newTransaction.status;
+
+          transactionsToCreate.push({
+            description: newTransaction.description,
+            amount: amount,
+            type: newTransaction.type,
+            category: newTransaction.category,
+            status: status,
+            date: currentDate.toISOString().split('T')[0],
+            due_date: currentDueDate.toISOString().split('T')[0],
+            payment_method: newTransaction.payment_method,
+            bank_account_id: newTransaction.bank_account_id || null,
+            client_account_id: newTransaction.client_account_id || null,
+            notes: newTransaction.notes,
+            workspace_id: currentUser?.workspace_id,
+            recurring_id: recurringId,
+            recurrence_type: isRecurring ? newTransaction.recurrence : null,
+            recurrence_period: isRecurring ? 'monthly' : null
+          });
+        }
 
         const { data, error } = await supabase
           .from('m4_transactions')
-          .insert([transactionData])
+          .insert(transactionsToCreate)
           .select();
 
         if (!error && data) {
-          const createdTransaction = data[0];
-          setTransactions([...transactions, createdTransaction]);
+          setTransactions(prev => [...prev, ...data]);
           
-        // Update bank account balance if linked and paid
-        if (createdTransaction.bank_account_id && (createdTransaction.status === 'Pago' || createdTransaction.status === 'Recebido')) {
-          const account = bankAccounts.find(a => a.id === createdTransaction.bank_account_id);
-          if (account) {
-            const newBalance = createdTransaction.type === 'Receita' 
-              ? Number(account.balance) + Number(createdTransaction.amount)
-              : Number(account.balance) - Number(createdTransaction.amount);
-            
-            await supabase
-              .from('m4_bank_accounts')
-              .update({ balance: newBalance })
-              .eq('id', account.id);
+          // Update bank account balance if first transaction is paid
+          const firstTransaction = data[0];
+          if (firstTransaction.bank_account_id && (firstTransaction.status === 'Pago' || firstTransaction.status === 'Recebido')) {
+            const account = bankAccounts.find(a => a.id === firstTransaction.bank_account_id);
+            if (account) {
+              const newBalance = firstTransaction.type === 'Receita' 
+                ? Number(account.balance) + Number(firstTransaction.amount)
+                : Number(account.balance) - Number(firstTransaction.amount);
               
-            setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, balance: newBalance } : a));
+              await supabase.from('m4_bank_accounts').update({ balance: newBalance }).eq('id', account.id);
+              setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, balance: newBalance } : a));
+            }
           }
-        }
+        } else if (error) {
+          throw error;
         }
       }
 
@@ -423,7 +502,9 @@ const Finance: React.FC<FinanceProps> = ({
         bank_account_id: '',
         to_bank_account_id: '',
         credit_card_id: '',
-        client_account_id: ''
+        client_account_id: '',
+        recurrence: 'none',
+        months: 12
       });
     } catch (err) {
       console.error(err);
@@ -805,6 +886,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <div className="flex items-center gap-2">
                       {t.isProjected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
                       {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
+                      {t.recurring_id && <ICONS.Repeat className="w-3 h-3 text-indigo-500" />}
                       <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{t.description}</p>
                     </div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest">
@@ -995,6 +1077,16 @@ const Finance: React.FC<FinanceProps> = ({
                 </div>
               )}
 
+              {selectedTransaction.recurring_id && (
+                <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex items-center gap-3">
+                  <ICONS.Repeat className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <p className="text-xs text-indigo-700 font-bold uppercase tracking-tight">Lançamento Recorrente</p>
+                    <p className="text-[10px] text-indigo-600">Este lançamento faz parte de uma série mensal ({selectedTransaction.recurrence_type === 'fixed' ? 'Valor Fixo' : 'Valor Variável'}).</p>
+                  </div>
+                </div>
+              )}
+
               {selectedTransaction.isProjected && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-3">
                   <ICONS.Calendar className="w-5 h-5 text-blue-600" />
@@ -1043,7 +1135,55 @@ const Finance: React.FC<FinanceProps> = ({
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Update Scope Modal */}
+      {isUpdateScopeModalOpen && selectedTransaction && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-8 pb-4 text-center">
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ICONS.Repeat size={32} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 uppercase">Onde aplicar esta alteração?</h3>
+              <p className="text-sm text-slate-500 mt-2">Este lançamento faz parte de uma recorrência.</p>
+            </div>
+
+            <div className="p-8 pt-4 space-y-3">
+              <button
+                onClick={() => handleUpdateTransaction(undefined, 'single')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Apenas este mês</p>
+                <p className="text-[10px] text-slate-500">Altera somente o registro atual.</p>
+              </button>
+              <button
+                onClick={() => handleUpdateTransaction(undefined, 'future')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Este e os próximos</p>
+                <p className="text-[10px] text-slate-500">Altera o atual e todos os futuros vinculados.</p>
+              </button>
+              <button
+                onClick={() => handleUpdateTransaction(undefined, 'all')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Todos (inclusive passados)</p>
+                <p className="text-[10px] text-slate-500">Altera todo o histórico (exceto os já quitados).</p>
+              </button>
+              
+              <button
+                onClick={() => setIsUpdateScopeModalOpen(false)}
+                className="w-full p-4 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       {isConfirmModalOpen && selectedTransaction && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <motion.div 
@@ -1139,7 +1279,55 @@ const Finance: React.FC<FinanceProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Scope Modal */}
+      {isDeleteScopeModalOpen && selectedTransaction && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-8 pb-4 text-center">
+              <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ICONS.Trash2 size={32} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 uppercase">Onde aplicar esta exclusão?</h3>
+              <p className="text-sm text-slate-500 mt-2">Este lançamento faz parte de uma recorrência.</p>
+            </div>
+
+            <div className="p-8 pt-4 space-y-3">
+              <button
+                onClick={() => handleDeleteTransaction('single')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Apenas este mês</p>
+                <p className="text-[10px] text-slate-500">Exclui somente o registro atual.</p>
+              </button>
+              <button
+                onClick={() => handleDeleteTransaction('future')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Este e os próximos</p>
+                <p className="text-[10px] text-slate-500">Exclui o atual e todos os futuros vinculados.</p>
+              </button>
+              <button
+                onClick={() => handleDeleteTransaction('all')}
+                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+              >
+                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Todos (inclusive passados)</p>
+                <p className="text-[10px] text-slate-500">Exclui todo o histórico (exceto os já quitados).</p>
+              </button>
+              
+              <button
+                onClick={() => setIsDeleteScopeModalOpen(false)}
+                className="w-full p-4 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       {isDeleteModalOpen && selectedTransaction && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <motion.div 
@@ -1163,7 +1351,7 @@ const Finance: React.FC<FinanceProps> = ({
 
               <div className="flex flex-col gap-2">
                 <button 
-                  onClick={() => handleDeleteTransaction(false)}
+                  onClick={() => handleDeleteTransaction()}
                   disabled={isSyncing}
                   className="w-full py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all"
                 >
@@ -1251,6 +1439,25 @@ const Finance: React.FC<FinanceProps> = ({
                       onChange={e => setEditTransaction({...editTransaction, due_date: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center">
+                      <ICONS.Repeat size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Frequência / Recorrência</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Este lançamento faz parte de uma recorrência.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Tipo de Recorrência</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">
+                      {selectedTransaction.recurrence_type === 'fixed' ? 'Fixo' : 'Variável'}
+                    </p>
                   </div>
                 </div>
 

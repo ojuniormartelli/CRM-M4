@@ -347,6 +347,9 @@ export interface Transaction {
   created_at: string;
   updated_at?: string;
   isProjected?: boolean;
+  recurring_id?: string;
+  recurrence_type?: 'fixed' | 'variable';
+  recurrence_period?: 'monthly';
 }
 
 export enum UserRole {
