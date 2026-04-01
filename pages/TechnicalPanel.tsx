@@ -387,10 +387,15 @@ END $$;
 
 DO $$ 
 BEGIN 
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='bank_type') THEN
+  -- Tenta renomear bank_type para type apenas se bank_type existir E type NÃO existir
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='bank_type') 
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='type') THEN
     ALTER TABLE m4_bank_accounts RENAME COLUMN bank_type TO type;
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='current_balance') THEN
+
+  -- Tenta renomear current_balance para balance apenas se current_balance existir E balance NÃO existir
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='current_balance') 
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='balance') THEN
     ALTER TABLE m4_bank_accounts RENAME COLUMN current_balance TO balance;
   END IF;
 END $$;
