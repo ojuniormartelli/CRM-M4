@@ -301,10 +301,14 @@ export interface ClientAccount {
 
 export interface BankAccount {
   id: string;
+  workspace_id?: string;
   name: string;
-  bank_type: string;
-  current_balance: number;
+  type: string; // corrente, poupança, caixa, cartão, investimento
+  bank?: string;
+  balance: number;
   currency: string;
+  is_active: boolean;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -326,16 +330,22 @@ export interface Transaction {
   amount: number;
   date: string;
   description: string;
-  status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar' | 'Confirmado';
+  status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar' | 'Confirmado' | 'Atrasado' | 'Projetado';
   bank_account_id?: string;
+  account_id?: string; // New field for linked bank account
   client_account_id?: string;
   lead_id?: string;
   company_id?: string;
   credit_card_id?: string;
   payment_method?: string;
   due_date?: string;
-  paid_date?: string;
+  paid_at?: string; // Effective payment date
+  paid_amount?: number; // Effective payment amount
+  received_at?: string; // Effective receipt date
+  received_amount?: number; // Effective receipt amount
+  notes?: string;
   created_at: string;
+  updated_at?: string;
   isProjected?: boolean;
 }
 
