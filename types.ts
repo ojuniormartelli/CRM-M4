@@ -332,21 +332,17 @@ export interface Transaction {
   description: string;
   status: 'Pago' | 'Pendente' | 'Recebido' | 'A Receber' | 'A Pagar' | 'Confirmado' | 'Atrasado' | 'Projetado';
   bank_account_id?: string;
-  account_id?: string; // New field for linked bank account
   client_account_id?: string;
   lead_id?: string;
   company_id?: string;
   credit_card_id?: string;
   payment_method?: string;
   due_date?: string;
-  paid_at?: string; // Effective payment date
-  paid_amount?: number; // Effective payment amount
-  received_at?: string; // Effective receipt date
-  received_amount?: number; // Effective receipt amount
+  paid_date?: string; // Effective payment/receipt date (DB column)
   notes?: string;
   created_at: string;
   updated_at?: string;
-  isProjected?: boolean;
+  is_projected?: boolean;
   is_recurring?: boolean;
   recurrence_type?: 'weekly' | 'monthly' | 'yearly' | 'semanal' | 'quinzenal' | 'mensal' | 'anual' | 'personalizado';
   recurrence?: 'fixed' | 'variable';

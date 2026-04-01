@@ -144,7 +144,7 @@ const Finance: React.FC<FinanceProps> = ({
               due_date: projectedDate.toISOString(),
               client_account_id: acc.id,
               bank_account_id: acc.bank_account_id,
-              isProjected: true,
+              is_projected: true,
               created_at: new Date().toISOString()
             } as Transaction);
           }
@@ -239,14 +239,32 @@ const Finance: React.FC<FinanceProps> = ({
       const newStatus = isRevenue ? 'Recebido' : 'Pago';
       const amount = Number(confirmData.amount);
 
-      // 1. Update Transaction
-      const updateData: Partial<Transaction> = {
+      // 1. Update Transaction with explicit whitelist
+      const isRecurring = selectedTransaction.is_recurring;
+      const updateData = {
+        description: selectedTransaction.description,
+        amount: Number(selectedTransaction.amount),
+        type: selectedTransaction.type,
+        category: selectedTransaction.category,
         status: newStatus,
-        account_id: confirmData.accountId,
-        bank_account_id: confirmData.accountId, // For backward compatibility
-        paid_at: new Date(confirmData.date).toISOString(),
-        paid_amount: amount,
+        date: selectedTransaction.date,
+        due_date: selectedTransaction.due_date,
+        payment_method: selectedTransaction.payment_method,
+        bank_account_id: confirmData.accountId,
+        client_account_id: selectedTransaction.client_account_id || null,
+        paid_date: new Date(confirmData.date).toISOString().split('T')[0],
         notes: confirmData.notes || selectedTransaction.notes,
+        is_recurring: isRecurring,
+        // Recurrence fields - explicitly nullified if is_recurring is false
+        recurrence_type: isRecurring ? selectedTransaction.recurrence_type : null,
+        recurrence: isRecurring ? selectedTransaction.recurrence : null,
+        recurrence_interval: isRecurring ? selectedTransaction.recurrence_interval : null,
+        recurrence_day_of_month: isRecurring ? selectedTransaction.recurrence_day_of_month : null,
+        recurrence_day_of_week: isRecurring ? selectedTransaction.recurrence_day_of_week : null,
+        recurrence_month: isRecurring ? selectedTransaction.recurrence_month : null,
+        recurrence_unit: isRecurring ? selectedTransaction.recurrence_unit : null,
+        recurrence_end_date: isRecurring ? selectedTransaction.recurrence_end_date : null,
+        recurring_id: isRecurring ? selectedTransaction.recurring_id : null,
         updated_at: new Date().toISOString()
       };
 
@@ -302,13 +320,34 @@ const Finance: React.FC<FinanceProps> = ({
 
     setIsSyncing(true);
     try {
+      // Sanitize data before sending to Supabase with explicit whitelist
+      const isRecurring = editTransaction.is_recurring;
       const updateData = {
-        ...editTransaction,
+        description: editTransaction.description,
+        amount: Number(editTransaction.amount),
+        type: editTransaction.type,
+        category: editTransaction.category,
+        status: editTransaction.status,
+        date: editTransaction.date,
+        due_date: editTransaction.due_date,
+        payment_method: editTransaction.payment_method,
+        bank_account_id: editTransaction.bank_account_id || null,
+        client_account_id: editTransaction.client_account_id || null,
+        paid_date: editTransaction.paid_date || null,
+        notes: editTransaction.notes,
+        is_recurring: isRecurring,
+        // Recurrence fields - explicitly nullified if is_recurring is false
+        recurrence_type: isRecurring ? editTransaction.recurrence_type : null,
+        recurrence: isRecurring ? editTransaction.recurrence : null,
+        recurrence_interval: isRecurring ? editTransaction.recurrence_interval : null,
+        recurrence_day_of_month: isRecurring ? editTransaction.recurrence_day_of_month : null,
+        recurrence_day_of_week: isRecurring ? editTransaction.recurrence_day_of_week : null,
+        recurrence_month: isRecurring ? editTransaction.recurrence_month : null,
+        recurrence_unit: isRecurring ? editTransaction.recurrence_unit : null,
+        recurrence_end_date: isRecurring ? editTransaction.recurrence_end_date : null,
+        recurring_id: isRecurring ? editTransaction.recurring_id : null,
         updated_at: new Date().toISOString()
       };
-
-      // Remove scope from update data
-      delete (updateData as any).updateScope;
 
       let query = supabase.from('m4_transactions').update(updateData);
 
@@ -356,11 +395,11 @@ const Finance: React.FC<FinanceProps> = ({
     try {
       // Revert balance if paid/received (only for the single transaction being deleted)
       if (selectedTransaction.status === 'Pago' || selectedTransaction.status === 'Recebido') {
-        const accountId = selectedTransaction.account_id || selectedTransaction.bank_account_id;
+        const accountId = selectedTransaction.bank_account_id;
         if (accountId) {
           const account = bankAccounts.find(a => a.id === accountId);
           if (account) {
-            const amount = Number(selectedTransaction.paid_amount || selectedTransaction.amount);
+            const amount = Number(selectedTransaction.amount);
             const newBalance = selectedTransaction.type === 'Receita'
               ? Number(account.balance) - amount
               : Number(account.balance) + amount;
@@ -556,6 +595,7 @@ const Finance: React.FC<FinanceProps> = ({
             payment_method: newTransaction.payment_method,
             bank_account_id: newTransaction.bank_account_id || null,
             client_account_id: newTransaction.client_account_id || null,
+            paid_date: (status === 'Pago' || status === 'Recebido') ? (newTransaction.paid_date || newTransaction.date) : null,
             notes: newTransaction.notes,
             workspace_id: currentUser?.workspace_id,
             recurring_id: recurringId,
@@ -987,7 +1027,7 @@ const Finance: React.FC<FinanceProps> = ({
               .map(t => (
                 <tr 
                   key={t.id || `proj-${t.client_account_id}-${t.date}`} 
-                  className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${t.isProjected ? 'bg-slate-50/30 italic' : ''}`}
+                  className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${t.is_projected ? 'bg-slate-50/30 italic' : ''}`}
                   onClick={() => {
                     setSelectedTransaction(t);
                     setIsDetailOpen(true);
@@ -995,13 +1035,13 @@ const Finance: React.FC<FinanceProps> = ({
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      {t.isProjected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
+                      {t.is_projected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
                       {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
                       {t.recurring_id && <ICONS.Repeat className="w-3 h-3 text-indigo-500" />}
                       <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{t.description}</p>
                     </div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest">
-                      {t.isProjected ? 'Projeção Automática' : (t.payment_method || 'Não definido')}
+                      {t.is_projected ? 'Projeção Automática' : (t.payment_method || 'Não definido')}
                     </p>
                   </td>
                   <td className="px-6 py-4">
@@ -1014,11 +1054,11 @@ const Finance: React.FC<FinanceProps> = ({
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
                       t.status === 'Pago' || t.status === 'Recebido' || t.status === 'Confirmado'
                         ? 'bg-emerald-100 text-emerald-700' 
-                        : t.isProjected 
+                        : t.is_projected 
                           ? 'bg-blue-50 text-blue-600 border border-blue-100' 
                           : 'bg-amber-100 text-amber-700'
                     }`}>
-                      {t.isProjected ? 'Projetado' : t.status}
+                      {t.is_projected ? 'Projetado' : t.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -1034,7 +1074,7 @@ const Finance: React.FC<FinanceProps> = ({
                           setSelectedTransaction(t);
                           setConfirmData({
                             date: new Date().toISOString().split('T')[0],
-                            accountId: t.account_id || t.bank_account_id || '',
+                            accountId: t.bank_account_id || '',
                             amount: t.amount,
                             notes: ''
                           });
@@ -1176,9 +1216,15 @@ const Finance: React.FC<FinanceProps> = ({
                 <div className="p-3 bg-slate-50 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Conta</p>
                   <p className="text-sm font-bold text-slate-700">
-                    {bankAccounts.find(a => a.id === (selectedTransaction.account_id || selectedTransaction.bank_account_id))?.name || 'Não definida'}
+                    {bankAccounts.find(a => a.id === selectedTransaction.bank_account_id)?.name || 'Não definida'}
                   </p>
                 </div>
+                {selectedTransaction.paid_date && (
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 col-span-2">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Data da Efetivação</p>
+                    <p className="text-sm font-bold text-emerald-700">{format(parseISO(selectedTransaction.paid_date), 'dd/MM/yyyy')}</p>
+                  </div>
+                )}
               </div>
 
               {selectedTransaction.notes && (
@@ -1200,7 +1246,7 @@ const Finance: React.FC<FinanceProps> = ({
                 </div>
               )}
 
-              {selectedTransaction.isProjected && (
+              {selectedTransaction.is_projected && (
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-3">
                   <ICONS.Calendar className="w-5 h-5 text-blue-600" />
                   <p className="text-xs text-blue-700 font-medium">Este é um lançamento projetado automaticamente.</p>
@@ -1239,7 +1285,7 @@ const Finance: React.FC<FinanceProps> = ({
                   onClick={() => {
                     setConfirmData({
                       date: new Date().toISOString().split('T')[0],
-                      accountId: selectedTransaction.account_id || selectedTransaction.bank_account_id || '',
+                      accountId: selectedTransaction.bank_account_id || '',
                       amount: selectedTransaction.amount,
                       notes: ''
                     });
@@ -1561,6 +1607,17 @@ const Finance: React.FC<FinanceProps> = ({
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     />
                   </div>
+                  {(editTransaction.status === 'Pago' || editTransaction.status === 'Recebido') && (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data Efetivação</label>
+                      <input 
+                        type="date" 
+                        value={editTransaction.paid_date?.split('T')[0]} 
+                        onChange={e => setEditTransaction({...editTransaction, paid_date: e.target.value})}
+                        className="w-full p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/30 font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-emerald-900 dark:text-emerald-400"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
@@ -1870,6 +1927,17 @@ const Finance: React.FC<FinanceProps> = ({
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     />
                   </div>
+                  {(newTransaction.status === 'Pago' || newTransaction.status === 'Recebido') && (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data Efetivação</label>
+                      <input 
+                        type="date" 
+                        value={newTransaction.paid_date} 
+                        onChange={e => setNewTransaction({...newTransaction, paid_date: e.target.value})}
+                        className="w-full p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/30 font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-emerald-900 dark:text-emerald-400"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Método de Pagamento</label>
                     <select 
