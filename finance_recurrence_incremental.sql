@@ -28,6 +28,22 @@ BEGIN
         ALTER TABLE m4_transactions ADD COLUMN recurring_id UUID;
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_transactions' AND column_name = 'recurrence_day_of_month') THEN
+        ALTER TABLE m4_transactions ADD COLUMN recurrence_day_of_month INTEGER;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_transactions' AND column_name = 'recurrence_day_of_week') THEN
+        ALTER TABLE m4_transactions ADD COLUMN recurrence_day_of_week INTEGER;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_transactions' AND column_name = 'recurrence_month') THEN
+        ALTER TABLE m4_transactions ADD COLUMN recurrence_month INTEGER;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_transactions' AND column_name = 'recurrence_unit') THEN
+        ALTER TABLE m4_transactions ADD COLUMN recurrence_unit TEXT; -- 'days', 'weeks', 'months', 'years'
+    END IF;
+
     -- Índices para performance
     IF NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = 'idx_m4_transactions_recurring_id' AND n.nspname = 'public') THEN
         CREATE INDEX idx_m4_transactions_recurring_id ON m4_transactions(recurring_id);

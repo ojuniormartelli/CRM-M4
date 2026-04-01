@@ -352,6 +352,10 @@ export interface Transaction {
   recurrence?: 'fixed' | 'variable';
   recurrence_interval?: number;
   recurrence_day?: number;
+  recurrence_day_of_month?: number;
+  recurrence_day_of_week?: number;
+  recurrence_month?: number;
+  recurrence_unit?: 'days' | 'weeks' | 'months' | 'years';
   recurrence_end_date?: string;
   recurring_id?: string;
   recurrence_period?: 'monthly';

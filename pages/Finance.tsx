@@ -57,6 +57,45 @@ const Finance: React.FC<FinanceProps> = ({
   const [editTransaction, setEditTransaction] = useState<Partial<Transaction> & { updateScope?: 'single' | 'future' | 'all'; recurrence?: 'fixed' | 'variable'; months?: number | 'indefinite' }>({});
   const [isUpdateScopeModalOpen, setIsUpdateScopeModalOpen] = useState(false);
   const [isDeleteScopeModalOpen, setIsDeleteScopeModalOpen] = useState(false);
+
+  const getRecurrenceSummary = (t: Partial<Transaction>) => {
+    if (!t.is_recurring) return null;
+
+    const interval = t.recurrence_interval || 1;
+    const type = t.recurrence_type;
+    const dayOfMonth = t.recurrence_day_of_month;
+    const dayOfWeek = t.recurrence_day_of_week;
+    const month = t.recurrence_month;
+    const unit = t.recurrence_unit;
+
+    const daysOfWeek = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+    const months = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+    if (type === 'monthly') {
+      const intervalText = interval === 1 ? 'todo mês' : `a cada ${interval} meses`;
+      return `Mensal: ${intervalText}, no dia ${dayOfMonth}`;
+    }
+
+    if (type === 'weekly' || type === 'quinzenal') {
+      const intervalToUse = type === 'quinzenal' ? 2 : interval;
+      const intervalText = intervalToUse === 1 ? 'toda' : `a cada ${intervalToUse} semanas, na`;
+      const dayText = dayOfWeek !== undefined ? daysOfWeek[dayOfWeek] : 'dia selecionado';
+      return `${type === 'quinzenal' ? 'Quinzenal' : 'Semanal'}: ${intervalText} ${dayText}`;
+    }
+
+    if (type === 'yearly') {
+      const intervalText = interval === 1 ? 'todo ano' : `a cada ${interval} anos`;
+      const dateText = (dayOfMonth && month) ? `em ${dayOfMonth}/${month.toString().padStart(2, '0')}` : 'na data selecionada';
+      return `Anual: ${intervalText} ${dateText}`;
+    }
+
+    if (type === 'personalizado') {
+      const unitMap: any = { days: 'dias', weeks: 'semanas', months: 'meses', years: 'anos' };
+      return `Personalizado: A cada ${interval} ${unitMap[unit || 'days']}`;
+    }
+
+    return 'Configuração de recorrência';
+  };
   
   // Date Filters
   const [dateRange, setDateRange] = useState<'current_month' | 'previous_month' | 'last_3_months' | 'next_3_months' | 'all' | 'custom'>('current_month');
@@ -165,6 +204,10 @@ const Finance: React.FC<FinanceProps> = ({
     is_recurring: false,
     recurrence_type: 'monthly',
     recurrence_interval: 1,
+    recurrence_day_of_month: new Date().getDate(),
+    recurrence_day_of_week: new Date().getDay(),
+    recurrence_month: new Date().getMonth() + 1,
+    recurrence_unit: 'months',
     recurrence: 'fixed',
     months: 12
   });
@@ -442,21 +485,61 @@ const Finance: React.FC<FinanceProps> = ({
 
         for (let i = 0; i < (isRecurring ? numMonths : 1); i++) {
           const currentDate = new Date(baseDate);
-          if (newTransaction.recurrence_type === 'monthly') {
-            currentDate.setMonth(baseDate.getMonth() + (i * (newTransaction.recurrence_interval || 1)));
-          } else if (newTransaction.recurrence_type === 'weekly') {
-            currentDate.setDate(baseDate.getDate() + (i * 7 * (newTransaction.recurrence_interval || 1)));
-          } else if (newTransaction.recurrence_type === 'yearly') {
-            currentDate.setFullYear(baseDate.getFullYear() + (i * (newTransaction.recurrence_interval || 1)));
-          }
-          
           const currentDueDate = new Date(baseDueDate);
-          if (newTransaction.recurrence_type === 'monthly') {
-            currentDueDate.setMonth(baseDueDate.getMonth() + (i * (newTransaction.recurrence_interval || 1)));
-          } else if (newTransaction.recurrence_type === 'weekly') {
-            currentDueDate.setDate(baseDueDate.getDate() + (i * 7 * (newTransaction.recurrence_interval || 1)));
-          } else if (newTransaction.recurrence_type === 'yearly') {
-            currentDueDate.setFullYear(baseDueDate.getFullYear() + (i * (newTransaction.recurrence_interval || 1)));
+
+          if (isRecurring) {
+            const interval = newTransaction.recurrence_interval || 1;
+            
+            if (newTransaction.recurrence_type === 'monthly') {
+              const monthsToAdd = i * interval;
+              currentDate.setMonth(baseDate.getMonth() + monthsToAdd);
+              currentDueDate.setMonth(baseDueDate.getMonth() + monthsToAdd);
+              
+              if (newTransaction.recurrence_day_of_month) {
+                currentDate.setDate(newTransaction.recurrence_day_of_month);
+                currentDueDate.setDate(newTransaction.recurrence_day_of_month);
+              }
+            } else if (newTransaction.recurrence_type === 'weekly' || newTransaction.recurrence_type === 'quinzenal') {
+              const intervalToUse = newTransaction.recurrence_type === 'quinzenal' ? 2 : interval;
+              const weeksToAdd = i * intervalToUse;
+              currentDate.setDate(baseDate.getDate() + (weeksToAdd * 7));
+              currentDueDate.setDate(baseDueDate.getDate() + (weeksToAdd * 7));
+
+              if (newTransaction.recurrence_day_of_week !== undefined) {
+                const currentDay = currentDate.getDay();
+                const diff = newTransaction.recurrence_day_of_week - currentDay;
+                currentDate.setDate(currentDate.getDate() + diff);
+                currentDueDate.setDate(currentDueDate.getDate() + diff);
+              }
+            } else if (newTransaction.recurrence_type === 'yearly') {
+              const yearsToAdd = i * interval;
+              currentDate.setFullYear(baseDate.getFullYear() + yearsToAdd);
+              currentDueDate.setFullYear(baseDueDate.getFullYear() + yearsToAdd);
+
+              if (newTransaction.recurrence_day_of_month) {
+                currentDate.setDate(newTransaction.recurrence_day_of_month);
+                currentDueDate.setDate(newTransaction.recurrence_day_of_month);
+              }
+              if (newTransaction.recurrence_month) {
+                currentDate.setMonth(newTransaction.recurrence_month - 1);
+                currentDueDate.setMonth(newTransaction.recurrence_month - 1);
+              }
+            } else if (newTransaction.recurrence_type === 'personalizado') {
+              const unit = newTransaction.recurrence_unit || 'days';
+              if (unit === 'days') {
+                currentDate.setDate(baseDate.getDate() + (i * interval));
+                currentDueDate.setDate(baseDueDate.getDate() + (i * interval));
+              } else if (unit === 'weeks') {
+                currentDate.setDate(baseDate.getDate() + (i * interval * 7));
+                currentDueDate.setDate(baseDueDate.getDate() + (i * interval * 7));
+              } else if (unit === 'months') {
+                currentDate.setMonth(baseDate.getMonth() + (i * interval));
+                currentDueDate.setMonth(baseDueDate.getMonth() + (i * interval));
+              } else if (unit === 'years') {
+                currentDate.setFullYear(baseDate.getFullYear() + (i * interval));
+                currentDueDate.setFullYear(baseDueDate.getFullYear() + (i * interval));
+              }
+            }
           }
 
           const amount = (i > 0 && newTransaction.recurrence === 'variable') ? 0 : Number(newTransaction.amount);
@@ -480,6 +563,10 @@ const Finance: React.FC<FinanceProps> = ({
             recurrence_type: isRecurring ? newTransaction.recurrence_type : null,
             recurrence: isRecurring ? newTransaction.recurrence : null,
             recurrence_interval: isRecurring ? newTransaction.recurrence_interval : null,
+            recurrence_day_of_month: isRecurring ? newTransaction.recurrence_day_of_month : null,
+            recurrence_day_of_week: isRecurring ? newTransaction.recurrence_day_of_week : null,
+            recurrence_month: isRecurring ? newTransaction.recurrence_month : null,
+            recurrence_unit: isRecurring ? newTransaction.recurrence_unit : null,
             recurrence_end_date: isRecurring ? newTransaction.recurrence_end_date : null
           });
         }
@@ -1106,7 +1193,9 @@ const Finance: React.FC<FinanceProps> = ({
                   <ICONS.Repeat className="w-5 h-5 text-indigo-600" />
                   <div>
                     <p className="text-xs text-indigo-700 font-bold uppercase tracking-tight">Lançamento Recorrente</p>
-                    <p className="text-[10px] text-indigo-600">Este lançamento faz parte de uma série mensal ({selectedTransaction.recurrence === 'fixed' ? 'Valor Fixo' : 'Valor Variável'}).</p>
+                    <p className="text-[10px] text-indigo-600">
+                      {getRecurrenceSummary(selectedTransaction)} ({selectedTransaction.recurrence === 'fixed' ? 'Valor Fixo' : 'Valor Variável'})
+                    </p>
                   </div>
                 </div>
               )}
@@ -1122,7 +1211,15 @@ const Finance: React.FC<FinanceProps> = ({
             <div className="p-6 border-t border-slate-100 bg-slate-50 grid grid-cols-3 gap-3">
               <button 
                 onClick={() => {
-                  setEditTransaction(selectedTransaction);
+                  const tx = { ...selectedTransaction };
+                  if (tx.is_recurring && !tx.recurrence_day_of_month && tx.due_date) {
+                    const d = new Date(tx.due_date);
+                    tx.recurrence_day_of_month = d.getUTCDate();
+                    tx.recurrence_day_of_week = d.getUTCDay();
+                    tx.recurrence_month = d.getUTCMonth() + 1;
+                    if (!tx.recurrence_unit) tx.recurrence_unit = 'months';
+                  }
+                  setEditTransaction(tx);
                   setIsEditModalOpen(true);
                 }}
                 className="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:text-blue-600 transition-all group"
@@ -1501,12 +1598,108 @@ const Finance: React.FC<FinanceProps> = ({
                             className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
                           >
                             <option value="weekly">Semanal</option>
+                            <option value="quinzenal">Quinzenal</option>
                             <option value="monthly">Mensal</option>
                             <option value="yearly">Anual</option>
+                            <option value="personalizado">Personalizado</option>
                           </select>
                         </div>
+
+                        {editTransaction.recurrence_type === 'monthly' && (
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia do Mês</label>
+                            <select 
+                              value={editTransaction.recurrence_day_of_month}
+                              onChange={e => setEditTransaction({...editTransaction, recurrence_day_of_month: parseInt(e.target.value)})}
+                              className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                            >
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                <option key={day} value={day}>{day}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {editTransaction.recurrence_type === 'weekly' && (
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia da Semana</label>
+                            <select 
+                              value={editTransaction.recurrence_day_of_week}
+                              onChange={e => setEditTransaction({...editTransaction, recurrence_day_of_week: parseInt(e.target.value)})}
+                              className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                            >
+                              <option value={0}>Domingo</option>
+                              <option value={1}>Segunda-feira</option>
+                              <option value={2}>Terça-feira</option>
+                              <option value={3}>Quarta-feira</option>
+                              <option value={4}>Quinta-feira</option>
+                              <option value={5}>Sexta-feira</option>
+                              <option value={6}>Sábado</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {editTransaction.recurrence_type === 'yearly' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia</label>
+                              <select 
+                                value={editTransaction.recurrence_day_of_month}
+                                onChange={e => setEditTransaction({...editTransaction, recurrence_day_of_month: parseInt(e.target.value)})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                  <option key={day} value={day}>{day}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Mês</label>
+                              <select 
+                                value={editTransaction.recurrence_month}
+                                onChange={e => setEditTransaction({...editTransaction, recurrence_month: parseInt(e.target.value)})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
+                                  <option key={i} value={i + 1}>{m}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {editTransaction.recurrence_type === 'personalizado' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo</label>
+                              <input 
+                                type="number"
+                                min="1"
+                                value={editTransaction.recurrence_interval}
+                                onChange={e => setEditTransaction({...editTransaction, recurrence_interval: parseInt(e.target.value) || 1})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Unidade</label>
+                              <select 
+                                value={editTransaction.recurrence_unit}
+                                onChange={e => setEditTransaction({...editTransaction, recurrence_unit: e.target.value as any})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                <option value="days">Dias</option>
+                                <option value="weeks">Semanas</option>
+                                <option value="months">Meses</option>
+                                <option value="years">Anos</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {editTransaction.recurrence_type !== 'personalizado' && editTransaction.recurrence_type !== 'quinzenal' && (
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo (cada X)</label>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Repetir a cada X {editTransaction.recurrence_type === 'monthly' ? 'meses' : editTransaction.recurrence_type === 'weekly' ? 'semanas' : 'anos'}</label>
                           <input 
                             type="number"
                             min="1"
@@ -1515,7 +1708,7 @@ const Finance: React.FC<FinanceProps> = ({
                             className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
                           />
                         </div>
-                      </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -1538,6 +1731,13 @@ const Finance: React.FC<FinanceProps> = ({
                             className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
                           />
                         </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Resumo da Recorrência</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          {getRecurrenceSummary(editTransaction)}
+                        </p>
                       </div>
                     </motion.div>
                   )}
@@ -1777,12 +1977,108 @@ const Finance: React.FC<FinanceProps> = ({
                             className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
                           >
                             <option value="weekly">Semanal</option>
+                            <option value="quinzenal">Quinzenal</option>
                             <option value="monthly">Mensal</option>
                             <option value="yearly">Anual</option>
+                            <option value="personalizado">Personalizado</option>
                           </select>
                         </div>
+
+                        {newTransaction.recurrence_type === 'monthly' && (
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia do Mês</label>
+                            <select 
+                              value={newTransaction.recurrence_day_of_month}
+                              onChange={e => setNewTransaction({...newTransaction, recurrence_day_of_month: parseInt(e.target.value)})}
+                              className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                            >
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                <option key={day} value={day}>{day}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {newTransaction.recurrence_type === 'weekly' && (
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia da Semana</label>
+                            <select 
+                              value={newTransaction.recurrence_day_of_week}
+                              onChange={e => setNewTransaction({...newTransaction, recurrence_day_of_week: parseInt(e.target.value)})}
+                              className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                            >
+                              <option value={0}>Domingo</option>
+                              <option value={1}>Segunda-feira</option>
+                              <option value={2}>Terça-feira</option>
+                              <option value={3}>Quarta-feira</option>
+                              <option value={4}>Quinta-feira</option>
+                              <option value={5}>Sexta-feira</option>
+                              <option value={6}>Sábado</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {newTransaction.recurrence_type === 'yearly' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Dia</label>
+                              <select 
+                                value={newTransaction.recurrence_day_of_month}
+                                onChange={e => setNewTransaction({...newTransaction, recurrence_day_of_month: parseInt(e.target.value)})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                  <option key={day} value={day}>{day}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Mês</label>
+                              <select 
+                                value={newTransaction.recurrence_month}
+                                onChange={e => setNewTransaction({...newTransaction, recurrence_month: parseInt(e.target.value)})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
+                                  <option key={i} value={i + 1}>{m}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {newTransaction.recurrence_type === 'personalizado' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo</label>
+                              <input 
+                                type="number"
+                                min="1"
+                                value={newTransaction.recurrence_interval}
+                                onChange={e => setNewTransaction({...newTransaction, recurrence_interval: parseInt(e.target.value) || 1})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Unidade</label>
+                              <select 
+                                value={newTransaction.recurrence_unit}
+                                onChange={e => setNewTransaction({...newTransaction, recurrence_unit: e.target.value as any})}
+                                className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                              >
+                                <option value="days">Dias</option>
+                                <option value="weeks">Semanas</option>
+                                <option value="months">Meses</option>
+                                <option value="years">Anos</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {newTransaction.recurrence_type !== 'personalizado' && newTransaction.recurrence_type !== 'quinzenal' && (
                         <div>
-                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo (cada X)</label>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Repetir a cada X {newTransaction.recurrence_type === 'monthly' ? 'meses' : newTransaction.recurrence_type === 'weekly' ? 'semanas' : 'anos'}</label>
                           <input 
                             type="number"
                             min="1"
@@ -1791,7 +2087,7 @@ const Finance: React.FC<FinanceProps> = ({
                             className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
                           />
                         </div>
-                      </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -1818,6 +2114,13 @@ const Finance: React.FC<FinanceProps> = ({
                             <option value="indefinite">Indeterminado</option>
                           </select>
                         </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Resumo da Recorrência</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          {getRecurrenceSummary(newTransaction)}
+                        </p>
                       </div>
                     </motion.div>
                   )}
