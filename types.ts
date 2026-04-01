@@ -347,9 +347,15 @@ export interface Transaction {
   created_at: string;
   updated_at?: string;
   isProjected?: boolean;
+  is_recurring?: boolean;
+  recurrence_type?: 'weekly' | 'monthly' | 'yearly' | 'semanal' | 'quinzenal' | 'mensal' | 'anual' | 'personalizado';
+  recurrence?: 'fixed' | 'variable';
+  recurrence_interval?: number;
+  recurrence_day?: number;
+  recurrence_end_date?: string;
   recurring_id?: string;
-  recurrence_type?: 'fixed' | 'variable';
   recurrence_period?: 'monthly';
+  months?: number | 'indefinite';
 }
 
 export enum UserRole {

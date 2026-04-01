@@ -54,7 +54,7 @@ const Finance: React.FC<FinanceProps> = ({
     amount: 0,
     notes: ''
   });
-  const [editTransaction, setEditTransaction] = useState<Partial<Transaction> & { updateScope?: 'single' | 'future' | 'all' }>({});
+  const [editTransaction, setEditTransaction] = useState<Partial<Transaction> & { updateScope?: 'single' | 'future' | 'all'; recurrence?: 'fixed' | 'variable'; months?: number | 'indefinite' }>({});
   const [isUpdateScopeModalOpen, setIsUpdateScopeModalOpen] = useState(false);
   const [isDeleteScopeModalOpen, setIsDeleteScopeModalOpen] = useState(false);
   
@@ -149,7 +149,7 @@ const Finance: React.FC<FinanceProps> = ({
     return [...baseTransactions, ...projections].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, clientAccounts, dateRange, customStartDate, customEndDate]);
 
-  const [newTransaction, setNewTransaction] = useState<Partial<Transaction> & { to_bank_account_id?: string; recurrence?: 'none' | 'fixed' | 'variable'; months?: number | 'indefinite' }>({
+  const [newTransaction, setNewTransaction] = useState<Partial<Transaction> & { to_bank_account_id?: string; recurrence?: 'fixed' | 'variable'; months?: number | 'indefinite' }>({
     description: '',
     amount: 0,
     type: 'Receita',
@@ -162,7 +162,10 @@ const Finance: React.FC<FinanceProps> = ({
     to_bank_account_id: '',
     credit_card_id: '',
     client_account_id: '',
-    recurrence: 'none',
+    is_recurring: false,
+    recurrence_type: 'monthly',
+    recurrence_interval: 1,
+    recurrence: 'fixed',
     months: 12
   });
 
@@ -260,6 +263,9 @@ const Finance: React.FC<FinanceProps> = ({
         ...editTransaction,
         updated_at: new Date().toISOString()
       };
+
+      // Remove scope from update data
+      delete (updateData as any).updateScope;
 
       let query = supabase.from('m4_transactions').update(updateData);
 
@@ -427,7 +433,7 @@ const Finance: React.FC<FinanceProps> = ({
         }
       } else {
         const transactionsToCreate: any[] = [];
-        const isRecurring = newTransaction.recurrence && newTransaction.recurrence !== 'none';
+        const isRecurring = newTransaction.is_recurring;
         const recurringId = isRecurring ? crypto.randomUUID() : null;
         const numMonths = newTransaction.months === 'indefinite' ? 24 : (newTransaction.months || 1);
 
@@ -436,10 +442,22 @@ const Finance: React.FC<FinanceProps> = ({
 
         for (let i = 0; i < (isRecurring ? numMonths : 1); i++) {
           const currentDate = new Date(baseDate);
-          currentDate.setMonth(baseDate.getMonth() + i);
+          if (newTransaction.recurrence_type === 'monthly') {
+            currentDate.setMonth(baseDate.getMonth() + (i * (newTransaction.recurrence_interval || 1)));
+          } else if (newTransaction.recurrence_type === 'weekly') {
+            currentDate.setDate(baseDate.getDate() + (i * 7 * (newTransaction.recurrence_interval || 1)));
+          } else if (newTransaction.recurrence_type === 'yearly') {
+            currentDate.setFullYear(baseDate.getFullYear() + (i * (newTransaction.recurrence_interval || 1)));
+          }
           
           const currentDueDate = new Date(baseDueDate);
-          currentDueDate.setMonth(baseDueDate.getMonth() + i);
+          if (newTransaction.recurrence_type === 'monthly') {
+            currentDueDate.setMonth(baseDueDate.getMonth() + (i * (newTransaction.recurrence_interval || 1)));
+          } else if (newTransaction.recurrence_type === 'weekly') {
+            currentDueDate.setDate(baseDueDate.getDate() + (i * 7 * (newTransaction.recurrence_interval || 1)));
+          } else if (newTransaction.recurrence_type === 'yearly') {
+            currentDueDate.setFullYear(baseDueDate.getFullYear() + (i * (newTransaction.recurrence_interval || 1)));
+          }
 
           const amount = (i > 0 && newTransaction.recurrence === 'variable') ? 0 : Number(newTransaction.amount);
           const status = i > 0 ? 'Pendente' : newTransaction.status;
@@ -458,8 +476,11 @@ const Finance: React.FC<FinanceProps> = ({
             notes: newTransaction.notes,
             workspace_id: currentUser?.workspace_id,
             recurring_id: recurringId,
-            recurrence_type: isRecurring ? newTransaction.recurrence : null,
-            recurrence_period: isRecurring ? 'monthly' : null
+            is_recurring: isRecurring,
+            recurrence_type: isRecurring ? newTransaction.recurrence_type : null,
+            recurrence: isRecurring ? newTransaction.recurrence : null,
+            recurrence_interval: isRecurring ? newTransaction.recurrence_interval : null,
+            recurrence_end_date: isRecurring ? newTransaction.recurrence_end_date : null
           });
         }
 
@@ -490,22 +511,25 @@ const Finance: React.FC<FinanceProps> = ({
       }
 
       setIsModalOpen(false);
-      setNewTransaction({
-        description: '',
-        amount: 0,
-        type: 'Receita',
-        category: 'Mensalidade',
-        status: 'Pendente',
-        date: new Date().toISOString().split('T')[0],
-        due_date: new Date().toISOString().split('T')[0],
-        payment_method: 'Boleto',
-        bank_account_id: '',
-        to_bank_account_id: '',
-        credit_card_id: '',
-        client_account_id: '',
-        recurrence: 'none',
-        months: 12
-      });
+        setNewTransaction({
+          description: '',
+          amount: 0,
+          type: 'Receita',
+          category: 'Mensalidade',
+          status: 'Pendente',
+          date: new Date().toISOString().split('T')[0],
+          due_date: new Date().toISOString().split('T')[0],
+          payment_method: 'Boleto',
+          bank_account_id: '',
+          to_bank_account_id: '',
+          credit_card_id: '',
+          client_account_id: '',
+          is_recurring: false,
+          recurrence_type: 'monthly',
+          recurrence_interval: 1,
+          recurrence: 'fixed',
+          months: 12
+        });
     } catch (err) {
       console.error(err);
     } finally {
@@ -1082,7 +1106,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <ICONS.Repeat className="w-5 h-5 text-indigo-600" />
                   <div>
                     <p className="text-xs text-indigo-700 font-bold uppercase tracking-tight">Lançamento Recorrente</p>
-                    <p className="text-[10px] text-indigo-600">Este lançamento faz parte de uma série mensal ({selectedTransaction.recurrence_type === 'fixed' ? 'Valor Fixo' : 'Valor Variável'}).</p>
+                    <p className="text-[10px] text-indigo-600">Este lançamento faz parte de uma série mensal ({selectedTransaction.recurrence === 'fixed' ? 'Valor Fixo' : 'Valor Variável'}).</p>
                   </div>
                 </div>
               )}
@@ -1443,22 +1467,80 @@ const Finance: React.FC<FinanceProps> = ({
                 </div>
 
                 <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center">
-                      <ICONS.Repeat size={20} />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center">
+                        <ICONS.Repeat size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Recorrência</h4>
+                        <p className="text-[10px] text-slate-500 font-medium">Configurar lançamento repetido</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Frequência / Recorrência</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">Este lançamento faz parte de uma recorrência.</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditTransaction({...editTransaction, is_recurring: !editTransaction.is_recurring})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${editTransaction.is_recurring ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editTransaction.is_recurring ? 'left-7' : 'left-1'}`} />
+                    </button>
                   </div>
 
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Tipo de Recorrência</p>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">
-                      {selectedTransaction.recurrence_type === 'fixed' ? 'Fixo' : 'Variável'}
-                    </p>
-                  </div>
+                  {editTransaction.is_recurring && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Frequência</label>
+                          <select 
+                            value={editTransaction.recurrence_type}
+                            onChange={e => setEditTransaction({...editTransaction, recurrence_type: e.target.value as any})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          >
+                            <option value="weekly">Semanal</option>
+                            <option value="monthly">Mensal</option>
+                            <option value="yearly">Anual</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo (cada X)</label>
+                          <input 
+                            type="number"
+                            min="1"
+                            value={editTransaction.recurrence_interval}
+                            onChange={e => setEditTransaction({...editTransaction, recurrence_interval: parseInt(e.target.value) || 1})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Valor</label>
+                          <select 
+                            value={editTransaction.recurrence}
+                            onChange={e => setEditTransaction({...editTransaction, recurrence: e.target.value as any})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          >
+                            <option value="fixed">Valor Fixo</option>
+                            <option value="variable">Valor Variável</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data Fim (Opcional)</label>
+                          <input 
+                            type="date"
+                            value={editTransaction.recurrence_end_date || ''}
+                            onChange={e => setEditTransaction({...editTransaction, recurrence_end_date: e.target.value})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div>
@@ -1650,10 +1732,105 @@ const Finance: React.FC<FinanceProps> = ({
                         className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                       >
                         <option value="">Nenhum</option>
-                        {clientAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.service_type} - {acc.id.slice(0,8)}</option>)}
+                        {clientAccounts.map(acc => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.company?.name || acc.service_type} - {acc.id.slice(0,8)}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}
+                </div>
+
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center">
+                        <ICONS.Repeat size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Recorrência</h4>
+                        <p className="text-[10px] text-slate-500 font-medium">Configurar lançamento repetido</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewTransaction({...newTransaction, is_recurring: !newTransaction.is_recurring})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${newTransaction.is_recurring ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${newTransaction.is_recurring ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {newTransaction.is_recurring && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Frequência</label>
+                          <select 
+                            value={newTransaction.recurrence_type}
+                            onChange={e => setNewTransaction({...newTransaction, recurrence_type: e.target.value as any})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          >
+                            <option value="weekly">Semanal</option>
+                            <option value="monthly">Mensal</option>
+                            <option value="yearly">Anual</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Intervalo (cada X)</label>
+                          <input 
+                            type="number"
+                            min="1"
+                            value={newTransaction.recurrence_interval}
+                            onChange={e => setNewTransaction({...newTransaction, recurrence_interval: parseInt(e.target.value) || 1})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Valor</label>
+                          <select 
+                            value={newTransaction.recurrence}
+                            onChange={e => setNewTransaction({...newTransaction, recurrence: e.target.value as any})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          >
+                            <option value="fixed">Valor Fixo</option>
+                            <option value="variable">Valor Variável</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Duração (Meses)</label>
+                          <select 
+                            value={newTransaction.months}
+                            onChange={e => setNewTransaction({...newTransaction, months: e.target.value === 'indefinite' ? 'indefinite' : parseInt(e.target.value)})}
+                            className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white text-sm"
+                          >
+                            <option value={12}>12 Meses</option>
+                            <option value={24}>24 Meses</option>
+                            <option value={36}>36 Meses</option>
+                            <option value="indefinite">Indeterminado</option>
+                          </select>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Observações</label>
+                  <textarea 
+                    placeholder="Notas adicionais..."
+                    value={newTransaction.notes || ''} 
+                    onChange={e => setNewTransaction({...newTransaction, notes: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white h-24 resize-none"
+                  />
                 </div>
               </div>
 
