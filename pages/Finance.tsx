@@ -268,11 +268,20 @@ const Finance: React.FC<FinanceProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      const { data: updatedTx, error: txError } = await supabase
-        .from('m4_transactions')
-        .update(updateData)
-        .eq('id', selectedTransaction.id)
-        .select();
+      let query;
+      if (selectedTransaction.is_projected) {
+        // If it's a projection, we insert it as a new transaction (realizing it)
+        const insertData = {
+          ...updateData,
+          workspace_id: currentUser?.workspace_id,
+          created_at: new Date().toISOString()
+        };
+        query = supabase.from('m4_transactions').insert([insertData]);
+      } else {
+        query = supabase.from('m4_transactions').update(updateData).eq('id', selectedTransaction.id);
+      }
+
+      const { data: updatedTx, error: txError } = await query.select();
 
       if (txError) throw txError;
 
@@ -294,7 +303,11 @@ const Finance: React.FC<FinanceProps> = ({
       }
 
       if (updatedTx) {
-        setTransactions(prev => prev.map(t => t.id === selectedTransaction.id ? updatedTx[0] : t));
+        if (selectedTransaction.is_projected) {
+          setTransactions(prev => [...prev, updatedTx[0]]);
+        } else {
+          setTransactions(prev => prev.map(t => t.id === selectedTransaction.id ? updatedTx[0] : t));
+        }
       }
 
       setIsConfirmModalOpen(false);
@@ -349,26 +362,40 @@ const Finance: React.FC<FinanceProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      let query = supabase.from('m4_transactions').update(updateData);
-
-      if (scope === 'all') {
-        query = query.eq('recurring_id', selectedTransaction.recurring_id).neq('status', 'Pago').neq('status', 'Recebido');
-      } else if (scope === 'future') {
-        query = query.eq('recurring_id', selectedTransaction.recurring_id).gte('date', selectedTransaction.date);
+      let query;
+      if (selectedTransaction.is_projected) {
+        // If it's a projection, we insert it as a new transaction (realizing it)
+        const insertData = {
+          ...updateData,
+          workspace_id: currentUser?.workspace_id,
+          created_at: new Date().toISOString()
+        };
+        query = supabase.from('m4_transactions').insert([insertData]);
       } else {
-        query = query.eq('id', selectedTransaction.id);
+        query = supabase.from('m4_transactions').update(updateData);
+        if (scope === 'all') {
+          query = query.eq('recurring_id', selectedTransaction.recurring_id).neq('status', 'Pago').neq('status', 'Recebido');
+        } else if (scope === 'future') {
+          query = query.eq('recurring_id', selectedTransaction.recurring_id).gte('date', selectedTransaction.date);
+        } else {
+          query = query.eq('id', selectedTransaction.id);
+        }
       }
 
       const { data, error } = await query.select();
 
       if (error) throw error;
       if (data) {
-        setTransactions(prev => {
-          return prev.map(t => {
-            const updated = data.find(d => d.id === t.id);
-            return updated ? updated : t;
+        if (selectedTransaction.is_projected) {
+          setTransactions(prev => [...prev, ...data]);
+        } else {
+          setTransactions(prev => {
+            return prev.map(t => {
+              const updated = data.find(d => d.id === t.id);
+              return updated ? updated : t;
+            });
           });
-        });
+        }
         setIsEditModalOpen(false);
         setIsUpdateScopeModalOpen(false);
         setIsDetailOpen(false);
@@ -384,6 +411,15 @@ const Finance: React.FC<FinanceProps> = ({
 
   const handleDeleteTransaction = async (scope?: 'single' | 'future' | 'all') => {
     if (!selectedTransaction) return;
+
+    if (selectedTransaction.is_projected) {
+      // If it's a projection, just close the modal (it's not in DB)
+      setIsDeleteModalOpen(false);
+      setIsDeleteScopeModalOpen(false);
+      setIsDetailOpen(false);
+      setSelectedTransaction(null);
+      return;
+    }
 
     // If it's recurring and no scope is provided, open the scope modal
     if (selectedTransaction.recurring_id && !scope) {
