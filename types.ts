@@ -23,6 +23,8 @@ export interface Pipeline {
   id: string;
   name: string;
   stages: PipelineStage[];
+  position?: number;
+  workspace_id?: string;
 }
 
 export enum TaskStatus {

@@ -931,7 +931,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     
     let filtered = leads.filter(l => {
       const matchesPipeline = l.pipeline_id === activePipelineId;
-      const matchesStage = l.stage === stageId || (isFirstStage && !l.stage);
+      
+      // Check if the lead's stage exists in the current pipeline's stages
+      const stageExists = activePipeline.stages.some(s => s.id === l.stage);
+      
+      // If the stage doesn't exist, show it in the first stage
+      const matchesStage = l.stage === stageId || (isFirstStage && (!l.stage || !stageExists));
+      
       const isActive = l.status === 'active' || !l.status;
       return matchesPipeline && matchesStage && isActive;
     });

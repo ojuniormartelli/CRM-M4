@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     workspace_id UUID,
+    position INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -396,8 +397,8 @@ CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING 
 
       setProgress('Configurando pipelines padrão...');
       const pipelines = [
-        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial' },
-        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões' }
+        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', position: 0 },
+        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', position: 1 }
       ];
       await supabase.from('m4_pipelines').upsert(pipelines);
 

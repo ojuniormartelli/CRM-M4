@@ -187,7 +187,7 @@ const App: React.FC = () => {
         setContacts(contactsData || []);
 
         // 3. Fetch Pipelines and Stages
-        let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*');
+        let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*').order('position');
         let { data: stagesData, error: sError } = await supabase.from('m4_pipeline_stages').select('*').order('position');
 
         console.log('pipelines do banco:', pipelinesData, 'erro:', pError);
@@ -205,8 +205,8 @@ const App: React.FC = () => {
         if (!pipelinesData || pipelinesData.length === 0) {
           // Seed default pipelines if empty
           const toInsert = [
-            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: user?.workspace_id || null },
-            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null }
+            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: user?.workspace_id || null, position: 0 },
+            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null, position: 1 }
           ];
           const { data: seededPipelines, error: insertError } = await supabase.from('m4_pipelines').insert(toInsert).select();
           
@@ -227,9 +227,9 @@ const App: React.FC = () => {
             const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
             if (p2) {
               const p2Stages = [
-                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: 'intermediario' },
+                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: 'inicial' },
                 { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue', status: 'intermediario' },
-                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: 'intermediario' }
+                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: 'ganho' }
               ];
               await supabase.from('m4_pipeline_stages').insert(p2Stages);
             }

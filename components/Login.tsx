@@ -562,6 +562,7 @@ CREATE TABLE IF NOT EXISTS m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     workspace_id UUID,
+    position INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -576,22 +577,22 @@ CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
 );
 
 -- 11. Seed Data
-INSERT INTO m4_pipelines (id, name)
+INSERT INTO m4_pipelines (id, name, position)
 VALUES 
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Vendas Comercial'),
-  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Gestão de Reuniões')
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Vendas Comercial', 0),
+  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Gestão de Reuniões', 1)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO m4_pipeline_stages (pipeline_id, name, position, color)
+INSERT INTO m4_pipeline_stages (pipeline_id, name, position, color, status)
 VALUES 
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Lead', 0, 'blue'),
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Qualificação', 1, 'blue'),
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Proposta', 2, 'blue'),
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Negociação', 3, 'blue'),
-  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Fechamento', 4, 'blue'),
-  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Agendadas', 0, 'blue'),
-  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Confirmadas', 1, 'blue'),
-  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Realizadas', 2, 'blue')
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Lead', 0, 'blue', 'inicial'),
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Qualificação', 1, 'blue', 'intermediario'),
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Proposta', 2, 'blue', 'intermediario'),
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Negociação', 3, 'blue', 'intermediario'),
+  ('e167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Fechamento', 4, 'blue', 'ganho'),
+  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Agendadas', 0, 'blue', 'inicial'),
+  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Confirmadas', 1, 'blue', 'intermediario'),
+  ('6262f0d6-8e20-496b-8076-f24e31e67fab', 'Realizadas', 2, 'blue', 'ganho')
 ON CONFLICT DO NOTHING;
 
 -- 12. RLS (Simplified)

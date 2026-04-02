@@ -7,6 +7,7 @@ import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
 import { format } from 'date-fns';
 
+import { ChevronDown } from 'lucide-react';
 import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod, Pipeline, FunnelStatus } from '../types';
 
 interface SettingsProps {
@@ -508,7 +509,8 @@ const Settings: React.FC<SettingsProps> = ({
     try {
       const pipelineData = {
         name: editingPipeline.name,
-        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id')
+        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
+        position: editingPipeline.position ?? pipelines.length
       };
 
       let pipelineId = editingPipeline.id;
@@ -523,23 +525,34 @@ const Settings: React.FC<SettingsProps> = ({
 
       // Save stages
       if (editingPipeline.stages) {
-        // Delete old stages first (simplified approach)
-        await supabase.from('m4_pipeline_stages').delete().eq('pipeline_id', pipelineId);
-        
-        const stagesToInsert = editingPipeline.stages.map((s, idx) => ({
+        const currentStages = editingPipeline.stages.map((s, idx) => ({
+          id: s.id && !s.id.includes('.') ? s.id : undefined, // Check if it's a real UUID or a temp ID
           pipeline_id: pipelineId,
           name: s.name,
           position: idx,
           color: s.color || 'blue',
           status: s.status || FunnelStatus.INTERMEDIATE
         }));
-        
-        const { error: sError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
+
+        // 1. Identify stages to delete (those in DB but not in currentStages)
+        if (editingPipeline.id) {
+          const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId);
+          if (dbStages) {
+            const currentIds = currentStages.map(s => s.id).filter(Boolean);
+            const toDelete = dbStages.filter(s => !currentIds.includes(s.id)).map(s => s.id);
+            if (toDelete.length > 0) {
+              await supabase.from('m4_pipeline_stages').delete().in('id', toDelete);
+            }
+          }
+        }
+
+        // 2. Upsert stages
+        const { error: sError } = await supabase.from('m4_pipeline_stages').upsert(currentStages);
         if (sError) throw sError;
       }
 
       // Refresh pipelines
-      const { data: pData } = await supabase.from('m4_pipelines').select('*');
+      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('position');
       const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
       
       if (pData) {
@@ -558,6 +571,30 @@ const Settings: React.FC<SettingsProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleReorderPipeline = async (pipelineId: string, direction: 'up' | 'down') => {
+    const idx = pipelines.findIndex(p => p.id === pipelineId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === pipelines.length - 1) return;
+
+    const newPipelines = [...pipelines];
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    [newPipelines[idx], newPipelines[targetIdx]] = [newPipelines[targetIdx], newPipelines[idx]];
+
+    // Update positions in DB
+    const updates = newPipelines.map((p, i) => ({
+      id: p.id,
+      name: p.name,
+      workspace_id: p.workspace_id,
+      position: i
+    }));
+
+    setPipelines(newPipelines);
+
+    const { error } = await supabase.from('m4_pipelines').upsert(updates);
+    if (error) alert('Erro ao reordenar pipelines: ' + error.message);
   };
 
   const handleResetPassword = async (userId: string) => {
@@ -1682,6 +1719,24 @@ const Settings: React.FC<SettingsProps> = ({
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <div className="flex flex-col gap-1">
+                      <button 
+                        onClick={() => handleReorderPipeline(pipeline.id, 'up')}
+                        disabled={pipelines.indexOf(pipeline) === 0}
+                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        title="Mover para cima"
+                      >
+                        <ChevronDown className="rotate-180" size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleReorderPipeline(pipeline.id, 'down')}
+                        disabled={pipelines.indexOf(pipeline) === pipelines.length - 1}
+                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        title="Mover para baixo"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
                     <button 
                       onClick={() => {
                         setEditingPipeline(pipeline);
@@ -1982,6 +2037,32 @@ const Settings: React.FC<SettingsProps> = ({
                     <div key={stage.id} className="flex gap-3 items-start p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                       <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 rounded-xl text-xs font-black text-slate-400 border border-slate-100 dark:border-slate-800 mt-2">
                         {idx + 1}
+                      </div>
+                      <div className="flex flex-col gap-1 mt-2">
+                        <button 
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            [newStages[idx - 1], newStages[idx]] = [newStages[idx], newStages[idx - 1]];
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        >
+                          <ChevronDown className="rotate-180" size={14} />
+                        </button>
+                        <button 
+                          type="button"
+                          disabled={idx === (editingPipeline.stages?.length || 0) - 1}
+                          onClick={() => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            [newStages[idx + 1], newStages[idx]] = [newStages[idx], newStages[idx + 1]];
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
                       </div>
                       <div className="flex-1 space-y-3">
                         <input 
