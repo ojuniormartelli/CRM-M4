@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { FunnelStatus } from './types';
 
 export const COLORS = {
   primary: '#2563eb', // blue-600
@@ -21,13 +22,13 @@ export const FUNNEL_STAGES_LIST = [
 ];
 
 export const AGENCY_PIPELINE_STAGES = [
-  { id: 'new', name: 'Novo Lead' },
-  { id: 'qualified', name: 'Qualificado' },
-  { id: 'meeting', name: 'Reunião Agendada' },
-  { id: 'proposal', name: 'Proposta Enviada' },
-  { id: 'decision', name: 'Aguardando Decisão' },
-  { id: 'won', name: 'Fechado – Ganho' },
-  { id: 'lost', name: 'Fechado – Perdido' }
+  { id: 'new', name: 'Novo Lead', status: FunnelStatus.INITIAL },
+  { id: 'qualified', name: 'Qualificado', status: FunnelStatus.INTERMEDIATE },
+  { id: 'meeting', name: 'Reunião Agendada', status: FunnelStatus.INTERMEDIATE },
+  { id: 'proposal', name: 'Proposta Enviada', status: FunnelStatus.INTERMEDIATE },
+  { id: 'decision', name: 'Aguardando Decisão', status: FunnelStatus.INTERMEDIATE },
+  { id: 'won', name: 'Fechado – Ganho', status: FunnelStatus.WON },
+  { id: 'lost', name: 'Fechado – Perdido', status: FunnelStatus.LOST }
 ];
 
 export const ICONS = {

@@ -257,7 +257,25 @@ BEGIN
     END IF;
 END $$;
 
--- 12. Cargos
+-- 10. Pipelines e Etapas
+CREATE TABLE IF NOT EXISTS m4_pipelines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pipeline_id UUID REFERENCES m4_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    color TEXT DEFAULT 'blue',
+    status TEXT DEFAULT 'intermediario',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. Cargos
 CREATE TABLE IF NOT EXISTS public.m4_job_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID,

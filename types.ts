@@ -4,11 +4,19 @@ export enum AppMode {
   AGENCIA = 'agencia'
 }
 
+export enum FunnelStatus {
+  INITIAL = 'inicial',
+  INTERMEDIATE = 'intermediario',
+  WON = 'ganho',
+  LOST = 'perdido'
+}
+
 export interface PipelineStage {
   id: string;
   name: string;
   color?: string;
   position?: number;
+  status: FunnelStatus;
 }
 
 export interface Pipeline {
@@ -185,7 +193,7 @@ export interface Lead {
   contact_id?: string;
   
   last_activity_at?: string;
-  status?: 'active' | 'won' | 'lost' | 'paused';
+  status?: 'active' | 'won' | 'lost' | 'paused' | FunnelStatus;
   interactions?: Interaction[];
   custom_fields?: Record<string, any>;
 }

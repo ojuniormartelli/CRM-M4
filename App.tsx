@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -43,7 +43,11 @@ const App: React.FC = () => {
   // --- GLOBAL STATE ---
   const [pipelines, setPipelines] = useState<Pipeline[]>([
     { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
-    { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [{ id: 'm1', name: 'Agendadas' }, { id: 'm2', name: 'Confirmadas' }, { id: 'm3', name: 'Realizadas' }] }
+    { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
+      { id: 'm1', name: 'Agendadas', status: FunnelStatus.INITIAL, position: 0, color: 'blue' }, 
+      { id: 'm2', name: 'Confirmadas', status: FunnelStatus.INTERMEDIATE, position: 1, color: 'amber' }, 
+      { id: 'm3', name: 'Realizadas', status: FunnelStatus.WON, position: 2, color: 'emerald' }
+    ] }
   ]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -189,12 +193,12 @@ const App: React.FC = () => {
         console.log('pipelines do banco:', pipelinesData, 'erro:', pError);
         console.log('Stages do banco:', stagesData);
 
-        const defaultPipelines = [
-          { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) },
+        const defaultPipelines: Pipeline[] = [
+          { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i, status: s.status || FunnelStatus.INTERMEDIATE })) },
           { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
-            { id: 's1', name: 'Agendadas', color: 'blue', position: 0 },
-            { id: 's2', name: 'Confirmadas', color: 'blue', position: 1 },
-            { id: 's3', name: 'Realizadas', color: 'blue', position: 2 }
+            { id: 's1', name: 'Agendadas', color: 'blue', position: 0, status: FunnelStatus.INITIAL },
+            { id: 's2', name: 'Confirmadas', color: 'blue', position: 1, status: FunnelStatus.INTERMEDIATE },
+            { id: 's3', name: 'Realizadas', color: 'blue', position: 2, status: FunnelStatus.WON }
           ]}
         ];
 
@@ -215,16 +219,17 @@ const App: React.FC = () => {
                 pipeline_id: p1.id,
                 name: s.name,
                 position: i,
-                color: 'blue'
+                color: 'blue',
+                status: s.status
               }));
               await supabase.from('m4_pipeline_stages').insert(p1Stages);
             }
             const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
             if (p2) {
               const p2Stages = [
-                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue' },
-                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue' },
-                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue' }
+                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: 'intermediario' },
+                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue', status: 'intermediario' },
+                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: 'intermediario' }
               ];
               await supabase.from('m4_pipeline_stages').insert(p2Stages);
             }
@@ -249,13 +254,13 @@ const App: React.FC = () => {
           const sanitizedPipelines = fullPipelines.map(p => {
             if (p.stages.length === 0) {
               if (p.name === 'Vendas Comercial') {
-                return { ...p, stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i })) };
+                return { ...p, stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i, status: s.status || FunnelStatus.INTERMEDIATE })) };
               }
               if (p.name === 'Gestão de Reuniões') {
                 return { ...p, stages: [
-                  { id: 's1', name: 'Agendadas', color: 'blue', position: 0 },
-                  { id: 's2', name: 'Confirmadas', color: 'blue', position: 1 },
-                  { id: 's3', name: 'Realizadas', color: 'blue', position: 2 }
+                  { id: 's1', name: 'Agendadas', color: 'blue', position: 0, status: FunnelStatus.INITIAL },
+                  { id: 's2', name: 'Confirmadas', color: 'blue', position: 1, status: FunnelStatus.INTERMEDIATE },
+                  { id: 's3', name: 'Realizadas', color: 'blue', position: 2, status: FunnelStatus.WON }
                 ]};
               }
             }
@@ -756,6 +761,8 @@ const App: React.FC = () => {
               setFinanceCategories={setFinanceCategories}
               paymentMethods={paymentMethods}
               setPaymentMethods={setPaymentMethods}
+              pipelines={pipelines}
+              setPipelines={setPipelines}
             />
           )}
         </div>

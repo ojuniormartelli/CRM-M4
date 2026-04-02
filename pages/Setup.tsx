@@ -310,6 +310,7 @@ CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
     name TEXT NOT NULL,
     position INTEGER NOT NULL,
     color TEXT DEFAULT 'blue',
+    status TEXT DEFAULT 'intermediario',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

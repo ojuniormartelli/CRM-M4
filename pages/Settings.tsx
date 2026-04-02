@@ -7,7 +7,7 @@ import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
 import { format } from 'date-fns';
 
-import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod } from '../types';
+import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod, Pipeline, FunnelStatus } from '../types';
 
 interface SettingsProps {
   appMode: AppMode;
@@ -20,6 +20,8 @@ interface SettingsProps {
   setFinanceCategories: (categories: FinanceCategory[]) => void;
   paymentMethods: PaymentMethod[];
   setPaymentMethods: (methods: PaymentMethod[]) => void;
+  pipelines: Pipeline[];
+  setPipelines: React.Dispatch<React.SetStateAction<Pipeline[]>>;
 }
 
 const BackupTab = () => {
@@ -201,10 +203,12 @@ const Settings: React.FC<SettingsProps> = ({
   financeCategories,
   setFinanceCategories,
   paymentMethods,
-  setPaymentMethods
+  setPaymentMethods,
+  pipelines,
+  setPipelines
 }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'finance' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'finance' | 'backup' | 'pipelines'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -218,6 +222,8 @@ const Settings: React.FC<SettingsProps> = ({
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
   const [editingRole, setEditingRole] = useState<Partial<JobRole> | null>(null);
+  const [editingPipeline, setEditingPipeline] = useState<Partial<Pipeline> | null>(null);
+  const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState({
     id: undefined as string | undefined,
@@ -490,6 +496,65 @@ const Settings: React.FC<SettingsProps> = ({
       alert('Cargo excluído com sucesso!');
     } catch (error: any) {
       alert('Erro ao excluir cargo: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePipeline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPipeline || !editingPipeline.name) return;
+    setIsSaving(true);
+    try {
+      const pipelineData = {
+        name: editingPipeline.name,
+        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id')
+      };
+
+      let pipelineId = editingPipeline.id;
+      if (pipelineId) {
+        const { error } = await supabase.from('m4_pipelines').update(pipelineData).eq('id', pipelineId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('m4_pipelines').insert(pipelineData).select().single();
+        if (error) throw error;
+        pipelineId = data.id;
+      }
+
+      // Save stages
+      if (editingPipeline.stages) {
+        // Delete old stages first (simplified approach)
+        await supabase.from('m4_pipeline_stages').delete().eq('pipeline_id', pipelineId);
+        
+        const stagesToInsert = editingPipeline.stages.map((s, idx) => ({
+          pipeline_id: pipelineId,
+          name: s.name,
+          position: idx,
+          color: s.color || 'blue',
+          status: s.status || FunnelStatus.INTERMEDIATE
+        }));
+        
+        const { error: sError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
+        if (sError) throw sError;
+      }
+
+      // Refresh pipelines
+      const { data: pData } = await supabase.from('m4_pipelines').select('*');
+      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+      
+      if (pData) {
+        const fullPipelines = pData.map(p => ({
+          ...p,
+          stages: (sData || []).filter(s => s.pipeline_id === p.id)
+        }));
+        setPipelines(fullPipelines);
+      }
+
+      setIsPipelineModalOpen(false);
+      setEditingPipeline(null);
+      alert('Pipeline salvo com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao salvar pipeline: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -806,6 +871,12 @@ const Settings: React.FC<SettingsProps> = ({
           className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'finance' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
           Financeiro
+        </button>
+        <button 
+          onClick={() => setActiveTab('pipelines')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pipelines' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Funil de Vendas
         </button>
 
         {currentUser?.role === UserRole.OWNER && (
@@ -1579,6 +1650,86 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
+      {activeTab === 'pipelines' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Funis de Vendas</h3>
+              <p className="text-xs text-slate-500 font-medium">Configure seus pipelines e as etapas do funil.</p>
+            </div>
+            <button 
+              onClick={() => {
+                setEditingPipeline({ name: '', stages: [{ id: Math.random().toString(), name: 'Novo Lead', status: FunnelStatus.INITIAL }] });
+                setIsPipelineModalOpen(true);
+              }}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all flex items-center gap-2"
+            >
+              <ICONS.Plus size={18} /> NOVO FUNIL
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {pipelines.map(pipeline => (
+              <div key={pipeline.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+                      <ICONS.Target size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{pipeline.name}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{pipeline.stages?.length || 0} etapas configuradas</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingPipeline(pipeline);
+                        setIsPipelineModalOpen(true);
+                      }}
+                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+                    >
+                      <ICONS.Edit size={18} />
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (window.confirm('Deseja realmente excluir este funil? Todos os leads vinculados perderão a referência.')) {
+                          const { error } = await supabase.from('m4_pipelines').delete().eq('id', pipeline.id);
+                          if (error) alert('Erro ao excluir: ' + error.message);
+                          else setPipelines(prev => prev.filter(p => p.id !== pipeline.id));
+                        }
+                      }}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                    >
+                      <ICONS.Trash size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {pipeline.stages?.sort((a, b) => (a.position || 0) - (b.position || 0)).map((stage, idx) => (
+                    <div key={stage.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-transparent group-hover:border-slate-100 dark:group-hover:border-slate-700 transition-all">
+                      <div className="w-6 h-6 flex items-center justify-center bg-white dark:bg-slate-800 rounded-lg text-[10px] font-black text-slate-400 border border-slate-100 dark:border-slate-700">
+                        {idx + 1}
+                      </div>
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300 flex-1">{stage.name}</span>
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
+                        stage.status === FunnelStatus.INITIAL ? 'bg-blue-100 text-blue-600' :
+                        stage.status === FunnelStatus.WON ? 'bg-emerald-100 text-emerald-600' :
+                        stage.status === FunnelStatus.LOST ? 'bg-rose-100 text-rose-600' :
+                        'bg-amber-100 text-amber-600'
+                      }`}>
+                        {stage.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'backup' && currentUser?.role === UserRole.OWNER && (
         <BackupTab />
       )}
@@ -1777,6 +1928,124 @@ const Settings: React.FC<SettingsProps> = ({
                   className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
                 >
                   {isSaving ? 'SALVANDO...' : (editingUser.id ? 'SALVAR' : 'CRIAR USUÁRIO')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isPipelineModalOpen && editingPipeline && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                {editingPipeline.id ? 'EDITAR FUNIL' : 'NOVO FUNIL'}
+              </h3>
+              <button onClick={() => setIsPipelineModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <ICONS.X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSavePipeline} className="p-10 space-y-8 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Funil</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingPipeline.name || ''}
+                  onChange={e => setEditingPipeline({ ...editingPipeline, name: e.target.value })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  placeholder="Ex: Funil de Vendas Principal"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Etapas do Funil</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newStage = { id: Math.random().toString(), name: '', status: FunnelStatus.INTERMEDIATE };
+                      setEditingPipeline({
+                        ...editingPipeline,
+                        stages: [...(editingPipeline.stages || []), newStage]
+                      });
+                    }}
+                    className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:text-indigo-700"
+                  >
+                    <ICONS.Plus size={14} /> ADICIONAR ETAPA
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {editingPipeline.stages?.map((stage, idx) => (
+                    <div key={stage.id} className="flex gap-3 items-start p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                      <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 rounded-xl text-xs font-black text-slate-400 border border-slate-100 dark:border-slate-800 mt-2">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <input 
+                          type="text" 
+                          required
+                          value={stage.name}
+                          onChange={e => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            newStages[idx] = { ...stage, name: e.target.value };
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 text-sm"
+                          placeholder="Nome da etapa"
+                        />
+                        <div className="flex gap-2">
+                          {Object.values(FunnelStatus).map(status => (
+                            <button
+                              key={status}
+                              type="button"
+                              onClick={() => {
+                                const newStages = [...(editingPipeline.stages || [])];
+                                newStages[idx] = { ...stage, status };
+                                setEditingPipeline({ ...editingPipeline, stages: newStages });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                stage.status === status 
+                                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
+                                  : 'bg-white dark:bg-slate-900 text-slate-400 hover:text-slate-600 border border-slate-100 dark:border-slate-800'
+                              }`}
+                            >
+                              {status}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newStages = editingPipeline.stages?.filter((_, i) => i !== idx);
+                          setEditingPipeline({ ...editingPipeline, stages: newStages });
+                        }}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all mt-2"
+                      >
+                        <ICONS.Trash size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsPipelineModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'SALVANDO...' : (editingPipeline.id ? 'SALVAR ALTERAÇÕES' : 'CRIAR FUNIL')}
                 </button>
               </div>
             </form>

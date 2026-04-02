@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service } from '../types';
+import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service, FunnelStatus } from '../types';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
@@ -476,6 +476,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     if (!selectedLead) return;
     setIsSyncing(true);
 
+    const targetStageId = editLead.stage || selectedLead.stage;
+    const selectedPipeline = pipelines.find(p => p.id === (editLead.pipeline_id || selectedLead.pipeline_id));
+    const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
+    const targetStatus = targetStage?.status || editLead.status || selectedLead.status || 'active';
+
     const { error } = await supabase
       .from('m4_leads')
       .update({
@@ -488,14 +493,15 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         niche: editLead.niche || selectedLead.niche,
         
         // Ensure name is also updated
-        name: editLead.name || editLead.company || selectedLead.name
+        name: editLead.name || editLead.company || selectedLead.name,
+        status: targetStatus
       })
       .eq('id', selectedLead.id);
 
     if (error) {
       alert("Erro ao atualizar lead: " + error.message);
     } else {
-      const updatedLead = { ...selectedLead, ...editLead };
+      const updatedLead = { ...selectedLead, ...editLead, status: targetStatus as any };
       setLeads(leads.map(l => l.id === selectedLead.id ? updatedLead : l));
       setSelectedLead(updatedLead);
       setIsEditing(false);
@@ -676,6 +682,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setIsSyncing(true);
     
     const selectedPipeline = pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId));
+    const targetStageId = newLead.stage || selectedPipeline?.stages[0].id;
+    const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
+    const targetStatus = targetStage?.status || 'active';
+
     const leadData = {
       ...newLead,
       // Ensure mandatory fields are set for legacy compatibility
@@ -686,7 +696,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       niche: newLead.niche,
       
       pipeline_id: newLead.pipeline_id || activePipelineId,
-      stage: newLead.stage || selectedPipeline?.stages[0].id,
+      stage: targetStageId,
+      status: targetStatus,
       responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || '',
       ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
       created_at: new Date().toISOString()
@@ -728,13 +739,19 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     e.preventDefault();
     const leadId = e.dataTransfer.getData('leadId');
     if (leadId) {
+      const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
+      const targetStatus = targetStage?.status || 'active';
+
       // Otimista: atualiza UI primeiro
       const originalLeads = [...leads];
-      setLeads(leads.map(l => l.id === leadId ? { ...l, stage: targetStageId } : l));
+      setLeads(leads.map(l => l.id === leadId ? { ...l, stage: targetStageId, status: targetStatus as any } : l));
       
       const { error } = await supabase
         .from('m4_leads')
-        .update({ stage: targetStageId })
+        .update({ 
+          stage: targetStageId,
+          status: targetStatus
+        })
         .eq('id', leadId);
 
       if (error) {
@@ -759,18 +776,24 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     }
 
     if (targetStageId) {
+      const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
+      const targetStatus = targetStage?.status || 'active';
+
       setIsSyncing(true);
       try {
         // Update local state
-        const updatedLeads = leads.map(l => l.id === lead.id ? { ...l, stage: targetStageId } : l);
+        const updatedLeads = leads.map(l => l.id === lead.id ? { ...l, stage: targetStageId, status: targetStatus as any } : l);
         setLeads(updatedLeads);
         
         if (selectedLead?.id === lead.id) {
-          setSelectedLead({ ...selectedLead, stage: targetStageId });
+          setSelectedLead({ ...selectedLead, stage: targetStageId, status: targetStatus as any });
         }
 
         // Update Supabase
-        await supabase.from('m4_leads').update({ stage: targetStageId }).eq('id', lead.id);
+        await supabase.from('m4_leads').update({ 
+          stage: targetStageId,
+          status: targetStatus
+        }).eq('id', lead.id);
 
         // Log interaction
         if (currentUser) {

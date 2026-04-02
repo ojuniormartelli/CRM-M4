@@ -4,11 +4,12 @@ import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Lead, Pipeline, User } from '../types';
+import { Lead, Pipeline, User, PipelineStage, FunnelStatus } from '../types';
 import { ICONS } from '../constants';
 import { ChevronRight, Building, DollarSign, User as UserIcon, Globe, Mail, Instagram, Linkedin, Phone, MessageSquare, Briefcase, FileText, X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatCNPJ, formatPhoneBR } from '../utils/formatters';
+import FunnelDashboard from '../components/FunnelDashboard';
 
 interface SalesOverviewProps {
   leads: Lead[];
@@ -267,11 +268,13 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     const validPipelineId = isValidUUID(selectedPipelineId) ? selectedPipelineId : null;
     const stage = pipeline?.stages[0]?.id || '';
     const validStage = isValidUUID(stage) ? stage : null;
+    const initialStatus = pipeline?.stages[0]?.status || 'active';
 
     const leadsToImport = csvData.map(row => {
       const leadObj: any = {
         pipeline_id: validPipelineId,
         stage: validStage,
+        status: initialStatus,
       };
 
       Object.entries(mapping).forEach(([csvHeader, crmField]) => {
@@ -294,7 +297,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
         'company_phone', 'company_whatsapp', 'company_linkedin', 'instagram', 
         'responsible_name', 'contact_role', 'email', 'phone', 'contact_whatsapp', 
         'contact_instagram', 'contact_linkedin', 'value', 'service_type', 
-        'notes', 'pipeline_id', 'stage'
+        'notes', 'pipeline_id', 'stage', 'status'
       ];
 
       // Clean the lead object: remove created_at, null, undefined, and empty strings
@@ -369,21 +372,37 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Pipelines de Vendas</h2>
           <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Visão Geral e Desempenho</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-3 px-6 py-4 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all hover:-translate-y-1"
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedPipelineId}
+            onChange={(e) => setSelectedPipelineId(e.target.value)}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
           >
-            <ICONS.Upload width="20" height="20" /> IMPORTAR
-          </button>
-          <button 
-            onClick={onNewLead}
-            className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
-          >
-            <ICONS.Plus /> NOVO LEAD
-          </button>
+            {pipelineOptions.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-3 px-6 py-4 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all hover:-translate-y-1"
+            >
+              <ICONS.Upload width="20" height="20" /> IMPORTAR
+            </button>
+            <button 
+              onClick={onNewLead}
+              className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
+            >
+              <ICONS.Plus /> NOVO LEAD
+            </button>
+          </div>
         </div>
       </div>
+
+      <FunnelDashboard 
+        leads={leads.filter(l => l.pipeline_id === selectedPipelineId)} 
+        stages={pipelines.find(p => p.id === selectedPipelineId)?.stages || []} 
+      />
 
       {/* Import Modal */}
       {isImportModalOpen && (
@@ -677,9 +696,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       {pipelines.find(p => p.id === (lead as any).pipeline_id)?.name || 'Sem Pipeline'}
                     </span>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                      lead.status === 'won' ? 'bg-emerald-50 text-emerald-600' :
-                      lead.status === 'lost' ? 'bg-rose-50 text-rose-600' :
-                      'bg-blue-50 text-blue-600'
+                      (lead.status === 'won' || lead.status === FunnelStatus.WON) ? 'bg-emerald-50 text-emerald-600' :
+                      (lead.status === 'lost' || lead.status === FunnelStatus.LOST) ? 'bg-rose-50 text-rose-600' :
+                      (lead.status === 'active' || lead.status === FunnelStatus.INITIAL || lead.status === FunnelStatus.INTERMEDIATE) ? 'bg-blue-50 text-blue-600' :
+                      'bg-slate-50 text-slate-600'
                     }`}>
                       {lead.status}
                     </span>

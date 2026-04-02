@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import * as ICONS from 'lucide-react';
 import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User, FinanceCategory, PaymentMethod } from '../types';
-import { format, startOfMonth, endOfMonth, subMonths, addMonths, isWithinInterval, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, addWeeks, addYears, addDays, isWithinInterval, isToday, isTomorrow, parseISO, isAfter, isSameDay, isSameMonth, isSameYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -104,55 +104,115 @@ const Finance: React.FC<FinanceProps> = ({
 
   const generateProjections = (start: Date, end: Date) => {
     const projections: Transaction[] = [];
-    clientAccounts.filter(acc => acc.status === 'ativo').forEach(acc => {
-      let current = new Date(start);
-      // Ensure we start from the current month if start is in the past
-      const todayStart = startOfMonth(new Date());
-      if (current < todayStart) {
-        current = new Date(todayStart);
+    
+    // 1. Get all recurring transactions, grouped by recurring_id
+    // We only want to project from the latest real transaction in each series
+    const recurringGroups = new Map<string, Transaction>();
+    transactions.filter(t => t.is_recurring && !t.is_projected).forEach(t => {
+      const id = t.recurring_id || t.id;
+      const existing = recurringGroups.get(id);
+      if (!existing || isAfter(parseISO(t.date), parseISO(existing.date))) {
+        recurringGroups.set(id, t);
       }
+    });
+
+    recurringGroups.forEach(baseTx => {
+      let currentOccurrence = parseISO(baseTx.date);
+      const interval = baseTx.recurrence_interval || 1;
+      const unit = baseTx.recurrence_unit || 'months';
+      const type = baseTx.recurrence_type;
+      const endDate = baseTx.recurrence_end_date ? parseISO(baseTx.recurrence_end_date) : addMonths(new Date(), 12);
       
-      // Limit projections to a reasonable future (e.g., 12 months)
+      // Limit projections to a reasonable future
       const maxFuture = addMonths(new Date(), 12);
       const effectiveEnd = end > maxFuture ? maxFuture : end;
+      
+      // Safety limit to avoid infinite loops
+      let count = 0;
+      const maxCount = 50;
 
-      while (current <= effectiveEnd) {
-        const month = current.getMonth();
-        const year = current.getFullYear();
-        const day = acc.due_day || 10;
-        
-        const projectedDate = new Date(year, month, day);
-        
-        if (isWithinInterval(projectedDate, { start, end })) {
-          // Check if a real transaction already exists for this client and month
-          const alreadyPaid = transactions.find(t => 
-            t.client_account_id === acc.id && 
-            t.type === 'Receita' &&
-            new Date(t.date).getMonth() === month &&
-            new Date(t.date).getFullYear() === year
+      while (count < maxCount) {
+        count++;
+        let nextDate: Date;
+
+        // Calculate next date based on type
+        if (type === 'weekly' || type === 'semanal') {
+          nextDate = addWeeks(currentOccurrence, interval);
+          if (baseTx.recurrence_day_of_week !== undefined) {
+            const currentDay = nextDate.getDay();
+            const diff = baseTx.recurrence_day_of_week - currentDay;
+            nextDate = addDays(nextDate, diff);
+          }
+        } else if (type === 'quinzenal') {
+          nextDate = addWeeks(currentOccurrence, 2 * interval);
+        } else if (type === 'monthly' || type === 'mensal') {
+          nextDate = addMonths(currentOccurrence, interval);
+          if (baseTx.recurrence_day_of_month) {
+            const lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+            const targetDay = Math.min(baseTx.recurrence_day_of_month, lastDay);
+            nextDate.setDate(targetDay);
+          }
+        } else if (type === 'yearly' || type === 'anual') {
+          nextDate = addYears(currentOccurrence, interval);
+          if (baseTx.recurrence_month !== undefined) {
+            nextDate.setMonth(baseTx.recurrence_month - 1);
+          }
+          if (baseTx.recurrence_day_of_month) {
+            const lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+            const targetDay = Math.min(baseTx.recurrence_day_of_month, lastDay);
+            nextDate.setDate(targetDay);
+          }
+        } else if (type === 'personalizado' && unit) {
+          if (unit === 'days') nextDate = addDays(currentOccurrence, interval);
+          else if (unit === 'weeks') nextDate = addWeeks(currentOccurrence, interval);
+          else if (unit === 'months') nextDate = addMonths(currentOccurrence, interval);
+          else if (unit === 'years') nextDate = addYears(currentOccurrence, interval);
+          else nextDate = addMonths(currentOccurrence, interval); // fallback
+        } else {
+          // Default to monthly if is_recurring is true but type is missing
+          nextDate = addMonths(currentOccurrence, 1);
+        }
+
+        if (isAfter(nextDate, effectiveEnd) || isAfter(nextDate, endDate)) break;
+
+        // Update currentOccurrence for next iteration
+        currentOccurrence = nextDate;
+
+        if (isAfter(nextDate, start) || isSameDay(nextDate, start)) {
+          // Check if a real transaction already exists for this recurring_id and date
+          const alreadyExists = transactions.find(t => 
+            !t.is_projected &&
+            (t.recurring_id === (baseTx.recurring_id || baseTx.id) || 
+             (t.client_account_id === baseTx.client_account_id && t.description === baseTx.description)) &&
+            (
+              isSameDay(parseISO(t.date), nextDate) ||
+              ((type?.includes('mon') || type?.includes('men')) ? 
+                isSameMonth(parseISO(t.date), nextDate) && isSameYear(parseISO(t.date), nextDate) : false)
+            )
           );
 
-          if (!alreadyPaid) {
+          if (!alreadyExists) {
             projections.push({
-              id: `proj-${acc.id}-${year}-${month}`,
-              description: `Mensalidade - ${acc.company?.name || acc.id.slice(0,8)}`,
-              amount: acc.monthly_value,
-              type: 'Receita',
-              category: 'Mensalidade',
-              status: 'A Receber',
-              date: projectedDate.toISOString(),
-              due_date: projectedDate.toISOString(),
-              client_account_id: acc.id,
-              bank_account_id: acc.bank_account_id,
+              id: `proj-${baseTx.id}-${nextDate.getTime()}`,
+              description: baseTx.description,
+              amount: baseTx.amount,
+              type: baseTx.type,
+              category: baseTx.category,
+              status: baseTx.type === 'Receita' ? 'A Receber' : 'A Pagar',
+              date: format(nextDate, 'yyyy-MM-dd'),
+              due_date: format(nextDate, 'yyyy-MM-dd'),
+              client_account_id: baseTx.client_account_id,
+              bank_account_id: baseTx.bank_account_id,
               is_projected: true,
+              is_recurring: true,
+              recurring_id: baseTx.recurring_id || baseTx.id,
               created_at: new Date().toISOString()
             } as Transaction);
           }
         }
-        current = addMonths(current, 1);
-        current.setDate(1);
       }
     });
+
     return projections;
   };
 
@@ -555,8 +615,8 @@ const Finance: React.FC<FinanceProps> = ({
         const recurringId = isRecurring ? crypto.randomUUID() : null;
         const numMonths = newTransaction.months === 'indefinite' ? 24 : (newTransaction.months || 1);
 
-        const baseDate = new Date(newTransaction.date || new Date());
-        const baseDueDate = new Date(newTransaction.due_date || new Date());
+        const baseDate = parseISO(newTransaction.date || new Date().toISOString().split('T')[0]);
+        const baseDueDate = parseISO(newTransaction.due_date || new Date().toISOString().split('T')[0]);
 
         for (let i = 0; i < (isRecurring ? numMonths : 1); i++) {
           const currentDate = new Date(baseDate);
@@ -626,8 +686,8 @@ const Finance: React.FC<FinanceProps> = ({
             type: newTransaction.type,
             category: newTransaction.category,
             status: status,
-            date: currentDate.toISOString().split('T')[0],
-            due_date: currentDueDate.toISOString().split('T')[0],
+            date: format(currentDate, 'yyyy-MM-dd'),
+            due_date: format(currentDueDate, 'yyyy-MM-dd'),
             payment_method: newTransaction.payment_method,
             bank_account_id: newTransaction.bank_account_id || null,
             client_account_id: newTransaction.client_account_id || null,
@@ -948,7 +1008,7 @@ const Finance: React.FC<FinanceProps> = ({
                           {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
                           <p className="text-sm font-bold text-slate-800">{t.description}</p>
                         </div>
-                        <p className="text-[10px] text-slate-400">{format(new Date(t.date), 'dd/MM/yyyy')}</p>
+                        <p className="text-[10px] text-slate-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
@@ -1084,7 +1144,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs font-medium text-slate-600">{format(new Date(t.due_date || t.date), 'dd/MM/yyyy')}</p>
+                    <p className="text-xs font-medium text-slate-600">{format(parseISO(t.due_date || t.date), 'dd/MM/yyyy')}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
@@ -2393,7 +2453,7 @@ const Finance: React.FC<FinanceProps> = ({
                         .slice(0, 10)
                         .map(t => (
                           <tr key={t.id} className="text-xs">
-                            <td className="px-6 py-4 font-bold text-slate-500">{format(new Date(t.date), 'dd/MM/yyyy')}</td>
+                            <td className="px-6 py-4 font-bold text-slate-500">{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
                             <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">{t.description}</td>
                             <td className={`px-6 py-4 text-right font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-rose-600'}`}>
                               {t.type === 'Receita' ? '+' : '-'} R$ {Math.abs(Number(t.amount)).toLocaleString()}
