@@ -525,20 +525,28 @@ const Settings: React.FC<SettingsProps> = ({
 
       // Save stages
       if (editingPipeline.stages) {
-        const currentStages = editingPipeline.stages.map((s, idx) => ({
-          id: s.id && !s.id.includes('.') ? s.id : undefined, // Check if it's a real UUID or a temp ID
-          pipeline_id: pipelineId,
-          name: s.name,
-          position: idx,
-          color: s.color || 'blue',
-          status: s.status || FunnelStatus.INTERMEDIATE
-        }));
+        const allStages = editingPipeline.stages.map((s, idx) => {
+          const stage: any = {
+            pipeline_id: pipelineId,
+            name: s.name,
+            position: idx,
+            color: s.color || 'blue',
+            status: s.status || FunnelStatus.INTERMEDIATE
+          };
+          
+          // Only include ID if it looks like a real UUID (not a temp ID from Math.random)
+          if (s.id && !s.id.includes('.')) {
+            stage.id = s.id;
+          }
+          
+          return stage;
+        });
 
         // 1. Identify stages to delete (those in DB but not in currentStages)
         if (editingPipeline.id) {
           const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId);
           if (dbStages) {
-            const currentIds = currentStages.map(s => s.id).filter(Boolean);
+            const currentIds = allStages.map(s => s.id).filter(Boolean);
             const toDelete = dbStages.filter(s => !currentIds.includes(s.id)).map(s => s.id);
             if (toDelete.length > 0) {
               await supabase.from('m4_pipeline_stages').delete().in('id', toDelete);
@@ -546,9 +554,19 @@ const Settings: React.FC<SettingsProps> = ({
           }
         }
 
-        // 2. Upsert stages
-        const { error: sError } = await supabase.from('m4_pipeline_stages').upsert(currentStages);
-        if (sError) throw sError;
+        // 2. Separate updates and inserts
+        const stagesToUpsert = allStages.filter(s => s.id);
+        const stagesToInsert = allStages.filter(s => !s.id);
+
+        if (stagesToUpsert.length > 0) {
+          const { error: uError } = await supabase.from('m4_pipeline_stages').upsert(stagesToUpsert);
+          if (uError) throw uError;
+        }
+
+        if (stagesToInsert.length > 0) {
+          const { error: iError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
+          if (iError) throw iError;
+        }
       }
 
       // Refresh pipelines
