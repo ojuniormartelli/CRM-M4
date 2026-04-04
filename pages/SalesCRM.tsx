@@ -510,10 +510,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   };
 
   const [isStageConfigModalOpen, setIsStageConfigModalOpen] = useState(false);
-  const [editingStageId, setEditingStageId] = useState<string | null>(null);
-  const [isAddingStage, setIsAddingStage] = useState(false);
-  const [newStageData, setNewStageData] = useState({ name: '', color: 'blue' });
-  const [deletingStageId, setDeletingStageId] = useState<string | null>(null);
+  const [editingPipeline, setEditingPipeline] = useState<Pipeline | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const STAGE_COLORS = [
     { name: 'Azul', value: 'blue', hex: '#3b82f6' },
@@ -542,138 +540,91 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     );
   }
 
-  const handleCreateStage = async () => {
-    if (!newStageData.name) return;
-    setIsSyncing(true);
+  const handleSavePipeline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPipeline || !editingPipeline.name) return;
+    setIsSaving(true);
     try {
-      const nextPosition = activePipeline.stages.length;
-      const { data, error } = await supabase
-        .from('m4_pipeline_stages')
-        .insert([{
-          pipeline_id: activePipelineId,
-          name: newStageData.name,
-          color: newStageData.color,
-          position: nextPosition
-        }])
-        .select()
-        .single();
+      const pipelineData = {
+        name: editingPipeline.name,
+        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
+        position: editingPipeline.position ?? pipelines.length
+      };
 
-      if (error) throw error;
+      let pipelineId = editingPipeline.id;
+      if (pipelineId) {
+        const { error } = await supabase.from('m4_pipelines').update(pipelineData).eq('id', pipelineId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('m4_pipelines').insert(pipelineData).select().single();
+        if (error) throw error;
+        pipelineId = data.id;
+      }
 
-      const updatedPipelines = pipelines.map(p => {
-        if (p.id === activePipelineId) {
-          return { ...p, stages: [...p.stages, data] };
-        }
-        return p;
-      });
-      setPipelines(updatedPipelines);
-      setIsAddingStage(false);
-      setNewStageData({ name: '', color: 'blue' });
-    } catch (err) {
-      console.error("Erro ao criar etapa:", err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleUpdateStage = async (stageId: string, updates: Partial<PipelineStage>) => {
-    setIsSyncing(true);
-    try {
-      const { error } = await supabase
-        .from('m4_pipeline_stages')
-        .update(updates)
-        .eq('id', stageId);
-
-      if (error) throw error;
-
-      const updatedPipelines = pipelines.map(p => {
-        if (p.id === activePipelineId) {
-          return {
-            ...p,
-            stages: p.stages.map(s => s.id === stageId ? { ...s, ...updates } : s)
+      // Save stages
+      if (editingPipeline.stages) {
+        const allStages = editingPipeline.stages.map((s, idx) => {
+          const stage: any = {
+            pipeline_id: pipelineId,
+            name: s.name,
+            position: idx,
+            color: s.color || 'blue',
+            status: s.status || FunnelStatus.INTERMEDIATE
           };
+          
+          // Only include ID if it looks like a real UUID (not a temp ID from Math.random)
+          if (s.id && !s.id.includes('.')) {
+            stage.id = s.id;
+          }
+          
+          return stage;
+        });
+
+        // 1. Identify stages to delete (those in DB but not in currentStages)
+        if (editingPipeline.id) {
+          const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId);
+          if (dbStages) {
+            const currentIds = allStages.map(s => s.id).filter(Boolean);
+            const toDelete = dbStages.filter(s => !currentIds.includes(s.id)).map(s => s.id);
+            if (toDelete.length > 0) {
+              await supabase.from('m4_pipeline_stages').delete().in('id', toDelete);
+            }
+          }
         }
-        return p;
-      });
-      setPipelines(updatedPipelines);
-      setEditingStageId(null);
-    } catch (err) {
-      console.error("Erro ao atualizar etapa:", err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
-  const handleDeleteStage = async (stageId: string) => {
-    setIsSyncing(true);
-    try {
-      const { error } = await supabase
-        .from('m4_pipeline_stages')
-        .delete()
-        .eq('id', stageId);
+        // 2. Separate updates and inserts
+        const stagesToUpsert = allStages.filter(s => s.id);
+        const stagesToInsert = allStages.filter(s => !s.id);
 
-      if (error) throw error;
-
-      // Update leads in this stage to have no stage
-      await supabase
-        .from('m4_leads')
-        .update({ stage: null })
-        .eq('stage', stageId);
-
-      const updatedPipelines = pipelines.map(p => {
-        if (p.id === activePipelineId) {
-          return {
-            ...p,
-            stages: p.stages.filter(s => s.id !== stageId)
-          };
+        if (stagesToUpsert.length > 0) {
+          const { error: uError } = await supabase.from('m4_pipeline_stages').upsert(stagesToUpsert);
+          if (uError) throw uError;
         }
-        return p;
-      });
-      setPipelines(updatedPipelines);
-      setDeletingStageId(null);
+
+        if (stagesToInsert.length > 0) {
+          const { error: iError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
+          if (iError) throw iError;
+        }
+      }
+
+      // Refresh pipelines
+      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('position');
+      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
       
-      // Refresh leads
-      const { data: leadsData } = await supabase.from('m4_leads').select('*');
-      if (leadsData) setLeads(leadsData);
+      if (pData) {
+        const fullPipelines = pData.map(p => ({
+          ...p,
+          stages: (sData || []).filter(s => s.pipeline_id === p.id)
+        }));
+        setPipelines(fullPipelines);
+      }
+      
+      setIsStageConfigModalOpen(false);
     } catch (err) {
-      console.error("Erro ao excluir etapa:", err);
+      console.error("Erro ao salvar pipeline:", err);
+      alert("Erro ao salvar pipeline.");
     } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleMoveStage = async (stageId: string, direction: 'up' | 'down') => {
-    const currentIndex = activePipeline.stages.findIndex(s => s.id === stageId);
-    if (direction === 'up' && currentIndex === 0) return;
-    if (direction === 'down' && currentIndex === activePipeline.stages.length - 1) return;
-
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    const stages = [...activePipeline.stages];
-    const [movedStage] = stages.splice(currentIndex, 1);
-    stages.splice(newIndex, 0, movedStage);
-
-    // Update positions locally
-    const updatedStages = stages.map((s, i) => ({ ...s, position: i }));
-
-    setIsSyncing(true);
-    try {
-      // Update all positions in Supabase
-      const updates = updatedStages.map(s => 
-        supabase.from('m4_pipeline_stages').update({ position: s.position }).eq('id', s.id)
-      );
-      await Promise.all(updates);
-
-      const updatedPipelines = pipelines.map(p => {
-        if (p.id === activePipelineId) {
-          return { ...p, stages: updatedStages };
-        }
-        return p;
-      });
-      setPipelines(updatedPipelines);
-    } catch (err) {
-      console.error("Erro ao reordenar etapas:", err);
-    } finally {
-      setIsSyncing(false);
+      setIsSaving(false);
     }
   };
 
@@ -1406,7 +1357,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <ICONS.ChevronDown width="20" height="20" />
               </button>
               <button 
-                onClick={() => setIsStageConfigModalOpen(true)}
+                onClick={() => {
+                  setEditingPipeline(activePipeline);
+                  setIsStageConfigModalOpen(true);
+                }}
                 className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
                 title="Configurar Etapas"
               >
@@ -3075,153 +3029,146 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         </div>
       )}
 
-      {isStageConfigModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-center p-10 pb-6 shrink-0 border-b border-slate-50 dark:border-slate-800">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Configurar Funil</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{activePipeline.name}</p>
-              </div>
-              <button onClick={() => setIsStageConfigModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                <ICONS.Plus className="rotate-45" />
+      {isStageConfigModalOpen && editingPipeline && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                CONFIGURAR FUNIL
+              </h3>
+              <button onClick={() => setIsStageConfigModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <ICONS.X size={24} />
               </button>
             </div>
+            <form onSubmit={handleSavePipeline} className="p-10 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-none">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Funil</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingPipeline.name || ''}
+                  onChange={e => setEditingPipeline({ ...editingPipeline, name: e.target.value })}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                  placeholder="Ex: Funil de Vendas Principal"
+                />
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              {activePipeline.stages.map((stage, index) => (
-                <div key={stage.id} className="group bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 transition-all">
-                  {editingStageId === stage.id ? (
-                    <div className="flex-1 space-y-4">
-                      <div className="flex gap-4">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Etapas do Funil</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newStage = { id: Math.random().toString(), name: '', status: FunnelStatus.INTERMEDIATE };
+                      setEditingPipeline({
+                        ...editingPipeline,
+                        stages: [...(editingPipeline.stages || []), newStage]
+                      });
+                    }}
+                    className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 hover:text-indigo-700"
+                  >
+                    <ICONS.Plus size={14} /> ADICIONAR ETAPA
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {editingPipeline.stages?.map((stage, idx) => (
+                    <div key={stage.id} className="flex gap-3 items-start p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                      <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 rounded-xl text-xs font-black text-slate-400 border border-slate-100 dark:border-slate-800 mt-2">
+                        {idx + 1}
+                      </div>
+                      <div className="flex flex-col gap-1 mt-2">
+                        <button 
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            [newStages[idx - 1], newStages[idx]] = [newStages[idx], newStages[idx - 1]];
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        >
+                          <ChevronDown className="rotate-180" size={14} />
+                        </button>
+                        <button 
+                          type="button"
+                          disabled={idx === (editingPipeline.stages?.length || 0) - 1}
+                          onClick={() => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            [newStages[idx + 1], newStages[idx]] = [newStages[idx], newStages[idx + 1]];
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                      <div className="flex-1 space-y-3">
                         <input 
-                          autoFocus
-                          value={newStageData.name}
-                          onChange={(e) => setNewStageData({...newStageData, name: e.target.value})}
-                          className="flex-1 p-3 bg-white dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white text-sm shadow-sm"
+                          type="text" 
+                          required
+                          value={stage.name}
+                          onChange={e => {
+                            const newStages = [...(editingPipeline.stages || [])];
+                            newStages[idx] = { ...stage, name: e.target.value };
+                            setEditingPipeline({ ...editingPipeline, stages: newStages });
+                          }}
+                          className="w-full p-3 bg-white dark:bg-slate-900 rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 text-sm"
+                          placeholder="Nome da etapa"
                         />
                         <div className="flex gap-2">
-                          <button onClick={() => setEditingStageId(null)} className="p-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 transition-all">
-                            <ICONS.X width="16" height="16" />
-                          </button>
-                          <button onClick={() => handleUpdateStage(stage.id, { name: newStageData.name, color: newStageData.color })} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
-                            <ICONS.Check width="16" height="16" />
-                          </button>
+                          {Object.values(FunnelStatus).map(status => (
+                            <button
+                              key={status}
+                              type="button"
+                              onClick={() => {
+                                const newStages = [...(editingPipeline.stages || [])];
+                                newStages[idx] = { ...stage, status };
+                                setEditingPipeline({ ...editingPipeline, stages: newStages });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                stage.status === status 
+                                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
+                                  : 'bg-white dark:bg-slate-900 text-slate-400 hover:text-slate-600 border border-slate-100 dark:border-slate-800'
+                              }`}
+                            >
+                              {status}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        {STAGE_COLORS.map(color => (
-                          <button
-                            key={color.value}
-                            onClick={() => setNewStageData({...newStageData, color: color.value})}
-                            className={`w-8 h-8 rounded-full border-2 transition-all ${newStageData.color === color.value ? 'border-blue-600 scale-110' : 'border-transparent hover:scale-105'}`}
-                            style={{ backgroundColor: color.hex }}
-                            title={color.name}
-                          />
-                        ))}
-                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newStages = editingPipeline.stages?.filter((_, i) => i !== idx);
+                          setEditingPipeline({ ...editingPipeline, stages: newStages });
+                        }}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all mt-2"
+                      >
+                        <ICONS.Trash size={18} />
+                      </button>
                     </div>
-                  ) : deletingStageId === stage.id ? (
-                    <div className="flex flex-col gap-4 p-2">
-                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                        Excluir <span className="text-red-500">"{stage.name}"</span>? Os leads nesta etapa ficarão sem etapa.
-                      </p>
-                      <div className="flex gap-3">
-                        <button onClick={() => setDeletingStageId(null)} className="flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-xs uppercase tracking-widest">Cancelar</button>
-                        <button onClick={() => handleDeleteStage(stage.id)} className="flex-1 py-2 bg-red-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-red-700 transition-all">Confirmar</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 text-slate-300 dark:text-slate-600">
-                          <ICONS.GripVertical width="16" height="16" />
-                        </div>
-                        <div 
-                          className="w-4 h-4 rounded-full shadow-sm" 
-                          style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}
-                        />
-                        <span className="font-bold text-slate-900 dark:text-white text-sm">{stage.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleMoveStage(stage.id, 'up')}
-                          disabled={index === 0}
-                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-20"
-                        >
-                          <ICONS.ChevronUp width="16" height="16" />
-                        </button>
-                        <button 
-                          onClick={() => handleMoveStage(stage.id, 'down')}
-                          disabled={index === activePipeline.stages.length - 1}
-                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-20"
-                        >
-                          <ICONS.ChevronDown width="16" height="16" />
-                        </button>
-                        <button 
-                          onClick={() => setEditingStageId(stage.id)}
-                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
-                        >
-                          <ICONS.Edit width="16" height="16" />
-                        </button>
-                        <button 
-                          onClick={() => setDeletingStageId(stage.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                        >
-                          <ICONS.Trash width="16" height="16" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              </div>
 
-              {isAddingStage ? (
-                <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-100 dark:border-blue-900/20 space-y-6 animate-in slide-in-from-bottom-4 duration-300">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1">Nome da Etapa</label>
-                    <input 
-                      autoFocus
-                      value={newStageData.name}
-                      onChange={e => setNewStageData({...newStageData, name: e.target.value})}
-                      className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
-                      placeholder="Ex: Negociação"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1">Cor da Etapa</label>
-                    <div className="flex gap-3">
-                      {STAGE_COLORS.map(color => (
-                        <button
-                          key={color.value}
-                          onClick={() => setNewStageData({...newStageData, color: color.value})}
-                          className={`w-10 h-10 rounded-full border-4 transition-all ${newStageData.color === color.value ? 'border-blue-600 scale-110 shadow-lg shadow-blue-100 dark:shadow-none' : 'border-white dark:border-slate-800 hover:scale-105'}`}
-                          style={{ backgroundColor: color.hex }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-4 pt-2">
-                    <button onClick={() => setIsAddingStage(false)} className="flex-1 py-4 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest">Cancelar</button>
-                    <button 
-                      onClick={handleCreateStage}
-                      disabled={!newStageData.name || isSyncing}
-                      className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
-                    >
-                      {isSyncing ? 'SALVANDO...' : 'CONFIRMAR'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
+              <div className="flex gap-4 pt-4">
                 <button 
-                  onClick={() => setIsAddingStage(true)}
-                  className="w-full py-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] text-slate-400 font-black uppercase text-xs tracking-[0.2em] hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all flex items-center justify-center gap-3"
+                  type="button"
+                  onClick={() => setIsStageConfigModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
                 >
-                  <ICONS.Plus width="16" height="16" />
-                  Nova Etapa
+                  CANCELAR
                 </button>
-              )}
-            </div>
+                <button 
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
