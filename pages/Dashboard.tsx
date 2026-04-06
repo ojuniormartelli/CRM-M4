@@ -21,11 +21,11 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
       : 'text-red-600 dark:text-red-400';
 
   return (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">{title}</p>
-          <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{value}</h3>
+          <p className="text-muted-foreground text-sm font-medium mb-1">{title}</p>
+          <h3 className="text-2xl font-bold text-foreground">{value}</h3>
           <p className={`text-xs mt-2 flex items-center gap-1 ${textColor}`}>
             {!isNeutral && (isPositive ? '▲' : '▼')} {change} vs mês anterior
           </p>
@@ -175,8 +175,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
     <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center shrink-0">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Dashboard Comercial</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Performance e métricas em tempo real.</p>
+          <h2 className="text-3xl font-black text-foreground tracking-tight">Dashboard Comercial</h2>
+          <p className="text-muted-foreground font-medium">Performance e métricas em tempo real.</p>
         </div>
         <div className="flex gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[10px] font-black uppercase border border-emerald-100 dark:border-emerald-900/30">
@@ -275,90 +275,90 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-8 uppercase tracking-widest">Performance de Vendas</h3>
+        <div className="lg:col-span-2 bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
+          <h3 className="text-lg font-black text-foreground mb-8 uppercase tracking-widest">Performance de Vendas</h3>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.1} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" opacity={0.1} className="text-muted-foreground" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'currentColor', fontSize: 10, fontWeight: 800}} dy={10} className="text-muted-foreground" />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: 'currentColor', fontSize: 10, fontWeight: 800}} className="text-muted-foreground" />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '24px', border: 'none', backgroundColor: '#1e293b', color: '#fff', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '20px' }}
-                  itemStyle={{ color: '#fff' }}
+                  contentStyle={{ borderRadius: '24px', border: 'none', backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '20px' }}
+                  itemStyle={{ color: 'var(--foreground)' }}
                   formatter={(value: any) => [`R$ ${value.toLocaleString()}`, 'Receita']}
                 />
-                <Line type="monotone" dataKey="mrr" stroke="#2563eb" strokeWidth={4} dot={{ r: 6, fill: '#2563eb', strokeWidth: 4, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="mrr" stroke="var(--primary)" strokeWidth={4} dot={{ r: 6, fill: 'var(--primary)', strokeWidth: 4, stroke: 'var(--card)' }} activeDot={{ r: 8 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-8 uppercase tracking-widest">Ranking Vendedores</h3>
+        <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
+          <h3 className="text-lg font-black text-foreground mb-8 uppercase tracking-widest">Ranking Vendedores</h3>
           <div className="space-y-6">
             {ranking.length > 0 ? ranking.map((v, idx) => (
               <div key={idx} className="flex items-center justify-between group">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <img src={v.img} className="w-12 h-12 rounded-2xl border-2 border-white dark:border-slate-800 shadow-md" alt={v.name} />
-                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</div>
+                    <img src={v.img} className="w-12 h-12 rounded-2xl border-2 border-card shadow-md" alt={v.name} />
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-foreground text-card rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</div>
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-900 dark:text-white">{v.name}</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">{v.sales} fechamentos</p>
+                    <p className="text-sm font-black text-foreground">{v.name}</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">{v.sales} fechamentos</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-black text-blue-600 dark:text-blue-400">R$ {v.revenue.toLocaleString()}</p>
+                  <p className="text-sm font-black text-primary">R$ {v.revenue.toLocaleString()}</p>
                 </div>
               </div>
             )) : (
-              <p className="text-slate-400 text-xs font-bold uppercase text-center py-10">Nenhum fechamento este mês</p>
+              <p className="text-muted-foreground text-xs font-bold uppercase text-center py-10">Nenhum fechamento este mês</p>
             )}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
           <div className="flex justify-between items-center mb-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Próximas Reuniões</h3>
-            <button className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Agenda</button>
+            <h3 className="text-lg font-black text-foreground uppercase tracking-widest">Próximas Reuniões</h3>
+            <button className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Ver Agenda</button>
           </div>
           <div className="space-y-4">
             {upcomingMeetings.length > 0 ? upcomingMeetings.map((t, idx) => (
-              <div key={idx} className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 transition-all cursor-pointer group">
+              <div key={idx} className="flex items-center justify-between p-6 bg-muted/50 rounded-[1.5rem] border border-border hover:border-primary/50 transition-all cursor-pointer group">
                 <div className="flex items-center gap-6">
-                  <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 shadow-sm transition-all">
+                  <div className="w-12 h-12 bg-card rounded-2xl flex items-center justify-center text-muted-foreground group-hover:text-primary shadow-sm transition-all">
                     {t.type === 'meeting' ? <ICONS.Collaboration width="20" height="20" /> : <ICONS.Phone width="20" height="20" />}
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-900 dark:text-white">{t.title}</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(t.due_date).toLocaleDateString()} às {new Date(t.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    <p className="text-sm font-black text-foreground">{t.title}</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{new Date(t.due_date).toLocaleDateString()} às {new Date(t.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </div>
-                <ICONS.ChevronDown className="-rotate-90 text-slate-300" />
+                <ICONS.ChevronDown className="-rotate-90 text-muted-foreground/50" />
               </div>
             )) : (
-              <p className="text-slate-400 text-xs font-bold uppercase text-center py-10">Nenhuma reunião agendada</p>
+              <p className="text-muted-foreground text-xs font-bold uppercase text-center py-10">Nenhuma reunião agendada</p>
             )}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-8 uppercase tracking-widest">Atividade Recente</h3>
-          <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
+        <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
+          <h3 className="text-lg font-black text-foreground mb-8 uppercase tracking-widest">Atividade Recente</h3>
+          <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
             {leads.slice(-4).reverse().map((l, idx) => (
               <div key={idx} className="flex gap-6 relative">
-                <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 border-2 border-blue-600 flex items-center justify-center text-[10px] font-black text-blue-600 z-10 shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-card border-2 border-primary flex items-center justify-center text-[10px] font-black text-primary z-10 shadow-sm">
                   {l.name[0]}
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                    Novo lead <span className="font-black text-slate-900 dark:text-white">{l.name}</span> entrou no funil via <span className="font-black text-blue-600 dark:text-blue-400">{l.source || 'Site'}</span>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Novo lead <span className="font-black text-foreground">{l.name}</span> entrou no funil via <span className="font-black text-primary">{l.source || 'Site'}</span>
                   </p>
-                  <p className="text-[10px] font-black text-slate-400 uppercase mt-1">{new Date(l.created_at).toLocaleDateString()}</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase mt-1">{new Date(l.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
             ))}

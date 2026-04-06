@@ -52,8 +52,8 @@ const Automation: React.FC<AutomationProps> = ({ leads }) => {
     <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Automações</h2>
-          <p className="text-slate-500">Regras automáticas para otimizar sua agência.</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Automações</h2>
+          <p className="text-slate-500 dark:text-slate-400">Regras automáticas para otimizar sua agência.</p>
         </div>
         <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2">
           <ICONS.Plus /> Criar Automação
@@ -62,20 +62,20 @@ const Automation: React.FC<AutomationProps> = ({ leads }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {automations.map((a) => (
-          <div key={a.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+          <div key={a.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
             <div className="flex justify-between items-start mb-4">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><ICONS.Automation /></div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl"><ICONS.Automation /></div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold uppercase ${a.status ? 'text-emerald-600' : 'text-slate-400'}`}>{a.status ? 'Ativa' : 'Pausada'}</span>
-                <div className={`w-10 h-5 rounded-full p-1 transition-colors ${a.status ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                <span className={`text-xs font-bold uppercase ${a.status ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>{a.status ? 'Ativa' : 'Pausada'}</span>
+                <div className={`w-10 h-5 rounded-full p-1 transition-colors ${a.status ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}>
                    <div className={`w-3 h-3 bg-white rounded-full transition-transform ${a.status ? 'translate-x-5' : 'translate-x-0'}`}></div>
                 </div>
               </div>
             </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">{a.name}</h3>
+            <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">{a.name}</h3>
             <div className="space-y-3">
-              <p className="text-sm text-slate-700 font-medium"><span className="text-[10px] font-bold text-slate-400 uppercase">Gatilho:</span> {a.trigger}</p>
-              <p className="text-sm text-slate-600 italic"><span className="text-[10px] font-bold text-slate-400 uppercase">Ação:</span> {a.action}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 font-medium"><span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Gatilho:</span> {a.trigger}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 italic"><span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Ação:</span> {a.action}</p>
             </div>
           </div>
         ))}

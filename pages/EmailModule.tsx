@@ -142,7 +142,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails, currentUse
         {/* List Pane */}
         <div className={`w-[45%] border-r border-slate-50 flex flex-col h-full ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
            <div className="p-8 border-b border-slate-50">
-             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{activeFolder}</h3>
+             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{activeFolder}</h3>
            </div>
            <div className="flex-1 overflow-y-auto scrollbar-none divide-y divide-slate-50">
              {filteredEmails.length === 0 ? (
@@ -159,7 +159,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails, currentUse
                  >
                    {!email.is_read && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-blue-600 rounded-r-full"></div>}
                    <div className="flex justify-between items-start mb-2">
-                     <h4 className={`text-sm ${!email.is_read ? 'font-black text-slate-900' : 'font-medium text-slate-500'}`}>{email.sender_name}</h4>
+                     <h4 className={`text-sm ${!email.is_read ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-500'}`}>{email.sender_name}</h4>
                      <span className="text-[10px] font-bold text-slate-400">{new Date(email.created_at).toLocaleDateString()}</span>
                    </div>
                    <h5 className={`text-xs mb-1 truncate ${!email.is_read ? 'font-black text-slate-800' : 'text-slate-600'}`}>{email.subject}</h5>
@@ -180,7 +180,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails, currentUse
                      {selectedEmail.sender_name[0]}
                    </div>
                    <div>
-                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">{selectedEmail.subject}</h2>
+                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedEmail.subject}</h2>
                      <p className="text-xs font-bold text-slate-400 mt-1">De: <span className="text-blue-600">{selectedEmail.sender_email}</span> para você</p>
                    </div>
                  </div>

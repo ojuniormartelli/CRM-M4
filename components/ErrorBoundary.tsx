@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component<Props, State> {
             <div className="w-16 h-16 bg-rose-600 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-rose-200">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             </div>
-            <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Ops! Algo deu errado</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">Ops! Algo deu errado</h1>
             <p className="text-slate-500 font-medium mb-6 leading-relaxed">
               O aplicativo encontrou um erro inesperado. Tente recarregar a página ou entre em contato com o suporte se o problema persistir.
             </p>

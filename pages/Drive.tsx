@@ -15,11 +15,11 @@ const Drive: React.FC = () => {
     <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Drive & Documentos</h2>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Drive & Documentos</h2>
           <p className="text-slate-500">Repositório central de arquivos da agência.</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200">
+          <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors">
             Nova Pasta
           </button>
           <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100">
@@ -42,7 +42,7 @@ const Drive: React.FC = () => {
                 </div>
               )}
             </div>
-            <h4 className="text-sm font-bold text-slate-800 truncate mb-1">{item.name}</h4>
+            <h4 className="text-sm font-bold text-slate-800 dark:text-white truncate mb-1">{item.name}</h4>
             <p className="text-[10px] text-slate-400 font-bold uppercase">{item.size}</p>
           </div>
         ))}
@@ -52,7 +52,7 @@ const Drive: React.FC = () => {
         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
            <ICONS.Plus />
         </div>
-        <h4 className="text-slate-800 font-bold">Arraste arquivos aqui para fazer upload</h4>
+        <h4 className="text-slate-800 dark:text-white font-bold">Arraste arquivos aqui para fazer upload</h4>
         <p className="text-slate-500 text-xs mt-1">Limite de 100MB por arquivo (v3.0)</p>
       </div>
     </div>

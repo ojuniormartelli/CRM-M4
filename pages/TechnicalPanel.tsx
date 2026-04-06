@@ -267,6 +267,73 @@ ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all for authenticated users" ON m4_interactions FOR ALL USING (auth.role() = 'authenticated');
 `;
 
+  const updateV4SQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO v4 (M4 CRM)
+-- Adiciona tabelas faltantes e ajusta a posição das etapas do funil.
+
+-- 1. Tabela de Interações (Histórico do Lead)
+CREATE TABLE IF NOT EXISTS public.m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    type TEXT CHECK (type IN ('WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro', 'ai_insight', 'Call', 'Email', 'Meeting', 'Note')),
+    note TEXT,
+    success BOOLEAN DEFAULT true,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Tabela de Serviços
+CREATE TABLE IF NOT EXISTS public.m4_services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    default_price NUMERIC DEFAULT 0,
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Tabelas de Questionários (Forms)
+CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    questions JSONB NOT NULL DEFAULT '[]',
+    workspace_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    answers JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 4. Ajustar posições das etapas para garantir "Novo Lead" no topo (posição 1)
+-- Nota: Isso assume que você está usando o pipeline padrão.
+UPDATE public.m4_pipeline_stages SET position = 1 WHERE name = 'Novo Lead';
+UPDATE public.m4_pipeline_stages SET position = 2 WHERE name = 'Qualificado';
+UPDATE public.m4_pipeline_stages SET position = 3 WHERE name = 'Reunião Agendada';
+UPDATE public.m4_pipeline_stages SET position = 4 WHERE name = 'Proposta Enviada';
+UPDATE public.m4_pipeline_stages SET position = 5 WHERE name = 'Aguardando Decisão';
+UPDATE public.m4_pipeline_stages SET position = 6 WHERE name = 'Fechado – Ganho';
+UPDATE public.m4_pipeline_stages SET position = 7 WHERE name = 'Fechado – Perdido';
+
+-- 5. Garantir que o stage padrão dos leads seja 'new' (Novo Lead)
+ALTER TABLE public.m4_leads ALTER COLUMN stage SET DEFAULT 'new';
+UPDATE public.m4_leads SET stage = 'new' WHERE stage = 's1' OR stage IS NULL;
+
+-- 6. Habilitar RLS para as novas tabelas
+ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_form_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_form_responses ENABLE ROW LEVEL SECURITY;
+
+-- Políticas simplificadas (ajuste conforme necessário)
+CREATE POLICY "Allow all for authenticated" ON m4_interactions FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_services FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_form_templates FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_form_responses FOR ALL USING (true);`;
+
   const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (M4 CRM - CRM Evolution)
 -- Use este script para adicionar novas funcionalidades a um banco já existente.
 
@@ -414,16 +481,16 @@ END $$;
           <ICONS.Settings />
         </div>
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Painel Técnico</h2>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Painel Técnico</h2>
           <p className="text-slate-500 font-medium italic">Gerencie a estrutura do seu banco de dados no Supabase.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Configuração Inicial</h3>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Configuração Inicial</h3>
               <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Setup Completo do Zero</p>
             </div>
             <button 
@@ -445,28 +512,53 @@ END $$;
           </div>
         </div>
 
-        <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-xl font-black text-blue-900 uppercase tracking-tight">Atualização Segura</h3>
-              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Incrementos e Migrações</p>
+              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">Atualização v4</h3>
+              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Funil & Interações</p>
             </div>
             <button 
-              onClick={() => handleCopy(updateOnlySQL, 'update')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'update' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
+              onClick={() => handleCopy(updateV4SQL, 'v4')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'v4' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
             >
-              {copied === 'update' ? 'Copiado!' : 'Copiar SQL'}
+              {copied === 'v4' ? 'Copiado!' : 'Copiar SQL'}
             </button>
           </div>
           <div className="relative">
             <pre className="bg-slate-900 text-indigo-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {updateOnlySQL}
+              {updateV4SQL}
             </pre>
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
           <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
              <div className="text-emerald-500"><ICONS.Automation /></div>
-             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Dica: Este script garante que novas funcionalidades (como o Módulo de Email) sejam instaladas sem apagar seus leads atuais.</p>
+             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Dica: Este script garante que o funil esteja ordenado e as novas tabelas de interações e serviços existam.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-slate-100">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Atualização Segura</h3>
+              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Incrementos e Migrações</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(updateOnlySQL, 'update')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'update' ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white'}`}
+            >
+              {copied === 'update' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-slate-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {updateOnlySQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
+             <div className="text-slate-500"><ICONS.Automation /></div>
+             <p className="text-[11px] font-bold text-slate-700 leading-relaxed uppercase">Nota: Script legado para migrações anteriores de empresas e contatos.</p>
           </div>
         </div>
       </div>

@@ -17,7 +17,7 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
     <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Marketing CRM</h2>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Marketing CRM</h2>
           <p className="text-slate-500">Crie campanhas automatizadas para sua base de {totalAudience} contatos.</p>
         </div>
         <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">
@@ -32,7 +32,7 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase">Audiência E-mail</p>
-            <h4 className="text-xl font-black text-slate-800">{emailAudience}</h4>
+            <h4 className="text-xl font-black text-slate-800 dark:text-white">{emailAudience}</h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -41,7 +41,7 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase">Audiência WhatsApp</p>
-            <h4 className="text-xl font-black text-slate-800">{whatsappAudience}</h4>
+            <h4 className="text-xl font-black text-slate-800 dark:text-white">{whatsappAudience}</h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -50,14 +50,14 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase">Segmentos IA</p>
-            <h4 className="text-xl font-black text-slate-800">5</h4>
+            <h4 className="text-xl font-black text-slate-800 dark:text-white">5</h4>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800">Campanhas Recentes</h3>
+          <h3 className="font-bold text-slate-800 dark:text-white">Campanhas Recentes</h3>
           <div className="flex gap-2">
              <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full">TODAS</span>
              <span className="px-3 py-1 text-slate-400 text-[10px] font-bold rounded-full">ATIVAS</span>
@@ -83,7 +83,7 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
             ) : (
               campaigns.map((c, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.name}</td>
+                  <td className="px-6 py-4 font-bold text-slate-800 dark:text-white text-sm">{c.name}</td>
                   <td className="px-6 py-4 text-xs font-medium text-slate-500">{c.type}</td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${c.status === 'Ativa' || c.status === 'Enviando' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
@@ -92,7 +92,7 @@ const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
                   </td>
                   <td className="px-6 py-4">
                      <div className="flex gap-4 items-center">
-                       <span className="text-xs font-bold text-slate-800">{c.click_rate}</span>
+                       <span className="text-xs font-bold text-slate-800 dark:text-white">{c.click_rate}</span>
                        {c.sent_count > 0 && <span className="text-[10px] text-slate-400">Vol: {c.sent_count}</span>}
                      </div>
                   </td>

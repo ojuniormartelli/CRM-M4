@@ -41,7 +41,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
       {/* Feed Column */}
       <div className="flex-1 space-y-6 overflow-y-auto pr-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-800">Fluxo de Atividade</h2>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Fluxo de Atividade</h2>
         </div>
 
         {/* Create Post */}
@@ -76,7 +76,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
               <ICONS.Collaboration />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Nenhuma atividade ainda</h3>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nenhuma atividade ainda</h3>
             <p className="text-slate-500 text-sm">Seja o primeiro a publicar uma atualização para o time!</p>
           </div>
         ) : (
@@ -88,7 +88,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
                     {post.user_name?.charAt(0) || 'U'}
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{post.user_name}</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-white text-sm">{post.user_name}</h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                       {post.user_role} • {new Date(post.created_at).toLocaleDateString()}
                     </p>
@@ -96,7 +96,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
                 </div>
                 <button className="text-slate-400">•••</button>
               </div>
-              <p className="text-slate-700 text-sm leading-relaxed mb-6">{post.content}</p>
+              <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mb-6">{post.content}</p>
               <div className="flex items-center gap-6 pt-4 border-t border-slate-50 text-slate-500 text-xs font-bold uppercase">
                 <button className="flex items-center gap-2 hover:text-blue-600">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
@@ -115,7 +115,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
       {/* Right Chat/Widget Column */}
       <div className="w-80 space-y-6 hidden xl:block">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
+          <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center justify-between">
             Mensagens Diretas
             <span className="bg-blue-600 w-5 h-5 rounded-full text-[10px] text-white flex items-center justify-center">3</span>
           </h3>
@@ -131,7 +131,7 @@ const Collaboration: React.FC<CollaborationProps> = ({ posts, setPosts, currentU
                   <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${chat.status === 'online' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800">{chat.name}</p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-white">{chat.name}</p>
                   <p className="text-[10px] text-slate-400 truncate font-medium">{chat.last}</p>
                 </div>
               </div>

@@ -250,7 +250,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                   <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <ICONS.Form width="28" height="28" />
                   </div>
-                  <h3 className="text-xl font-black text-slate-900 mb-2">{template.title}</h3>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">{template.title}</h3>
                   <p className="text-slate-400 text-sm font-medium mb-8 line-clamp-2">{template.description || 'Sem descrição'}</p>
                   <div className="flex gap-3">
                     <button 
@@ -523,7 +523,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
               </div>
 
               <div className="animate-in slide-in-from-right-4 duration-500">
-                <h3 className="text-2xl font-black text-slate-900 mb-8">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-8">
                   {selectedTemplate.questions[currentQuestionIndex].type === 'script' ? 'Roteiro de Abordagem' : selectedTemplate.questions[currentQuestionIndex].label}
                   {selectedTemplate.questions[currentQuestionIndex].required && <span className="text-red-500 ml-1">*</span>}
                 </h3>

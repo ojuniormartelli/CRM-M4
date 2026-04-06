@@ -865,7 +865,7 @@ const Settings: React.FC<SettingsProps> = ({
             <ICONS.Settings />
           </div>
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações do CRM</h2>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configurações do CRM</h2>
             <p className="text-slate-500 font-medium">Personalize a identidade e o comportamento do seu workspace.</p>
           </div>
         </div>
@@ -1195,8 +1195,8 @@ const Settings: React.FC<SettingsProps> = ({
 
       {activeTab === 'visual' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Branding</h3>
+          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Branding</h3>
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do CRM</label>
@@ -1258,7 +1258,7 @@ const Settings: React.FC<SettingsProps> = ({
 
           <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 relative overflow-hidden">
             <div className="absolute right-0 top-0 w-64 h-64 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-            <h3 className="text-lg font-black uppercase tracking-widest relative z-10">Preview da Marca</h3>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest relative z-10">Preview da Marca</h3>
             <div className="space-y-6 relative z-10">
               <div className="p-6 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
                 <div className="flex items-center gap-4">

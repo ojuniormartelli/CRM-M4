@@ -330,7 +330,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
           <div 
             key={task.id} 
             onClick={() => openViewModal(task)}
-            className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-blue-200 transition-all cursor-pointer"
+            className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer"
           >
             <div className="flex items-center gap-6">
               <button 
@@ -344,9 +344,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
               </button>
               <div>
                 <div className="flex items-center gap-3">
-                  <h4 className={`font-black text-slate-900 text-lg ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</h4>
+                  <h4 className={`font-black text-slate-900 dark:text-white text-lg ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</h4>
                   {task.company_id && (
-                    <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
                       {companies.find(c => c.id === task.company_id)?.name || 'Empresa'}
                     </span>
                   )}
@@ -357,19 +357,19 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                       task.priority === Priority.URGENT ? 'bg-red-500' :
                       task.priority === Priority.HIGH ? 'bg-orange-500' :
                       task.priority === Priority.MEDIUM ? 'bg-blue-500' :
-                      'bg-slate-300'
+                      'bg-slate-300 dark:bg-slate-700'
                     }`}></div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{task.priority}</span>
                   </div>
-                  <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                  <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                     <ICONS.Calendar width="12" height="12" /> {new Date(task.due_date).toLocaleDateString()}
                   </span>
-                  <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{task.type}</span>
+                  <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{task.type}</span>
                   {task.is_recurring && (
                     <>
-                      <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                      <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                       <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
                         <ICONS.Automation width="12" height="12" /> Recorrente ({task.recurrence_type})
                       </span>
@@ -385,7 +385,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                    openViewModal(task);
                    setIsEditing(true);
                  }}
-                 className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
+                 className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
                >
                   <ICONS.Settings width="18" height="18" />
                </button>
@@ -395,7 +395,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                    setTaskToDelete(task.id);
                    setIsDeleting(true);
                  }}
-                 className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all"
+                 className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
                >
                   <ICONS.X width="18" height="18" />
                </button>
@@ -404,7 +404,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         ))}
         {filteredTasks.length === 0 && (
           <div className="py-20 text-center space-y-4">
-            <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-slate-200 mx-auto">
+            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-700 mx-auto">
               <ICONS.Tasks width="40" height="40" />
             </div>
             <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Nenhuma tarefa encontrada</p>

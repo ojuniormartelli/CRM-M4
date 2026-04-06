@@ -78,19 +78,19 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
           <div 
             key={project.id} 
             onClick={() => openViewModal(project)}
-            className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
+            className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
           >
             <div className="flex justify-between items-start mb-6">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
                 <ICONS.Projects width="24" height="24" />
               </div>
               <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${
-                project.status === 'active' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                project.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
               }`}>
                 {project.status === 'active' ? 'Em Andamento' : 'Concluído'}
               </span>
             </div>
-            <h4 className="font-black text-slate-900 text-xl mb-2">{project.name}</h4>
+            <h4 className="font-black text-slate-900 dark:text-white text-xl mb-2">{project.name}</h4>
             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Iniciado em {new Date(project.start_date).toLocaleDateString()}</p>
             
             <div className="space-y-4">
@@ -98,7 +98,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                 <span>Progresso</span>
                 <span>{tasks.filter(t => t.project_id === project.id && t.status === TaskStatus.DONE).length}/{tasks.filter(t => t.project_id === project.id).length} Tarefas</span>
               </div>
-              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-blue-600 transition-all duration-1000" 
                   style={{ width: `${(tasks.filter(t => t.project_id === project.id && t.status === TaskStatus.DONE).length / (tasks.filter(t => t.project_id === project.id).length || 1)) * 100}%` }}
@@ -109,7 +109,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
         ))}
         {projects.length === 0 && (
           <div className="col-span-full py-20 text-center space-y-4">
-            <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-slate-200 mx-auto">
+            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-700 mx-auto">
               <ICONS.Projects width="40" height="40" />
             </div>
             <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Nenhum projeto ativo</p>
@@ -119,14 +119,14 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
 
       {selectedProject && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-50 flex justify-end">
-          <div className="w-full md:w-[750px] bg-slate-50 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-700">
-            <div className="p-10 bg-white border-b border-slate-100 flex justify-between items-center">
+          <div className="w-full md:w-[750px] bg-slate-50 dark:bg-slate-950 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-700">
+            <div className="p-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200">
+                <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 dark:shadow-none">
                   <ICONS.Projects width="32" height="32" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {isEditing ? `EDITANDO: ${selectedProject.name}` : selectedProject.name}
                   </h3>
                   <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Gestão de Projeto</p>
@@ -136,7 +136,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                 {!isEditing && (
                   <button 
                     onClick={() => setIsEditing(true)}
-                    className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all"
+                    className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
                     title="Editar"
                   >
                     <ICONS.Edit className="w-5 h-5" />
@@ -151,7 +151,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                       setSelectedProject(null);
                     }
                   }} 
-                  className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
+                  className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                 >
                   {isEditing ? 'CANCELAR' : 'FECHAR'}
                 </button>
@@ -161,43 +161,43 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
             <form onSubmit={handleUpdateProject} className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto p-10 space-y-10">
                 <div className="grid grid-cols-2 gap-6">
-                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                  <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Valor do Projeto</p>
                     {isEditing ? (
                       <input 
                         type="number" 
                         value={editProject.value} 
                         onChange={e => setEditProject({...editProject, value: Number(e.target.value)})}
-                        className="w-full p-2 bg-slate-50 rounded-xl border-none font-bold text-slate-900"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white"
                       />
                     ) : (
-                      <p className="text-3xl font-black text-slate-900">R$ {Number(selectedProject.value).toLocaleString()}</p>
+                      <p className="text-3xl font-black text-slate-900 dark:text-white">R$ {Number(selectedProject.value).toLocaleString()}</p>
                     )}
                   </div>
-                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                  <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Data de Início</p>
                     {isEditing ? (
                       <input 
                         type="date" 
                         value={editProject.start_date} 
                         onChange={e => setEditProject({...editProject, start_date: e.target.value})}
-                        className="w-full p-2 bg-slate-50 rounded-xl border-none font-bold text-slate-900"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border-none font-bold text-slate-900 dark:text-white"
                       />
                     ) : (
-                      <p className="text-xl font-black text-slate-900">{new Date(selectedProject.start_date).toLocaleDateString()}</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white">{new Date(selectedProject.start_date).toLocaleDateString()}</p>
                     )}
                   </div>
                 </div>
 
                 {isEditing && (
-                  <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                  <div className="p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Projeto</label>
                       <input 
                         required 
                         value={editProject.name} 
                         onChange={e => setEditProject({...editProject, name: e.target.value})} 
-                        className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900" 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -205,7 +205,7 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                       <select 
                         value={editProject.status} 
                         onChange={e => setEditProject({...editProject, status: e.target.value as any})}
-                        className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900"
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white"
                       >
                         <option value="active">Em Andamento</option>
                         <option value="completed">Concluído</option>
@@ -216,35 +216,35 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
 
                 <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">Checklist de Onboarding</h4>
-                  <button className="text-blue-600 text-[10px] font-black uppercase tracking-widest hover:underline">+ Adicionar Item</button>
+                  <h4 className="font-black text-slate-900 dark:text-white uppercase text-xs tracking-widest">Checklist de Onboarding</h4>
+                  <button className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest hover:underline">+ Adicionar Item</button>
                 </div>
                 <div className="space-y-3">
                   {projectTasks.map((task) => (
-                    <div key={task.id} className="bg-white p-6 rounded-2xl border border-slate-100 flex items-center justify-between group">
+                    <div key={task.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group">
                       <div className="flex items-center gap-4">
-                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'}`}>
+                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
                           {task.status === TaskStatus.DONE && <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
                         </div>
-                        <span className={`text-sm font-bold text-slate-700 ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</span>
+                        <span className={`text-sm font-bold text-slate-700 dark:text-slate-300 ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</span>
                       </div>
                       <span className="text-[10px] font-black text-slate-400 uppercase">{task.priority}</span>
                     </div>
                   ))}
                   {projectTasks.length === 0 && (
-                    <div className="p-10 text-center border-2 border-dashed border-slate-200 rounded-[2rem]">
+                    <div className="p-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem]">
                       <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Nenhuma tarefa vinculada</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-            <div className="p-10 bg-white border-t border-slate-100 flex gap-4 shrink-0">
+            <div className="p-10 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-4 shrink-0">
               {!isEditing ? (
                 <button 
                   type="button"
                   onClick={() => setSelectedProject(null)}
-                  className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200"
+                  className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   FECHAR
                 </button>
@@ -256,13 +256,13 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
                       setIsEditing(false);
                       setEditProject(selectedProject);
                     }}
-                    className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+                    className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
                   >
                     CANCELAR
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-200"
+                    className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none"
                   >
                     SALVAR ALTERAÇÕES
                   </button>

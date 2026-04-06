@@ -444,7 +444,7 @@ CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING 
             <ICONS.Check size={48} />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Tudo pronto!</h2>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Tudo pronto!</h2>
             <p className="text-slate-500 font-medium">Seu CRM foi configurado com sucesso.</p>
           </div>
           
@@ -480,13 +480,13 @@ CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING 
             <ICONS.Automation size={32} />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">M4 CRM</h1>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">M4 CRM</h1>
             <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Setup Inicial</p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bem-vindo! Vamos configurar seu CRM</h2>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Bem-vindo! Vamos configurar seu CRM</h2>
           <p className="text-slate-500 font-medium">
             Você precisará de uma conta gratuita no <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline">Supabase</a> para armazenar seus dados.
           </p>

@@ -106,7 +106,8 @@ const App: React.FC = () => {
   const fetchLeads = async () => {
     const { data, error } = await supabase
       .from('m4_leads')
-      .select('*');
+      .select('*')
+      .order('created_at', { ascending: false });
     if (error) console.error('Erro ao buscar leads:', error);
     else if (data) setLeads(data);
   };
@@ -247,7 +248,7 @@ const App: React.FC = () => {
         if (pipelinesData && pipelinesData.length > 0) {
           const fullPipelines = pipelinesData.map(p => ({
             ...p,
-            stages: (stagesData || []).filter(s => s.pipeline_id === p.id)
+            stages: (stagesData || []).filter(s => s.pipeline_id === p.id).sort((a, b) => (a.position || 0) - (b.position || 0))
           }));
           
           // If a pipeline has NO stages, give it defaults
@@ -320,6 +321,7 @@ const App: React.FC = () => {
           service_type: extraData?.service_type || lead.service_type || 'Fee Mensal',
           start_date: extraData?.start_date || new Date().toISOString().split('T')[0],
           monthly_value: extraData?.monthly_value || lead.proposed_ticket || lead.value || 0,
+          bank_account_id: extraData?.bank_account_id || null,
           notes: `Conta criada automaticamente a partir do lead ${lead.name}`,
           ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
         };
@@ -343,6 +345,7 @@ const App: React.FC = () => {
             client_account_id: accRes[0].id,
             lead_id: lead.id,
             payment_method: 'Boleto',
+            bank_account_id: extraData?.bank_account_id || null,
             ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
           };
 
@@ -457,7 +460,7 @@ const App: React.FC = () => {
         className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 ${
           isActive && (!hasSubItems || !isSidebarOpen)
             ? 'bg-blue-600 text-white shadow-xl shadow-blue-100/50 scale-[1.02]' 
-            : 'text-slate-500 hover:bg-blue-50 hover:text-blue-600'
+            : 'text-slate-500 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400'
         }`}
       >
         <div className="flex items-center gap-3">
@@ -526,8 +529,8 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans transition-colors duration-300">
-      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
-        <div className="p-8 flex items-center gap-4 border-b border-slate-50 dark:border-slate-800 h-24 shrink-0">
+      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-card border-r border-border transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
+        <div className="p-8 flex items-center gap-4 border-b border-border h-24 shrink-0">
           <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100 overflow-hidden">
             {settings?.logo_url ? (
               <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
@@ -536,12 +539,12 @@ const App: React.FC = () => {
             )}
           </div>
           <div className={`transition-all duration-500 ${!isSidebarOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-            <h1 className="font-black text-slate-900 dark:text-white text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
+            <h1 className="font-black text-foreground text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-[10px] font-black text-blue-600 uppercase">{settings?.company_name || 'Agency Cloud'}</p>
+              <p className="text-[10px] font-black text-primary uppercase">{settings?.company_name || 'Agency Cloud'}</p>
               <button 
                 onClick={() => setAppMode(appMode === AppMode.EUGENCIA ? AppMode.AGENCIA : AppMode.EUGENCIA)}
-                className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded text-[8px] font-black hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-[8px] font-black hover:bg-blue-100 hover:text-primary transition-colors"
               >
                 {appMode === AppMode.EUGENCIA ? 'EUGÊNCIA' : 'AGÊNCIA'}
               </button>
@@ -554,7 +557,7 @@ const App: React.FC = () => {
           
           {menuSections.map((section, sIdx) => (
             <React.Fragment key={sIdx}>
-              <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>
+              <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>
                 {section.title}
               </div>
               {section.items.map(item => (
@@ -580,8 +583,8 @@ const App: React.FC = () => {
                         onClick={() => setActiveTab('sales_overview')}
                         className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
                           activeTab === 'sales_overview'
-                            ? 'text-blue-600 bg-blue-50/50' 
-                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                            ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -596,8 +599,8 @@ const App: React.FC = () => {
                           }}
                           className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
                             activeTab === 'sales' && activePipelineId === p.id 
-                              ? 'text-blue-600 bg-blue-50/50' 
-                              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                              ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                           }`}
                         >
                           <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales' && activePipelineId === p.id ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -609,15 +612,15 @@ const App: React.FC = () => {
 
                   {item.id === 'clients_group' && expandedMenus.clients && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                      <button onClick={() => setActiveTab('clients_overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'clients_overview' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                        <button onClick={() => setActiveTab('clients_overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'clients_overview' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Visão Geral
                       </button>
-                      <button onClick={() => setActiveTab('companies')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                      <button onClick={() => setActiveTab('companies')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Empresas
                       </button>
-                      <button onClick={() => setActiveTab('contacts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'contacts' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
+                      <button onClick={() => setActiveTab('contacts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'contacts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Contatos
                       </button>
@@ -629,19 +632,19 @@ const App: React.FC = () => {
           ))}
         </nav>
 
-        <div className="p-6 border-t border-slate-50 dark:border-slate-800">
+        <div className="p-6 border-t border-border">
           <SidebarItem id="settings" icon={ICONS.Settings} label="Configurações" isActive={activeTab === 'settings'} />
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="w-full mt-4 flex items-center justify-center p-3 text-slate-300 hover:text-blue-600 rounded-2xl transition-all">
+          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="w-full mt-4 flex items-center justify-center p-3 text-muted-foreground dark:text-slate-500 hover:text-primary rounded-2xl transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`${!isSidebarOpen ? 'rotate-180' : ''}`}><path d="m15 18-6-6 6-6"/></svg>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-10 z-20">
-          <div className="flex items-center gap-6 bg-slate-50 dark:bg-slate-800 px-6 py-2.5 rounded-[1.25rem] w-[500px] border border-slate-200/50 dark:border-slate-700/50">
-            <ICONS.Search className="text-slate-400" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar em tudo..." className="bg-transparent border-none outline-none text-sm w-full font-bold text-slate-800 dark:text-slate-200" />
+        <header className="h-20 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-10 z-20">
+          <div className="flex items-center gap-6 bg-muted px-6 py-2.5 rounded-[1.25rem] w-[500px] border border-border/50">
+            <ICONS.Search className="text-muted-foreground dark:text-slate-500" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Pesquisar em tudo..." className="bg-transparent border-none outline-none text-sm w-full font-bold text-foreground" />
           </div>
           <div className="flex items-center gap-6">
             <SupabaseStatus />
@@ -697,6 +700,7 @@ const App: React.FC = () => {
               setIsModalOpen={setShowNewLeadModal}
               renderOnlyModal={activeTab !== 'sales'}
               services={services}
+              bankAccounts={bankAccounts}
             />
           )}
           {(activeTab === 'companies' || showNewCompanyModal) && (

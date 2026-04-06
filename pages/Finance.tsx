@@ -881,16 +881,16 @@ const Finance: React.FC<FinanceProps> = ({
   const renderOverview = () => (
     <div className="space-y-8">
       {dueAlerts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
-              <ICONS.AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Vencimentos Próximos</p>
-              <p className="text-xs font-bold text-amber-700">{dueAlerts.length} contas vencem hoje ou amanhã. Clique para detalhar.</p>
-            </div>
-          </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 p-4 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <ICONS.AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">Vencimentos Próximos</p>
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{dueAlerts.length} contas vencem hoje ou amanhã. Clique para detalhar.</p>
+                </div>
+              </div>
           <button 
             onClick={() => setActiveTab('receivables')}
             className="px-4 py-2 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all"
@@ -901,22 +901,22 @@ const Finance: React.FC<FinanceProps> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Receita Total (Período)</p>
-          <h3 className="text-2xl font-black text-slate-900 leading-none">R$ {totalRevenue.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-none">R$ {totalRevenue.toLocaleString()}</h3>
           <p className="text-xs font-bold text-emerald-600 mt-3 flex items-center gap-1">▲ {filteredTransactions.filter(t => t.type === 'Receita').length} <span className="text-slate-400 font-medium">entradas</span></p>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">MRR (Recorrência)</p>
-          <h3 className="text-2xl font-black text-blue-600 leading-none">R$ {mrr.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400 leading-none">R$ {mrr.toLocaleString()}</h3>
           <p className="text-xs font-bold text-blue-400 mt-3 italic font-medium">Saúde da agência</p>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">A Receber</p>
-          <h3 className="text-2xl font-black text-amber-600 leading-none">R$ {pendingReceivables.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-amber-600 dark:text-amber-500 leading-none">R$ {pendingReceivables.toLocaleString()}</h3>
           <p className="text-xs font-bold text-slate-400 mt-3 italic font-medium">Previsão de caixa</p>
         </div>
-        <div className="bg-slate-900 p-6 rounded-3xl shadow-xl shadow-slate-200">
+        <div className="bg-slate-900 dark:bg-slate-950 p-6 rounded-3xl shadow-xl shadow-slate-200 dark:shadow-none">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Saldo em Contas</p>
           <h3 className="text-2xl font-black text-white leading-none">
             R$ {bankAccounts.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0).toLocaleString()}
@@ -930,8 +930,8 @@ const Finance: React.FC<FinanceProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-6">
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-6">Resultado Financeiro</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden p-6">
+            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs mb-6">Resultado Financeiro</h3>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
@@ -940,7 +940,12 @@ const Finance: React.FC<FinanceProps> = ({
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    }}
                   />
                   <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={60}>
                     {chartData.map((entry, index) => (
@@ -952,10 +957,10 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Contas Bancárias</h3>
-              <button onClick={() => setIsBankModalOpen(true)} className="p-2 hover:bg-slate-50 text-blue-600 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs">Contas Bancárias</h3>
+              <button onClick={() => setIsBankModalOpen(true)} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {bankAccounts.length === 0 ? (
@@ -965,19 +970,19 @@ const Finance: React.FC<FinanceProps> = ({
                   <div 
                     key={account.id} 
                     onClick={() => setSelectedAccount(account)}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center group hover:bg-white hover:shadow-md transition-all cursor-pointer"
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+                      <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
                         <ICONS.Building2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-black text-slate-800">{account.name}</p>
+                        <p className="text-sm font-black text-slate-800 dark:text-white">{account.name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{account.type}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-slate-800">R$ {Number(account.balance).toLocaleString()}</p>
+                      <p className="text-sm font-black text-slate-800 dark:text-white">R$ {Number(account.balance).toLocaleString()}</p>
                       <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Sincronizado</p>
                     </div>
                   </div>
@@ -986,35 +991,35 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Últimas Movimentações</h3>
-              <button onClick={() => setActiveTab('receivables')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Ver Todas</button>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs">Últimas Movimentações</h3>
+              <button onClick={() => setActiveTab('receivables')} className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline">Ver Todas</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredTransactions.slice(0, 5).map(t => (
-                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
-                          <p className="text-sm font-bold text-slate-800">{t.description}</p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-white">{t.description}</p>
                         </div>
                         <p className="text-[10px] text-slate-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
+                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className={`text-sm font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-slate-800'}`}>
+                        <span className={`text-sm font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-200'}`}>
                           {t.type === 'Receita' ? '+' : '-'} R$ {Math.abs(Number(t.amount)).toLocaleString()}
                         </span>
                       </td>
@@ -1027,17 +1032,17 @@ const Finance: React.FC<FinanceProps> = ({
         </div>
 
         <div className="space-y-8">
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Cartões de Crédito</h3>
-              <button onClick={() => setIsCardModalOpen(true)} className="p-2 hover:bg-slate-50 text-blue-600 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs">Cartões de Crédito</h3>
+              <button onClick={() => setIsCardModalOpen(true)} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"><ICONS.Plus className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4">
               {creditCards.length === 0 ? (
                 <div className="py-4 text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest">Nenhum cartão</div>
               ) : (
                 creditCards.map(card => (
-                  <div key={card.id} className="p-4 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-lg">
+                  <div key={card.id} className="p-4 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-950 text-white shadow-lg">
                     <div className="flex justify-between items-start mb-4">
                       <ICONS.CreditCard className="w-6 h-6 text-blue-400" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{card.name}</span>
@@ -1063,7 +1068,7 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
           </div>
 
-          <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-xl shadow-blue-200">
+          <div className="bg-blue-600 dark:bg-blue-700 p-6 rounded-3xl text-white shadow-xl shadow-blue-200 dark:shadow-none">
             <h3 className="font-black uppercase tracking-widest text-[10px] text-blue-200 mb-4">Fluxo de Caixa (Período)</h3>
             <div className="space-y-4">
               <div>
@@ -1071,7 +1076,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <span>Entradas</span>
                   <span>R$ {totalRevenue.toLocaleString()}</span>
                 </div>
-                <div className="w-full bg-blue-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-blue-800 dark:bg-blue-900 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-emerald-400 h-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
@@ -1080,7 +1085,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <span>Saídas</span>
                   <span>R$ {totalExpenses.toLocaleString()}</span>
                 </div>
-                <div className="w-full bg-blue-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-blue-800 dark:bg-blue-900 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-rose-400 h-full" style={{ width: `${(totalExpenses / (totalRevenue || 1)) * 100}%` }}></div>
                 </div>
               </div>
@@ -1095,20 +1100,20 @@ const Finance: React.FC<FinanceProps> = ({
   );
 
   const renderTransactions = (filterType?: 'Receita' | 'Despesa') => (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-        <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+        <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs">
           {filterType ? (filterType === 'Receita' ? 'Contas a Receber' : 'Contas a Pagar') : 'Movimentações'}
         </h3>
         <div className="flex gap-2">
-          <button className="p-2 hover:bg-slate-50 text-slate-400 rounded-lg transition-colors"><ICONS.Search className="w-4 h-4" /></button>
-          <button className="p-2 hover:bg-slate-50 text-slate-400 rounded-lg transition-colors"><ICONS.Filter className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg transition-colors"><ICONS.Search className="w-4 h-4" /></button>
+          <button className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg transition-colors"><ICONS.Filter className="w-4 h-4" /></button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/50 border-b border-slate-100">
+            <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Vencimento</th>
@@ -1117,13 +1122,13 @@ const Finance: React.FC<FinanceProps> = ({
               <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {filteredTransactions
               .filter(t => !filterType || t.type === filterType)
               .map(t => (
                 <tr 
                   key={t.id || `proj-${t.client_account_id}-${t.date}`} 
-                  className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${t.is_projected ? 'bg-slate-50/30 italic' : ''}`}
+                  className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer ${t.is_projected ? 'bg-slate-50/30 dark:bg-slate-800/30 italic' : ''}`}
                   onClick={() => {
                     setSelectedTransaction(t);
                     setIsDetailOpen(true);
@@ -1134,31 +1139,31 @@ const Finance: React.FC<FinanceProps> = ({
                       {t.is_projected && <ICONS.Calendar className="w-3 h-3 text-blue-400" />}
                       {t.category === 'Transferência' && <ICONS.ArrowLeftRight className="w-3 h-3 text-blue-500" />}
                       {t.recurring_id && <ICONS.Repeat className="w-3 h-3 text-indigo-500" />}
-                      <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{t.description}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">{t.description}</p>
                     </div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest">
                       {t.is_projected ? 'Projeção Automática' : (t.payment_method || 'Não definido')}
                     </p>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
+                    <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md uppercase tracking-wider">{t.category}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs font-medium text-slate-600">{format(parseISO(t.due_date || t.date), 'dd/MM/yyyy')}</p>
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{format(parseISO(t.due_date || t.date), 'dd/MM/yyyy')}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
                       t.status === 'Pago' || t.status === 'Recebido' || t.status === 'Confirmado'
-                        ? 'bg-emerald-100 text-emerald-700' 
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
                         : t.is_projected 
-                          ? 'bg-blue-50 text-blue-600 border border-blue-100' 
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800' 
+                          : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                     }`}>
                       {t.is_projected ? 'Projetado' : t.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <span className={`text-sm font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-slate-800'}`}>
+                    <span className={`text-sm font-black ${t.type === 'Receita' ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-200'}`}>
                       {t.type === 'Receita' ? '+' : '-'} R$ {Math.abs(Number(t.amount)).toLocaleString()}
                     </span>
                   </td>
@@ -1182,7 +1187,7 @@ const Finance: React.FC<FinanceProps> = ({
                         {t.type === 'Receita' ? 'Receber' : 'Pagar'}
                       </button>
                     ) : (
-                      <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                      <button className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400 transition-colors">
                         <ICONS.MoreVertical className="w-4 h-4" />
                       </button>
                     )}
@@ -1199,17 +1204,17 @@ const Finance: React.FC<FinanceProps> = ({
     <div className="h-full overflow-y-auto pr-4 scrollbar-none p-8 max-w-7xl mx-auto space-y-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
             {appMode === AppMode.EUGENCIA ? 'Minhas Finanças' : 'Gestão Financeira'}
           </h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
             {appMode === AppMode.EUGENCIA 
               ? 'Controle simples do meu caixa, contas e cartões.' 
               : 'Controle total de caixa, contas e cartões da agência.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+          <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
             {[
               { id: 'current_month', label: 'Mês Atual' },
               { id: 'previous_month', label: 'Mês Anterior' },
@@ -1222,7 +1227,9 @@ const Finance: React.FC<FinanceProps> = ({
                 key={range.id}
                 onClick={() => setDateRange(range.id as any)}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  dateRange === range.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  dateRange === range.id 
+                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
               >
                 {range.label}
@@ -1231,26 +1238,26 @@ const Finance: React.FC<FinanceProps> = ({
           </div>
           
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <input 
                 type="date" 
                 value={customStartDate}
                 onChange={e => setCustomStartDate(e.target.value)}
-                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2"
+                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2 dark:text-white"
               />
               <span className="text-slate-400 text-[10px] font-black">ATÉ</span>
               <input 
                 type="date" 
                 value={customEndDate}
                 onChange={e => setCustomEndDate(e.target.value)}
-                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2"
+                className="bg-transparent border-none text-[10px] font-black uppercase outline-none px-2 dark:text-white"
               />
             </div>
           )}
 
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-200 transition-all hover:bg-blue-700 flex items-center gap-2"
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-200 dark:shadow-none transition-all hover:bg-blue-700 flex items-center gap-2"
           >
             <ICONS.Plus className="w-4 h-4" />
             Novo Lançamento
@@ -1264,11 +1271,11 @@ const Finance: React.FC<FinanceProps> = ({
           <motion.div 
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col"
+            className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col"
           >
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-800">Detalhes do Lançamento</h3>
-              <button onClick={() => setIsDetailOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">Detalhes do Lançamento</h3>
+              <button onClick={() => setIsDetailOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                 <ICONS.X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -1276,20 +1283,20 @@ const Finance: React.FC<FinanceProps> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  selectedTransaction.type === 'Receita' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  selectedTransaction.type === 'Receita' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'
                 }`}>
                   {selectedTransaction.type === 'Receita' ? <ICONS.ArrowUpRight className="w-6 h-6" /> : <ICONS.ArrowDownRight className="w-6 h-6" />}
                 </div>
                 <div>
-                  <p className="text-2xl font-black text-slate-800">
+                  <p className="text-2xl font-black text-slate-800 dark:text-white">
                     R$ {Number(selectedTransaction.amount).toLocaleString()}
                   </p>
-                  <p className="text-sm font-medium text-slate-500">{selectedTransaction.description}</p>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{selectedTransaction.description}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                     selectedTransaction.status === 'Pago' || selectedTransaction.status === 'Recebido' 
@@ -1301,22 +1308,22 @@ const Finance: React.FC<FinanceProps> = ({
                     {selectedTransaction.status}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Categoria</p>
-                  <p className="text-sm font-bold text-slate-700">{selectedTransaction.category}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{selectedTransaction.category}</p>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Vencimento</p>
-                  <p className="text-sm font-bold text-slate-700">{format(parseISO(selectedTransaction.due_date || selectedTransaction.date), 'dd/MM/yyyy')}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{format(parseISO(selectedTransaction.due_date || selectedTransaction.date), 'dd/MM/yyyy')}</p>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Conta</p>
-                  <p className="text-sm font-bold text-slate-700">
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                     {bankAccounts.find(a => a.id === selectedTransaction.bank_account_id)?.name || 'Não definida'}
                   </p>
                 </div>
                 {selectedTransaction.paid_date && (
-                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 col-span-2">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-100 dark:border-emerald-800 col-span-2">
                     <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Data da Efetivação</p>
                     <p className="text-sm font-bold text-emerald-700">{format(parseISO(selectedTransaction.paid_date), 'dd/MM/yyyy')}</p>
                   </div>
@@ -1324,18 +1331,18 @@ const Finance: React.FC<FinanceProps> = ({
               </div>
 
               {selectedTransaction.notes && (
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Observações</p>
-                  <p className="text-sm text-slate-600 italic">"{selectedTransaction.notes}"</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{selectedTransaction.notes}"</p>
                 </div>
               )}
 
               {selectedTransaction.recurring_id && (
-                <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex items-center gap-3">
-                  <ICONS.Repeat className="w-5 h-5 text-indigo-600" />
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center gap-3">
+                  <ICONS.Repeat className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   <div>
-                    <p className="text-xs text-indigo-700 font-bold uppercase tracking-tight">Lançamento Recorrente</p>
-                    <p className="text-[10px] text-indigo-600">
+                    <p className="text-xs text-indigo-700 dark:text-indigo-300 font-bold uppercase tracking-tight">Lançamento Recorrente</p>
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400">
                       {getRecurrenceSummary(selectedTransaction)} ({selectedTransaction.recurrence === 'fixed' ? 'Valor Fixo' : 'Valor Variável'})
                     </p>
                   </div>
@@ -1343,14 +1350,14 @@ const Finance: React.FC<FinanceProps> = ({
               )}
 
               {selectedTransaction.is_projected && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-3">
-                  <ICONS.Calendar className="w-5 h-5 text-blue-600" />
-                  <p className="text-xs text-blue-700 font-medium">Este é um lançamento projetado automaticamente.</p>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 flex items-center gap-3">
+                  <ICONS.Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Este é um lançamento projetado automaticamente.</p>
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-100 bg-slate-50 grid grid-cols-3 gap-3">
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 grid grid-cols-3 gap-3">
               <button 
                 onClick={() => {
                   const tx = { ...selectedTransaction };
@@ -1364,14 +1371,14 @@ const Finance: React.FC<FinanceProps> = ({
                   setEditTransaction(tx);
                   setIsEditModalOpen(true);
                 }}
-                className="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:text-blue-600 transition-all group"
+                className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-all group"
               >
                 <ICONS.Edit2 className="w-5 h-5 mb-1 text-slate-400 group-hover:text-blue-600" />
                 <span className="text-[10px] font-bold uppercase">Editar</span>
               </button>
               <button 
                 onClick={() => setIsDeleteModalOpen(true)}
-                className="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:border-rose-300 hover:text-rose-600 transition-all group"
+                className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-rose-300 dark:hover:border-rose-600 hover:text-rose-600 dark:hover:text-rose-400 transition-all group"
               >
                 <ICONS.Trash2 className="w-5 h-5 mb-1 text-slate-400 group-hover:text-rose-600" />
                 <span className="text-[10px] font-bold uppercase">Excluir</span>
@@ -1387,7 +1394,7 @@ const Finance: React.FC<FinanceProps> = ({
                     });
                     setIsConfirmModalOpen(true);
                   }}
-                  className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                  className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
                 >
                   <ICONS.CheckCircle2 className="w-5 h-5 mb-1" />
                   <span className="text-[10px] font-bold uppercase">Quitar</span>
@@ -1404,42 +1411,42 @@ const Finance: React.FC<FinanceProps> = ({
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
           >
             <div className="p-8 pb-4 text-center">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <ICONS.Repeat size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 uppercase">Onde aplicar esta alteração?</h3>
-              <p className="text-sm text-slate-500 mt-2">Este lançamento faz parte de uma recorrência.</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">Onde aplicar esta alteração?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Este lançamento faz parte de uma recorrência.</p>
             </div>
 
             <div className="p-8 pt-4 space-y-3">
               <button
                 onClick={() => handleUpdateTransaction(undefined, 'single')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Apenas este mês</p>
-                <p className="text-[10px] text-slate-500">Altera somente o registro atual.</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 uppercase tracking-tight">Apenas este mês</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Altera somente o registro atual.</p>
               </button>
               <button
                 onClick={() => handleUpdateTransaction(undefined, 'future')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Este e os próximos</p>
-                <p className="text-[10px] text-slate-500">Altera o atual e todos os futuros vinculados.</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 uppercase tracking-tight">Este e os próximos</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Altera o atual e todos os futuros vinculados.</p>
               </button>
               <button
                 onClick={() => handleUpdateTransaction(undefined, 'all')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 uppercase tracking-tight">Todos (inclusive passados)</p>
-                <p className="text-[10px] text-slate-500">Altera todo o histórico (exceto os já quitados).</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 uppercase tracking-tight">Todos (inclusive passados)</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Altera todo o histórico (exceto os já quitados).</p>
               </button>
               
               <button
                 onClick={() => setIsUpdateScopeModalOpen(false)}
-                className="w-full p-4 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-all"
+                className="w-full p-4 text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-600 dark:hover:text-slate-300 transition-all"
               >
                 Cancelar
               </button>
@@ -1452,52 +1459,52 @@ const Finance: React.FC<FinanceProps> = ({
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
           >
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="text-lg font-black text-slate-800">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">
                 Confirmar {selectedTransaction.type === 'Receita' ? 'Recebimento' : 'Pagamento'}
               </h3>
-              <button onClick={() => setIsConfirmModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <button onClick={() => setIsConfirmModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
                 <ICONS.X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <p className="text-xs font-bold text-blue-600 uppercase mb-1">Lançamento</p>
-                <p className="text-sm font-bold text-slate-800">{selectedTransaction.description}</p>
-                <p className="text-xl font-black text-blue-700 mt-1">R$ {Number(selectedTransaction.amount).toLocaleString()}</p>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800">
+                <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Lançamento</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">{selectedTransaction.description}</p>
+                <p className="text-xl font-black text-blue-700 dark:text-blue-400 mt-1">R$ {Number(selectedTransaction.amount).toLocaleString()}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Data Efetiva</label>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Data Efetiva</label>
                   <input 
                     type="date"
                     value={confirmData.date}
                     onChange={e => setConfirmData({...confirmData, date: e.target.value})}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Valor Efetivo</label>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Valor Efetivo</label>
                   <input 
                     type="number"
                     value={confirmData.amount}
                     onChange={e => setConfirmData({...confirmData, amount: parseFloat(e.target.value) || 0})}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Conta de Destino/Origem</label>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Conta de Destino/Origem</label>
                 {bankAccounts.length > 0 ? (
                   <select 
                     value={confirmData.accountId}
                     onChange={e => setConfirmData({...confirmData, accountId: e.target.value})}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white"
                   >
                     <option value="">Selecione uma conta...</option>
                     {bankAccounts.map(acc => (
@@ -1505,35 +1512,35 @@ const Finance: React.FC<FinanceProps> = ({
                     ))}
                   </select>
                 ) : (
-                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-lg">
-                    <p className="text-xs text-rose-700 font-medium">Nenhuma conta bancária cadastrada.</p>
-                    <button className="text-xs text-rose-800 font-bold underline mt-1">Cadastrar conta agora</button>
+                  <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800 rounded-lg">
+                    <p className="text-xs text-rose-700 dark:text-rose-400 font-medium">Nenhuma conta bancária cadastrada.</p>
+                    <button className="text-xs text-rose-800 dark:text-rose-300 font-bold underline mt-1">Cadastrar conta agora</button>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Observações (Opcional)</label>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Observações (Opcional)</label>
                 <textarea 
                   value={confirmData.notes}
                   onChange={e => setConfirmData({...confirmData, notes: e.target.value})}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-20 resize-none"
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm h-20 resize-none dark:text-white"
                   placeholder="Alguma nota sobre este pagamento?"
                 />
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-3">
               <button 
                 onClick={() => setIsConfirmModalOpen(false)}
-                className="flex-1 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
+                className="flex-1 py-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmPayment}
                 disabled={isSyncing || !confirmData.accountId}
-                className="flex-1 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSyncing ? 'Processando...' : 'Confirmar'}
               </button>
@@ -1548,42 +1555,42 @@ const Finance: React.FC<FinanceProps> = ({
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
           >
             <div className="p-8 pb-4 text-center">
-              <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <ICONS.Trash2 size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 uppercase">Onde aplicar esta exclusão?</h3>
-              <p className="text-sm text-slate-500 mt-2">Este lançamento faz parte de uma recorrência.</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">Onde aplicar esta exclusão?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Este lançamento faz parte de uma recorrência.</p>
             </div>
 
             <div className="p-8 pt-4 space-y-3">
               <button
                 onClick={() => handleDeleteTransaction('single')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Apenas este mês</p>
-                <p className="text-[10px] text-slate-500">Exclui somente o registro atual.</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 uppercase tracking-tight">Apenas este mês</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Exclui somente o registro atual.</p>
               </button>
               <button
                 onClick={() => handleDeleteTransaction('future')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Este e os próximos</p>
-                <p className="text-[10px] text-slate-500">Exclui o atual e todos os futuros vinculados.</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 uppercase tracking-tight">Este e os próximos</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Exclui o atual e todos os futuros vinculados.</p>
               </button>
               <button
                 onClick={() => handleDeleteTransaction('all')}
-                className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl text-left transition-all group"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-left transition-all group"
               >
-                <p className="text-sm font-black text-slate-900 group-hover:text-rose-600 uppercase tracking-tight">Todos (inclusive passados)</p>
-                <p className="text-[10px] text-slate-500">Exclui todo o histórico (exceto os já quitados).</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 uppercase tracking-tight">Todos (inclusive passados)</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Exclui todo o histórico (exceto os já quitados).</p>
               </button>
               
               <button
                 onClick={() => setIsDeleteScopeModalOpen(false)}
-                className="w-full p-4 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-all"
+                className="w-full p-4 text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-600 dark:hover:text-slate-300 transition-all"
               >
                 Cancelar
               </button>
@@ -1596,17 +1603,17 @@ const Finance: React.FC<FinanceProps> = ({
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
           >
             <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ICONS.AlertTriangle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2">Excluir Lançamento?</h3>
-              <p className="text-sm text-slate-500 mb-6">
+              <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2">Excluir Lançamento?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
                 Esta ação não pode ser desfeita. 
                 {(selectedTransaction.status === 'Pago' || selectedTransaction.status === 'Recebido') && (
-                  <span className="block mt-2 font-bold text-rose-600">
+                  <span className="block mt-2 font-bold text-rose-600 dark:text-rose-400">
                     Atenção: O saldo da conta vinculada será estornado automaticamente.
                   </span>
                 )}
@@ -1622,7 +1629,7 @@ const Finance: React.FC<FinanceProps> = ({
                 </button>
                 <button 
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="w-full py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-all"
+                  className="w-full py-3 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
                 >
                   Cancelar
                 </button>
@@ -2421,14 +2428,14 @@ const Finance: React.FC<FinanceProps> = ({
                   <button 
                     type="button" 
                     onClick={() => handleDeleteBankAccount(selectedAccount.id)}
-                    className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-xs hover:bg-rose-100 transition-all"
+                    className="px-6 py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl font-black uppercase text-xs hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-all"
                   >
                     EXCLUIR CONTA
                   </button>
                   <button 
                     type="submit" 
                     disabled={isSyncing}
-                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all disabled:opacity-50"
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50"
                   >
                     {isSyncing ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}
                   </button>
@@ -2436,7 +2443,7 @@ const Finance: React.FC<FinanceProps> = ({
               </form>
 
               <div className="space-y-4">
-                <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Histórico Recente</h4>
+                <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-xs">Histórico Recente</h4>
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -2544,7 +2551,7 @@ const Finance: React.FC<FinanceProps> = ({
         </div>
       )}
 
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl w-fit">
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
         {[
           { id: 'overview', label: 'Visão Geral', icon: <ICONS.PieChart className="w-4 h-4" /> },
           { id: 'receivables', label: 'A Receber', icon: <ICONS.ArrowDownLeft className="w-4 h-4" /> },
@@ -2555,7 +2562,9 @@ const Finance: React.FC<FinanceProps> = ({
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
-              activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              activeTab === tab.id 
+                ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             {tab.icon}
@@ -2571,26 +2580,26 @@ const Finance: React.FC<FinanceProps> = ({
         {activeTab === 'cards' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {creditCards.map(card => (
-              <div key={card.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <div key={card.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between items-start mb-6">
-                  <div className="p-3 bg-slate-900 text-white rounded-2xl">
+                  <div className="p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl">
                     <ICONS.CreditCard className="w-6 h-6" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{card.name}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{card.name}</span>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Limite Total</p>
-                    <p className="text-xl font-black text-slate-800">R$ {Number(card.limit_amount).toLocaleString()}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Limite Total</p>
+                    <p className="text-xl font-black text-slate-800 dark:text-white">R$ {Number(card.limit_amount).toLocaleString()}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50 dark:border-slate-800">
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fechamento</p>
-                      <p className="text-sm font-bold text-slate-700">Dia {card.closing_day}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Fechamento</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Dia {card.closing_day}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vencimento</p>
-                      <p className="text-sm font-bold text-slate-700">Dia {card.due_day}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Vencimento</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Dia {card.due_day}</p>
                     </div>
                   </div>
                 </div>
