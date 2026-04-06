@@ -737,14 +737,14 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
               className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
             >
               {/* Header */}
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight truncate min-w-0">
                       {isEditingLead ? 'Editando Lead' : (selectedLead.company || selectedLead.name)}
                     </h2>
                     {!isEditingLead && (
-                      <div className="flex items-center gap-2 mr-4">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => {
                             setIsEditingLead(true);
@@ -805,7 +805,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     setIsEditingLead(false);
                     setIsDeleting(false);
                   }}
-                  className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-slate-600 transition-all shadow-sm border border-slate-100 dark:border-slate-700"
+                  className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 rounded-2xl text-slate-400 hover:text-slate-600 transition-all shadow-sm border border-slate-100 dark:border-slate-700 shrink-0"
                 >
                   <X size={24} />
                 </button>

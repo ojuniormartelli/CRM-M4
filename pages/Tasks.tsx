@@ -415,16 +415,16 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       {(isModalOpen || selectedTask) && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-4">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0 gap-4">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">
                   {selectedTask ? (isEditing ? `EDITANDO: ${selectedTask.title}` : selectedTask.title) : 'Nova Atividade'}
                 </h3>
                 {selectedTask && !isEditing && (
                   <button 
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all"
+                    className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all shrink-0"
                     title="Editar"
                   >
                     <ICONS.Edit className="w-5 h-5" />
@@ -444,7 +444,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                     setIsEditing(false);
                   }
                 }} 
-                className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shrink-0"
               >
                 <ICONS.Plus className="rotate-45 w-6 h-6" />
               </button>

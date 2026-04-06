@@ -1536,9 +1536,9 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
-            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-              <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">Novo Negócio</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
+            <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
+              <h3 className="text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
                 <ICONS.Plus className="rotate-45" />
               </button>
             </div>
@@ -1777,16 +1777,16 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
           <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 border border-border/50">
             {/* Header 360 */}
             <div className="px-10 py-8 bg-card border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shrink-0">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 dark:shadow-none">
+              <div className="flex items-center gap-6 min-w-0 flex-1">
+                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 dark:shadow-none shrink-0">
                   {selectedLead.company?.charAt(0) || selectedLead.name?.charAt(0) || 'L'}
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-2xl font-black text-foreground tracking-tight uppercase">
+                    <h3 className="text-2xl font-black text-foreground tracking-tight uppercase truncate min-w-0">
                       {selectedLead.company || selectedLead.name}
                     </h3>
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 ${
                       selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
                       selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
                       'bg-primary/10 text-primary'
@@ -1794,11 +1794,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
                     </div>
                   </div>
-                  <p className="text-muted-foreground font-bold text-sm">{selectedLead.name} • {selectedLead.email}</p>
+                  <p className="text-muted-foreground font-bold text-sm truncate">{selectedLead.name} • {selectedLead.email}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
                 <button 
                   onClick={() => setIsLostModalOpen(true)}
                   className="flex-1 md:flex-none px-6 py-3 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
@@ -2651,8 +2651,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       {isWonModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
-            <div className="p-10 pb-0 shrink-0">
-              <h3 className="text-xl font-black text-foreground mb-6 uppercase">Configurar Nova Conta</h3>
+            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
+              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Configurar Nova Conta</h3>
+              <button onClick={() => setIsWonModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
+                <ICONS.Plus className="rotate-45" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
               {showWonSuccess ? (
@@ -2740,8 +2743,11 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       {isLostModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
-            <div className="p-10 pb-0 shrink-0">
-              <h3 className="text-xl font-black text-foreground mb-6 uppercase">Marcar Perda</h3>
+            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
+              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Marcar Perda</h3>
+              <button onClick={() => setIsLostModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
+                <ICONS.Plus className="rotate-45" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
               {showLostSuccess ? (

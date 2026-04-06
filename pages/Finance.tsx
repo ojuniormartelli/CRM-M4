@@ -1931,9 +1931,9 @@ const Finance: React.FC<FinanceProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-10 pb-6 flex justify-between items-center shrink-0">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Lançamento</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+            <div className="p-10 pb-6 flex justify-between items-center shrink-0 gap-4">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">Novo Lançamento</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shrink-0">
                 <ICONS.X className="w-6 h-6" />
               </button>
             </div>
