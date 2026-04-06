@@ -1105,7 +1105,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome</label>
-                        <input required value={newLead.responsible_name} onChange={e => setNewLead({...newLead, responsible_name: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Nome do contato" />
+                        <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Nome do contato" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
@@ -1192,33 +1192,27 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Título do Negócio</label>
-                        <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Campanha de Lançamento" />
-                      </div>
-                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Valor Estimado</label>
                         <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="R$ 0,00" />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Previsão de Fechamento</label>
                         <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável</label>
-                        <select 
-                          value={newLead.responsible_id} 
-                          onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
-                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                        >
-                          <option value="">Selecione o Responsável</option>
-                          {users.map(u => (
-                            <option key={u.id} value={u.id}>{u.name}</option>
-                          ))}
-                        </select>
-                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Interno</label>
+                      <select 
+                        value={newLead.responsible_id} 
+                        onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
+                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
+                      >
+                        <option value="">Selecione o Responsável</option>
+                        {users.map(u => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="space-y-2">
@@ -1373,7 +1367,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         <div className="flex items-center gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-4xl font-black text-foreground tracking-tight">{activePipeline.name}</h2>
+              <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{activePipeline.name}</h2>
               <button 
                 onClick={() => setIsPipelineModalOpen(true)}
                 className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
@@ -1493,8 +1487,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
                       )}
                     </div>
-                    <h4 className="font-black text-foreground text-lg mb-0.5 group-hover:text-primary transition-colors">{lead.company}</h4>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">{lead.name}</p>
+                    <h4 className="font-black text-foreground text-lg mb-0.5 group-hover:text-primary transition-colors truncate">
+                      {lead.company || lead.name || 'Novo Negócio'}
+                    </h4>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 truncate">
+                      {lead.company ? lead.name : (lead.name ? 'Contato não informado' : '')}
+                    </p>
                     {lead.next_action && (
                       <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
                         <ICONS.Clock width="12" height="12" />
@@ -1920,6 +1918,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Probabilidade</span>
                           <span className="text-sm font-bold text-foreground">{selectedLead.probability || 0}%</span>
                         </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Responsável</span>
+                          <span className="text-sm font-bold text-primary">{selectedLead.responsible_name || '–'}</span>
+                        </div>
                         <div className="pt-4 border-t border-border">
                           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Notas da Negociação</span>
                           <p className="text-xs text-muted-foreground leading-relaxed italic">
@@ -1987,6 +1989,26 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             onChange={e => setEditLead({...editLead, probability: Number(e.target.value)})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
                           />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Responsável Interno</label>
+                          <select 
+                            value={editLead.responsible_id || ''} 
+                            onChange={e => {
+                              const user = users.find(u => u.id === e.target.value);
+                              setEditLead({
+                                ...editLead, 
+                                responsible_id: e.target.value,
+                                responsible_name: user?.name || ''
+                              });
+                            }}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          >
+                            <option value="">Selecione o Responsável</option>
+                            {users.map(u => (
+                              <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Notas da Negociação</label>
@@ -2293,38 +2315,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       </div>
                     )}
                   </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Responsável" defaultOpen={false}>
-                  {!isEditing ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-black text-muted-foreground">
-                        {selectedLead.responsible_name?.charAt(0) || 'U'}
-                      </div>
-                      <p className="text-xs font-bold text-foreground">{selectedLead.responsible_name || 'Não atribuído'}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Responsável</label>
-                      <select 
-                        value={editLead.responsible_id || ''} 
-                        onChange={e => {
-                          const user = users.find(u => u.id === e.target.value);
-                          setEditLead({
-                            ...editLead, 
-                            responsible_id: e.target.value,
-                            responsible_name: user?.name || ''
-                          });
-                        }}
-                        className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                      >
-                        <option value="">Selecione...</option>
-                        {users.map(u => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </CollapsibleSection>
               </div>
 
