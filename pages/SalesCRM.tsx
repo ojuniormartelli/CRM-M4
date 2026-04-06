@@ -498,7 +498,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         ...editLead,
         // Ensure mandatory fields are set for legacy compatibility
         company: editLead.company || selectedLead.company,
-        responsible_name: editLead.responsible_name || selectedLead.responsible_name,
+        responsible_name: editLead.responsible_name || selectedLead.responsible_name || 'Administrador',
         email: editLead.email || selectedLead.email,
         phone: editLead.phone || selectedLead.phone,
         niche: editLead.niche || selectedLead.niche,
@@ -507,8 +507,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         closing_forecast: editLead.closing_forecast || null,
         next_action_date: editLead.next_action_date || null,
         
-        // Ensure name is also updated
-        name: editLead.name || editLead.company || selectedLead.name,
+        // Ensure name is also updated (contact name)
+        name: editLead.name || selectedLead.name || 'Contato não informado',
         status: targetStatus
       })
       .eq('id', selectedLead.id);
@@ -653,8 +653,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const leadData = {
       ...newLead,
       // Ensure mandatory fields are set for legacy compatibility
-      company: newLead.company || 'Novo Negócio',
-      name: newLead.name || newLead.responsible_name || 'Novo Negócio',
+      company: newLead.company || 'Empresa não informada',
+      name: newLead.name || 'Contato não informado', // Nome do Contato/Cliente (vai para a coluna 'name')
       email: newLead.email,
       phone: newLead.phone,
       niche: newLead.niche,
@@ -666,7 +666,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       pipeline_id: newLead.pipeline_id || activePipelineId,
       stage: targetStageId,
       status: targetStatus,
-      responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || '',
+      responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || currentUser?.name || 'Administrador',
       ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
       created_at: new Date().toISOString()
     };
@@ -838,7 +838,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 8. Sugira o 'service_type' (ex: Tráfego Pago, SEO, Social Media).
 9. Dê um 'ai_score' de 0 a 100 baseado no fit.
 
-Retorne APENAS um objeto JSON válido com: name, company, value, notes, probability, temperature, closing_forecast, niche, service_type, ai_score.`;
+Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome da empresa), value, notes, probability, temperature, closing_forecast, niche, service_type, ai_score.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -1072,7 +1072,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="contato@empresa.com" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram da Empresa</label>
                         <input value={newLead.instagram} onChange={e => setNewLead({...newLead, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@perfil" />
                       </div>
                       <div className="space-y-2">
@@ -1130,7 +1130,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="WhatsApp" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram do Contato</label>
                         <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="@perfil" />
                       </div>
                       <div className="space-y-2">
@@ -1488,10 +1488,10 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       )}
                     </div>
                     <h4 className="font-black text-foreground text-lg mb-0.5 group-hover:text-primary transition-colors truncate">
-                      {lead.company || lead.name || 'Novo Negócio'}
+                      {lead.company || (lead.responsible_id ? '' : lead.name) || 'Novo Negócio'}
                     </h4>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 truncate">
-                      {lead.company && lead.name && lead.company !== lead.name ? lead.name : (lead.company === lead.name ? 'Contato não informado' : '')}
+                      {lead.responsible_id ? lead.name : (lead.responsible_name || 'Contato não informado')}
                     </p>
                     {lead.next_action && (
                       <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
@@ -1835,7 +1835,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                 <button 
                   onClick={() => {
                     setIsEditing(true);
-                    setEditLead(selectedLead);
+                    setEditLead({
+                      ...selectedLead,
+                      name: selectedLead.responsible_id 
+                        ? (selectedLead.name === selectedLead.company ? '' : (selectedLead.name || ''))
+                        : (selectedLead.responsible_name || '')
+                    });
                   }}
                   className={`p-3 rounded-xl transition-all ${isEditing ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
                   title="Editar Lead"
@@ -2023,135 +2028,6 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Responsável / Contato" defaultOpen={true}>
-                  <div className="space-y-4">
-                    {!isEditing ? (
-                      <div className="p-4 bg-muted/50 rounded-2xl border border-border/50">
-                        <p className="text-xs font-black text-foreground mb-1">{selectedLead.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-bold mb-3">{selectedLead.contact_role || 'Decisor'}</p>
-                        <div className="space-y-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            <ICONS.Mail width="14" height="14" className="text-muted-foreground" />
-                            <span className="text-[10px] font-bold text-muted-foreground">{selectedLead.email || '–'}</span>
-                          </div>
-                          {selectedLead.phone && (
-                            <div className="flex items-center gap-2">
-                              <ICONS.Phone width="14" height="14" className="text-muted-foreground" />
-                              <span className="text-[10px] font-bold text-muted-foreground">{selectedLead.phone}</span>
-                            </div>
-                          )}
-                          {selectedLead.contact_whatsapp && (
-                            <div className="flex items-center gap-2">
-                              <MessageSquare width="14" height="14" className="text-primary" />
-                              <span className="text-[10px] font-bold text-muted-foreground">{selectedLead.contact_whatsapp}</span>
-                              <button 
-                                onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
-                                className="p-1 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
-                                title="Conversar no WhatsApp"
-                              >
-                                <MessageSquare width="10" height="10" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => window.location.href = `mailto:${selectedLead.email}`}
-                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-muted text-muted-foreground rounded-lg text-[10px] font-black uppercase hover:bg-muted/80 transition-all"
-                            title="Enviar E-mail"
-                          >
-                            <ICONS.Mail width="14" height="14" /> E-mail
-                          </button>
-                          {selectedLead.contact_instagram && (
-                            <a 
-                              href={`https://instagram.com/${selectedLead.contact_instagram.replace('@', '')}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="p-2 bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 rounded-lg hover:bg-pink-100"
-                              title="Instagram"
-                            >
-                              <ICONS.Instagram width="14" height="14" />
-                            </a>
-                          )}
-                          {selectedLead.contact_linkedin && (
-                            <a 
-                              href={selectedLead.contact_linkedin.startsWith('http') ? selectedLead.contact_linkedin : `https://linkedin.com/in/${selectedLead.contact_linkedin}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="p-2 bg-muted text-foreground rounded-lg hover:bg-muted/80"
-                              title="LinkedIn"
-                            >
-                              <Linkedin width="14" height="14" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Nome do Contato</label>
-                          <input 
-                            value={editLead.name || ''} 
-                            onChange={e => setEditLead({...editLead, name: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Cargo</label>
-                          <input 
-                            value={editLead.contact_role || ''} 
-                            onChange={e => setEditLead({...editLead, contact_role: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">E-mail</label>
-                          <input 
-                            type="email"
-                            value={editLead.email || ''} 
-                            onChange={e => setEditLead({...editLead, email: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Telefone</label>
-                          <input 
-                            value={editLead.phone || ''} 
-                            onChange={e => setEditLead({...editLead, phone: formatPhoneBR(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">WhatsApp</label>
-                          <input 
-                            value={editLead.contact_whatsapp || ''} 
-                            onChange={e => setEditLead({...editLead, contact_whatsapp: formatPhoneBR(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram</label>
-                          <input 
-                            value={editLead.contact_instagram || ''} 
-                            onChange={e => setEditLead({...editLead, contact_instagram: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="@perfil"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn</label>
-                          <input 
-                            value={editLead.contact_linkedin || ''} 
-                            onChange={e => setEditLead({...editLead, contact_linkedin: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="linkedin.com/in/..."
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleSection>
-
                 <CollapsibleSection title="Contato / Decisor" defaultOpen={true}>
                   <div className="space-y-4">
                     {!isEditing ? (
@@ -2159,7 +2035,9 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nome</p>
                           <p className="text-xs font-bold text-foreground">
-                            {selectedLead.name === selectedLead.company ? 'Não informado' : selectedLead.name || '–'}
+                            {selectedLead.responsible_id 
+                              ? (selectedLead.name === selectedLead.company ? 'Não informado' : selectedLead.name || '–')
+                              : (selectedLead.responsible_name || '–')}
                           </p>
                         </div>
                         <div className="space-y-1">
@@ -2191,7 +2069,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                         <div>
                           <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Nome do Contato</label>
                           <input 
-                            value={editLead.name || ''} 
+                            value={editLead.name === editLead.company ? '' : (editLead.name || '')} 
                             onChange={e => setEditLead({...editLead, name: e.target.value})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
                             placeholder="Nome do decisor"
@@ -2724,7 +2602,12 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     type="button"
                     onClick={() => {
                       setIsEditing(false);
-                      setEditLead(selectedLead);
+                      setEditLead({
+                        ...selectedLead,
+                        name: selectedLead.responsible_id 
+                          ? (selectedLead.name === selectedLead.company ? '' : (selectedLead.name || ''))
+                          : (selectedLead.responsible_name || '')
+                      });
                     }}
                     className="flex-1 py-5 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-muted/80"
                   >

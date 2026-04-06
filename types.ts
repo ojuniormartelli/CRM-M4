@@ -156,6 +156,7 @@ export interface Lead {
   created_at: string;
   
   // New fields for enhanced CRM
+  contact_name?: string;
   qualification?: string;
   source?: string;
   campaign?: string;
