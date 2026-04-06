@@ -370,6 +370,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     contact_whatsapp: '',
     contact_instagram: '',
     contact_linkedin: '',
+    instagram: '',
     notes: ''
   });
   const [users, setUsers] = useState<User[]>([]);
@@ -1364,7 +1365,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
         <div className="flex items-center gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-4xl font-black text-white tracking-tight">{activePipeline.name}</h2>
+              <h2 className="text-4xl font-black text-foreground tracking-tight">{activePipeline.name}</h2>
               <button 
                 onClick={() => setIsPipelineModalOpen(true)}
                 className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
@@ -1587,10 +1588,14 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail da Empresa</label>
                       <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="contato@empresa.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram da Empresa</label>
+                      <input value={newLead.instagram} onChange={e => setNewLead({...newLead, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@perfil" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">LinkedIn da Empresa</label>
@@ -2145,6 +2150,14 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                           <p className="text-xs font-bold text-foreground">{selectedLead.company_email || '–'}</p>
                         </div>
                         <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Instagram da Empresa</p>
+                          {selectedLead.instagram ? (
+                            <a href={`https://instagram.com/${selectedLead.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline truncate block">{selectedLead.instagram}</a>
+                          ) : (
+                            <p className="text-xs font-bold text-foreground">–</p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">LinkedIn da Empresa</p>
                           {selectedLead.company_linkedin ? (
                             <a href={selectedLead.company_linkedin} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline truncate block">{selectedLead.company_linkedin}</a>
@@ -2232,6 +2245,15 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             value={editLead.company_email || ''} 
                             onChange={e => setEditLead({...editLead, company_email: e.target.value})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram da Empresa</label>
+                          <input 
+                            value={editLead.instagram || ''} 
+                            onChange={e => setEditLead({...editLead, instagram: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                            placeholder="@perfil"
                           />
                         </div>
                         <div>
