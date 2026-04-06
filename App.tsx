@@ -92,6 +92,7 @@ const App: React.FC = () => {
         document.title = settings.crm_name;
       }
       if (settings.logo_url) {
+        localStorage.setItem('m4_crm_logo_url', settings.logo_url);
         let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
         if (!link) {
           link = document.createElement('link');
