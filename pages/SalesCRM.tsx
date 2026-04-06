@@ -1491,7 +1491,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                       {lead.company || lead.name || 'Novo Negócio'}
                     </h4>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 truncate">
-                      {lead.company ? lead.name : (lead.name ? 'Contato não informado' : '')}
+                      {lead.company && lead.name && lead.company !== lead.name ? lead.name : (lead.company === lead.name ? 'Contato não informado' : '')}
                     </p>
                     {lead.next_action && (
                       <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
@@ -2145,6 +2145,81 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                             onChange={e => setEditLead({...editLead, contact_linkedin: e.target.value})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
                             placeholder="linkedin.com/in/..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Contato / Decisor" defaultOpen={true}>
+                  <div className="space-y-4">
+                    {!isEditing ? (
+                      <>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nome</p>
+                          <p className="text-xs font-bold text-foreground">
+                            {selectedLead.name === selectedLead.company ? 'Não informado' : selectedLead.name || '–'}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Cargo</p>
+                          <p className="text-xs font-bold text-foreground">{selectedLead.contact_role || '–'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">E-mail</p>
+                          <p className="text-xs font-bold text-foreground">{selectedLead.email || '–'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">WhatsApp</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-foreground">{selectedLead.contact_whatsapp || selectedLead.phone || '–'}</p>
+                            {(selectedLead.contact_whatsapp || selectedLead.phone) && (
+                              <button 
+                                onClick={() => window.open(`https://wa.me/55${(selectedLead.contact_whatsapp || selectedLead.phone)?.replace(/\D/g, '')}`, '_blank')}
+                                className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
+                                title="Conversar no WhatsApp"
+                              >
+                                <MessageSquare width="12" height="12" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Nome do Contato</label>
+                          <input 
+                            value={editLead.name || ''} 
+                            onChange={e => setEditLead({...editLead, name: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                            placeholder="Nome do decisor"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Cargo</label>
+                          <input 
+                            value={editLead.contact_role || ''} 
+                            onChange={e => setEditLead({...editLead, contact_role: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">E-mail</label>
+                          <input 
+                            type="email"
+                            value={editLead.email || ''} 
+                            onChange={e => setEditLead({...editLead, email: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">WhatsApp</label>
+                          <input 
+                            value={editLead.contact_whatsapp || ''} 
+                            onChange={e => setEditLead({...editLead, contact_whatsapp: formatPhoneBR(e.target.value)})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
                           />
                         </div>
                       </div>
