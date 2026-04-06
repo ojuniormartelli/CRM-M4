@@ -503,6 +503,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         phone: editLead.phone || selectedLead.phone,
         niche: editLead.niche || selectedLead.niche,
         
+        // Fix date syntax errors for empty strings
+        closing_forecast: editLead.closing_forecast || null,
+        next_action_date: editLead.next_action_date || null,
+        
         // Ensure name is also updated
         name: editLead.name || editLead.company || selectedLead.name,
         status: targetStatus
@@ -654,6 +658,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       email: newLead.email,
       phone: newLead.phone,
       niche: newLead.niche,
+      
+      // Fix date syntax errors for empty strings
+      closing_forecast: newLead.closing_forecast || null,
+      next_action_date: newLead.next_action_date || null,
       
       pipeline_id: newLead.pipeline_id || activePipelineId,
       stage: targetStageId,
