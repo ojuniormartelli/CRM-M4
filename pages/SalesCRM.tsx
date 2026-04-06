@@ -1488,12 +1488,13 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
                     className={`bg-card p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'}`}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-3.5 py-1.5 rounded-xl border border-primary/20 inline-block max-w-full break-words">{lead.company}</span>
+                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-3.5 py-1.5 rounded-xl border border-primary/20 inline-block max-w-full break-words">{lead.niche || 'Sem Nicho'}</span>
                       {isStale(lead) && (
                         <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
                       )}
                     </div>
-                    <h4 className="font-black text-foreground text-lg mb-2 group-hover:text-primary transition-colors">{lead.name}</h4>
+                    <h4 className="font-black text-foreground text-lg mb-0.5 group-hover:text-primary transition-colors">{lead.company}</h4>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">{lead.name}</p>
                     {lead.next_action && (
                       <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
                         <ICONS.Clock width="12" height="12" />
