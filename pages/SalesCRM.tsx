@@ -895,7 +895,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
     const isFirstStage = activePipeline.stages[0]?.id === stageId;
     
     let filtered = leads.filter(l => {
-      const matchesPipeline = l.pipeline_id === activePipelineId;
+      const matchesPipeline = !l.pipeline_id || l.pipeline_id === activePipelineId;
       
       // Check if the lead's stage exists in the current pipeline's stages
       const stageExists = activePipeline.stages.some(s => s.id === l.stage);
@@ -903,7 +903,9 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
       // If the stage doesn't exist, show it in the first stage
       const matchesStage = l.stage === stageId || (isFirstStage && (!l.stage || !stageExists));
       
-      const isActive = l.status === 'active' || !l.status;
+      // A lead is active if its status is not won or lost
+      const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
+      
       return matchesPipeline && matchesStage && isActive;
     });
     
@@ -1384,7 +1386,7 @@ Retorne APENAS um objeto JSON válido com: name, company, value, notes, probabil
             <div className="flex items-center gap-3 mt-1">
               <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
               <div className="w-1 h-1 rounded-full bg-border"></div>
-              <p className="text-primary font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won').length} Ganhos este mês</p>
+              <p className="text-primary font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won' || l.status === 'ganho').length} Ganhos este mês</p>
             </div>
           </div>
         </div>

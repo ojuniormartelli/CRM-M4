@@ -12,14 +12,28 @@ interface FunnelDashboardProps {
 const FunnelDashboard: React.FC<FunnelDashboardProps> = ({ leads, stages }) => {
   const getStatusCount = (status: FunnelStatus) => {
     const statusStages = stages.filter(s => s.status === status).map(s => s.id);
-    return leads.filter(l => statusStages.includes(l.stage)).length;
+    const isInitial = status === FunnelStatus.INITIAL;
+    
+    return leads.filter(l => {
+      const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
+      if (!isActive) return false;
+
+      const stageExists = stages.some(s => s.id === l.stage);
+      // If it's the initial status, also count leads with no stage or an invalid stage
+      return statusStages.includes(l.stage) || (isInitial && (!l.stage || !stageExists));
+    }).length;
   };
+
+  const activeLeads = leads.filter(l => {
+    const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
+    return isActive;
+  });
 
   const initialCount = getStatusCount(FunnelStatus.INITIAL);
   const intermediateCount = getStatusCount(FunnelStatus.INTERMEDIATE);
   const wonCount = getStatusCount(FunnelStatus.WON);
   const lostCount = getStatusCount(FunnelStatus.LOST);
-  const total = leads.length;
+  const total = activeLeads.length;
 
   const stats = [
     { label: 'Início (Novos)', count: initialCount, status: FunnelStatus.INITIAL, color: 'bg-blue-500', icon: <ICONS.Plus className="w-5 h-5" /> },

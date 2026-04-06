@@ -75,7 +75,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     }
   }, [pipelines, selectedPipelineId]);
 
-  const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
+  const activeLeads = leads.filter(l => !l.status || (l.status !== 'won' && l.status !== 'lost' && l.status !== 'ganho' && l.status !== 'perdido'));
   
   const totalValue = activeLeads.reduce((acc, lead) => acc + (lead.value || 0), 0);
   
@@ -400,7 +400,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       </div>
 
       <FunnelDashboard 
-        leads={leads.filter(l => l.pipeline_id === selectedPipelineId)} 
+        leads={leads.filter(l => l.pipeline_id === selectedPipelineId || (!l.pipeline_id && selectedPipelineId === pipelines[0]?.id))} 
         stages={pipelines.find(p => p.id === selectedPipelineId)?.stages || []} 
       />
 
