@@ -641,6 +641,21 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     }
   };
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setNewLead({ 
+      name: '', company: '', email: '', phone: '', value: 0, notes: '',
+      niche: '', service_type: '', proposed_ticket: 0,
+      cnpj: '', company_email: '', company_phone: '', company_whatsapp: '', instagram: '', company_linkedin: '', 
+      responsible_name: '', contact_role: '', contact_whatsapp: '', contact_instagram: '', contact_linkedin: '', contact_notes: '',
+      city: '', state: '', website: '',
+      pipeline_id: activePipelineId,
+      stage: activePipeline?.stages?.[0]?.id || '',
+      closing_forecast: '',
+      responsible_id: currentUser?.id || ''
+    });
+  };
+
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
@@ -1017,7 +1032,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">Novo Negócio</h3>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
+                <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
                   <ICONS.Plus className="rotate-45" />
                 </button>
               </div>
@@ -1228,7 +1243,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 </div>
 
                 <div className="p-10 pt-0 shrink-0 flex gap-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
+                  <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
                   <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all shadow-none disabled:opacity-50">
                     {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
                   </button>
@@ -1546,7 +1561,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
           <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
               <h3 className="text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
+              <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
                 <ICONS.Plus className="rotate-45" />
               </button>
             </div>
@@ -1774,7 +1789,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
               </div>
 
               <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
+                <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50">
                   {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
                 </button>
