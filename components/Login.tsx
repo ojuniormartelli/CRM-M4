@@ -67,7 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-12 space-y-8 animate-in zoom-in-95 duration-500">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-12 space-y-8 animate-zoom-in-95">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 bg-indigo-600 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-indigo-100 dark:shadow-none">
             <ICONS.Sales size={32} />
@@ -191,7 +191,7 @@ const ForcePasswordChange: React.FC<{ user: User; onSuccess: (user: User) => voi
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-12 space-y-8 animate-in zoom-in-95 duration-500">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-12 space-y-8 animate-zoom-in-95">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 bg-amber-500 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-amber-100 dark:shadow-none">
             <ICONS.Lock size={32} />

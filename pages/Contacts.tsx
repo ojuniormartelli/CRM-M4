@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Contact, Company, User } from '../types';
 import { ICONS } from '../constants';
+import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
@@ -117,12 +118,12 @@ const Contacts: React.FC<ContactsProps> = ({
     e.preventDefault();
     setIsSaving(true);
     
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const contactPayload = mappers.contact(newContact, currentUser?.workspace_id);
+
     const { data, error } = await supabase
       .from('m4_contacts')
-      .insert([{
-        ...newContact,
-        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-      }])
+      .insert([contactPayload])
       .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
@@ -142,9 +143,12 @@ const Contacts: React.FC<ContactsProps> = ({
     if (!editingContact) return;
     setIsSaving(true);
     
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const contactPayload = mappers.contact(newContact);
+
     const { data, error } = await supabase
       .from('m4_contacts')
-      .update(newContact)
+      .update(contactPayload)
       .eq('id', editingContact.id)
       .select('*, company:m4_companies(id, name, city, state)');
 
@@ -271,7 +275,7 @@ const Contacts: React.FC<ContactsProps> = ({
 
         {isCompanyModalOpen && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
                 <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
@@ -391,7 +395,7 @@ const Contacts: React.FC<ContactsProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">Novo Contato</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shrink-0">
@@ -478,7 +482,7 @@ const Contacts: React.FC<ContactsProps> = ({
       )}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
                 {isEditing ? `EDITANDO: ${editingContact?.name}` : editingContact?.name}
@@ -678,7 +682,7 @@ const Contacts: React.FC<ContactsProps> = ({
       )}
       {isCompanyModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
               <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">

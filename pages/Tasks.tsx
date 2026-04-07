@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ICONS } from '../constants';
 import { Task, TaskStatus, Priority, User, Company, Contact } from '../types';
+import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 
 interface TasksProps {
@@ -102,11 +103,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    const taskData = {
-      ...newTask,
-      ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
-      created_at: new Date().toISOString()
-    };
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const taskData = mappers.task(newTask, currentUser?.workspace_id);
 
     const { data, error } = await supabase
       .from('m4_tasks')
@@ -124,9 +122,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     e.preventDefault();
     if (!selectedTask) return;
 
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const taskData = mappers.task(editTask);
+
     const { data, error } = await supabase
       .from('m4_tasks')
-      .update(editTask)
+      .update(taskData)
       .eq('id', selectedTask.id)
       .select();
 
@@ -414,7 +415,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
       {(isModalOpen || selectedTask) && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0 gap-4">
               <div className="flex items-center gap-4 min-w-0 flex-1">
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">
@@ -810,7 +811,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       </div>
       {isDeleting && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-zoom-in-95 text-center">
             <div className="w-20 h-20 bg-red-50 dark:bg-red-900/30 rounded-[2rem] flex items-center justify-center text-red-600 dark:text-red-400 mx-auto mb-6">
               <ICONS.X width="40" height="40" />
             </div>

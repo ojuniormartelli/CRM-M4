@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Company, Contact, User, Task, TaskStatus, Priority, ClientAccount } from '../types';
 import { ICONS } from '../constants';
+import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
@@ -154,12 +155,12 @@ const Companies: React.FC<CompaniesProps> = ({
     e.preventDefault();
     setIsSaving(true);
     
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const companyPayload = mappers.company(newCompany, currentUser?.workspace_id);
+
     const { data: companyData, error: companyError } = await supabase
       .from('m4_companies')
-      .insert([{
-        ...newCompany,
-        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-      }])
+      .insert([companyPayload])
       .select();
 
     if (companyError) {
@@ -211,9 +212,12 @@ const Companies: React.FC<CompaniesProps> = ({
     if (!editingCompany) return;
     setIsSaving(true);
     
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const companyPayload = mappers.company(newCompany);
+
     const { data: companyData, error: companyError } = await supabase
       .from('m4_companies')
-      .update(newCompany)
+      .update(companyPayload)
       .eq('id', editingCompany.id)
       .select();
 
@@ -227,14 +231,16 @@ const Companies: React.FC<CompaniesProps> = ({
           .update({ is_primary: false })
           .eq('company_id', editingCompany.id);
 
+        // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+        const contactPayload = mappers.contact({
+          ...primaryContact,
+          company_id: editingCompany.id,
+          is_primary: true
+        }, currentUser?.workspace_id);
+
         const { data: contactData, error: contactError } = await supabase
           .from('m4_contacts')
-          .insert([{
-            ...primaryContact,
-            company_id: editingCompany.id,
-            workspace_id: currentUser?.workspace_id,
-            is_primary: true
-          }])
+          .insert([contactPayload])
           .select();
         
         if (contactError) {
@@ -413,7 +419,7 @@ const Companies: React.FC<CompaniesProps> = ({
 
         {isModalOpen && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Empresa</h3>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
@@ -764,7 +770,7 @@ const Companies: React.FC<CompaniesProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">Nova Empresa</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shrink-0">
@@ -944,7 +950,7 @@ const Companies: React.FC<CompaniesProps> = ({
       )}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             {/* Header */}
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <div className="flex items-center gap-8">

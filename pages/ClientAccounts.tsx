@@ -373,7 +373,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
       {/* Modal Nova Conta */}
       {isNewAccountModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-0 shrink-0 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Nova Conta Ativa</h3>
               <button onClick={() => setIsNewAccountModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">

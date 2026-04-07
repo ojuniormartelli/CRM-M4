@@ -1024,7 +1024,7 @@ const Settings: React.FC<SettingsProps> = ({
 
           {isServiceModalOpen && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
                 <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
                   <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
                     {editingService?.id ? 'EDITAR SERVIÇO' : 'NOVO SERVIÇO'}
@@ -1809,7 +1809,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {isCategoryModalOpen && editingCategory && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                 {editingCategory.id ? 'Editar Categoria' : 'Nova Categoria'}
@@ -1863,7 +1863,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {isMethodModalOpen && editingMethod && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                 {editingMethod.id ? 'Editar Método' : 'Novo Método'}
@@ -1905,7 +1905,7 @@ const Settings: React.FC<SettingsProps> = ({
       )}
       {isUserModalOpen && editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                 {editingUser.id ? 'Editar Usuário' : 'Novo Usuário'}
@@ -2010,7 +2010,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {isPipelineModalOpen && editingPipeline && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
             <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">
                 {editingPipeline.id ? 'EDITAR FUNIL' : 'NOVO FUNIL'}
@@ -2154,7 +2154,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {isRoleModalOpen && editingRole && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                 {editingRole.id ? 'Editar Cargo' : 'Novo Cargo'}

@@ -600,7 +600,7 @@ Exemplo: {"0": "name", "2": "email"}`;
       {/* Edit Modal */}
       {isEditModalOpen && editingLead && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-7xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-7xl max-h-[95vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-12 pb-6 flex justify-between items-start shrink-0">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 dark:text-white">Editar Lead</h3>

@@ -4,6 +4,7 @@ import * as ICONS from 'lucide-react';
 import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User, FinanceCategory, PaymentMethod } from '../types';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, addWeeks, addYears, addDays, isWithinInterval, isToday, isTomorrow, parseISO, isAfter, isSameDay, isSameMonth, isSameYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from 'motion/react';
@@ -393,51 +394,24 @@ const Finance: React.FC<FinanceProps> = ({
 
     setIsSyncing(true);
     try {
-      // Sanitize data before sending to Supabase with explicit whitelist
-      const isRecurring = editTransaction.is_recurring;
-      const updateData = {
-        description: editTransaction.description,
-        amount: Number(editTransaction.amount),
-        type: editTransaction.type,
-        category: editTransaction.category,
-        status: editTransaction.status,
-        date: editTransaction.date,
-        due_date: editTransaction.due_date,
-        payment_method: editTransaction.payment_method,
-        bank_account_id: editTransaction.bank_account_id || null,
-        client_account_id: editTransaction.client_account_id || null,
-        paid_date: editTransaction.paid_date || null,
-        notes: editTransaction.notes,
-        is_recurring: isRecurring,
-        // Recurrence fields - explicitly nullified if is_recurring is false
-        recurrence_type: isRecurring ? editTransaction.recurrence_type : null,
-        recurrence: isRecurring ? editTransaction.recurrence : null,
-        recurrence_interval: isRecurring ? editTransaction.recurrence_interval : null,
-        recurrence_day_of_month: isRecurring ? editTransaction.recurrence_day_of_month : null,
-        recurrence_day_of_week: isRecurring ? editTransaction.recurrence_day_of_week : null,
-        recurrence_month: isRecurring ? editTransaction.recurrence_month : null,
-        recurrence_unit: isRecurring ? editTransaction.recurrence_unit : null,
-        recurrence_end_date: isRecurring ? editTransaction.recurrence_end_date : null,
-        recurring_id: isRecurring ? editTransaction.recurring_id : null,
-        updated_at: new Date().toISOString()
-      };
+      // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+      const updateData = mappers.transaction(editTransaction, currentUser?.workspace_id);
 
       let query;
-      if (selectedTransaction.is_projected) {
+      if (selectedTransaction?.is_projected) {
         // If it's a projection, we insert it as a new transaction (realizing it)
         const insertData = {
           ...updateData,
-          workspace_id: currentUser?.workspace_id,
           created_at: new Date().toISOString()
         };
         query = supabase.from('m4_transactions').insert([insertData]);
       } else {
         query = supabase.from('m4_transactions').update(updateData);
-        if (scope === 'all') {
+        if (scope === 'all' && selectedTransaction?.recurring_id) {
           query = query.eq('recurring_id', selectedTransaction.recurring_id).neq('status', 'Pago').neq('status', 'Recebido');
-        } else if (scope === 'future') {
+        } else if (scope === 'future' && selectedTransaction?.recurring_id) {
           query = query.eq('recurring_id', selectedTransaction.recurring_id).gte('date', selectedTransaction.date);
-        } else {
+        } else if (selectedTransaction?.id) {
           query = query.eq('id', selectedTransaction.id);
         }
       }
@@ -1642,7 +1616,7 @@ const Finance: React.FC<FinanceProps> = ({
       {/* Edit Transaction Modal */}
       {isEditModalOpen && selectedTransaction && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Editar Lançamento</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
@@ -1930,7 +1904,7 @@ const Finance: React.FC<FinanceProps> = ({
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0 gap-4">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate min-w-0">Novo Lançamento</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shrink-0">
@@ -2325,7 +2299,7 @@ const Finance: React.FC<FinanceProps> = ({
 
       {isBankModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Nova Conta</h3>
               <button onClick={() => setIsBankModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
@@ -2380,7 +2354,7 @@ const Finance: React.FC<FinanceProps> = ({
 
       {selectedAccount && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Detalhes da Conta</h3>
               <button onClick={() => setSelectedAccount(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
@@ -2483,7 +2457,7 @@ const Finance: React.FC<FinanceProps> = ({
 
       {isCardModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md flex flex-col shadow-2xl animate-zoom-in-95">
             <div className="p-10 pb-6 flex justify-between items-center shrink-0">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">Novo Cartão</h3>
               <button onClick={() => setIsCardModalOpen(false)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">

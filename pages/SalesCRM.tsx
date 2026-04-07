@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service, FunnelStatus } from '../types';
 import { ICONS } from '../constants';
+import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
@@ -492,25 +493,15 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
     const targetStatus = targetStage?.status || editLead.status || selectedLead.status || 'active';
 
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const updateData = mappers.lead({
+      ...editLead,
+      status: targetStatus,
+    });
+
     const { error } = await supabase
       .from('m4_leads')
-      .update({
-        ...editLead,
-        // Ensure mandatory fields are set for legacy compatibility
-        company: editLead.company || selectedLead.company,
-        responsible_name: editLead.responsible_name || selectedLead.responsible_name || 'Administrador',
-        email: editLead.email || selectedLead.email,
-        phone: editLead.phone || selectedLead.phone,
-        niche: editLead.niche || selectedLead.niche,
-        
-        // Fix date syntax errors for empty strings
-        closing_forecast: editLead.closing_forecast || null,
-        next_action_date: editLead.next_action_date || null,
-        
-        // Ensure name is also updated (contact name)
-        name: editLead.name || selectedLead.name || 'Contato não informado',
-        status: targetStatus
-      })
+      .update(updateData)
       .eq('id', selectedLead.id);
 
     if (error) {
@@ -665,26 +656,14 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
     const targetStatus = targetStage?.status || 'active';
 
-    const leadData = {
+    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+    const leadData = mappers.lead({
       ...newLead,
-      // Ensure mandatory fields are set for legacy compatibility
-      company: newLead.company || 'Empresa não informada',
-      name: newLead.name || 'Contato não informado', // Nome do Contato/Cliente (vai para a coluna 'name')
-      email: newLead.email,
-      phone: newLead.phone,
-      niche: newLead.niche,
-      
-      // Fix date syntax errors for empty strings
-      closing_forecast: newLead.closing_forecast || null,
-      next_action_date: newLead.next_action_date || null,
-      
       pipeline_id: newLead.pipeline_id || activePipelineId,
       stage: targetStageId,
       status: targetStatus,
       responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || currentUser?.name || 'Administrador',
-      ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {}),
-      created_at: new Date().toISOString()
-    };
+    }, currentUser?.workspace_id);
 
     const { data, error } = await supabase
       .from('m4_leads')
@@ -1029,7 +1008,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       <>
         {isModalOpen && (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
+            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">Novo Negócio</h3>
                 <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -1255,7 +1234,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
         {isCompanyModalOpen && (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
+            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase">Nova Empresa</h3>
                 <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -1433,7 +1412,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isPipelineModalOpen && (
         <div className="fixed inset-0 bg-background/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-zoom-in-95">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-xl font-black text-foreground uppercase">Selecionar Pipeline</h3>
               <button onClick={() => setIsPipelineModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -1558,7 +1537,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-in zoom-in-95 duration-300 overflow-hidden">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
               <h3 className="text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
               <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
@@ -1801,7 +1780,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {selectedLead && (
         <div className="fixed inset-0 bg-background/60 backdrop-blur-xl z-50 flex justify-center items-center p-4 md:p-10">
-          <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 border border-border/50">
+          <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-zoom-in-95 border border-border/50">
             {/* Header 360 */}
             <div className="px-10 py-8 bg-card border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shrink-0">
               <div className="flex items-center gap-6 min-w-0 flex-1">
@@ -2644,7 +2623,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isWonModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
               <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Configurar Nova Conta</h3>
               <button onClick={() => setIsWonModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
@@ -2736,7 +2715,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isLostModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
               <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Marcar Perda</h3>
               <button onClick={() => setIsLostModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
@@ -2783,7 +2762,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isNewTaskModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="p-10 pb-0 shrink-0">
               <h3 className="text-xl font-black text-foreground mb-6 uppercase">Nova Tarefa</h3>
             </div>
@@ -2863,7 +2842,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
       {isCompanyModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <h3 className="text-2xl font-black text-foreground uppercase">Nova Empresa</h3>
               <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -3004,7 +2983,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isContactModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="flex justify-between items-center p-10 pb-0 shrink-0">
               <h3 className="text-2xl font-black text-foreground uppercase">Novo Contato</h3>
               <button onClick={() => setIsContactModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -3061,7 +3040,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isStageConfigModalOpen && editingPipeline && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl shadow-lg border border-border overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl shadow-lg border border-border overflow-hidden animate-zoom-in-95">
             <div className="px-10 py-8 border-b border-border flex justify-between items-center">
               <h3 className="text-xl font-black text-foreground uppercase tracking-widest">
                 CONFIGURAR FUNIL
@@ -3205,7 +3184,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isDeleting && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 text-center shadow-lg animate-in zoom-in-95 duration-300 border border-border">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 text-center shadow-lg animate-zoom-in-95 border border-border">
             <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-6">
               <ICONS.Trash width="32" height="32" />
             </div>
@@ -3234,7 +3213,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
       {isExecutingForm && selectedTemplate && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-border flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-black text-foreground uppercase tracking-tight">{selectedTemplate.title}</h3>
@@ -3336,7 +3315,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isLinkingProduct && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-md rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
             <div className="p-8 border-b border-border flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Vincular Produto</h3>

@@ -16,6 +16,31 @@
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  /* Animation Tokens (tailwindcss-animate equivalents) */
+  --animate-in: enter 0.3s ease-out;
+  --animate-out: exit 0.3s ease-in;
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-zoom-in-95: zoom-in-95 0.3s ease-out;
+  --animate-slide-in-from-top-2: slide-in-from-top-2 0.3s ease-out;
+  --animate-slide-in-from-bottom-4: slide-in-from-bottom-4 0.3s ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes zoom-in-95 {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slide-in-from-top-2 {
+    from { transform: translateY(-0.5rem); }
+    to { transform: translateY(0); }
+  }
+  @keyframes slide-in-from-bottom-4 {
+    from { transform: translateY(1rem); }
+    to { transform: translateY(0); }
+  }
 }
 
 :root {
@@ -51,8 +76,27 @@
 /* Configure dark mode to use the .dark class instead of media query */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@layer base {
-  body {
-    @apply bg-background text-foreground transition-colors duration-300;
+  /* 🎨 UX REFINEMENTS */
+  .modal-container {
+    @apply flex flex-col h-full max-h-[95vh] overflow-hidden rounded-[2.5rem] bg-background shadow-2xl border border-border/50 animate-zoom-in-95;
   }
-}
+  
+  .modal-header {
+    @apply shrink-0 px-10 py-8 bg-card border-b border-border flex justify-between items-center z-10;
+  }
+  
+  .modal-content {
+    @apply flex-1 overflow-y-auto p-10;
+  }
+  
+  .modal-footer {
+    @apply shrink-0 p-10 pt-0 flex gap-4 bg-background z-10;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-black uppercase text-foreground;
+  }
+
+  .text-muted-foreground {
+    @apply dark:text-slate-400; /* Better contrast in dark mode */
+  }

@@ -216,7 +216,7 @@ const EmailModule: React.FC<EmailModuleProps> = ({ emails, setEmails, currentUse
       {/* Compose Modal */}
       {isComposeOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl animate-zoom-in-95 overflow-hidden flex flex-col">
             <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
               <h3 className="text-lg font-black uppercase tracking-widest">Nova Mensagem</h3>
               <button onClick={() => setIsComposeOpen(false)} className="text-slate-400 hover:text-white transition-colors">
