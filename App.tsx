@@ -39,6 +39,33 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // --- PWA INSTALLATION ---
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setDeferredPrompt(null);
+      console.log('PWA was installed');
+    });
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', () => setDeferredPrompt(null));
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   // --- GLOBAL STATE ---
   const [pipelines, setPipelines] = useState<Pipeline[]>([
@@ -631,6 +658,23 @@ const App: React.FC = () => {
               ))}
             </React.Fragment>
           ))}
+
+          {deferredPrompt && (
+            <div className="pt-8 mt-8 border-t border-border">
+              <button
+                onClick={handleInstallClick}
+                className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 bg-primary/10 text-primary hover:bg-primary/20 group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <ICONS.Download className="w-5 h-5" />
+                </div>
+                <div className={`transition-all duration-500 ${!isSidebarOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+                  <p className="text-xs font-black uppercase tracking-widest">Instalar App</p>
+                  <p className="text-[9px] font-bold text-primary/60 uppercase mt-0.5">Versão Desktop</p>
+                </div>
+              </button>
+            </div>
+          )}
         </nav>
 
         <div className="p-6 border-t border-border">
