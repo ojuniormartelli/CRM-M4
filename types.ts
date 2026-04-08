@@ -203,27 +203,134 @@ export interface Lead {
 
 export interface Task {
   id: string;
-  tenant_id: string;
+  tenant_id?: string;
+  workspace_id?: string;
   title: string;
   description: string;
-  status: TaskStatus;
-  priority: Priority;
-  assigned_to: string;
-  due_date: string;
+  status: TaskStatus | string;
+  priority: Priority | string;
+  assigned_to?: string;
+  due_date?: string;
   lead_id?: string;
   deal_id?: string;
   company_id?: string;
   contact_id?: string;
   project_id?: string;
+  client_id?: string;
   client_account_id?: string;
   is_recurring?: boolean;
-  recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  recurrence_days?: string; // e.g., 'MON,WED'
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrence_pattern?: any;
+  recurrence_type?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrence_days?: string;
   recurrence_day_of_month?: number;
-  recurrence_month_week?: string; // e.g., 'first_monday'
-  recurrence_end_date?: string;
+  recurrence_month_week?: string;
   recurrence_occurrences?: number;
-  type: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
+  recurrence_end_date?: string;
+  parent_task_id?: string;
+  checklist?: { item: string; checked: boolean }[];
+  dependencies?: string[];
+  estimated_hours?: number;
+  actual_hours?: number;
+  list_id?: string;
+  task_type?: 'commercial' | 'operational' | 'internal';
+  type?: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
+  created_at: string;
+}
+
+export interface M4Client {
+  id: string;
+  lead_id?: string;
+  company_id?: string;
+  company_name: string;
+  status: 'active' | 'paused' | 'churned';
+  contract_start_date?: string;
+  monthly_value?: number;
+  services?: string[];
+  manager_id?: string;
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  trigger_event: 'lead_won' | 'client_onboarding' | 'monthly_routine';
+  tasks: {
+    title: string;
+    description?: string;
+    due_days: number;
+    assignee?: string;
+  }[];
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface WorkspaceNav {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface Folder {
+  id: string;
+  workspace_nav_id: string;
+  name: string;
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface List {
+  id: string;
+  folder_id?: string;
+  workspace_nav_id?: string;
+  name: string;
+  view_type: 'kanban' | 'list' | 'calendar' | 'table';
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface CustomFieldDef {
+  id: string;
+  entity_type: 'lead' | 'client' | 'task';
+  field_name: string;
+  field_type: 'text' | 'number' | 'date' | 'select' | 'multiselect';
+  options?: string[];
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface CustomFieldValue {
+  id: string;
+  custom_field_id: string;
+  entity_id: string;
+  value: any;
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface M4Automation {
+  id: string;
+  name: string;
+  trigger_type: 'status_change' | 'date_trigger' | 'field_update';
+  trigger_conditions: any;
+  actions: any[];
+  is_active: boolean;
+  workspace_id?: string;
+  created_at: string;
+}
+
+export interface TimeTracking {
+  id: string;
+  task_id: string;
+  user_id?: string;
+  start_time: string;
+  end_time?: string;
+  duration_minutes?: number;
+  workspace_id?: string;
   created_at: string;
 }
 

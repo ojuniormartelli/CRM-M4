@@ -6,11 +6,15 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, M4Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
+import { CheckCircle2 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
+import MyDay from './pages/MyDay';
+import { automationService } from './services/automationService';
+import { mappers } from './lib/mappers';
 import SalesCRM from './pages/SalesCRM';
 import Clients from './pages/Clients';
 import Projects from './pages/Projects';
@@ -82,7 +86,7 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<M4Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clientAccounts, setClientAccounts] = useState<any[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -341,110 +345,19 @@ const App: React.FC = () => {
     if (!error) {
       setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
       
-      // AUTOMATION: If won, create client account and initial transaction
+      // AUTOMATION: If won, trigger new hybrid automation
       if (status === 'won') {
-        const clientAccData = {
-          lead_id: lead.id,
-          status: 'active',
-          service_type: extraData?.service_type || lead.service_type || 'Fee Mensal',
-          start_date: extraData?.start_date || new Date().toISOString().split('T')[0],
-          monthly_value: extraData?.monthly_value || lead.proposed_ticket || lead.value || 0,
-          bank_account_id: extraData?.bank_account_id || null,
-          notes: `Conta criada automaticamente a partir do lead ${lead.name}`,
-          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-        };
-
-        const { data: accRes, error: accErr } = await supabase
-          .from('m4_client_accounts')
-          .insert([clientAccData])
-          .select();
-
-        if (!accErr && accRes) {
-          setClientAccounts([...clientAccounts, accRes[0]]);
-
-          // Create initial transaction
-          const initialTrans = {
-            description: `Primeira Mensalidade - ${lead.company}`,
-            amount: clientAccData.monthly_value,
-            type: 'Receita',
-            category: 'Mensalidade',
-            status: 'Pendente',
-            due_date: clientAccData.start_date,
-            client_account_id: accRes[0].id,
-            lead_id: lead.id,
-            payment_method: 'Boleto',
-            bank_account_id: extraData?.bank_account_id || null,
-            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-          };
-
-          const { data: transRes } = await supabase
-            .from('m4_transactions')
-            .insert([initialTrans])
-            .select();
+        try {
+          const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
+          await automationService.convertLeadToClient(lead, workspaceId);
           
-          if (transRes) setTransactions([...transactions, ...transRes]);
-
-          // Also create the legacy "Client" and "Project" for backward compatibility if needed
-          const clientData = {
-            name: lead.name,
-            email: lead.email,
-            phone: lead.phone,
-            company: lead.company,
-            status: 'active',
-            mrr: clientAccData.monthly_value,
-            contract_start: clientAccData.start_date,
-            health_score: 100,
-            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-          };
-
-          const { data: clientRes } = await supabase
-            .from('m4_clients')
-            .insert([clientData])
-            .select();
-
-          if (clientRes) {
-            setClients([...clients, clientRes[0]]);
-            
-            const projectData = {
-              name: `Onboarding: ${lead.company}`,
-              client_id: clientRes[0].id,
-              lead_id: lead.id,
-              status: 'active',
-              start_date: clientAccData.start_date,
-              value: lead.value || 0,
-              ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-            };
-
-            const { data: projRes } = await supabase
-              .from('m4_projects')
-              .insert([projectData])
-              .select();
-
-            if (projRes) {
-              setProjects([...projects, projRes[0]]);
-              
-              // Create standard onboarding tasks
-              const onboardingTasks = [
-                { title: 'Enviar Contrato', type: 'task', priority: 'Urgente', status: 'Pendente', client_account_id: accRes[0].id },
-                { title: 'Enviar Briefing', type: 'task', priority: 'Alta', status: 'Pendente', client_account_id: accRes[0].id },
-                { title: 'Criar Grupo WhatsApp', type: 'task', priority: 'Média', status: 'Pendente', client_account_id: accRes[0].id },
-                { title: 'Agendar Kickoff', type: 'meeting', priority: 'Alta', status: 'Pendente', client_account_id: accRes[0].id }
-              ].map(t => ({
-                ...t,
-                project_id: projRes[0].id,
-                due_date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-                created_at: new Date().toISOString(),
-                ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-              }));
-
-              const { data: tasksRes } = await supabase
-                .from('m4_tasks')
-                .insert(onboardingTasks)
-                .select();
-              
-              if (tasksRes) setTasks([...tasks, ...tasksRes]);
-            }
-          }
+          // Refresh data
+          const { data: clientsData } = await supabase.from('m4_clients').select('*');
+          setClients(clientsData || []);
+          const { data: tasksData } = await supabase.from('m4_tasks').select('*');
+          setTasks(tasksData || []);
+        } catch (err) {
+          console.error('Error in won automation:', err);
         }
       } else if (status === 'lost') {
         // AUTOMATION: If lost, create a follow-up task
@@ -504,10 +417,17 @@ const App: React.FC = () => {
 
   const menuSections = [
     {
+      title: "Workspaces",
+      items: [
+        { id: 'my_day', icon: CheckCircle2, label: 'Meu Dia' },
+        { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
+        { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
+        { id: 'administrativo', icon: ICONS.Finance, label: 'Administrativo', hasSubItems: true, menuKey: 'admin' },
+      ]
+    },
+    {
       title: "Comercial",
       items: [
-        { id: 'sales', icon: ICONS.Sales, label: 'Pipelines Vendas', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
-        { id: 'clients_group', icon: ICONS.Clients, label: 'Base de Clientes', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
         { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
       ]
@@ -605,7 +525,7 @@ const App: React.FC = () => {
                     onToggle={item.menuKey ? () => setExpandedMenus({...expandedMenus, [item.menuKey!]: !expandedMenus[item.menuKey as keyof typeof expandedMenus]}) : undefined}
                   />
                   
-                  {item.id === 'sales' && expandedMenus.sales && isSidebarOpen && (
+                  {item.id === 'comercial' && expandedMenus.sales && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
                       <button
                         onClick={() => setActiveTab('sales_overview')}
@@ -638,7 +558,7 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {item.id === 'clients_group' && expandedMenus.clients && isSidebarOpen && (
+                  {item.id === 'operacao' && expandedMenus.clients && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
                         <button onClick={() => setActiveTab('clients_overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'clients_overview' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -703,6 +623,17 @@ const App: React.FC = () => {
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
+          {activeTab === 'my_day' && (
+            <MyDay 
+              tasks={tasks} 
+              leads={leads} 
+              currentUser={currentUser} 
+              onUpdateTask={async (task) => {
+                const { error } = await supabase.from('m4_tasks').update(mappers.task(task)).eq('id', task.id);
+                if (!error) setTasks(tasks.map(t => t.id === task.id ? task : t));
+              }}
+            />
+          )}
           {activeTab === 'clients_overview' && (
             <ClientsOverview 
               companies={companies} 

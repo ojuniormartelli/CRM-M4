@@ -1,5 +1,5 @@
 
-import { Transaction, Lead, Company, Contact, ClientAccount, Task } from '../types';
+import { Transaction, Lead, Company, Contact, ClientAccount, Task, M4Client, TaskTemplate, WorkspaceNav, Folder, List, CustomFieldDef, CustomFieldValue, M4Automation, TimeTracking } from '../types';
 
 /**
  * 🛡️ WHITELIST MAPPERS
@@ -173,11 +173,160 @@ export const mappers = {
       lead_id: data.lead_id || data.deal_id || null,
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,
+      client_id: data.client_id || null,
       client_account_id: data.client_account_id || null,
       is_recurring: !!data.is_recurring,
-      recurrence_type: data.recurrence_type || null,
-      recurrence_day_of_month: data.recurrence_day_of_month || null,
-      recurrence_end_date: data.recurrence_end_date || null,
+      recurrence: data.recurrence || data.recurrence_type || 'none',
+      recurrence_pattern: data.recurrence_pattern || {
+        days: data.recurrence_days,
+        day_of_month: data.recurrence_day_of_month,
+        month_week: data.recurrence_month_week,
+        occurrences: data.recurrence_occurrences,
+        end_date: data.recurrence_end_date
+      },
+      parent_task_id: data.parent_task_id || null,
+      checklist: data.checklist || [],
+      dependencies: data.dependencies || [],
+      estimated_hours: Number(data.estimated_hours) || 0,
+      actual_hours: Number(data.actual_hours) || 0,
+      list_id: data.list_id || null,
+      task_type: data.task_type || 'operational',
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * CLIENT MAPPER
+   */
+  client: (data: Partial<M4Client>, workspaceId?: string) => {
+    const payload: any = {
+      lead_id: data.lead_id || null,
+      company_id: data.company_id || null,
+      company_name: data.company_name || 'Empresa não informada',
+      status: data.status || 'active',
+      contract_start_date: data.contract_start_date || null,
+      monthly_value: Number(data.monthly_value) || 0,
+      services: data.services || [],
+      manager_id: data.manager_id || null,
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * TASK TEMPLATE MAPPER
+   */
+  taskTemplate: (data: Partial<TaskTemplate>, workspaceId?: string) => {
+    const payload: any = {
+      name: data.name || 'Sem nome',
+      trigger_event: data.trigger_event || 'client_onboarding',
+      tasks: data.tasks || [],
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * WORKSPACE NAV MAPPER
+   */
+  workspaceNav: (data: Partial<WorkspaceNav>, workspaceId?: string) => {
+    const payload: any = {
+      name: data.name || 'Sem nome',
+      icon: data.icon || null,
+      color: data.color || null,
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * FOLDER MAPPER
+   */
+  folder: (data: Partial<Folder>, workspaceId?: string) => {
+    const payload: any = {
+      workspace_nav_id: data.workspace_nav_id,
+      name: data.name || 'Sem nome',
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * LIST MAPPER
+   */
+  list: (data: Partial<List>, workspaceId?: string) => {
+    const payload: any = {
+      folder_id: data.folder_id || null,
+      workspace_nav_id: data.workspace_nav_id || null,
+      name: data.name || 'Sem nome',
+      view_type: data.view_type || 'kanban',
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * CUSTOM FIELD DEF MAPPER
+   */
+  customFieldDef: (data: Partial<CustomFieldDef>, workspaceId?: string) => {
+    const payload: any = {
+      entity_type: data.entity_type,
+      field_name: data.field_name,
+      field_type: data.field_type,
+      options: data.options || [],
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * CUSTOM FIELD VALUE MAPPER
+   */
+  customFieldValue: (data: Partial<CustomFieldValue>, workspaceId?: string) => {
+    const payload: any = {
+      custom_field_id: data.custom_field_id,
+      entity_id: data.entity_id,
+      value: data.value,
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * AUTOMATION MAPPER
+   */
+  automation: (data: Partial<M4Automation>, workspaceId?: string) => {
+    const payload: any = {
+      name: data.name || 'Sem nome',
+      trigger_type: data.trigger_type,
+      trigger_conditions: data.trigger_conditions || {},
+      actions: data.actions || [],
+      is_active: !!data.is_active,
+    };
+
+    if (workspaceId) payload.workspace_id = workspaceId;
+    return payload;
+  },
+
+  /**
+   * TIME TRACKING MAPPER
+   */
+  timeTracking: (data: Partial<TimeTracking>, workspaceId?: string) => {
+    const payload: any = {
+      task_id: data.task_id,
+      user_id: data.user_id || null,
+      start_time: data.start_time,
+      end_time: data.end_time || null,
+      duration_minutes: Number(data.duration_minutes) || 0,
     };
 
     if (workspaceId) payload.workspace_id = workspaceId;

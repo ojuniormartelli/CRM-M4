@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
-import { Client, User } from '../types';
+import { M4Client, User } from '../types';
 import { supabase } from '../lib/supabase';
+import { format } from 'date-fns';
 
 interface ClientsProps {
-  clients: Client[];
-  setClients: React.Dispatch<React.SetStateAction<Client[]>>;
+  clients: M4Client[];
+  setClients: React.Dispatch<React.SetStateAction<M4Client[]>>;
   currentUser: User | null;
 }
 
@@ -13,8 +14,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) =
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.company.toLowerCase().includes(searchTerm.toLowerCase())
+    c.company_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -22,7 +22,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) =
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Base de Clientes</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Gestão de contas e relacionamento.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Gestão de contas e relacionamento operacional.</p>
         </div>
         <div className="relative">
           <ICONS.Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" width="18" height="18" />
@@ -41,32 +41,45 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) =
           <div key={client.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
-                {client.name.charAt(0)}
+                {client.company_name.charAt(0)}
               </div>
               <div>
-                <h4 className="font-black text-slate-900 dark:text-white text-lg">{client.name}</h4>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{client.company}</p>
+                <h4 className="font-black text-slate-900 dark:text-white text-lg">{client.company_name}</h4>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente Ativo</p>
               </div>
             </div>
             
             <div className="space-y-4 mb-8">
-              <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                <ICONS.Mail width="16" height="16" />
-                <span className="text-sm font-bold">{client.email}</span>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-widest">MRR</span>
+                <span className="text-sm font-black text-foreground">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.monthly_value || 0)}
+                </span>
               </div>
-              <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                <ICONS.Phone width="16" height="16" />
-                <span className="text-sm font-bold">{client.phone}</span>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] font-black uppercase tracking-widest">Início</span>
+                <span className="text-sm font-bold">
+                  {client.contract_start_date ? format(new Date(client.contract_start_date), 'dd/MM/yyyy') : 'N/A'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {client.services?.map((service, idx) => (
+                  <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">
+                    {service}
+                  </span>
+                ))}
               </div>
             </div>
 
             <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-slate-800">
               <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                client.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                client.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 
+                client.status === 'paused' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
+                'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
               }`}>
-                {client.status === 'active' ? 'Ativo' : 'Inativo'}
+                {client.status === 'active' ? 'Ativo' : client.status === 'paused' ? 'Pausado' : 'Churn'}
               </span>
-              <button className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Detalhes</button>
+              <button className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Operação</button>
             </div>
           </div>
         ))}
