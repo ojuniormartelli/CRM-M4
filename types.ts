@@ -315,9 +315,12 @@ export interface CustomFieldValue {
 export interface M4Automation {
   id: string;
   name: string;
-  trigger_type: 'status_change' | 'date_trigger' | 'field_update';
+  trigger_type: 'status_change' | 'date_trigger' | 'field_update' | 'stage_change' | 'lead_created' | 'no_activity';
   trigger_conditions: any;
-  actions: any[];
+  actions: {
+    type: 'create_task' | 'send_email' | 'create_project' | 'alert_user' | 'create_client';
+    config: any;
+  }[];
   is_active: boolean;
   workspace_id?: string;
   created_at: string;
@@ -336,6 +339,7 @@ export interface TimeTracking {
 
 export interface Project {
   id: string;
+  workspace_id?: string;
   name: string;
   client_id: string;
   lead_id?: string;
@@ -347,35 +351,10 @@ export interface Project {
   description?: string;
   type?: 'recorrente' | 'projeto';
   payment_method?: string;
+  created_at: string;
 }
 
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  cnpj?: string;
-  status: 'active' | 'inactive';
-  mrr: number;
-  contract_start: string;
-  contract_end?: string;
-  health_score: number; // 0-100
-}
-
-export interface Automation {
-  id: string;
-  name: string;
-  trigger: {
-    type: 'stage_change' | 'lead_created' | 'no_activity';
-    value?: string; // stage or days
-  };
-  actions: {
-    type: 'create_task' | 'send_email' | 'create_project' | 'alert_user';
-    config: any;
-  }[];
-  is_active: boolean;
-}
+// Removed duplicate Client and Automation interfaces
 
 export interface Service {
   id: string;
@@ -400,6 +379,7 @@ export interface PaymentMethod {
 
 export interface ClientAccount {
   id: string;
+  workspace_id?: string;
   lead_id?: string;
   company_id: string;
   status: 'ativo' | 'pausado' | 'cancelado';
@@ -443,6 +423,7 @@ export interface CreditCard {
 
 export interface Transaction {
   id: string;
+  workspace_id?: string;
   type: 'Receita' | 'Despesa' | 'Transferência';
   category: string;
   amount: number;

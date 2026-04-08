@@ -40,7 +40,7 @@ export const mappers = {
       recurring_id: data.recurring_id || null,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -91,7 +91,7 @@ export const mappers = {
       status: data.status || 'active',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -114,7 +114,7 @@ export const mappers = {
       notes: data.notes || '',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -135,7 +135,7 @@ export const mappers = {
       is_primary: !!data.is_primary,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -155,7 +155,7 @@ export const mappers = {
       notes: data.notes || '',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -193,7 +193,7 @@ export const mappers = {
       task_type: data.task_type || 'operational',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -212,7 +212,7 @@ export const mappers = {
       manager_id: data.manager_id || null,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -226,7 +226,7 @@ export const mappers = {
       tasks: data.tasks || [],
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -240,7 +240,7 @@ export const mappers = {
       color: data.color || null,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -253,7 +253,7 @@ export const mappers = {
       name: data.name || 'Sem nome',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -268,7 +268,7 @@ export const mappers = {
       view_type: data.view_type || 'kanban',
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -283,7 +283,7 @@ export const mappers = {
       options: data.options || [],
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -297,7 +297,7 @@ export const mappers = {
       value: data.value,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -313,7 +313,7 @@ export const mappers = {
       is_active: !!data.is_active,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   },
 
@@ -329,7 +329,7 @@ export const mappers = {
       duration_minutes: Number(data.duration_minutes) || 0,
     };
 
-    if (workspaceId) payload.workspace_id = workspaceId;
+    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
   }
 };

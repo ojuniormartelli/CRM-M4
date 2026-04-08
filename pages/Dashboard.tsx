@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { COLORS, ICONS } from '../constants';
-import { Lead } from '../types';
+import { Lead, Task, FunnelStatus } from '../types';
 import { aiService } from '../services/aiService';
+import { metricsUtils } from '../utils/metrics';
 
 interface DashboardProps {
   leads: Lead[];
   transactions: any[];
-  tasks: any[];
+  tasks: Task[];
 }
 
 const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
-  const isPositive = change.startsWith('+');
-  const isNeutral = change === '0%' || change === '—';
+  const changeNum = parseFloat(change.replace('%', ''));
+  const isPositive = change.startsWith('+') || changeNum > 0;
+  const isNeutral = change === '0%' || change === '—' || changeNum === 0;
   
   const textColor = isNeutral 
     ? 'text-slate-400' 
@@ -54,77 +56,26 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
     }
   }, [leads]);
 
-  // Calculate dynamic metrics
-  const totalLeads = leads.length;
-  const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
-  const wonLeads = leads.filter(l => l.status === 'won').length;
-  const lostLeads = leads.filter(l => l.status === 'lost').length;
-  
-  const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : '0';
-  
-  const totalRevenueForecast = leads
-    .filter(l => l.status !== 'won' && l.status !== 'lost')
-    .reduce((acc, l) => acc + (Number(l.value) || 0), 0);
-    
-  const closedRevenueMonth = leads
-    .filter(l => l.status === 'won')
-    .reduce((acc, l) => acc + (Number(l.value) || 0), 0);
+  // Use centralized metrics
+  const metrics = metricsUtils.calculateMetrics(leads, tasks);
+  const comparison = metricsUtils.getMonthlyComparison(leads);
 
-  const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
-  
-  // Calculate dynamic changes vs previous month
-  const now = new Date();
-  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-  const currentMonthLeads = leads.filter(l => new Date(l.created_at) >= startOfCurrentMonth);
-  const lastMonthLeads = leads.filter(l => {
-    const d = new Date(l.created_at);
-    return d >= startOfLastMonth && d <= endOfLastMonth;
-  });
-
-  const currentActiveLeads = currentMonthLeads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
-  const lastActiveLeads = lastMonthLeads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
-
-  const currentWonLeads = currentMonthLeads.filter(l => l.status === 'won');
-  const currentRevenue = currentWonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
-  const currentAvgTicket = currentWonLeads.length > 0 ? currentRevenue / currentWonLeads.length : 0;
-
-  const lastWonLeads = lastMonthLeads.filter(l => l.status === 'won');
-  const lastRevenue = lastWonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
-  const lastAvgTicket = lastWonLeads.length > 0 ? lastRevenue / lastWonLeads.length : 0;
-
-  const currentConvRate = currentMonthLeads.length > 0 ? (currentWonLeads.length / currentMonthLeads.length) * 100 : 0;
-  const lastConvRate = lastMonthLeads.length > 0 ? (lastWonLeads.length / lastMonthLeads.length) * 100 : 0;
-
-  const calculateChange = (current: number, last: number) => {
-    if (last === 0) return current > 0 ? '+100%' : '0%';
-    const change = ((current - last) / last) * 100;
-    return `${change >= 0 ? '+' : ''}${change.toFixed(0)}%`;
-  };
-
-  const leadsChange = calculateChange(currentActiveLeads, lastActiveLeads);
-  const ticketChange = calculateChange(currentAvgTicket, lastAvgTicket);
-  const revenueChange = calculateChange(currentRevenue, lastRevenue);
-  const convRateChange = calculateChange(currentConvRate, lastConvRate);
+  const formatChange = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(0)}%`;
 
   const myDayLeads = leads.filter(l => {
     const today = new Date().toISOString().split('T')[0];
-    return l.next_action_date === today && (l.status !== 'won' && l.status !== 'lost');
+    return l.next_action_date === today && metricsUtils.isActiveLead(l);
   });
 
-  const averageTicket = wonLeads > 0 ? (closedRevenueMonth / wonLeads) : 0;
-  
   // Stale deals (no activity for > 5 days)
   const fiveDaysAgo = new Date();
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
   const staleDeals = leads.filter(l => {
     const activityDate = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-    return (l.status !== 'won' && l.status !== 'lost') && activityDate < fiveDaysAgo;
+    return metricsUtils.isActiveLead(l) && activityDate < fiveDaysAgo;
   });
 
-  // Prepare chart data (Dynamic based on leads)
+  // Prepare chart data
   const last6Months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - i));
@@ -132,13 +83,12 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   });
 
   const chartData = last6Months.map(month => {
-    // Filter won leads for this month (simplified logic for demo)
     const monthLeads = leads.filter(l => {
       const d = new Date(l.created_at);
       return d.toLocaleString('pt-BR', { month: 'short' }) === month;
     });
     const monthRevenue = monthLeads
-      .filter(l => l.status === 'won')
+      .filter(metricsUtils.isWonLead)
       .reduce((acc, l) => acc + (Number(l.value) || 0), 0);
     
     return {
@@ -150,7 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   // Dynamic Ranking
   const ranking = leads
-    .filter(l => l.status === 'won')
+    .filter(metricsUtils.isWonLead)
     .reduce((acc: any[], lead) => {
       const seller = lead.responsible_name || 'Sistema';
       const existing = acc.find(a => a.name === seller);
@@ -167,8 +117,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   // Dynamic Meetings
   const upcomingMeetings = tasks
-    .filter(t => (t.type === 'meeting' || t.type === 'call') && t.status !== 'Concluída')
-    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .filter(t => (t.type === 'meeting' || t.type === 'call') && t.status !== 'Concluído')
+    .sort((a, b) => new Date(a.due_date || '').getTime() - new Date(b.due_date || '').getTime())
     .slice(0, 3);
 
   return (
@@ -187,11 +137,11 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <StatCard title="Leads Ativos" value={activeLeads} change={leadsChange} icon={ICONS.Sales} color="blue" />
-        <StatCard title="Ticket Médio" value={`R$ ${averageTicket.toLocaleString()}`} change={ticketChange} icon={ICONS.TrendingUp} color="indigo" />
-        <StatCard title="Fechado (Mês)" value={`R$ ${closedRevenueMonth.toLocaleString()}`} change={revenueChange} icon={ICONS.Plus} color="emerald" />
-        <StatCard title="Taxa Conversão" value={`${conversionRate}%`} change={convRateChange} icon={ICONS.Automation} color="amber" />
-        <StatCard title="Tarefas" value={pendingTasks} change="0%" icon={ICONS.Tasks} color="red" />
+        <StatCard title="Leads Ativos" value={metrics.activeLeads} change={formatChange(comparison.leadsChange)} icon={ICONS.Sales} color="blue" />
+        <StatCard title="Ticket Médio" value={`R$ ${metrics.averageTicket.toLocaleString()}`} change="0%" icon={ICONS.TrendingUp} color="indigo" />
+        <StatCard title="Fechado (Mês)" value={`R$ ${metrics.closedRevenue.toLocaleString()}`} change={formatChange(comparison.revenueChange)} icon={ICONS.Plus} color="emerald" />
+        <StatCard title="Taxa Conversão" value={`${metrics.conversionRate.toFixed(1)}%`} change="0%" icon={ICONS.Automation} color="amber" />
+        <StatCard title="Tarefas" value={metrics.pendingTasks} change="0%" icon={ICONS.Tasks} color="red" />
       </div>
 
       {myDayLeads.length > 0 && (

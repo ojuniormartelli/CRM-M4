@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
+import { leadService } from '../services/leadService';
+import { metricsUtils } from '../utils/metrics';
 import { Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
 
 interface SalesCRMProps {
@@ -493,24 +495,18 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
     const targetStatus = targetStage?.status || editLead.status || selectedLead.status || 'active';
 
-    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-    const updateData = mappers.lead({
+    const updateData = {
       ...editLead,
-      status: targetStatus,
-    });
+      status: targetStatus as any,
+    };
 
-    const { error } = await supabase
-      .from('m4_leads')
-      .update(updateData)
-      .eq('id', selectedLead.id);
-
-    if (error) {
-      alert("Erro ao atualizar lead: " + error.message);
-    } else {
-      const updatedLead = { ...selectedLead, ...editLead, status: targetStatus as any };
+    try {
+      const updatedLead = await leadService.update(selectedLead.id, updateData);
       setLeads(leads.map(l => l.id === selectedLead.id ? updatedLead : l));
       setSelectedLead(updatedLead);
       setIsEditing(false);
+    } catch (error: any) {
+      alert("Erro ao atualizar lead: " + error.message);
     }
     setIsSyncing(false);
   };
@@ -656,24 +652,17 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const targetStage = selectedPipeline?.stages.find(s => s.id === targetStageId);
     const targetStatus = targetStage?.status || 'active';
 
-    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-    const leadData = mappers.lead({
-      ...newLead,
-      pipeline_id: newLead.pipeline_id || activePipelineId,
-      stage: targetStageId,
-      status: targetStatus,
-      responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || currentUser?.name || 'Administrador',
-    }, currentUser?.workspace_id);
+    try {
+      const leadData = {
+        ...newLead,
+        pipeline_id: newLead.pipeline_id || activePipelineId,
+        stage: targetStageId,
+        status: targetStatus as any,
+        responsible_name: users.find(u => u.id === newLead.responsible_id)?.name || currentUser?.name || 'Administrador',
+      };
 
-    const { data, error } = await supabase
-      .from('m4_leads')
-      .insert([leadData])
-      .select();
-
-    if (error) {
-      alert("Erro ao salvar no Supabase: " + error.message);
-    } else if (data) {
-      setLeads([...leads, data[0]]);
+      const createdLead = await leadService.create(leadData, currentUser?.workspace_id || '');
+      setLeads([...leads, createdLead]);
       setIsModalOpen(false);
       setNewLead({ 
         name: '', company: '', email: '', phone: '', value: 0, notes: '',
@@ -686,6 +675,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         closing_forecast: '',
         responsible_id: currentUser?.id || ''
       });
+    } catch (error: any) {
+      alert("Erro ao salvar no Supabase: " + error.message);
     }
     setIsSyncing(false);
   };
@@ -708,15 +699,12 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       const originalLeads = [...leads];
       setLeads(leads.map(l => l.id === leadId ? { ...l, stage: targetStageId, status: targetStatus as any } : l));
       
-      const { error } = await supabase
-        .from('m4_leads')
-        .update({ 
+      try {
+        await leadService.update(leadId, { 
           stage: targetStageId,
-          status: targetStatus
-        })
-        .eq('id', leadId);
-
-      if (error) {
+          status: targetStatus as any
+        });
+      } catch (error: any) {
         setLeads(originalLeads); // Reverte se falhar
         alert("Erro ao atualizar estágio: " + error.message);
       }
@@ -793,22 +781,17 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   };
 
   const handleDeleteLead = async (id: string) => {
-    console.log('Iniciando exclusão do lead:', id);
+    if (!confirm('Tem certeza que deseja excluir este lead?')) return;
     
-    const { error } = await supabase
-      .from('m4_leads')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Erro no Supabase ao excluir:', error);
-      alert('Erro ao excluir: ' + error.message);
-    } else {
-      console.log('Lead excluído com sucesso do banco');
+    try {
+      await leadService.delete(id);
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
       setIsDeleting(false);
       alert('Lead excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir lead:', error);
+      alert('Erro ao excluir: ' + error.message);
     }
   };
 

@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, Client, M4Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, M4Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -14,6 +14,10 @@ import { CheckCircle2 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import MyDay from './pages/MyDay';
 import { automationService } from './services/automationService';
+import { leadService } from './services/leadService';
+import { clientService } from './services/clientService';
+import { taskService } from './services/taskService';
+import { workspaceService } from './services/workspaceService';
 import { mappers } from './lib/mappers';
 import SalesCRM from './pages/SalesCRM';
 import Clients from './pages/Clients';
@@ -136,19 +140,18 @@ const App: React.FC = () => {
   }, [settings]);
 
   const fetchLeads = async () => {
-    const { data, error } = await supabase
-      .from('m4_leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) console.error('Erro ao buscar leads:', error);
-    else if (data) setLeads(data);
+    try {
+      const data = await leadService.getAll();
+      setLeads(data);
+    } catch (error) {
+      console.error('Erro ao buscar leads:', error);
+    }
   };
 
   const fetchServices = async () => {
     try {
       const { data: servicesData, error } = await supabase.from('m4_services').select('*').order('name');
       if (error) throw error;
-      console.log('fetchServices result:', servicesData);
       setServices(servicesData || []);
     } catch (error) {
       console.error('Erro ao buscar serviços:', error);
@@ -337,50 +340,37 @@ const App: React.FC = () => {
     const lead = leads.find(l => l.id === leadId);
     if (!lead) return;
 
-    const { error } = await supabase
-      .from('m4_leads')
-      .update({ status })
-      .eq('id', leadId);
-
-    if (!error) {
+    try {
+      await leadService.updateStatus(leadId, status);
       setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
       
-      // AUTOMATION: If won, trigger new hybrid automation
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
+
       if (status === 'won') {
-        try {
-          const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
-          await automationService.convertLeadToClient(lead, workspaceId);
-          
-          // Refresh data
-          const { data: clientsData } = await supabase.from('m4_clients').select('*');
-          setClients(clientsData || []);
-          const { data: tasksData } = await supabase.from('m4_tasks').select('*');
-          setTasks(tasksData || []);
-        } catch (err) {
-          console.error('Error in won automation:', err);
-        }
+        await automationService.convertLeadToClient(lead, workspaceId);
+        
+        // Refresh data using services
+        const clientsData = await clientService.getAll();
+        setClients(clientsData);
+        const tasksData = await taskService.getAll();
+        setTasks(tasksData);
       } else if (status === 'lost') {
-        // AUTOMATION: If lost, create a follow-up task
         const followUpTask = {
           title: `Follow-up: Lead Perdido - ${lead.company}`,
           description: `Motivo da perda: ${extraData?.reason || 'Não informado'}. Tentar contato em 3 meses.`,
-          type: 'call',
+          type: 'call' as const,
           priority: 'Baixa',
           status: 'Pendente',
           lead_id: lead.id,
           company_id: lead.company_id,
-          due_date: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
-          created_at: new Date().toISOString(),
-          ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
+          due_date: new Date(Date.now() + 90 * 86400000).toISOString(),
         };
 
-        const { data: taskRes } = await supabase
-          .from('m4_tasks')
-          .insert([followUpTask])
-          .select();
-        
-        if (taskRes) setTasks([...tasks, ...taskRes]);
+        const newTask = await taskService.create(followUpTask, workspaceId);
+        setTasks([...tasks, newTask]);
       }
+    } catch (err) {
+      console.error('Error in status change:', err);
     }
   };
 

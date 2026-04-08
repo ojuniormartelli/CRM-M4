@@ -1,16 +1,29 @@
 
 import { supabase } from '../lib/supabase';
 import { mappers } from '../lib/mappers';
-import { Lead, TaskTemplate } from '../types';
+import { Lead, TaskTemplate, M4Client } from '../types';
 import { addDays } from 'date-fns';
 
 export const automationService = {
   /**
    * Converts a lead to a client and triggers onboarding tasks
+   * IDEMPOTENT: Checks if client already exists for this lead
    */
   async convertLeadToClient(lead: Lead, workspaceId: string) {
     try {
-      // 1. Create Client record
+      // 1. Check if client already exists
+      const { data: existingClient } = await supabase
+        .from('m4_clients')
+        .select('id')
+        .eq('lead_id', lead.id)
+        .maybeSingle();
+
+      if (existingClient) {
+        console.log('Client already exists for lead:', lead.id);
+        return existingClient as M4Client;
+      }
+
+      // 2. Create Client record
       const clientPayload = mappers.client({
         lead_id: lead.id,
         company_id: lead.company_id,
@@ -30,7 +43,7 @@ export const automationService = {
 
       if (clientError) throw clientError;
 
-      // 2. Fetch Onboarding Template
+      // 3. Fetch Onboarding Template
       const { data: template, error: templateError } = await supabase
         .from('m4_task_templates')
         .select('*')
@@ -42,27 +55,39 @@ export const automationService = {
         console.error('Error fetching template:', templateError);
       }
 
-      // 3. Create Onboarding Tasks if template exists
+      // 4. Create Onboarding Tasks if template exists
       if (template && template.tasks && template.tasks.length > 0) {
-        const onboardingTasks = template.tasks.map((t: any) => mappers.task({
-          client_id: client.id,
-          title: t.title,
-          description: t.description || '',
-          due_date: addDays(new Date(), t.due_days || 0).toISOString(),
-          assigned_to: t.assignee || lead.responsible_id || null,
-          status: 'Pendente',
-          task_type: 'operational',
-          type: 'task',
-        }, workspaceId));
-
-        const { error: tasksError } = await supabase
+        // Check if onboarding tasks already exist for this client to avoid duplicates
+        const { data: existingTasks } = await supabase
           .from('m4_tasks')
-          .insert(onboardingTasks);
+          .select('title')
+          .eq('client_id', client.id);
+        
+        const existingTitles = new Set(existingTasks?.map(t => t.title) || []);
 
-        if (tasksError) console.error('Error creating onboarding tasks:', tasksError);
+        const onboardingTasks = template.tasks
+          .filter((t: any) => !existingTitles.has(t.title))
+          .map((t: any) => mappers.task({
+            client_id: client.id,
+            title: t.title,
+            description: t.description || '',
+            due_date: addDays(new Date(), t.due_days || 0).toISOString(),
+            assigned_to: t.assignee || lead.responsible_id || null,
+            status: 'Pendente',
+            task_type: 'operational',
+            type: 'task',
+          }, workspaceId));
+
+        if (onboardingTasks.length > 0) {
+          const { error: tasksError } = await supabase
+            .from('m4_tasks')
+            .insert(onboardingTasks);
+
+          if (tasksError) console.error('Error creating onboarding tasks:', tasksError);
+        }
       }
 
-      return client;
+      return client as M4Client;
     } catch (error) {
       console.error('Error in convertLeadToClient:', error);
       throw error;
