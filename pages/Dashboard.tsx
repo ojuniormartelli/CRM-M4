@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { COLORS, ICONS } from '../constants';
-import { Lead, Task, FunnelStatus } from '../types';
+import { Lead, Task, FunnelStatus, Pipeline } from '../types';
 import { aiService } from '../services/aiService';
 import { metricsUtils } from '../utils/metrics';
 
@@ -9,6 +9,7 @@ interface DashboardProps {
   leads: Lead[];
   transactions: any[];
   tasks: Task[];
+  pipelines: Pipeline[];
 }
 
 const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
@@ -40,14 +41,14 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => {
+const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipelines }) => {
   const [forecast, setForecast] = useState<{ predictedRevenue: number; confidence: number } | null>(null);
   const [isForecasting, setIsForecasting] = useState(false);
 
   useEffect(() => {
     const getForecast = async () => {
       setIsForecasting(true);
-      const result = await aiService.predictForecast(leads);
+      const result = await aiService.predictForecast(leads, pipelines);
       setForecast(result);
       setIsForecasting(false);
     };
@@ -57,14 +58,14 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   }, [leads]);
 
   // Use centralized metrics
-  const metrics = metricsUtils.calculateMetrics(leads, tasks);
-  const comparison = metricsUtils.getMonthlyComparison(leads);
+  const metrics = metricsUtils.calculateMetrics(leads, tasks, pipelines);
+  const comparison = metricsUtils.getMonthlyComparison(leads, pipelines);
 
   const formatChange = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(0)}%`;
 
   const myDayLeads = leads.filter(l => {
     const today = new Date().toISOString().split('T')[0];
-    return l.next_action_date === today && metricsUtils.isActiveLead(l);
+    return l.next_action_date === today && metricsUtils.isActiveLead(l, pipelines);
   });
 
   // Stale deals (no activity for > 5 days)
@@ -72,7 +73,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
   const staleDeals = leads.filter(l => {
     const activityDate = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-    return metricsUtils.isActiveLead(l) && activityDate < fiveDaysAgo;
+    return metricsUtils.isActiveLead(l, pipelines) && activityDate < fiveDaysAgo;
   });
 
   // Prepare chart data
@@ -88,7 +89,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
       return d.toLocaleString('pt-BR', { month: 'short' }) === month;
     });
     const monthRevenue = monthLeads
-      .filter(metricsUtils.isWonLead)
+      .filter(l => metricsUtils.isWonLead(l, pipelines))
       .reduce((acc, l) => acc + (Number(l.value) || 0), 0);
     
     return {
@@ -100,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   // Dynamic Ranking
   const ranking = leads
-    .filter(metricsUtils.isWonLead)
+    .filter(l => metricsUtils.isWonLead(l, pipelines))
     .reduce((acc: any[], lead) => {
       const seller = lead.responsible_name || 'Sistema';
       const existing = acc.find(a => a.name === seller);

@@ -612,7 +612,7 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
-          {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} />}
+          {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} pipelines={pipelines} />}
           {activeTab === 'my_day' && (
             <MyDay 
               tasks={tasks} 

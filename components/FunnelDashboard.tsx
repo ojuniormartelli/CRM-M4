@@ -1,46 +1,27 @@
 
 import React from 'react';
-import { Lead, PipelineStage, FunnelStatus } from '../types';
+import { Lead, PipelineStage, FunnelStatus, Pipeline } from '../types';
 import { motion } from 'framer-motion';
 import { ICONS } from '../constants';
+import { funnelUtils } from '../utils/funnel';
 
 interface FunnelDashboardProps {
   leads: Lead[];
   stages: PipelineStage[];
+  pipelines: Pipeline[];
 }
 
-const FunnelDashboard: React.FC<FunnelDashboardProps> = ({ leads, stages }) => {
-  const getStatusCount = (status: FunnelStatus) => {
-    const statusStages = stages.filter(s => s.status === status).map(s => s.id);
-    const isInitial = status === FunnelStatus.INITIAL;
-    
-    return leads.filter(l => {
-      const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
-      if (!isActive) return false;
-
-      const stageExists = stages.some(s => s.id === l.stage);
-      // If it's the initial status, also count leads with no stage or an invalid stage
-      return statusStages.includes(l.stage) || (isInitial && (!l.stage || !stageExists));
-    }).length;
-  };
-
-  const activeLeads = leads.filter(l => {
-    const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
-    return isActive;
-  });
-
-  const initialCount = getStatusCount(FunnelStatus.INITIAL);
-  const intermediateCount = getStatusCount(FunnelStatus.INTERMEDIATE);
-  const wonCount = getStatusCount(FunnelStatus.WON);
-  const lostCount = getStatusCount(FunnelStatus.LOST);
-  const total = activeLeads.length;
+const FunnelDashboard: React.FC<FunnelDashboardProps> = ({ leads, stages, pipelines }) => {
+  const summary = funnelUtils.getLeadSummaryCounts(leads, pipelines);
 
   const stats = [
-    { label: 'Início (Novos)', count: initialCount, status: FunnelStatus.INITIAL, color: 'bg-blue-500', icon: <ICONS.Plus className="w-5 h-5" /> },
-    { label: 'Meio (Nutrição)', count: intermediateCount, status: FunnelStatus.INTERMEDIATE, color: 'bg-amber-500', icon: <ICONS.Clock className="w-5 h-5" /> },
-    { label: 'Ganho (Clientes)', count: wonCount, status: FunnelStatus.WON, color: 'bg-emerald-500', icon: <ICONS.CheckCircle className="w-5 h-5" /> },
-    { label: 'Perdido (Desistência)', count: lostCount, status: FunnelStatus.LOST, color: 'bg-rose-500', icon: <ICONS.X className="w-5 h-5" /> },
+    { label: 'Início (Novos)', count: summary.initial, status: FunnelStatus.INITIAL, color: 'bg-blue-500', icon: <ICONS.Plus className="w-5 h-5" /> },
+    { label: 'Meio (Nutrição)', count: summary.intermediate, status: FunnelStatus.INTERMEDIATE, color: 'bg-amber-500', icon: <ICONS.Clock className="w-5 h-5" /> },
+    { label: 'Ganho (Clientes)', count: summary.won, status: FunnelStatus.WON, color: 'bg-emerald-500', icon: <ICONS.CheckCircle className="w-5 h-5" /> },
+    { label: 'Perdido (Desistência)', count: summary.lost, status: FunnelStatus.LOST, color: 'bg-rose-500', icon: <ICONS.X className="w-5 h-5" /> },
   ];
+
+  const total = summary.total;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

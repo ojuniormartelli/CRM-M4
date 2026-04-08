@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Lead, Interaction } from "../types";
+import { Lead, Interaction, Pipeline } from "../types";
 
 // Inicialização preguiçosa (lazy) para evitar erro de "API key must be set" no carregamento
 let aiInstance: GoogleGenAI | null = null;
@@ -103,11 +103,14 @@ export const aiService = {
   /**
    * Predicts sales forecast based on pipeline data
    */
-  async predictForecast(leads: Lead[]): Promise<{ predictedRevenue: number; confidence: number }> {
+  async predictForecast(leads: Lead[], pipelines: Pipeline[] = []): Promise<{ predictedRevenue: number; confidence: number }> {
     const ai = getAi();
     if (!ai) return { predictedRevenue: 0, confidence: 0 };
 
-    const activeLeads = leads.filter(l => l.status === 'active');
+    const activeLeads = leads.filter(l => {
+      const s = String(l.status || '').toLowerCase();
+      return s !== 'won' && s !== 'lost' && s !== 'ganho' && s !== 'perdido';
+    });
     const data = activeLeads.map(l => ({
       value: l.value,
       probability: l.probability || 50,

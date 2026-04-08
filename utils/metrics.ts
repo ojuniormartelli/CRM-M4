@@ -1,38 +1,42 @@
 
-import { Lead, Task, FunnelStatus } from '../types';
+import { Lead, Task, FunnelStatus, Pipeline } from '../types';
 import { startOfMonth, subMonths, endOfMonth, isWithinInterval } from 'date-fns';
+import { funnelUtils } from './funnel';
 
 export const metricsUtils = {
-  isActiveLead: (lead: Lead) => lead.status !== FunnelStatus.WON && lead.status !== FunnelStatus.LOST,
-  isWonLead: (lead: Lead) => lead.status === FunnelStatus.WON,
-  isLostLead: (lead: Lead) => lead.status === FunnelStatus.LOST,
+  isActiveLead: (lead: Lead, pipelines: Pipeline[]) => funnelUtils.isLeadActive(lead, pipelines),
+  isWonLead: (lead: Lead, pipelines: Pipeline[]) => {
+    const stage = funnelUtils.resolveLeadStage(lead, pipelines);
+    return funnelUtils.resolveLeadStatus(lead, stage) === FunnelStatus.WON;
+  },
+  isLostLead: (lead: Lead, pipelines: Pipeline[]) => {
+    const stage = funnelUtils.resolveLeadStage(lead, pipelines);
+    return funnelUtils.resolveLeadStatus(lead, stage) === FunnelStatus.LOST;
+  },
 
-  calculateMetrics: (leads: Lead[], tasks: Task[]) => {
-    const totalLeads = leads.length;
-    const activeLeads = leads.filter(metricsUtils.isActiveLead);
-    const wonLeads = leads.filter(metricsUtils.isWonLead);
-    const lostLeads = leads.filter(metricsUtils.isLostLead);
+  calculateMetrics: (leads: Lead[], tasks: Task[], pipelines: Pipeline[]) => {
+    const summary = funnelUtils.getLeadSummaryCounts(leads, pipelines);
+    const wonLeads = leads.filter(l => metricsUtils.isWonLead(l, pipelines));
 
-    const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
-    const totalRevenueForecast = activeLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
+    const conversionRate = summary.total > 0 ? (summary.won / summary.total) * 100 : 0;
     const closedRevenue = wonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
-    const averageTicket = wonLeads.length > 0 ? closedRevenue / wonLeads.length : 0;
+    const averageTicket = summary.won > 0 ? closedRevenue / summary.won : 0;
     const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
 
     return {
-      totalLeads,
-      activeLeads: activeLeads.length,
-      wonLeads: wonLeads.length,
-      lostLeads: lostLeads.length,
+      totalLeads: summary.total,
+      activeLeads: summary.active,
+      wonLeads: summary.won,
+      lostLeads: summary.lost,
       conversionRate,
-      totalRevenueForecast,
+      totalRevenueForecast: summary.totalValue,
       closedRevenue,
       averageTicket,
       pendingTasks
     };
   },
 
-  getMonthlyComparison: (leads: Lead[]) => {
+  getMonthlyComparison: (leads: Lead[], pipelines: Pipeline[]) => {
     const now = new Date();
     const currentMonth = { start: startOfMonth(now), end: now };
     const lastMonth = { start: startOfMonth(subMonths(now, 1)), end: endOfMonth(subMonths(now, 1)) };
@@ -40,8 +44,8 @@ export const metricsUtils = {
     const currentLeads = leads.filter(l => isWithinInterval(new Date(l.created_at), currentMonth));
     const lastLeads = leads.filter(l => isWithinInterval(new Date(l.created_at), lastMonth));
 
-    const currentWon = currentLeads.filter(metricsUtils.isWonLead);
-    const lastWon = lastLeads.filter(metricsUtils.isWonLead);
+    const currentWon = currentLeads.filter(l => metricsUtils.isWonLead(l, pipelines));
+    const lastWon = lastLeads.filter(l => metricsUtils.isWonLead(l, pipelines));
 
     const currentRevenue = currentWon.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
     const lastRevenue = lastWon.reduce((acc, l) => acc + (Number(l.value) || 0), 0);

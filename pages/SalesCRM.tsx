@@ -9,6 +9,7 @@ import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
 import { leadService } from '../services/leadService';
 import { metricsUtils } from '../utils/metrics';
+import { funnelUtils } from '../utils/funnel';
 import { Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
 
 interface SalesCRMProps {
@@ -718,24 +719,21 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
     if (!targetStage) return;
 
-    const targetStatus = targetStage.status || 'active';
+    const targetStatus = targetStage.status;
     const targetStageName = targetStage.name;
 
     setIsSyncing(true);
     try {
-      // Update local state
-      const updatedLeads = leads.map(l => l.id === lead.id ? { ...l, stage: targetStageId, status: targetStatus as any } : l);
-      setLeads(updatedLeads);
+      const updatedLead = await leadService.update(lead.id, { 
+        stage: targetStageId,
+        status: targetStatus as any
+      });
+      
+      setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
       
       if (selectedLead?.id === lead.id) {
-        setSelectedLead({ ...selectedLead, stage: targetStageId, status: targetStatus as any });
+        setSelectedLead(updatedLead);
       }
-
-      // Update Supabase
-      await supabase.from('m4_leads').update({ 
-        stage: targetStageId,
-        status: targetStatus
-      }).eq('id', lead.id);
 
       // Log interaction
       if (currentUser) {
@@ -877,32 +875,20 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
   };
 
 
-  const getLeadsByStage = (stageId: string) => {
-    const isFirstStage = activePipeline.stages[0]?.id === stageId;
-    
-    let filtered = leads.filter(l => {
-      const matchesPipeline = !l.pipeline_id || l.pipeline_id === activePipelineId;
-      
-      // Check if the lead's stage exists in the current pipeline's stages
-      const stageExists = activePipeline.stages.some(s => s.id === l.stage);
-      
-      // If the stage doesn't exist, show it in the first stage
-      const matchesStage = l.stage === stageId || (isFirstStage && (!l.stage || !stageExists));
-      
-      // A lead is active if its status is not won or lost
-      const isActive = !l.status || (l.status !== FunnelStatus.WON && l.status !== FunnelStatus.LOST && l.status !== 'won' && l.status !== 'lost');
-      
-      return matchesPipeline && matchesStage && isActive;
-    });
-    
+  const leadsByStage = React.useMemo(() => {
+    let filtered = leads;
     if (filterMode === 'my_day') {
       const today = new Date().toISOString().split('T')[0];
       filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today);
     }
-    
-    return filtered;
+    return funnelUtils.groupLeadsByStage(filtered, activePipeline);
+  }, [leads, activePipeline, filterMode]);
+
+  const getLeadsByStage = (stageId: string) => leadsByStage[stageId] || [];
+  
+  const calculateStageTotal = (stageId: string) => {
+    return getLeadsByStage(stageId).reduce((acc, lead) => acc + (Number(lead.value) || 0), 0);
   };
-  const calculateStageTotal = (stageId: string) => getLeadsByStage(stageId).reduce((acc, curr) => acc + Number(curr.value), 0);
 
   const isStale = (lead: Lead) => {
     const activityDate = lead.last_activity_at ? new Date(lead.last_activity_at) : new Date(lead.created_at);
@@ -1366,7 +1352,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             <div className="flex items-center gap-3 mt-1">
               <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
               <div className="w-1 h-1 rounded-full bg-border"></div>
-              <p className="text-primary font-bold text-xs uppercase tracking-widest">{leads.filter(l => l.status === 'won' || l.status === 'ganho').length} Ganhos este mês</p>
+              <p className="text-primary font-bold text-xs uppercase tracking-widest">{leads.filter(l => funnelUtils.resolveLeadStatus(l, funnelUtils.resolveLeadStage(l, pipelines)) === FunnelStatus.WON).length} Ganhos este mês</p>
             </div>
           </div>
         </div>

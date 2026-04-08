@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Lead, Pipeline, User, PipelineStage, FunnelStatus } from '../types';
+import { funnelUtils } from '../utils/funnel';
 import { ICONS } from '../constants';
 import { ChevronRight, Building, DollarSign, User as UserIcon, Globe, Mail, Instagram, Linkedin, Phone, MessageSquare, Briefcase, FileText, X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -75,9 +76,9 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     }
   }, [pipelines, selectedPipelineId]);
 
-  const activeLeads = leads.filter(l => !l.status || (l.status !== 'won' && l.status !== 'lost' && l.status !== 'ganho' && l.status !== 'perdido'));
-  
-  const totalValue = activeLeads.reduce((acc, lead) => acc + (lead.value || 0), 0);
+  const summary = funnelUtils.getLeadSummaryCounts(leads, pipelines);
+  const activeLeads = leads.filter(l => funnelUtils.isLeadActive(l, pipelines));
+  const totalValue = summary.totalValue;
   
   const filteredRecentLeads = [...leads]
     .filter(l => {
@@ -402,6 +403,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
       <FunnelDashboard 
         leads={leads.filter(l => l.pipeline_id === selectedPipelineId || (!l.pipeline_id && selectedPipelineId === pipelines[0]?.id))} 
         stages={pipelines.find(p => p.id === selectedPipelineId)?.stages || []} 
+        pipelines={pipelines}
       />
 
       {/* Import Modal */}
@@ -696,12 +698,11 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       {pipelines.find(p => p.id === (lead as any).pipeline_id)?.name || 'Sem Pipeline'}
                     </span>
                     <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                      (lead.status === 'won' || lead.status === FunnelStatus.WON) ? 'bg-emerald-50 text-emerald-600' :
-                      (lead.status === 'lost' || lead.status === FunnelStatus.LOST) ? 'bg-rose-50 text-rose-600' :
-                      (lead.status === 'active' || lead.status === FunnelStatus.INITIAL || lead.status === FunnelStatus.INTERMEDIATE) ? 'bg-blue-50 text-blue-600' :
-                      'bg-slate-50 text-slate-600'
+                      funnelUtils.resolveLeadStatus(lead, funnelUtils.resolveLeadStage(lead, pipelines)) === FunnelStatus.WON ? 'bg-emerald-50 text-emerald-600' :
+                      funnelUtils.resolveLeadStatus(lead, funnelUtils.resolveLeadStage(lead, pipelines)) === FunnelStatus.LOST ? 'bg-rose-50 text-rose-600' :
+                      'bg-blue-50 text-blue-600'
                     }`}>
-                      {lead.status}
+                      {funnelUtils.resolveLeadStatus(lead, funnelUtils.resolveLeadStage(lead, pipelines))}
                     </span>
                     <ChevronRight className="text-slate-300 group-hover:text-blue-600 transition-colors" size={16} />
                   </div>
