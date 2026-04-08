@@ -36,6 +36,7 @@ import DataEnrichment from './pages/DataEnrichment';
 import MeetingForms from './pages/MeetingForms';
 import ClientsOverview from './pages/ClientsOverview';
 import SalesOverview from './pages/SalesOverview';
+import GoalSettings from './pages/GoalSettings';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -437,6 +438,7 @@ const App: React.FC = () => {
       title: "Comercial",
       items: [
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
+        { id: 'goal_settings', icon: ICONS.Target, label: 'Metas de Vendas' },
         { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
       ]
     },
@@ -751,6 +753,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
+          {activeTab === 'goal_settings' && <GoalSettings currentUser={currentUser} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
           {(activeTab === 'administrativo' || activeTab.startsWith('admin_')) && <Admin currentUser={currentUser} activeTab={activeTab} />}

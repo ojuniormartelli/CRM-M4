@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { COLORS, ICONS } from '../constants';
 import { Lead, Task, FunnelStatus, Pipeline } from '../types';
+import { supabase } from '../lib/supabase';
 import { aiService } from '../services/aiService';
 import { metricsUtils } from '../utils/metrics';
 import { alertsUtils } from '../utils/alerts';
@@ -58,6 +59,33 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
     return localStorage.getItem('m4_selected_pipeline_id');
   });
+  const [monthlyGoal, setMonthlyGoal] = useState<number>(80000);
+
+  useEffect(() => {
+    const fetchCurrentGoal = async () => {
+      const workspaceId = localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId) return;
+      
+      const now = new Date();
+      const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      
+      try {
+        const { data } = await supabase
+          .from('m4_goals')
+          .select('revenue_goal')
+          .eq('workspace_id', workspaceId)
+          .eq('month', currentMonthStr)
+          .maybeSingle();
+        
+        if (data?.revenue_goal) {
+          setMonthlyGoal(Number(data.revenue_goal));
+        }
+      } catch (error) {
+        console.error('Erro ao buscar meta do mês:', error);
+      }
+    };
+    fetchCurrentGoal();
+  }, []);
 
   const handlePipelineSelect = (id: string | null) => {
     setSelectedPipelineId(id);
@@ -167,7 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
           <AlertsPanel leads={filteredLeads} pipelines={filteredPipelines} />
         </div>
         <div>
-          <GoalTracker leads={filteredLeads} pipelines={filteredPipelines} monthlyGoal={80000} />
+          <GoalTracker leads={filteredLeads} pipelines={filteredPipelines} monthlyGoal={monthlyGoal} />
         </div>
       </div>
 
