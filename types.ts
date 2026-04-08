@@ -211,6 +211,7 @@ export interface Task {
   priority: Priority | string;
   assigned_to?: string;
   due_date?: string;
+  start_date?: string;
   lead_id?: string;
   deal_id?: string;
   company_id?: string;
@@ -232,10 +233,50 @@ export interface Task {
   dependencies?: string[];
   estimated_hours?: number;
   actual_hours?: number;
+  depends_on_task_id?: string;
   list_id?: string;
   tags?: string;
   task_type?: 'commercial' | 'operational' | 'internal';
   type?: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
+  created_at: string;
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  uploaded_by: string;
+  created_at: string;
+  user?: User;
+}
+
+export interface TaskTimeEntry {
+  id: string;
+  task_id: string;
+  user_id: string;
+  start_time: string;
+  end_time?: string;
+  duration_minutes?: number;
+  created_at: string;
+}
+
+export interface TaskDependency {
+  id: string;
+  task_id: string;
+  depends_on_task_id: string;
   created_at: string;
 }
 

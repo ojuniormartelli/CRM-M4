@@ -501,6 +501,67 @@ BEGIN
     END IF;
 END $$;`;
 
+  const clickupAdvancedSQL = `
+-- 1. SISTEMA DE COMENTÁRIOS
+CREATE TABLE IF NOT EXISTS m4_task_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES m4_users(id),
+  comment TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. SISTEMA DE ANEXOS
+CREATE TABLE IF NOT EXISTS m4_task_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_size INTEGER,
+  file_type TEXT,
+  storage_path TEXT NOT NULL,
+  uploaded_by UUID REFERENCES m4_users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. DEPENDÊNCIAS ENTRE TAREFAS
+CREATE TABLE IF NOT EXISTS m4_task_dependencies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  depends_on_task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(task_id, depends_on_task_id)
+);
+
+-- 4. TRACKING DE TEMPO
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS estimated_hours DECIMAL(5,2);
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS actual_hours DECIMAL(5,2) DEFAULT 0;
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES m4_tasks(id);
+ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS tags TEXT;
+
+CREATE TABLE IF NOT EXISTS m4_task_time_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES m4_users(id),
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ,
+  duration_minutes INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- HABILITAR RLS PARA NOVAS TABELAS
+ALTER TABLE m4_task_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_task_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_task_dependencies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_task_time_entries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable access for all" ON m4_task_comments FOR ALL USING (true);
+CREATE POLICY "Enable access for all" ON m4_task_attachments FOR ALL USING (true);
+CREATE POLICY "Enable access for all" ON m4_task_dependencies FOR ALL USING (true);
+CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (true);
+`;
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
@@ -592,6 +653,56 @@ END $$;`;
           <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
              <div className="text-slate-500"><ICONS.Automation /></div>
              <p className="text-[11px] font-bold text-slate-700 leading-relaxed uppercase">Nota: Script legado para migrações anteriores de empresas e contatos.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">ClickUp Advanced</h3>
+              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Comentários, Anexos e Tempo</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(clickupAdvancedSQL, 'clickup')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'clickup' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
+            >
+              {copied === 'clickup' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {clickupAdvancedSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
+             <div className="text-blue-500"><ICONS.Tasks width="20" height="20" /></div>
+             <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">Este script cria as tabelas necessárias para comentários, anexos, dependências e tracking de tempo.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">ClickUp Advanced</h3>
+              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Comentários, Anexos e Tempo</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(clickupAdvancedSQL, 'clickup')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'clickup' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
+            >
+              {copied === 'clickup' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {clickupAdvancedSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
+             <div className="text-blue-500"><ICONS.Tasks width="20" height="20" /></div>
+             <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">Este script cria as tabelas necessárias para comentários, anexos, dependências e tracking de tempo.</p>
           </div>
         </div>
 

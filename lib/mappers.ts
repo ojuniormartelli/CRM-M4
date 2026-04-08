@@ -191,6 +191,8 @@ export const mappers = {
       dependencies: data.dependencies || [],
       estimated_hours: Number(data.estimated_hours) || 0,
       actual_hours: Number(data.actual_hours) || 0,
+      start_date: data.start_date || null,
+      depends_on_task_id: data.depends_on_task_id || null,
       list_id: data.list_id || null,
       task_type: data.task_type || 'operational',
     };
