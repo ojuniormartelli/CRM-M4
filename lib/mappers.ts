@@ -170,6 +170,8 @@ export const mappers = {
       priority: data.priority || 'Média',
       type: data.type || 'task',
       due_date: data.due_date || null,
+      assigned_to: data.assigned_to || null,
+      tags: data.tags || '',
       lead_id: data.lead_id || data.deal_id || null,
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,

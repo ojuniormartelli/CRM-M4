@@ -25,6 +25,7 @@ import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Finance from './pages/Finance';
 import ClientAccounts from './pages/ClientAccounts';
+import Admin from './pages/Admin';
 import Automation from './pages/Automation';
 import Collaboration from './pages/Collaboration';
 import ContactCenter from './pages/ContactCenter';
@@ -42,7 +43,8 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedMenus, setExpandedMenus] = useState({
     sales: true,
-    clients: true
+    clients: true,
+    admin: false
   });
   const [loading, setLoading] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
@@ -580,6 +582,22 @@ const App: React.FC = () => {
                       </button>
                     </div>
                   )}
+                  {item.id === 'administrativo' && expandedMenus.admin && isSidebarOpen && (
+                    <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      <button onClick={() => setActiveTab('admin_users')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_users' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_users' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Usuários
+                      </button>
+                      <button onClick={() => setActiveTab('admin_workspaces')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Workspaces
+                      </button>
+                      <button onClick={() => setActiveTab('admin_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Configurações
+                      </button>
+                    </div>
+                  )}
                 </React.Fragment>
               ))}
             </React.Fragment>
@@ -735,6 +753,7 @@ const App: React.FC = () => {
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'contact' && <ContactCenter />}
           {activeTab === 'automation' && <Automation leads={leads} />}
+          {(activeTab === 'administrativo' || activeTab.startsWith('admin_')) && <Admin currentUser={currentUser} activeTab={activeTab} />}
           {activeTab === 'settings' && (
             <Settings 
               appMode={appMode} 

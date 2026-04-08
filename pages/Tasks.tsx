@@ -21,6 +21,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   // States for Company/Contact selection
   const [companies, setCompanies] = useState<Company[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [companySearch, setCompanySearch] = useState('');
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
   const companyDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -80,7 +81,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         console.error('Erro ao buscar empresas:', error.message);
       }
     };
+
+    const fetchUsers = async () => {
+      const { data } = await supabase.from('m4_users').select('*').order('name');
+      if (data) setUsers(data);
+    };
+
     fetchCompanies();
+    fetchUsers();
   }, [currentUser]);
 
   // Fetch contacts when company changes
@@ -368,6 +376,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   </span>
                   <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                   <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{task.type}</span>
+                  {task.tags && task.tags.split(',').map((tag, i) => (
+                    <React.Fragment key={i}>
+                      <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{tag.trim()}</span>
+                    </React.Fragment>
+                  ))}
                   {task.is_recurring && (
                     <>
                       <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
@@ -594,6 +608,25 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                       <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">{selectedTask?.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : '–'}</p>
                     )}
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Responsável</label>
+                    {isEditing ? (
+                      <select 
+                        value={selectedTask ? (editTask.assigned_to || '') : (newTask.assigned_to || '')} 
+                        onChange={e => selectedTask ? setEditTask({...editTask, assigned_to: e.target.value || undefined}) : setNewTask({...newTask, assigned_to: e.target.value || undefined})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
+                      >
+                        <option value="">Atribuir a...</option>
+                        {users.map(user => (
+                          <option key={user.id} value={user.id}>{user.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
+                        {selectedTask?.assigned_to ? users.find(u => u.id === selectedTask.assigned_to)?.name : 'Não atribuído'}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-6">
@@ -752,6 +785,100 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                       </div>
                     </div>
                   )}
+                </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tags / Etiquetas</label>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Urgente, Bug, Feature (separadas por vírgula)" 
+                        value={selectedTask ? (editTask.tags || '') : (newTask.tags || '')} 
+                        onChange={e => selectedTask ? setEditTask({...editTask, tags: e.target.value}) : setNewTask({...newTask, tags: e.target.value})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl min-h-[56px]">
+                        {selectedTask?.tags ? selectedTask.tags.split(',').map((tag, i) => (
+                          <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                            {tag.trim()}
+                          </span>
+                        )) : <span className="text-slate-400 font-bold text-sm italic">Nenhuma tag</span>}
+                      </div>
+                    )}
+                  </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Checklist / Subtarefas</label>
+                  <div className="space-y-3">
+                    {(isEditing ? (selectedTask ? editTask.checklist : newTask.checklist) : selectedTask?.checklist)?.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                        <button 
+                          type="button"
+                          disabled={!isEditing && !selectedTask}
+                          onClick={() => {
+                            const currentChecklist = isEditing 
+                              ? (selectedTask ? [...(editTask.checklist || [])] : [...(newTask.checklist || [])])
+                              : [...(selectedTask?.checklist || [])];
+                            currentChecklist[idx].checked = !currentChecklist[idx].checked;
+                            if (isEditing) {
+                              if (selectedTask) setEditTask({...editTask, checklist: currentChecklist});
+                              else setNewTask({...newTask, checklist: currentChecklist});
+                            } else if (selectedTask) {
+                              // Direct update if viewing
+                              supabase.from('m4_tasks').update({ checklist: currentChecklist }).eq('id', selectedTask.id).then(() => {
+                                setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, checklist: currentChecklist } : t));
+                                setSelectedTask({ ...selectedTask, checklist: currentChecklist });
+                              });
+                            }
+                          }}
+                          className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${item.checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'}`}
+                        >
+                          {item.checked && <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
+                        </button>
+                        <input 
+                          type="text" 
+                          disabled={!isEditing}
+                          value={item.item} 
+                          onChange={(e) => {
+                            const currentChecklist = selectedTask ? [...(editTask.checklist || [])] : [...(newTask.checklist || [])];
+                            currentChecklist[idx].item = e.target.value;
+                            if (selectedTask) setEditTask({...editTask, checklist: currentChecklist});
+                            else setNewTask({...newTask, checklist: currentChecklist});
+                          }}
+                          className={`flex-1 bg-transparent border-none outline-none text-sm font-bold ${item.checked ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}
+                        />
+                        {isEditing && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const currentChecklist = selectedTask ? [...(editTask.checklist || [])] : [...(newTask.checklist || [])];
+                              const newChecklist = currentChecklist.filter((_, i) => i !== idx);
+                              if (selectedTask) setEditTask({...editTask, checklist: newChecklist});
+                              else setNewTask({...newTask, checklist: newChecklist});
+                            }}
+                            className="text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <ICONS.X width="14" height="14" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {isEditing && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const currentChecklist = selectedTask ? [...(editTask.checklist || [])] : [...(newTask.checklist || [])];
+                          const newChecklist = [...currentChecklist, { item: '', checked: false }];
+                          if (selectedTask) setEditTask({...editTask, checklist: newChecklist});
+                          else setNewTask({...newTask, checklist: newChecklist});
+                        }}
+                        className="w-full py-3 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all"
+                      >
+                        + ADICIONAR ITEM
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div>

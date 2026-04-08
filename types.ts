@@ -233,6 +233,7 @@ export interface Task {
   estimated_hours?: number;
   actual_hours?: number;
   list_id?: string;
+  tags?: string;
   task_type?: 'commercial' | 'operational' | 'internal';
   type?: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
   created_at: string;
