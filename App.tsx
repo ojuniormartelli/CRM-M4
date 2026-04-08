@@ -263,9 +263,9 @@ const App: React.FC = () => {
             const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
             if (p2) {
               const p2Stages = [
-                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: 'inicial' },
-                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue', status: 'intermediario' },
-                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: 'ganho' }
+                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: FunnelStatus.INITIAL },
+                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue', status: FunnelStatus.INTERMEDIATE },
+                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: FunnelStatus.WON }
               ];
               await supabase.from('m4_pipeline_stages').insert(p2Stages);
             }

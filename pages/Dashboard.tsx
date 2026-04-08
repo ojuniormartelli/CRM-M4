@@ -145,6 +145,29 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         <StatCard title="Tarefas" value={metrics.pendingTasks} change="0%" icon={ICONS.Tasks} color="red" />
       </div>
 
+      {/* Debug Panel - Only visible in development or via specific check */}
+      <div className="mt-10 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800">
+        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest mb-4">Debug Funnel Audit</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] font-mono">
+          <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p className="text-slate-400 uppercase mb-1">Raw Leads</p>
+            <p className="text-lg font-black text-slate-900 dark:text-white">{leads.length}</p>
+          </div>
+          <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p className="text-slate-400 uppercase mb-1">Pipelines</p>
+            <p className="text-lg font-black text-slate-900 dark:text-white">{pipelines.length}</p>
+          </div>
+          <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p className="text-slate-400 uppercase mb-1">Active (Metrics)</p>
+            <p className="text-lg font-black text-blue-600">{metrics.activeLeads}</p>
+          </div>
+          <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+            <p className="text-slate-400 uppercase mb-1">Total Value</p>
+            <p className="text-lg font-black text-emerald-600">R$ {metrics.totalPipelineValue.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
+
       {myDayLeads.length > 0 && (
         <div className="bg-blue-600 dark:bg-blue-700 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 dark:shadow-none relative overflow-hidden">
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>

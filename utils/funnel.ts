@@ -43,7 +43,16 @@ export const funnelUtils = {
    * Determina a classificação (status) do lead baseada prioritariamente no estágio.
    */
   resolveLeadStatus: (lead: Lead, stage: PipelineStage | null): FunnelStatus => {
-    if (stage) return stage.status;
+    if (stage?.status) {
+      const s = String(stage.status).toUpperCase();
+      if (s === 'INITIAL' || s === 'INICIAL') return FunnelStatus.INITIAL;
+      if (s === 'INTERMEDIATE' || s === 'INTERMEDIARIO') return FunnelStatus.INTERMEDIATE;
+      if (s === 'WON' || s === 'GANHO') return FunnelStatus.WON;
+      if (s === 'LOST' || s === 'PERDIDO') return FunnelStatus.LOST;
+      
+      // Se for um valor do enum mas em outro case
+      if (Object.values(FunnelStatus).includes(s as FunnelStatus)) return s as FunnelStatus;
+    }
     
     // Fallback para o campo status do lead se o estágio for inválido
     const s = String(lead.status || '').toLowerCase();
