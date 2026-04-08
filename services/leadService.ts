@@ -5,11 +5,18 @@ import { Lead } from '../types';
 
 export const leadService = {
   async getAll() {
+    console.log('leadService.getAll() called');
     const { data, error } = await supabase
       .from('m4_leads')
       .select('*')
       .order('created_at', { ascending: false });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('leadService.getAll() error:', error);
+      throw error;
+    }
+    
+    console.log('leadService.getAll() success, leads count:', data?.length);
     return data as Lead[];
   },
 

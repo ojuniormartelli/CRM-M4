@@ -468,6 +468,39 @@ BEGIN
 END $$;
 `;
 
+  const rlsFixSQL = `-- 🛠️ FIX: RLS Policies for Leads and Tasks
+-- Allowing access even if workspace_id is NULL, and ensuring "Allow all" for authenticated users.
+
+DO $$ 
+BEGIN
+    -- 1. Leads
+    DROP POLICY IF EXISTS "Workspace isolation" ON m4_leads;
+    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_leads;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_leads' AND policyname = 'Allow all access') THEN
+        CREATE POLICY "Allow all access" ON m4_leads FOR ALL USING (true);
+    END IF;
+
+    -- 2. Tasks
+    DROP POLICY IF EXISTS "Workspace isolation" ON m4_tasks;
+    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_tasks;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_tasks' AND policyname = 'Allow all access') THEN
+        CREATE POLICY "Allow all access" ON m4_tasks FOR ALL USING (true);
+    END IF;
+
+    -- 3. Pipelines & Stages
+    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_pipelines;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_pipelines' AND policyname = 'Allow all access') THEN
+        CREATE POLICY "Allow all access" ON m4_pipelines FOR ALL USING (true);
+    END IF;
+
+    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_pipeline_stages;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_pipeline_stages' AND policyname = 'Allow all access') THEN
+        CREATE POLICY "Allow all access" ON m4_pipeline_stages FOR ALL USING (true);
+    END IF;
+END $$;`;
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
@@ -559,6 +592,31 @@ END $$;
           <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
              <div className="text-slate-500"><ICONS.Automation /></div>
              <p className="text-[11px] font-bold text-slate-700 leading-relaxed uppercase">Nota: Script legado para migrações anteriores de empresas e contatos.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-red-100 bg-red-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-red-900 dark:text-red-400 uppercase tracking-tight">Fix RLS (Leads/Tasks)</h3>
+              <p className="text-xs font-bold text-red-400 mt-1 uppercase tracking-widest">Correção de Acesso</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(rlsFixSQL, 'rls')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'rls' ? 'bg-emerald-500 text-white' : 'bg-red-50 text-red-400 hover:bg-red-600 hover:text-white'}`}
+            >
+              {copied === 'rls' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-red-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {rlsFixSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
+             <div className="text-red-500"><ICONS.Shield width="20" height="20" /></div>
+             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Use este script se os leads não estiverem aparecendo mesmo existindo no banco. Ele remove restrições de workspace_id NULL.</p>
           </div>
         </div>
       </div>

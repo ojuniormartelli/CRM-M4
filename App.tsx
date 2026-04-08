@@ -140,8 +140,10 @@ const App: React.FC = () => {
   }, [settings]);
 
   const fetchLeads = async () => {
+    console.log('App.tsx fetchLeads() called');
     try {
       const data = await leadService.getAll();
+      console.log('App.tsx fetchLeads() success, count:', data?.length);
       setLeads(data);
     } catch (error) {
       console.error('Erro ao buscar leads:', error);
@@ -163,6 +165,20 @@ const App: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // 0. Check auth and table access
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('DEBUG: Supabase Session:', session ? 'Active' : 'None');
+        if (session) {
+          console.log('DEBUG: User ID:', session.user.id);
+        }
+
+        const { error: tableError } = await supabase.from('m4_leads').select('id').limit(1);
+        if (tableError) {
+          console.error('CRITICAL: Table m4_leads access error:', tableError);
+        } else {
+          console.log('SUCCESS: Table m4_leads is accessible');
+        }
+
         // 1. Check for local session and fetch User first
         const localUserId = localStorage.getItem('m4_crm_user_id');
         let user = null;
