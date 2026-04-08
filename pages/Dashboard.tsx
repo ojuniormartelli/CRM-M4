@@ -163,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
           </div>
           <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
             <p className="text-slate-400 uppercase mb-1">Total Value</p>
-            <p className="text-lg font-black text-emerald-600">R$ {metrics.totalPipelineValue.toLocaleString()}</p>
+            <p className="text-lg font-black text-emerald-600">R$ {metrics.totalRevenueForecast.toLocaleString()}</p>
           </div>
         </div>
       </div>
