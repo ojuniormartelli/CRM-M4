@@ -56,14 +56,14 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   // Calculate dynamic metrics
   const totalLeads = leads.length;
-  const activeLeads = leads.filter(l => l.status === 'active' || !l.status).length;
+  const activeLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
   const wonLeads = leads.filter(l => l.status === 'won').length;
   const lostLeads = leads.filter(l => l.status === 'lost').length;
   
   const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : '0';
   
   const totalRevenueForecast = leads
-    .filter(l => l.status === 'active' || !l.status)
+    .filter(l => l.status !== 'won' && l.status !== 'lost')
     .reduce((acc, l) => acc + (Number(l.value) || 0), 0);
     
   const closedRevenueMonth = leads
@@ -84,8 +84,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
     return d >= startOfLastMonth && d <= endOfLastMonth;
   });
 
-  const currentActiveLeads = currentMonthLeads.filter(l => l.status === 'active' || !l.status).length;
-  const lastActiveLeads = lastMonthLeads.filter(l => l.status === 'active' || !l.status).length;
+  const currentActiveLeads = currentMonthLeads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
+  const lastActiveLeads = lastMonthLeads.filter(l => l.status !== 'won' && l.status !== 'lost').length;
 
   const currentWonLeads = currentMonthLeads.filter(l => l.status === 'won');
   const currentRevenue = currentWonLeads.reduce((acc, l) => acc + (Number(l.value) || 0), 0);
@@ -111,7 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
 
   const myDayLeads = leads.filter(l => {
     const today = new Date().toISOString().split('T')[0];
-    return l.next_action_date === today && (l.status === 'active' || !l.status);
+    return l.next_action_date === today && (l.status !== 'won' && l.status !== 'lost');
   });
 
   const averageTicket = wonLeads > 0 ? (closedRevenueMonth / wonLeads) : 0;
@@ -121,7 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks }) => 
   fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
   const staleDeals = leads.filter(l => {
     const activityDate = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-    return (l.status === 'active' || !l.status) && activityDate < fiveDaysAgo;
+    return (l.status !== 'won' && l.status !== 'lost') && activityDate < fiveDaysAgo;
   });
 
   // Prepare chart data (Dynamic based on leads)
