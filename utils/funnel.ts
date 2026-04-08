@@ -71,6 +71,18 @@ export const funnelUtils = {
     return status !== FunnelStatus.WON && status !== FunnelStatus.LOST;
   },
 
+  isWonLead: (lead: Lead, pipelines: Pipeline[]): boolean => {
+    const stage = funnelUtils.resolveLeadStage(lead, pipelines);
+    const status = funnelUtils.resolveLeadStatus(lead, stage);
+    return status === FunnelStatus.WON;
+  },
+
+  isLostLead: (lead: Lead, pipelines: Pipeline[]): boolean => {
+    const stage = funnelUtils.resolveLeadStage(lead, pipelines);
+    const status = funnelUtils.resolveLeadStatus(lead, stage);
+    return status === FunnelStatus.LOST;
+  },
+
   /**
    * Agrupa leads por estágio para o Kanban.
    */
