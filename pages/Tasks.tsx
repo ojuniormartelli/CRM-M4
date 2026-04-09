@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ICONS } from '../constants';
-import { Task, TaskStatus, Priority, User, Company, Contact, TaskComment, TaskAttachment, TaskTimeEntry } from '../types';
+import { Task, TaskStatus, Priority, User, Company, Contact, TaskComment, TaskAttachment, TaskTimeEntry, Lead, M4Client } from '../types';
 import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
@@ -20,6 +20,7 @@ interface TasksProps {
 const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   const [view, setView] = useState<'list' | 'board' | 'calendar' | 'gantt'>('list');
   const [filter, setFilter] = useState<TaskStatus | 'All'>('All');
+  const [taskTypeFilter, setTaskTypeFilter] = useState<'All' | 'commercial' | 'operational' | 'internal'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +30,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   // States for Company/Contact selection
   const [companies, setCompanies] = useState<Company[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [clients, setClients] = useState<M4Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [companySearch, setCompanySearch] = useState('');
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
@@ -250,6 +253,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     status: TaskStatus.TODO, 
     priority: Priority.MEDIUM, 
     type: 'task', 
+    task_type: 'internal',
     due_date: new Date().toISOString().split('T')[0],
     is_recurring: false,
     recurrence_type: 'monthly',
@@ -287,8 +291,20 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       if (data) setUsers(data);
     };
 
+    const fetchLeads = async () => {
+      const { data } = await supabase.from('m4_leads').select('*').order('name');
+      if (data) setLeads(data);
+    };
+
+    const fetchClients = async () => {
+      const { data } = await supabase.from('m4_clients').select('*').order('company_name');
+      if (data) setClients(data);
+    };
+
     fetchCompanies();
     fetchUsers();
+    fetchLeads();
+    fetchClients();
   }, [currentUser]);
 
   // Fetch contacts when company changes
@@ -311,18 +327,30 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-    const taskData = mappers.task(newTask, currentUser?.workspace_id);
+    try {
+      // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+      const taskData = mappers.task(newTask, currentUser?.workspace_id);
+      console.log('CREATING TASK:', taskData);
 
-    const { data, error } = await supabase
-      .from('m4_tasks')
-      .insert([taskData])
-      .select();
+      const { data, error } = await supabase
+        .from('m4_tasks')
+        .insert([taskData])
+        .select();
 
-    if (!error && data) {
-      setTasks([...tasks, data[0]]);
-      setIsModalOpen(false);
-      resetNewTask();
+      if (error) {
+        console.error('ERROR CREATING TASK:', error);
+        alert('Erro ao criar tarefa: ' + error.message);
+        return;
+      }
+
+      if (data) {
+        console.log('TASK CREATED SUCCESS:', data[0]);
+        setTasks([...tasks, data[0]]);
+        setIsModalOpen(false);
+        resetNewTask();
+      }
+    } catch (err) {
+      console.error('UNEXPECTED ERROR CREATING TASK:', err);
     }
   };
 
@@ -330,19 +358,31 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     e.preventDefault();
     if (!selectedTask) return;
 
-    // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-    const taskData = mappers.task(editTask);
+    try {
+      // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+      const taskData = mappers.task(editTask);
+      console.log('UPDATING TASK:', selectedTask.id, taskData);
 
-    const { data, error } = await supabase
-      .from('m4_tasks')
-      .update(taskData)
-      .eq('id', selectedTask.id)
-      .select();
+      const { data, error } = await supabase
+        .from('m4_tasks')
+        .update(taskData)
+        .eq('id', selectedTask.id)
+        .select();
 
-    if (!error && data) {
-      setTasks(tasks.map(t => t.id === selectedTask.id ? data[0] : t));
-      setSelectedTask(data[0]);
-      setIsEditing(false);
+      if (error) {
+        console.error('ERROR UPDATING TASK:', error);
+        alert('Erro ao salvar tarefa: ' + error.message);
+        return;
+      }
+
+      if (data) {
+        console.log('TASK UPDATED SUCCESS:', data[0]);
+        setTasks(tasks.map(t => t.id === selectedTask.id ? data[0] : t));
+        setSelectedTask(data[0]);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      console.error('UNEXPECTED ERROR UPDATING TASK:', err);
     }
   };
 
@@ -391,6 +431,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       status: TaskStatus.TODO, 
       priority: Priority.MEDIUM, 
       type: 'task', 
+      task_type: 'internal',
       due_date: new Date().toISOString().split('T')[0],
       is_recurring: false,
       recurrence_type: 'monthly',
@@ -507,7 +548,29 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     }
   };
 
-  const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.status === filter);
+  const filteredTasks = tasks.filter(t => {
+    const statusMatch = filter === 'All' || t.status === filter;
+    const typeMatch = taskTypeFilter === 'All' || t.task_type === taskTypeFilter;
+    return statusMatch && typeMatch;
+  });
+
+  const getTaskTypeBadge = (type?: string) => {
+    switch (type) {
+      case 'commercial': return 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30';
+      case 'operational': return 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30';
+      case 'internal': return 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-700';
+      default: return 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-700';
+    }
+  };
+
+  const getTaskTypeLabel = (type?: string) => {
+    switch (type) {
+      case 'commercial': return 'Comercial';
+      case 'operational': return 'Operacional';
+      case 'internal': return 'Interno';
+      default: return 'Geral';
+    }
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
@@ -552,16 +615,45 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       <div className="flex-1 overflow-y-auto pr-4 scrollbar-none space-y-10 pb-10">
         {view === 'list' && (
           <>
-            <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              {['All', ...Object.values(TaskStatus)].map((s) => (
+            <div className="flex flex-wrap gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+              <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                {['All', ...Object.values(TaskStatus)].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setFilter(s as any)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === s ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {s === 'All' ? 'Todos Status' : s}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                 <button
-                  key={s}
-                  onClick={() => setFilter(s as any)}
-                  className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filter === s ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-400 hover:bg-slate-100'}`}
+                  onClick={() => setTaskTypeFilter('All')}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${taskTypeFilter === 'All' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  {s === 'All' ? 'Todas' : s}
+                  Todos Tipos
                 </button>
-              ))}
+                <button
+                  onClick={() => setTaskTypeFilter('commercial')}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${taskTypeFilter === 'commercial' ? 'bg-white dark:bg-slate-700 text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Comercial
+                </button>
+                <button
+                  onClick={() => setTaskTypeFilter('operational')}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${taskTypeFilter === 'operational' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Operacional
+                </button>
+                <button
+                  onClick={() => setTaskTypeFilter('internal')}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${taskTypeFilter === 'internal' ? 'bg-white dark:bg-slate-700 text-slate-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Interno
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -584,8 +676,23 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                     <div>
                       <div className="flex items-center gap-3">
                         <h4 className={`font-black text-slate-900 dark:text-white text-lg ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</h4>
-                        {task.company_id && (
-                          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                        <span className={`px-3 py-1 border rounded-lg text-[9px] font-black uppercase tracking-widest ${getTaskTypeBadge(task.task_type)}`}>
+                          {getTaskTypeLabel(task.task_type)}
+                        </span>
+                        {task.lead_id && (
+                          <span className="px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                            <ICONS.Sales width="10" height="10" />
+                            Lead: {leads.find(l => l.id === task.lead_id)?.name || 'Lead'}
+                          </span>
+                        )}
+                        {task.client_id && (
+                          <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                            <ICONS.Clients width="10" height="10" />
+                            Cliente: {clients.find(c => c.id === task.client_id)?.company_name || 'Cliente'}
+                          </span>
+                        )}
+                        {task.company_id && !task.lead_id && !task.client_id && (
+                          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
                             {companies.find(c => c.id === task.company_id)?.name || 'Empresa'}
                           </span>
                         )}
@@ -856,8 +963,50 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Lead (Comercial)</label>
+                    {isEditing ? (
+                      <select 
+                        value={selectedTask ? (editTask.lead_id || '') : (newTask.lead_id || '')} 
+                        onChange={e => selectedTask ? setEditTask({...editTask, lead_id: e.target.value || undefined}) : setNewTask({...newTask, lead_id: e.target.value || undefined})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
+                      >
+                        <option value="">Nenhum Lead</option>
+                        {leads.map(lead => (
+                          <option key={lead.id} value={lead.id}>{lead.name} ({lead.company})</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
+                        {selectedTask?.lead_id ? leads.find(l => l.id === selectedTask.lead_id)?.name : '–'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Cliente (Operacional)</label>
+                    {isEditing ? (
+                      <select 
+                        value={selectedTask ? (editTask.client_id || '') : (newTask.client_id || '')} 
+                        onChange={e => selectedTask ? setEditTask({...editTask, client_id: e.target.value || undefined}) : setNewTask({...newTask, client_id: e.target.value || undefined})} 
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
+                      >
+                        <option value="">Nenhum Cliente</option>
+                        {clients.map(client => (
+                          <option key={client.id} value={client.id}>{client.company_name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
+                        {selectedTask?.client_id ? clients.find(c => c.id === selectedTask.client_id)?.company_name : '–'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="relative">
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Empresa / Cliente</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Empresa / Cliente (Geral)</label>
                     {isEditing ? (
                       <div className="relative" ref={companyDropdownRef}>
                         <input 
@@ -955,7 +1104,19 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Atividade (Domínio)</label>
+                    {isEditing ? (
+                      <select value={selectedTask ? editTask.task_type : newTask.task_type} onChange={e => selectedTask ? setEditTask({...editTask, task_type: e.target.value as any}) : setNewTask({...newTask, task_type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
+                        <option value="internal">Interno / Operacional</option>
+                        <option value="commercial">Comercial (Lead)</option>
+                        <option value="operational">Cliente (Projeto)</option>
+                      </select>
+                    ) : (
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white uppercase">{getTaskTypeLabel(selectedTask?.task_type)}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Ação</label>
                     {isEditing ? (
                       <select value={selectedTask ? editTask.type : newTask.type} onChange={e => selectedTask ? setEditTask({...editTask, type: e.target.value as any}) : setNewTask({...newTask, type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
                         <option value="task">Tarefa</option>
@@ -971,11 +1132,56 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Data de Entrega</label>
                     {isEditing ? (
-                      <input type="date" value={selectedTask ? editTask.due_date : newTask.due_date} onChange={e => selectedTask ? setEditTask({...editTask, due_date: e.target.value}) : setNewTask({...newTask, due_date: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white" />
+                      <input type="datetime-local" value={selectedTask ? (editTask.due_date?.slice(0, 16) || '') : (newTask.due_date?.slice(0, 16) || '')} onChange={e => selectedTask ? setEditTask({...editTask, due_date: e.target.value}) : setNewTask({...newTask, due_date: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white" />
                     ) : (
-                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">{selectedTask?.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : '–'}</p>
+                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">{selectedTask?.due_date ? new Date(selectedTask.due_date).toLocaleString() : '–'}</p>
                     )}
                   </div>
+
+                  {((selectedTask ? editTask.task_type === 'commercial' : newTask.task_type === 'commercial') || (selectedTask?.task_type === 'commercial')) && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Sucesso da Interação</label>
+                        {isEditing ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => selectedTask ? setEditTask({...editTask, interaction_success: true}) : setNewTask({...newTask, interaction_success: true})}
+                              className={`flex-1 p-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all ${(selectedTask ? editTask.interaction_success : newTask.interaction_success) !== false ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}
+                            >
+                              Sucesso
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => selectedTask ? setEditTask({...editTask, interaction_success: false}) : setNewTask({...newTask, interaction_success: false})}
+                              className={`flex-1 p-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all ${(selectedTask ? editTask.interaction_success : newTask.interaction_success) === false ? 'bg-destructive text-white' : 'bg-slate-100 text-slate-400'}`}
+                            >
+                              Falha
+                            </button>
+                          </div>
+                        ) : (
+                          <p className={`p-4 rounded-2xl font-bold text-xs uppercase tracking-widest ${selectedTask?.interaction_success !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+                            {selectedTask?.interaction_success !== false ? 'Sucesso' : 'Sem Resposta'}
+                          </p>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nota da Interação</label>
+                        {isEditing ? (
+                          <textarea 
+                            value={selectedTask ? (editTask.interaction_note || '') : (newTask.interaction_note || '')} 
+                            onChange={e => selectedTask ? setEditTask({...editTask, interaction_note: e.target.value}) : setNewTask({...newTask, interaction_note: e.target.value})} 
+                            className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-h-[100px] text-slate-900 dark:text-white"
+                            placeholder="Descreva o que aconteceu na interação..."
+                          />
+                        ) : (
+                          <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white whitespace-pre-wrap">
+                            {selectedTask?.interaction_note || '–'}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Responsável</label>
                     {isEditing ? (

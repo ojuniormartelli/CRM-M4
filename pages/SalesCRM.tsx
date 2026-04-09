@@ -260,14 +260,16 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   useEffect(() => {
     if (selectedLead) {
       const fetchInteractions = async () => {
+        // Agora buscamos da tabela m4_tasks filtrando pelo lead
+        // Incluímos tanto interações concluídas quanto tarefas comerciais vinculadas
         const { data, error } = await supabase
-          .from('m4_interactions')
+          .from('m4_tasks')
           .select('*')
           .eq('lead_id', selectedLead.id)
           .order('created_at', { ascending: false });
         
         if (data) {
-          setInteractions(data);
+          setInteractions(data as Task[]);
         }
       };
       fetchInteractions();
@@ -279,31 +281,41 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
     setIsRegisteringInteraction(true);
     try {
-      const newInteraction = {
-        lead_id: selectedLead.id,
+      // 🛡️ CONSOLIDAÇÃO: Agora salvamos interações como tarefas concluídas do domínio comercial
+      const interactionTask = {
+        title: `${interactionType}: ${interactionNote.substring(0, 30)}${interactionNote.length > 30 ? '...' : ''}`,
+        description: interactionNote,
         type: interactionType,
-        note: interactionNote,
-        success: interactionSuccess,
-        workspace_id: currentUser.workspace_id,
-        created_at: new Date().toISOString()
+        status: 'Concluído',
+        task_type: 'commercial' as const,
+        lead_id: selectedLead.id,
+        company_id: selectedLead.company_id,
+        interaction_success: interactionSuccess,
+        interaction_note: interactionNote,
+        assigned_to: currentUser.id,
+        due_date: new Date().toISOString()
       };
 
+      const payload = mappers.task(interactionTask, currentUser.workspace_id);
+
       const { data, error } = await supabase
-        .from('m4_interactions')
-        .insert([newInteraction])
+        .from('m4_tasks')
+        .insert([payload])
         .select()
         .single();
 
       if (error) throw error;
 
       if (data) {
-        setInteractions([data, ...interactions]);
+        setInteractions([data as Task, ...interactions]);
+        setTasks([data as Task, ...tasks]); // Também atualiza a lista global de tarefas
         setInteractionNote('');
         // Reset success to true for next interaction
         setInteractionSuccess(true);
       }
     } catch (error) {
       console.error('Error registering interaction:', error);
+      alert('Erro ao registrar interação: ' + (error as any).message);
     } finally {
       setIsRegisteringInteraction(false);
     }
@@ -321,7 +333,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [isAIScoring, setIsAIScoring] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [interactions, setInteractions] = useState<Task[]>([]);
   const [interactionNote, setInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<Interaction['type']>('WhatsApp');
   const [interactionSuccess, setInteractionSuccess] = useState(true);
@@ -333,7 +345,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     description: '',
     due_date: new Date().toISOString().slice(0, 16),
     priority: Priority.MEDIUM,
-    type: 'task'
+    type: 'task',
+    task_type: 'commercial'
   });
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
   const [isWonModalOpen, setIsWonModalOpen] = useState(false);
@@ -737,23 +750,30 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
       // Log interaction
       if (currentUser) {
-        const interaction = {
+        const interactionTask = {
+          title: `Lead movido para a etapa: ${targetStageName}`,
+          description: `O lead foi movido para a etapa ${targetStageName}`,
+          type: 'Outro' as const,
+          status: 'Concluído',
+          task_type: 'commercial' as const,
           lead_id: lead.id,
-          type: 'Outro',
-          note: `Lead movido para a etapa: ${targetStageName}`,
-          success: true,
-          workspace_id: currentUser.workspace_id,
-          created_at: new Date().toISOString()
+          company_id: lead.company_id,
+          interaction_success: true,
+          assigned_to: currentUser.id,
+          due_date: new Date().toISOString()
         };
         
+        const payload = mappers.task(interactionTask, currentUser.workspace_id);
+        
         const { data: interactionData } = await supabase
-          .from('m4_interactions')
-          .insert([interaction])
+          .from('m4_tasks')
+          .insert([payload])
           .select()
           .single();
           
         if (interactionData && selectedLead?.id === lead.id) {
-          setInteractions([interactionData, ...interactions]);
+          setInteractions([interactionData as Task, ...interactions]);
+          setTasks([interactionData as Task, ...tasks]);
         }
       }
     } catch (error) {
@@ -862,10 +882,19 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     }
   };
 
-  const handleAISummary = async (interactions: Interaction[]) => {
+  const handleAISummary = async (activities: Task[]) => {
+    if (activities.length === 0) return;
     setIsSummarizing(true);
     try {
-      const summary = await aiService.summarizeInteractions(interactions);
+      const summary = await aiService.summarizeInteractions(activities.map(a => ({
+        id: a.id,
+        lead_id: a.lead_id || '',
+        type: (a.type as any) || 'Outro',
+        note: a.interaction_note || a.description || '',
+        success: a.interaction_success !== false,
+        workspace_id: a.workspace_id || '',
+        created_at: a.created_at
+      })));
       setAiSummary(summary);
     } catch (e) {
       console.error(e);
@@ -938,18 +967,18 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     if (!selectedLead) return;
     setIsSyncing(true);
     try {
-      const taskToInsert = {
+      // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
+      const taskPayload = mappers.task({
         ...newTaskData,
         lead_id: selectedLead.id,
         company_id: selectedLead.company_id,
         status: 'Pendente',
-        created_at: new Date().toISOString(),
-        ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-      };
+        task_type: 'commercial'
+      }, currentUser?.workspace_id);
 
       const { data, error } = await supabase
         .from('m4_tasks')
-        .insert([taskToInsert])
+        .insert([taskPayload])
         .select();
 
       if (error) throw error;
@@ -961,7 +990,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
           description: '',
           due_date: new Date().toISOString().slice(0, 16),
           priority: Priority.MEDIUM,
-          type: 'task'
+          type: 'task',
+          task_type: 'commercial'
         });
       }
     } catch (error) {
@@ -1793,6 +1823,20 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 >
                   Marcar Venda
                 </button>
+                <button 
+                  onClick={() => {
+                    setNewTaskData({
+                      ...newTaskData,
+                      title: `Ligar para ${selectedLead.name}`,
+                      type: 'call',
+                      task_type: 'commercial'
+                    });
+                    setIsNewTaskModalOpen(true);
+                  }}
+                  className="flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                >
+                  Agendar Contato
+                </button>
                 <div className="w-px h-8 bg-border mx-2 hidden md:block" />
                 
                 <button 
@@ -2371,32 +2415,37 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         ) : (
                           interactions.map((interaction) => (
                             <div key={interaction.id} className="flex gap-6 relative">
-                              <div className={`w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border ${!interaction.success ? 'opacity-60' : ''}`}>
+                              <div className={`w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border ${!interaction.interaction_success ? 'opacity-60' : ''}`}>
                                 {interaction.type === 'E-mail' ? <ICONS.Mail width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Ligação' ? <ICONS.Phone width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Reunião' ? <Users width="18" height="18" className="text-amber-500" /> :
                                  <MessageSquare width="18" height="18" className="text-muted-foreground" />}
                               </div>
-                              <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${!interaction.success ? 'border-destructive/20' : ''}`}>
+                              <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${!interaction.interaction_success ? 'border-destructive/20' : ''}`}>
                                 <div className="flex justify-between items-start mb-3">
                                   <div className="flex items-center gap-3">
                                     <h5 className="text-sm font-black text-foreground uppercase tracking-tight">
                                       {interaction.type}
                                     </h5>
                                     <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                      interaction.success 
+                                      interaction.interaction_success 
                                         ? 'bg-emerald-500/10 text-emerald-600' 
                                         : 'bg-destructive/10 text-destructive'
                                     }`}>
-                                      {interaction.success ? 'Sucesso' : 'Sem Resposta'}
+                                      {interaction.interaction_success ? 'Sucesso' : 'Sem Resposta'}
                                     </span>
+                                    {interaction.status === 'Pendente' && (
+                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600">
+                                        Agendado
+                                      </span>
+                                    )}
                                   </div>
                                   <span className="text-[10px] font-black text-muted-foreground uppercase">
                                     {new Date(interaction.created_at).toLocaleString()}
                                   </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground font-medium leading-relaxed whitespace-pre-wrap">
-                                  {interaction.note}
+                                  {interaction.interaction_note || interaction.description}
                                 </p>
                               </div>
                             </div>

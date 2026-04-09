@@ -653,6 +653,7 @@ const App: React.FC = () => {
             <MyDay 
               tasks={tasks} 
               leads={leads} 
+              companies={companies}
               currentUser={currentUser} 
               onUpdateTask={async (task) => {
                 const { error } = await supabase.from('m4_tasks').update(mappers.task(task)).eq('id', task.id);

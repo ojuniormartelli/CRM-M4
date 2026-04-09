@@ -163,6 +163,18 @@ export const mappers = {
    * TASK MAPPER
    */
   task: (data: Partial<Task>, workspaceId?: string) => {
+    // Determine task_type based on linked entities if not explicitly provided
+    let taskType = data.task_type;
+    if (!taskType) {
+      if (data.lead_id || data.deal_id) {
+        taskType = 'commercial';
+      } else if (data.client_id || data.client_account_id || data.project_id) {
+        taskType = 'operational';
+      } else {
+        taskType = 'internal';
+      }
+    }
+
     const payload: any = {
       title: data.title || 'Sem título',
       description: data.description || '',
@@ -194,7 +206,9 @@ export const mappers = {
       start_date: data.start_date || null,
       depends_on_task_id: data.depends_on_task_id || null,
       list_id: data.list_id || null,
-      task_type: data.task_type || 'operational',
+      task_type: taskType,
+      interaction_success: data.interaction_success ?? true,
+      interaction_note: data.interaction_note || data.description || '',
     };
 
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;

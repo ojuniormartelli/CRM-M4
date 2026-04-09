@@ -9,11 +9,12 @@ import { CheckCircle2, Clock, AlertCircle, Calendar, ArrowRight, Star, Play, Che
 interface MyDayProps {
   tasks: Task[];
   leads: Lead[];
+  companies: any[];
   currentUser: User | null;
   onUpdateTask: (task: Task) => Promise<void>;
 }
 
-const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }) => {
+const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onUpdateTask }) => {
   const today = new Date().toISOString().split('T')[0];
   
   const myTasks = tasks.filter(t => t.assigned_to === currentUser?.id || !t.assigned_to);
@@ -21,7 +22,11 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }
   const overdueTasks = myTasks.filter(t => t.due_date && t.due_date < today && t.status !== TaskStatus.DONE);
   const completedToday = myTasks.filter(t => t.status === TaskStatus.DONE && t.created_at.startsWith(today));
   
+  // Follow-ups baseados em leads com data de próxima ação hoje OU tarefas comerciais hoje
   const followUpsToday = leads.filter(l => l.next_action_date === today && (l.status !== 'won' && l.status !== 'lost'));
+  const commercialTasksToday = todayTasks.filter(t => t.task_type === 'commercial');
+  const operationalTasksToday = todayTasks.filter(t => t.task_type === 'operational');
+  const internalTasksToday = todayTasks.filter(t => t.task_type === 'internal' || !t.task_type);
 
   const [greeting, setGreeting] = useState('');
 
@@ -88,7 +93,7 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }
               </div>
               <div className="grid gap-3">
                 {overdueTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isOverdue />
+                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isOverdue leads={leads} companies={companies} />
                 ))}
               </div>
             </section>
@@ -106,7 +111,7 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }
             {todayTasks.length > 0 ? (
               <div className="grid gap-3">
                 {todayTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} />
+                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} leads={leads} companies={companies} />
                 ))}
               </div>
             ) : (
@@ -131,7 +136,7 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }
               </div>
               <div className="grid gap-3">
                 {completedToday.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isCompleted />
+                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isCompleted leads={leads} companies={companies} />
                 ))}
               </div>
             </section>
@@ -193,13 +198,16 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, currentUser, onUpdateTask }
   );
 };
 
-const TaskCard = ({ task, onToggle, isOverdue, isCompleted }: { task: Task; onToggle: () => void; isOverdue?: boolean; isCompleted?: boolean }) => {
+const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: { task: Task; onToggle: () => void; isOverdue?: boolean; isCompleted?: boolean; leads: Lead[]; companies: any[] }) => {
   const priorityColor = {
     [Priority.LOW]: 'bg-slate-100 text-slate-600',
     [Priority.MEDIUM]: 'bg-blue-100 text-blue-600',
     [Priority.HIGH]: 'bg-amber-100 text-amber-600',
     [Priority.URGENT]: 'bg-destructive/10 text-destructive'
   };
+
+  const lead = task.lead_id ? leads.find(l => l.id === task.lead_id) : null;
+  const company = task.company_id ? companies.find(c => c.id === task.company_id) : null;
 
   return (
     <div className={`group flex items-center gap-4 p-5 bg-card border border-border rounded-3xl transition-all hover:shadow-md ${isCompleted ? 'opacity-60' : ''}`}>
@@ -215,10 +223,33 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted }: { task: Task; onTo
       </button>
       
       <div className="flex-1 min-w-0">
-        <h4 className={`text-sm font-black text-foreground uppercase tracking-wider truncate ${isCompleted ? 'line-through' : ''}`}>
-          {task.title}
-        </h4>
-        <div className="flex items-center gap-3 mt-1">
+        <div className="flex items-center gap-2 mb-1">
+          <h4 className={`text-sm font-black text-foreground uppercase tracking-wider truncate ${isCompleted ? 'line-through' : ''}`}>
+            {task.title}
+          </h4>
+          {task.task_type && (
+            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
+              task.task_type === 'commercial' ? 'bg-amber-100 text-amber-600' :
+              task.task_type === 'operational' ? 'bg-blue-100 text-blue-600' :
+              'bg-slate-100 text-slate-400'
+            }`}>
+              {task.task_type === 'commercial' ? 'Comercial' : task.task_type === 'operational' ? 'Operacional' : 'Interno'}
+            </span>
+          )}
+        </div>
+        
+        {(lead || company) && (
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded-lg border border-border">
+              <ICONS.Sales width="10" height="10" className="text-muted-foreground" />
+              <span className="text-[9px] font-bold text-muted-foreground uppercase truncate max-w-[150px]">
+                {lead?.name || company?.name}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
           <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${priorityColor[task.priority as Priority] || priorityColor[Priority.MEDIUM]}`}>
             {task.priority}
           </span>

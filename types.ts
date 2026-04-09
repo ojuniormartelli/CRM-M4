@@ -237,7 +237,9 @@ export interface Task {
   list_id?: string;
   tags?: string;
   task_type?: 'commercial' | 'operational' | 'internal';
-  type?: 'call' | 'meeting' | 'email' | 'task' | 'proposal';
+  type?: 'call' | 'meeting' | 'email' | 'task' | 'proposal' | 'WhatsApp' | 'Ligação' | 'E-mail' | 'Reunião' | 'Outro';
+  interaction_success?: boolean;
+  interaction_note?: string;
   created_at: string;
 }
 
