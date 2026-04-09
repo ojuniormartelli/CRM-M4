@@ -86,6 +86,7 @@ export const mappers = {
       contact_whatsapp: data.contact_whatsapp || '',
       contact_instagram: data.contact_instagram || '',
       contact_linkedin: data.contact_linkedin || '',
+      contact_notes: data.contact_notes || '',
       responsible_name: data.responsible_name || '',
       responsible_id: data.responsible_id || null,
       status: data.status || 'active',

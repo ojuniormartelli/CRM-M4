@@ -242,8 +242,12 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: 
           <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded-lg border border-border">
               <ICONS.Sales width="10" height="10" className="text-muted-foreground" />
-              <span className="text-[9px] font-bold text-muted-foreground uppercase truncate max-w-[150px]">
-                {lead?.name || company?.name}
+              <span className="text-[9px] font-bold text-muted-foreground uppercase truncate max-w-[250px]">
+                {lead ? (
+                  `${lead.company || 'Empresa não informada'} - ${lead.name || 'Contato não informado'}`
+                ) : (
+                  company?.name || 'Empresa não informada'
+                )}
               </span>
             </div>
           </div>

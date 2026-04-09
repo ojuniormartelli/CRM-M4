@@ -34,8 +34,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   const [clients, setClients] = useState<M4Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [companySearch, setCompanySearch] = useState('');
+  const [leadSearch, setLeadSearch] = useState('');
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+  const [isLeadDropdownOpen, setIsLeadDropdownOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const companyDropdownRef = React.useRef<HTMLDivElement>(null);
+  const leadDropdownRef = React.useRef<HTMLDivElement>(null);
   
   // Advanced ClickUp States
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -52,6 +57,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     const handleClickOutside = (event: MouseEvent) => {
       if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target as Node)) {
         setIsCompanyDropdownOpen(false);
+      }
+      if (leadDropdownRef.current && !leadDropdownRef.current.contains(event.target as Node)) {
+        setIsLeadDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -325,12 +333,20 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     fetchContacts();
   }, [newTask.company_id, editTask.company_id, isEditing]);
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
       const taskData = mappers.task(newTask, currentUser?.workspace_id);
-      console.log('CREATING TASK:', taskData);
+      console.log('CREATING TASK PAYLOAD:', taskData);
 
       const { data, error } = await supabase
         .from('m4_tasks')
@@ -348,20 +364,24 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         setTasks([...tasks, data[0]]);
         setIsModalOpen(false);
         resetNewTask();
+        setToast({ message: 'Tarefa criada com sucesso!', type: 'success' });
       }
     } catch (err) {
       console.error('UNEXPECTED ERROR CREATING TASK:', err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTask) return;
+    setIsSaving(true);
 
     try {
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
       const taskData = mappers.task(editTask);
-      console.log('UPDATING TASK:', selectedTask.id, taskData);
+      console.log('UPDATING TASK PAYLOAD:', selectedTask.id, taskData);
 
       const { data, error } = await supabase
         .from('m4_tasks')
@@ -380,9 +400,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         setTasks(tasks.map(t => t.id === selectedTask.id ? data[0] : t));
         setSelectedTask(data[0]);
         setIsEditing(false);
+        setToast({ message: 'Tarefa atualizada com sucesso!', type: 'success' });
       }
     } catch (err) {
       console.error('UNEXPECTED ERROR UPDATING TASK:', err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -415,6 +438,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     setEditTask(task);
     setIsEditing(false);
     setCompanySearch(companies.find(c => c.id === task.company_id)?.name || '');
+    const lead = leads.find(l => l.id === task.lead_id);
+    setLeadSearch(lead ? `${lead.company || 'Empresa não informada'} - ${lead.name || 'Contato não informado'}` : '');
   };
 
   const openNewTaskModal = () => {
@@ -438,6 +463,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       recurrence_day_of_month: new Date().getDate()
     });
     setCompanySearch('');
+    setLeadSearch('');
   };
 
   const calculateNextOccurrence = (task: Task): string => {
@@ -574,6 +600,24 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-[100] animate-in slide-in-from-right-10 duration-300`}>
+          <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border ${
+            toast.type === 'success' 
+              ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-900/30' 
+              : 'bg-red-50 border-red-100 text-red-600 dark:bg-red-900/20 dark:border-red-900/30'
+          }`}>
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+              toast.type === 'success' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-red-100 dark:bg-red-900/40'
+            }`}>
+              {toast.type === 'success' ? <ICONS.Check width="18" height="18" /> : <ICONS.X width="18" height="18" />}
+            </div>
+            <p className="text-sm font-black uppercase tracking-widest">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-10 shrink-0">
         <div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Minhas Atividades</h2>
@@ -966,20 +1010,109 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Vincular a Lead (Comercial)</label>
                     {isEditing ? (
-                      <select 
-                        value={selectedTask ? (editTask.lead_id || '') : (newTask.lead_id || '')} 
-                        onChange={e => selectedTask ? setEditTask({...editTask, lead_id: e.target.value || undefined}) : setNewTask({...newTask, lead_id: e.target.value || undefined})} 
-                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
-                      >
-                        <option value="">Nenhum Lead</option>
-                        {leads.map(lead => (
-                          <option key={lead.id} value={lead.id}>{lead.name} ({lead.company})</option>
-                        ))}
-                      </select>
+                      <div className="relative" ref={leadDropdownRef}>
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            placeholder="Buscar Lead (Empresa ou Contato)..."
+                            value={leadSearch}
+                            onChange={(e) => {
+                              setLeadSearch(e.target.value);
+                              setIsLeadDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsLeadDropdownOpen(true)}
+                            className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
+                          />
+                          {leadSearch && (
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setLeadSearch('');
+                                if (selectedTask) setEditTask({...editTask, lead_id: undefined});
+                                else setNewTask({...newTask, lead_id: undefined});
+                              }}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                              <ICONS.X width="16" height="16" />
+                            </button>
+                          )}
+                        </div>
+                        
+                        {isLeadDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar-none animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLeadSearch('');
+                                  if (selectedTask) setEditTask({...editTask, lead_id: undefined});
+                                  else setNewTask({...newTask, lead_id: undefined});
+                                  setIsLeadDropdownOpen(false);
+                                }}
+                                className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-all flex items-center gap-3"
+                              >
+                                <div className="w-8 h-8 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-400">
+                                  <ICONS.X width="14" height="14" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhum Lead</span>
+                              </button>
+                              
+                              {leads
+                                .filter(l => {
+                                  const search = leadSearch.toLowerCase();
+                                  return (l.company?.toLowerCase().includes(search) || l.name?.toLowerCase().includes(search));
+                                })
+                                .sort((a, b) => (a.company || '').localeCompare(b.company || ''))
+                                .map(lead => (
+                                  <button
+                                    key={lead.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const label = `${lead.company || 'Empresa não informada'} - ${lead.name || 'Contato não informado'}`;
+                                      setLeadSearch(label);
+                                      if (selectedTask) setEditTask({...editTask, lead_id: lead.id, company_id: lead.company_id});
+                                      else setNewTask({...newTask, lead_id: lead.id, company_id: lead.company_id});
+                                      setIsLeadDropdownOpen(false);
+                                    }}
+                                    className="w-full p-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all flex items-center gap-3 group"
+                                  >
+                                    <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                                      <ICONS.Sales width="14" height="14" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate tracking-tight">
+                                        {lead.company || 'Empresa não informada'}
+                                      </p>
+                                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase truncate">
+                                        {lead.name || 'Contato não informado'}
+                                      </p>
+                                    </div>
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <p className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white">
-                        {selectedTask?.lead_id ? leads.find(l => l.id === selectedTask.lead_id)?.name : '–'}
-                      </p>
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center gap-3">
+                        {selectedTask?.lead_id ? (
+                          <>
+                            <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-600">
+                              <ICONS.Sales width="14" height="14" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                                {leads.find(l => l.id === selectedTask.lead_id)?.company || 'Empresa não informada'}
+                              </p>
+                              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                                {leads.find(l => l.id === selectedTask.lead_id)?.name || 'Contato não informado'}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="font-bold text-slate-400 dark:text-slate-500 uppercase text-[10px] tracking-widest">Nenhum Lead vinculado</p>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -1677,8 +1810,19 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                     >
                       CANCELAR
                     </button>
-                    <button type="submit" className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all">
-                      {selectedTask ? 'SALVAR' : 'CRIAR TAREFA'}
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isSaving ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          SALVANDO...
+                        </>
+                      ) : (
+                        selectedTask ? 'SALVAR' : 'CRIAR TAREFA'
+                      )}
                     </button>
                   </>
                 ) : (

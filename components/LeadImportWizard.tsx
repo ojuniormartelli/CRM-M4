@@ -1,0 +1,661 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import { Lead, Pipeline, User, FunnelStatus } from '../types';
+import { ICONS } from '../constants';
+import { supabase } from '../lib/supabase';
+import { Check, AlertTriangle, X, Upload, Download, ChevronRight, ChevronLeft, Search, Filter, Database, Users, Building, Mail, Phone, MessageSquare } from 'lucide-react';
+
+interface LeadImportWizardProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pipelines: Pipeline[];
+  currentUser: User | null;
+  onImportComplete: (importedLeads: Lead[]) => void;
+}
+
+interface ImportRow {
+  id: string;
+  raw: any;
+  mapped: Partial<Lead>;
+  status: 'valid' | 'duplicate' | 'error';
+  errors: string[];
+  isDuplicate?: boolean;
+  existingLeadId?: string;
+}
+
+const CRM_FIELDS = [
+  { id: 'company', label: 'Empresa', required: true, aliases: ['empresa', 'company', 'razao social', 'nome fantasia', 'organization', 'nome_empresa'] },
+  { id: 'name', label: 'Nome do Contato', required: true, aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'nome do contato'] },
+  { id: 'email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email'] },
+  { id: 'phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone'] },
+  { id: 'company_whatsapp', label: 'WhatsApp da Empresa', aliases: ['whats empresa', 'zap empresa', 'whatsapp', 'company_whatsapp', 'celular empresa'] },
+  { id: 'company_email', label: 'E-mail da Empresa', aliases: ['email empresa', 'email corporativo', 'company_email'] },
+  { id: 'city', label: 'Cidade', aliases: ['municipio', 'city', 'localidade'] },
+  { id: 'state', label: 'Estado', aliases: ['uf', 'state', 'provincia', 'regiao'] },
+  { id: 'niche', label: 'Nicho/Segmento', aliases: ['nicho', 'setor', 'industria', 'industry', 'segmento', 'segment'] },
+  { id: 'value', label: 'Valor Estimado', aliases: ['valor', 'ticket', 'preco', 'price', 'value', 'investimento', 'valor_estimado'] },
+  { id: 'notes', label: 'Observações', aliases: ['notas', 'obs', 'comentarios', 'description', 'detalhes', 'observacao'] },
+  { id: 'instagram', label: 'Instagram', aliases: ['insta', 'ig', 'instagram'] },
+  { id: 'website', label: 'Website', aliases: ['site', 'url', 'web'] },
+];
+
+export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onClose, pipelines, currentUser, onImportComplete }) => {
+  const [step, setStep] = useState(1);
+  const [file, setFile] = useState<File | null>(null);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rawData, setRawData] = useState<any[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState('');
+  const [selectedStageId, setSelectedStageId] = useState('');
+  const [deduplicationStrategy, setDeduplicationStrategy] = useState<'ignore' | 'update' | 'create'>('ignore');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState({ success: 0, updated: 0, ignored: 0, errors: 0 });
+
+  // Initialize pipeline
+  useEffect(() => {
+    if (pipelines.length > 0 && !selectedPipelineId) {
+      setSelectedPipelineId(pipelines[0].id);
+      setSelectedStageId(pipelines[0].stages[0]?.id || '');
+    }
+  }, [pipelines]);
+
+  useEffect(() => {
+    const pipeline = pipelines.find(p => p.id === selectedPipelineId);
+    if (pipeline && pipeline.stages.length > 0) {
+      setSelectedStageId(pipeline.stages[0].id);
+    }
+  }, [selectedPipelineId]);
+
+  const normalize = (str: string) => {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = e.target.files?.[0];
+    if (!uploadedFile) return;
+
+    setFile(uploadedFile);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+
+      if (jsonData.length < 1) return;
+
+      const rawHeaders = jsonData[0].map(h => String(h).trim());
+      const dataRows = jsonData.slice(1).map(row => {
+        const obj: any = {};
+        rawHeaders.forEach((h, i) => {
+          obj[h] = row[i];
+        });
+        return obj;
+      }).filter(row => Object.values(row).some(v => v !== ''));
+
+      setHeaders(rawHeaders);
+      setRawData(dataRows);
+
+      // Intelligent Mapping
+      const autoMapping: Record<string, string> = {};
+      rawHeaders.forEach(header => {
+        const normalized = normalize(header);
+        const field = CRM_FIELDS.find(f => 
+          normalize(f.label) === normalized || 
+          f.aliases.some(a => normalize(a) === normalized)
+        );
+        if (field) autoMapping[header] = field.id;
+      });
+      setMapping(autoMapping);
+      setStep(2);
+    };
+    reader.readAsBinaryString(uploadedFile);
+  };
+
+  // Load saved mapping
+  useEffect(() => {
+    const saved = localStorage.getItem('crm_import_mapping');
+    if (saved && headers.length > 0) {
+      try {
+        const parsed = JSON.parse(saved);
+        const newMapping = { ...mapping };
+        headers.forEach(h => {
+          if (parsed[h]) newMapping[h] = parsed[h];
+        });
+        setMapping(newMapping);
+      } catch (e) {
+        console.error('Error loading mapping', e);
+      }
+    }
+  }, [headers]);
+
+  // Save mapping when it changes
+  useEffect(() => {
+    if (Object.keys(mapping).length > 0) {
+      localStorage.setItem('crm_import_mapping', JSON.stringify(mapping));
+    }
+  }, [mapping]);
+
+  const processData = async () => {
+    setIsProcessing(true);
+    const rows: ImportRow[] = [];
+    
+    // Fetch existing leads for deduplication check
+    const { data: existingLeads } = await supabase
+      .from('m4_leads')
+      .select('id, company, email, company_whatsapp, name')
+      .eq('workspace_id', currentUser?.workspace_id);
+
+    rawData.forEach((rawRow, index) => {
+      const mapped: any = {
+        workspace_id: currentUser?.workspace_id,
+        pipeline_id: selectedPipelineId,
+        stage: selectedStageId,
+        status: pipelines.find(p => p.id === selectedPipelineId)?.stages.find(s => s.id === selectedStageId)?.status || 'active',
+        source: 'Importação',
+        created_at: new Date().toISOString()
+      };
+
+      Object.entries(mapping).forEach(([header, fieldId]) => {
+        if (fieldId) {
+          let val = rawRow[header];
+          
+          // Basic normalization
+          if (typeof val === 'string') {
+            val = val.trim();
+            if (val === '') val = null;
+          }
+
+          if (fieldId === 'value') {
+            val = parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          }
+          
+          if (fieldId === 'phone' || fieldId === 'company_whatsapp' || fieldId === 'contact_whatsapp') {
+            if (val) {
+              // Normalize phone: keep only digits
+              val = String(val).replace(/\D/g, '');
+              if (val.length === 10 || val.length === 11) {
+                // Add 55 if missing and it's a BR number
+                if (!val.startsWith('55')) val = '55' + val;
+              }
+            }
+          }
+
+          if (val !== null) {
+            mapped[fieldId] = val;
+          }
+        }
+      });
+
+      // Validation
+      const errors: string[] = [];
+      if (!mapped.company && !mapped.name) errors.push('Empresa ou Nome do Contato é obrigatório');
+
+      // Deduplication Check
+      const duplicate = existingLeads?.find(l => {
+        const emailMatch = mapped.email && l.email && normalize(mapped.email) === normalize(l.email);
+        const whatsappMatch = mapped.company_whatsapp && l.company_whatsapp && mapped.company_whatsapp === l.company_whatsapp;
+        const companyContactMatch = mapped.company && mapped.name && l.company && l.name && 
+                                   normalize(mapped.company) === normalize(l.company) && 
+                                   normalize(mapped.name) === normalize(l.name);
+        
+        return emailMatch || whatsappMatch || companyContactMatch;
+      });
+
+      rows.push({
+        id: `row-${index}`,
+        raw: rawRow,
+        mapped,
+        status: errors.length > 0 ? 'error' : (duplicate ? 'duplicate' : 'valid'),
+        errors,
+        isDuplicate: !!duplicate,
+        existingLeadId: duplicate?.id
+      });
+    });
+
+    setImportRows(rows);
+    setIsProcessing(false);
+    setStep(3);
+  };
+
+  const executeImport = async () => {
+    setIsImporting(true);
+    const toInsert: any[] = [];
+    const toUpdate: { id: string, data: any }[] = [];
+    let ignored = 0;
+
+    importRows.forEach(row => {
+      if (row.status === 'error') return;
+
+      if (row.isDuplicate) {
+        if (deduplicationStrategy === 'ignore') {
+          ignored++;
+          return;
+        }
+        if (deduplicationStrategy === 'update' && row.existingLeadId) {
+          // Exclude metadata from updates
+          const { created_at, workspace_id, ...updateData } = row.mapped;
+          toUpdate.push({ id: row.existingLeadId, data: updateData });
+          return;
+        }
+      }
+      
+      toInsert.push(row.mapped);
+    });
+
+    let successCount = 0;
+    let updateCount = 0;
+    let errorCount = 0;
+
+    // Batch Insert
+    if (toInsert.length > 0) {
+      const { data, error } = await supabase.from('m4_leads').insert(toInsert).select();
+      if (!error) successCount = data.length;
+      else errorCount += toInsert.length;
+    }
+
+    // Individual Updates (Supabase doesn't support batch update with different values easily in a single call without RPC)
+    for (const item of toUpdate) {
+      const { error } = await supabase.from('m4_leads').update(item.data).eq('id', item.id);
+      if (!error) updateCount++;
+      else errorCount++;
+    }
+
+    setImportSummary({
+      success: successCount,
+      updated: updateCount,
+      ignored: ignored,
+      errors: errorCount
+    });
+    
+    setStep(4);
+    setIsImporting(false);
+    
+    // Refresh leads in parent
+    const { data: refreshedLeads } = await supabase
+      .from('m4_leads')
+      .select('*')
+      .eq('workspace_id', currentUser?.workspace_id);
+    if (refreshedLeads) onImportComplete(refreshedLeads);
+  };
+
+  const downloadTemplate = () => {
+    const headersTemplate = CRM_FIELDS.map(f => f.label);
+    const exampleRow = CRM_FIELDS.reduce((acc, f) => {
+      acc[f.label] = f.id === 'value' ? 5000 : `Exemplo ${f.label}`;
+      return acc;
+    }, {} as any);
+
+    const ws = XLSX.utils.json_to_sheet([exampleRow], { header: headersTemplate });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo de Importação");
+    
+    // Add instructions sheet
+    const instructions = [
+      ["INSTRUÇÕES DE IMPORTAÇÃO"],
+      ["1. Preencha os dados dos seus leads seguindo as colunas deste modelo."],
+      ["2. As colunas 'Empresa' ou 'Nome do Contato' são obrigatórias."],
+      ["3. O sistema reconhece automaticamente nomes de colunas similares (ex: 'Celular' vira 'WhatsApp')."],
+      ["4. Valores numéricos (Valor Estimado) devem conter apenas números, pontos ou vírgulas."],
+      ["5. Salve o arquivo como .xlsx ou .csv antes de subir."],
+      [""],
+      ["COLUNAS DISPONÍVEIS:"],
+      ...CRM_FIELDS.map(f => [f.label, f.required ? "(Obrigatório)" : "(Opcional)", `Ex: ${f.aliases.join(', ')}`])
+    ];
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+    XLSX.utils.book_append_sheet(wb, wsInstructions, "Instruções");
+
+    XLSX.writeFile(wb, "modelo_importacao_leads.xlsx");
+  };
+
+  const downloadErrors = () => {
+    const errorRows = importRows.filter(r => r.status === 'error');
+    if (errorRows.length === 0) return;
+
+    const data = errorRows.map(r => ({
+      ...r.raw,
+      ERROS_IMPORTACAO: r.errors.join('; ')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Erros de Importação");
+    XLSX.writeFile(wb, "erros_importacao_leads.xlsx");
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+        
+        {/* Header */}
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200 dark:shadow-none">
+              <Database size={24} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importador Inteligente</h3>
+              <div className="flex items-center gap-2 mt-1">
+                {[1, 2, 3, 4].map(s => (
+                  <div key={s} className={`h-1.5 rounded-full transition-all ${step >= s ? 'w-8 bg-blue-600' : 'w-2 bg-slate-200 dark:bg-slate-800'}`} />
+                ))}
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Passo {step} de 4</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-8 scrollbar-none">
+          
+          {step === 1 && (
+            <div className="max-w-2xl mx-auto space-y-10 py-10">
+              <div className="text-center space-y-4">
+                <h4 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Como você quer começar?</h4>
+                <p className="text-slate-500 font-bold">Suba sua planilha atual ou use nosso modelo otimizado.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button 
+                  onClick={downloadTemplate}
+                  className="p-8 bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-[2rem] hover:border-blue-500 transition-all group text-left space-y-4"
+                >
+                  <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 shadow-sm transition-colors">
+                    <Download size={28} />
+                  </div>
+                  <div>
+                    <h5 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">Baixar Modelo</h5>
+                    <p className="text-xs text-slate-500 font-bold mt-1">Planilha com colunas ideais e instruções de preenchimento.</p>
+                  </div>
+                </button>
+
+                <label className="p-8 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-100 dark:border-blue-900/30 rounded-[2rem] hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all group text-left space-y-4 cursor-pointer">
+                  <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200 dark:shadow-none">
+                    <Upload size={28} />
+                  </div>
+                  <div>
+                    <h5 className="font-black text-blue-900 dark:text-blue-100 uppercase tracking-tight">Subir Planilha</h5>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">Arraste seu arquivo .xlsx ou .csv aqui para começar.</p>
+                  </div>
+                  <input type="file" accept=".csv,.xlsx" className="hidden" onChange={handleFileUpload} />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                {/* Left: Settings */}
+                <div className="lg:col-span-1 space-y-8">
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Filter size={14} /> Configurações de Destino
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pipeline de Destino</label>
+                        <select 
+                          value={selectedPipelineId}
+                          onChange={(e) => setSelectedPipelineId(e.target.value)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                        >
+                          {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Etapa Inicial</label>
+                        <select 
+                          value={selectedStageId}
+                          onChange={(e) => setSelectedStageId(e.target.value)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                        >
+                          {pipelines.find(p => p.id === selectedPipelineId)?.stages.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regra de Duplicidade</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {[
+                            { id: 'ignore', label: 'Ignorar Duplicados', desc: 'Não importa se já existir.' },
+                            { id: 'update', label: 'Atualizar Existente', desc: 'Sobrescreve dados do lead atual.' },
+                            { id: 'create', label: 'Criar Novo', desc: 'Ignora duplicidade e cria outro.' }
+                          ].map(opt => (
+                            <button
+                              key={opt.id}
+                              onClick={() => setDeduplicationStrategy(opt.id as any)}
+                              className={`p-4 rounded-2xl border-2 text-left transition-all ${deduplicationStrategy === opt.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                            >
+                              <p className={`text-xs font-black uppercase tracking-tight ${deduplicationStrategy === opt.id ? 'text-blue-600' : 'text-slate-900 dark:text-white'}`}>{opt.label}</p>
+                              <p className="text-[10px] text-slate-500 font-bold mt-0.5">{opt.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Mapping */}
+                <div className="lg:col-span-2 space-y-6">
+                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Database size={14} /> Mapeamento de Colunas
+                  </h4>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 dark:bg-slate-800">
+                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Coluna na Planilha</th>
+                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-10"><ChevronRight size={14} /></th>
+                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Campo no CRM</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {headers.map(header => (
+                          <tr key={header} className="group hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                            <td className="p-5">
+                              <p className="text-sm font-black text-slate-900 dark:text-white">{header}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[200px]">Ex: {rawData[0]?.[header] || '-'}</p>
+                            </td>
+                            <td className="p-5 text-center text-slate-300"><ChevronRight size={16} /></td>
+                            <td className="p-5">
+                              <select 
+                                value={mapping[header] || ''}
+                                onChange={(e) => setMapping({...mapping, [header]: e.target.value})}
+                                className={`w-full p-3 rounded-xl border-2 font-bold text-xs transition-all outline-none ${mapping[header] ? 'border-blue-100 bg-blue-50/30 text-blue-600' : 'border-slate-100 bg-white dark:bg-slate-900 text-slate-400'}`}
+                              >
+                                <option value="">Ignorar esta coluna</option>
+                                {CRM_FIELDS.map(f => (
+                                  <option key={f.id} value={f.id}>{f.label} {f.required ? '*' : ''}</option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Review de Importação</h4>
+                  <p className="text-slate-500 font-bold mt-1">Analisamos {importRows.length} linhas da sua planilha.</p>
+                </div>
+                <div className="flex gap-4">
+                  {importRows.some(r => r.status === 'error') && (
+                    <button 
+                      onClick={downloadErrors}
+                      className="px-4 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-xl border border-rose-100 dark:border-rose-900/30 flex items-center gap-2 hover:bg-rose-100 transition-all"
+                    >
+                      <Download size={14} /> <span className="text-[10px] font-black uppercase tracking-widest">Baixar Erros</span>
+                    </button>
+                  )}
+                  <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                    <p className="text-[10px] font-black uppercase tracking-widest">Válidos</p>
+                    <p className="text-xl font-black">{importRows.filter(r => r.status === 'valid').length}</p>
+                  </div>
+                  <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-xl border border-amber-100 dark:border-amber-900/30">
+                    <p className="text-[10px] font-black uppercase tracking-widest">Duplicados</p>
+                    <p className="text-xl font-black">{importRows.filter(r => r.status === 'duplicate').length}</p>
+                  </div>
+                  <div className="px-4 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-xl border border-rose-100 dark:border-rose-900/30">
+                    <p className="text-[10px] font-black uppercase tracking-widest">Erros</p>
+                    <p className="text-xl font-black">{importRows.filter(r => r.status === 'error').length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <div className="max-h-[400px] overflow-y-auto scrollbar-none">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800">
+                      <tr>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-16">Status</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa / Contato</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contato Principal</th>
+                        <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalhes / Erros</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                      {importRows.map((row) => (
+                        <tr key={row.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="p-5">
+                            {row.status === 'valid' && <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><Check size={16} /></div>}
+                            {row.status === 'duplicate' && <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center"><AlertTriangle size={16} /></div>}
+                            {row.status === 'error' && <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center"><X size={16} /></div>}
+                          </td>
+                          <td className="p-5">
+                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase truncate max-w-[200px]">{row.mapped.company || 'Sem Empresa'}</p>
+                            <p className="text-xs text-slate-500 font-bold">{row.mapped.name || 'Sem Contato'}</p>
+                          </td>
+                          <td className="p-5">
+                            <div className="flex flex-col gap-1">
+                              {row.mapped.email && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Mail size={10} /> {row.mapped.email}</div>}
+                              {row.mapped.company_whatsapp && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><MessageSquare size={10} /> {row.mapped.company_whatsapp}</div>}
+                            </div>
+                          </td>
+                          <td className="p-5">
+                            {row.status === 'error' ? (
+                              <div className="flex flex-col gap-1">
+                                {row.errors.map((err, i) => <span key={i} className="text-[10px] font-black text-rose-500 uppercase tracking-widest">{err}</span>)}
+                              </div>
+                            ) : row.status === 'duplicate' ? (
+                              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">
+                                {deduplicationStrategy === 'ignore' ? 'Será ignorado' : deduplicationStrategy === 'update' ? 'Será atualizado' : 'Será duplicado'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Pronto para importar</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="max-w-xl mx-auto py-16 text-center space-y-10">
+              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-100 dark:shadow-none">
+                <Check size={48} />
+              </div>
+              
+              <div className="space-y-4">
+                <h4 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importação Finalizada!</h4>
+                <p className="text-slate-500 font-bold">Processamos sua lista e os leads já estão no pipeline.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Novos Leads</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.success}</p>
+                </div>
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Atualizados</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.updated}</p>
+                </div>
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ignorados</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.ignored}</p>
+                </div>
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Erros</p>
+                  <p className="text-3xl font-black text-rose-600">{importSummary.errors}</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={onClose}
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none"
+              >
+                Concluir e Ver Leads
+              </button>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        {step > 1 && step < 4 && (
+          <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0 bg-slate-50/50 dark:bg-slate-800/50">
+            <button 
+              onClick={() => setStep(step - 1)}
+              disabled={isProcessing || isImporting}
+              className="flex items-center gap-2 px-8 py-4 text-slate-500 font-black uppercase text-xs tracking-widest hover:text-slate-900 transition-all disabled:opacity-50"
+            >
+              <ChevronLeft size={18} /> Voltar
+            </button>
+            
+            {step === 2 && (
+              <button 
+                onClick={processData}
+                disabled={isProcessing || Object.values(mapping).length === 0}
+                className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
+              >
+                {isProcessing ? 'PROCESSANDO...' : 'PRÓXIMO PASSO'} <ChevronRight size={18} />
+              </button>
+            )}
+
+            {step === 3 && (
+              <button 
+                onClick={executeImport}
+                disabled={isImporting || importRows.filter(r => r.status !== 'error').length === 0}
+                className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
+              >
+                {isImporting ? 'IMPORTANDO...' : `IMPORTAR ${importRows.filter(r => r.status !== 'error').length} LEADS`} <Check size={18} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
