@@ -48,13 +48,20 @@ export const mappers = {
    * LEAD MAPPER
    */
   lead: (data: Partial<Lead>, workspaceId?: string) => {
+    // Normalization helpers
+    const cleanDigits = (val: any) => val ? String(val).replace(/\D/g, '') : '';
+    
+    const cleanedCnpj = cleanDigits(data.cnpj);
+    const cleanedCompanyPhone = cleanDigits(data.company_phone);
+    const cleanedContactPhone = cleanDigits(data.phone);
+
     const payload: any = {
       name: data.name || 'Contato não informado',
       company: data.company || 'Empresa não informada',
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,
       email: data.email || '',
-      phone: data.phone || '',
+      phone: cleanedContactPhone,
       pipeline_id: data.pipeline_id || null,
       stage: data.stage || null,
       value: Number(data.value) || 0,
@@ -77,13 +84,13 @@ export const mappers = {
       legal_name: data.legal_name || '',
       instagram: data.instagram || '',
       website: data.website || '',
-      cnpj: data.cnpj || '',
+      cnpj: cleanedCnpj,
       company_linkedin: data.company_linkedin || '',
-      company_whatsapp: data.company_whatsapp || '',
+      company_whatsapp: data.company_whatsapp ? cleanDigits(data.company_whatsapp) : cleanedCompanyPhone,
       company_email: data.company_email || '',
-      company_phone: data.company_phone || '',
+      company_phone: cleanedCompanyPhone,
       contact_role: data.contact_role || '',
-      contact_whatsapp: data.contact_whatsapp || '',
+      contact_whatsapp: data.contact_whatsapp ? cleanDigits(data.contact_whatsapp) : cleanedContactPhone,
       contact_instagram: data.contact_instagram || '',
       contact_linkedin: data.contact_linkedin || '',
       contact_notes: data.contact_notes || '',

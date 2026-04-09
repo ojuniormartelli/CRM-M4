@@ -387,6 +387,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     contact_whatsapp: '',
     contact_instagram: '',
     contact_linkedin: '',
+    contact_notes: '',
     instagram: '',
     notes: ''
   });
@@ -1608,10 +1609,6 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone da Empresa</label>
                       <input value={newLead.company_phone} onChange={e => setNewLead({...newLead, company_phone: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">WhatsApp da Empresa</label>
-                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
-                    </div>
                   </div>
                 </div>
 
@@ -1646,11 +1643,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">WhatsApp do Contato</label>
-                      <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="WhatsApp" />
-                    </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
                       <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="@perfil" />
