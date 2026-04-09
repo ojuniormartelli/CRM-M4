@@ -175,18 +175,6 @@ export const mappers = {
    * TASK MAPPER
    */
   task: (data: Partial<Task>, workspaceId?: string) => {
-    // Determine task_type based on linked entities if not explicitly provided
-    let taskType = data.task_type;
-    if (!taskType) {
-      if (data.lead_id || data.deal_id) {
-        taskType = 'commercial';
-      } else if (data.client_id || data.client_account_id || data.project_id) {
-        taskType = 'operational';
-      } else {
-        taskType = 'internal';
-      }
-    }
-
     const payload: any = {
       title: data.title || 'Sem título',
       description: data.description || '',
@@ -194,33 +182,24 @@ export const mappers = {
       priority: data.priority || 'Média',
       type: data.type || 'task',
       due_date: data.due_date || null,
-      assigned_to: data.assigned_to || null,
-      tags: data.tags || '',
       lead_id: data.lead_id || data.deal_id || null,
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,
+      deal_id: data.deal_id || data.lead_id || null,
       client_id: data.client_id || null,
       client_account_id: data.client_account_id || null,
       is_recurring: !!data.is_recurring,
       recurrence: data.recurrence || data.recurrence_type || 'none',
-      recurrence_pattern: data.recurrence_pattern || {
-        days: data.recurrence_days,
-        day_of_month: data.recurrence_day_of_month,
-        month_week: data.recurrence_month_week,
-        occurrences: data.recurrence_occurrences,
-        end_date: data.recurrence_end_date
-      },
+      recurrence_pattern: data.recurrence_pattern || {},
       parent_task_id: data.parent_task_id || null,
       checklist: data.checklist || [],
       dependencies: data.dependencies || [],
       estimated_hours: Number(data.estimated_hours) || 0,
       actual_hours: Number(data.actual_hours) || 0,
-      start_date: data.start_date || null,
-      depends_on_task_id: data.depends_on_task_id || null,
       list_id: data.list_id || null,
-      task_type: taskType,
+      task_type: data.task_type || 'internal',
       interaction_success: data.interaction_success ?? true,
-      interaction_note: data.interaction_note || data.description || '',
+      interaction_note: data.interaction_note || '',
     };
 
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;

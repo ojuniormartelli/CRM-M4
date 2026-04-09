@@ -292,7 +292,6 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         company_id: selectedLead.company_id,
         interaction_success: interactionSuccess,
         interaction_note: interactionNote,
-        assigned_to: currentUser.id,
         due_date: new Date().toISOString()
       };
 
@@ -788,7 +787,6 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           lead_id: lead.id,
           company_id: lead.company_id,
           interaction_success: true,
-          assigned_to: currentUser.id,
           due_date: new Date().toISOString()
         };
         
@@ -993,7 +991,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLead) return;
+    if (!selectedLead || !currentUser) return;
     setIsSyncing(true);
     try {
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
@@ -1001,9 +999,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         ...newTaskData,
         lead_id: selectedLead.id,
         company_id: selectedLead.company_id,
-        status: 'Pendente',
-        task_type: 'commercial'
-      }, currentUser?.workspace_id);
+        status: 'Pendente'
+      }, currentUser.workspace_id);
 
       const { data, error } = await supabase
         .from('m4_tasks')
@@ -1011,8 +1008,10 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         .select();
 
       if (error) throw error;
-      if (data) {
-        setTasks([...tasks, data[0]]);
+      if (data && data[0]) {
+        const newTask = data[0] as Task;
+        setTasks([newTask, ...tasks]);
+        setInteractions([newTask, ...interactions]);
         setIsNewTaskModalOpen(false);
         setNewTaskData({
           title: '',
@@ -1025,7 +1024,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       }
     } catch (error) {
       console.error(error);
-      alert("Erro ao criar tarefa.");
+      alert("Erro ao criar tarefa: " + (error as any).message);
     } finally {
       setIsSyncing(false);
     }
