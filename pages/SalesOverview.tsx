@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { Lead, Pipeline, User, PipelineStage, FunnelStatus } from '../types';
 import { funnelUtils } from '../utils/funnel';
 import { ICONS } from '../constants';
+import { leadService } from '../services/leadService';
 import { LeadImportWizard } from '../components/LeadImportWizard';
 import { ChevronRight, Building, DollarSign, User as UserIcon, Globe, Mail, Instagram, Linkedin, Phone, MessageSquare, Briefcase, FileText, X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -88,21 +89,17 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     if (!selectedLead) return;
     console.log('Iniciando exclusão do lead:', selectedLead.id);
     
-    const { error } = await supabase
-      .from('m4_leads')
-      .delete()
-      .eq('id', selectedLead.id);
-
-    if (error) {
-      console.error('Erro no Supabase ao excluir:', error);
-      alert('Erro ao excluir: ' + error.message);
-    } else {
+    try {
+      await leadService.delete(selectedLead.id);
       console.log('Lead excluído com sucesso do banco');
       setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
       setSelectedLead(null);
       setIsEditingLead(false);
       setIsDeleting(false);
       alert('Lead excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir:', error);
+      alert('Erro ao excluir: ' + error.message);
     }
   };
 
@@ -265,10 +262,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      {lead.name ? lead.name.charAt(0) : '?'}
+                      {lead.contact_name ? lead.contact_name.charAt(0) : '?'}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{lead.name || 'Sem Nome'}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">{lead.contact_name || 'Sem Nome'}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-black">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.value || 0)}
                       </p>
@@ -323,7 +320,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-4">
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight truncate min-w-0">
-                      {isEditingLead ? 'Editando Lead' : (selectedLead.company || selectedLead.name)}
+                      {isEditingLead ? 'Editando Lead' : (selectedLead.company_name || selectedLead.contact_name)}
                     </h2>
                     {!isEditingLead && (
                       <div className="flex items-center gap-2 shrink-0">
@@ -422,48 +419,48 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                       <EditableInfoItem 
                         label="Nome da Empresa" 
-                        value={editedLead.company} 
-                        originalValue={selectedLead.company}
+                        value={editedLead.company_name} 
+                        originalValue={selectedLead.company_name}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, company: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_name: val })}
                       />
                       <EditableInfoItem 
                         label="CNPJ" 
-                        value={editedLead.cnpj} 
-                        originalValue={selectedLead.cnpj}
+                        value={editedLead.company_cnpj} 
+                        originalValue={selectedLead.company_cnpj}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, cnpj: formatCNPJ(val) })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_cnpj: formatCNPJ(val) })}
                       />
                       <div className="grid grid-cols-2 gap-4">
                         <EditableInfoItem 
                           label="Cidade" 
-                          value={editedLead.city} 
-                          originalValue={selectedLead.city}
+                          value={editedLead.company_city} 
+                          originalValue={selectedLead.company_city}
                           isEditing={isEditingLead}
-                          onChange={(val) => setEditedLead({ ...editedLead, city: val })}
+                          onChange={(val) => setEditedLead({ ...editedLead, company_city: val })}
                         />
                         <EditableInfoItem 
                           label="Estado" 
-                          value={editedLead.state} 
-                          originalValue={selectedLead.state}
+                          value={editedLead.company_state} 
+                          originalValue={selectedLead.company_state}
                           isEditing={isEditingLead}
-                          onChange={(val) => setEditedLead({ ...editedLead, state: val })}
+                          onChange={(val) => setEditedLead({ ...editedLead, company_state: val })}
                         />
                       </div>
                       <EditableInfoItem 
                         label="Segmento" 
-                        value={editedLead.niche} 
-                        originalValue={selectedLead.niche}
+                        value={editedLead.company_niche} 
+                        originalValue={selectedLead.company_niche}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, niche: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_niche: val })}
                       />
                       <EditableInfoItem 
                         label="Website" 
-                        value={editedLead.website} 
-                        originalValue={selectedLead.website}
+                        value={editedLead.company_website} 
+                        originalValue={selectedLead.company_website}
                         isEditing={isEditingLead}
                         isLink
-                        onChange={(val) => setEditedLead({ ...editedLead, website: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_website: val })}
                       />
                       <EditableInfoItem 
                         label="E-mail da Empresa" 
@@ -485,15 +482,8 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         value={editedLead.company_phone} 
                         originalValue={selectedLead.company_phone}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: formatPhoneBR(val) })}
-                      />
-                      <EditableInfoItem 
-                        label="WhatsApp da Empresa" 
-                        value={editedLead.company_whatsapp} 
-                        originalValue={selectedLead.company_whatsapp}
-                        isEditing={isEditingLead}
                         isWhatsApp
-                        onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: formatPhoneBR(val) })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: formatPhoneBR(val) })}
                       />
                     </div>
                   </div>
@@ -507,10 +497,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                       <EditableInfoItem 
                         label="Nome" 
-                        value={editedLead.name} 
-                        originalValue={selectedLead.name}
+                        value={editedLead.contact_name} 
+                        originalValue={selectedLead.contact_name}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, name: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_name: val })}
                       />
                       <EditableInfoItem 
                         label="Cargo" 
@@ -521,18 +511,18 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       />
                       <EditableInfoItem 
                         label="E-mail" 
-                        value={editedLead.email} 
-                        originalValue={selectedLead.email}
+                        value={editedLead.contact_email} 
+                        originalValue={selectedLead.contact_email}
                         isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, email: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_email: val })}
                       />
                       <EditableInfoItem 
-                        label="WhatsApp" 
-                        value={editedLead.contact_whatsapp} 
-                        originalValue={selectedLead.contact_whatsapp}
+                        label="Telefone" 
+                        value={editedLead.contact_phone} 
+                        originalValue={selectedLead.contact_phone}
                         isEditing={isEditingLead}
                         isWhatsApp
-                        onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: formatPhoneBR(val) })}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_phone: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
                         label="Instagram" 
@@ -603,11 +593,11 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <div className="md:col-span-3">
                       <EditableInfoItem 
                         label="Notas da Negociação" 
-                        value={editedLead.notes} 
-                        originalValue={selectedLead.notes}
+                        value={editedLead.business_notes} 
+                        originalValue={selectedLead.business_notes}
                         isEditing={isEditingLead}
                         isTextArea
-                        onChange={(val) => setEditedLead({ ...editedLead, notes: val })}
+                        onChange={(val) => setEditedLead({ ...editedLead, business_notes: val })}
                       />
                     </div>
                   </div>
@@ -627,45 +617,10 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                     <button 
                       onClick={async () => {
                         try {
-                          const { error } = await supabase
-                            .from('m4_leads')
-                            .update({ 
-                              name: editedLead.name,
-                              company: editedLead.company,
-                              cnpj: editedLead.cnpj,
-                              city: editedLead.city,
-                              state: editedLead.state,
-                              niche: editedLead.niche,
-                              website: editedLead.website,
-                              company_email: editedLead.company_email,
-                              instagram: editedLead.instagram,
-                              company_linkedin: editedLead.company_linkedin,
-                              company_phone: editedLead.company_phone,
-                              company_whatsapp: editedLead.company_whatsapp,
-                              responsible_name: editedLead.responsible_name,
-                              contact_role: editedLead.contact_role,
-                              email: editedLead.email,
-                              phone: editedLead.phone,
-                              contact_whatsapp: editedLead.contact_whatsapp,
-                              contact_instagram: editedLead.contact_instagram,
-                              contact_linkedin: editedLead.contact_linkedin,
-                              value: editedLead.value,
-                              service_type: editedLead.service_type,
-                              closing_forecast: editedLead.closing_forecast,
-                              temperature: editedLead.temperature,
-                              probability: editedLead.probability,
-                              notes: editedLead.notes,
-                              pipeline_id: selectedPipelineForEdit || null 
-                            })
-                            .eq('id', selectedLead.id)
-                          
-                          if (error) throw error
-                          
-                          const updated = { 
-                            ...selectedLead, 
+                          const updated = await leadService.update(selectedLead.id, { 
                             ...editedLead,
                             pipeline_id: selectedPipelineForEdit || null 
-                          } as Lead
+                          });
                           
                           setSelectedLead(updated)
                           setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l))

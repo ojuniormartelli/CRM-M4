@@ -27,29 +27,29 @@ interface ImportRow {
 
 const CRM_FIELDS = [
   // SEÇÃO 1 - DADOS DA EMPRESA PROSPECTADA
-  { id: 'company', label: 'Nome da Empresa (*)', required: true, aliases: ['empresa', 'company', 'razao social', 'nome fantasia', 'organization', 'nome_empresa', 'cliente', 'company_name'] },
-  { id: 'cnpj', label: 'CNPJ', aliases: ['cnpj', 'documento', 'tax id', 'cnpj/cpf', 'company_cnpj'] },
-  { id: 'city', label: 'Cidade', aliases: ['municipio', 'city', 'localidade', 'cidade', 'company_city'] },
-  { id: 'state', label: 'Estado', aliases: ['uf', 'state', 'provincia', 'regiao', 'estado', 'company_state'] },
-  { id: 'niche', label: 'Segmento / Nicho', aliases: ['niche', 'setor', 'industria', 'industry', 'segmento', 'segment', 'company_segment', 'company_niche'] },
-  { id: 'website', label: 'Website', aliases: ['site', 'url', 'web', 'company_website'] },
+  { id: 'company_name', label: 'Nome da Empresa (*)', required: true, aliases: ['empresa', 'company', 'company_name', 'razao social', 'nome fantasia', 'organization', 'nome_empresa', 'cliente'] },
+  { id: 'company_cnpj', label: 'CNPJ da Empresa', aliases: ['cnpj', 'company_cnpj', 'documento', 'tax id', 'cnpj/cpf'] },
+  { id: 'company_city', label: 'Cidade da Empresa', aliases: ['municipio', 'city', 'company_city', 'localidade', 'cidade'] },
+  { id: 'company_state', label: 'Estado da Empresa', aliases: ['uf', 'state', 'company_state', 'provincia', 'regiao', 'estado'] },
+  { id: 'company_niche', label: 'Segmento / Nicho', aliases: ['niche', 'setor', 'industria', 'industry', 'segmento', 'segment', 'company_segment', 'company_niche'] },
+  { id: 'company_website', label: 'Website da Empresa', aliases: ['site', 'url', 'web', 'company_website', 'website'] },
   { id: 'company_email', label: 'E-mail da Empresa', aliases: ['email empresa', 'email corporativo', 'company_email'] },
-  { id: 'instagram', label: 'Instagram da Empresa', aliases: ['insta empresa', 'ig empresa', 'instagram_empresa', 'company_instagram'] },
+  { id: 'company_instagram', label: 'Instagram da Empresa', aliases: ['insta empresa', 'ig empresa', 'instagram_empresa', 'company_instagram', 'instagram'] },
   { id: 'company_linkedin', label: 'LinkedIn da Empresa', aliases: ['linkedin empresa', 'company_linkedin'] },
-  { id: 'company_phone', label: 'Telefone da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp'] },
+  { id: 'company_phone', label: 'Telefone da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
 
   // SEÇÃO 2 - CONTATO / DECISOR
-  { id: 'name', label: 'Nome do Contato (*)', required: true, aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name'] },
-  { id: 'contact_role', label: 'Cargo', aliases: ['cargo', 'funcao', 'role', 'position', 'departamento', 'contact_role'] },
-  { id: 'email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
-  { id: 'phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp'] },
+  { id: 'contact_name', label: 'Nome do Contato (*)', required: true, aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name', 'name'] },
+  { id: 'contact_role', label: 'Cargo do Contato', aliases: ['cargo', 'funcao', 'role', 'position', 'departamento', 'contact_role'] },
+  { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
+  { id: 'contact_phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
   { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['insta contato', 'ig contato', 'instagram_contato', 'contact_instagram'] },
   { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin'] },
   { id: 'contact_notes', label: 'Notas do Contato', aliases: ['notas contato', 'obs contato', 'contact_notes'] },
 
   // SEÇÃO 3 - DADOS DO NEGÓCIO
   { id: 'value', label: 'Valor Estimado', aliases: ['valor', 'ticket', 'preco', 'price', 'value', 'investimento', 'valor_estimado', 'estimated_value'] },
-  { id: 'notes', label: 'Notas do Negócio', aliases: ['notas', 'obs', 'comentarios', 'description', 'detalhes', 'observacao', 'business_notes'] },
+  { id: 'business_notes', label: 'Notas do Negócio', aliases: ['notas', 'obs', 'comentarios', 'description', 'detalhes', 'observacao', 'business_notes', 'notes'] },
   { id: 'service_type', label: 'Tipo de Serviço', aliases: ['servico', 'produto', 'service', 'oferta', 'tipo_servico'] },
   { id: 'source', label: 'Origem', aliases: ['source', 'origem', 'canal', 'meio'] },
   { id: 'campaign', label: 'Campanha', aliases: ['campaign', 'campanha', 'ads', 'marketing'] },
@@ -184,7 +184,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     // Fetch existing leads for deduplication check
     const { data: existingLeads } = await supabase
       .from('m4_leads')
-      .select('id, company, email, company_whatsapp, name')
+      .select('id, company_name, contact_email, company_phone, contact_name')
       .eq('workspace_id', currentUser?.workspace_id);
 
     rawData.forEach((rawRow, index) => {
@@ -213,22 +213,8 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
             val = parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
           }
           
-          if (fieldId === 'cnpj') {
+          if (fieldId === 'company_cnpj' || fieldId === 'company_phone' || fieldId === 'contact_phone') {
             if (val) val = String(val).replace(/\D/g, '');
-          }
-          
-          if (fieldId === 'company_phone' || fieldId === 'phone') {
-            if (val) {
-              // Normalize phone: keep only digits
-              val = String(val).replace(/\D/g, '');
-              
-              // Unify: save to both phone and whatsapp columns
-              if (fieldId === 'company_phone') {
-                mapped['company_whatsapp'] = val;
-              } else if (fieldId === 'phone') {
-                mapped['contact_whatsapp'] = val;
-              }
-            }
           }
 
           if (val !== null) {
@@ -237,32 +223,21 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         }
       });
 
-      // Final adjustments
-      if (!mapped.name) {
-        mapped.name = mapped.responsible_name || 'Lead Importado';
-      }
-      
-      // Ensure company name is present if mapped
-      if (!mapped.company && mapped.name) {
-        // If no company but has contact name, use contact name as fallback for company if needed
-        // but usually we want to keep them separate.
-      }
-
       // Validation
       const errors: string[] = [];
-      if (!mapped.company && !mapped.name && !mapped.responsible_name) {
-        errors.push('Empresa ou Nome do Negócio é obrigatório');
+      if (!mapped.company_name && !mapped.contact_name) {
+        errors.push('Empresa ou Nome do Contato é obrigatório');
       }
 
       // Deduplication Check
       const duplicate = existingLeads?.find(l => {
-        const emailMatch = mapped.email && l.email && normalize(mapped.email) === normalize(l.email);
-        const whatsappMatch = mapped.company_whatsapp && l.company_whatsapp && mapped.company_whatsapp === l.company_whatsapp;
-        const companyContactMatch = mapped.company && mapped.name && l.company && l.name && 
-                                   normalize(mapped.company) === normalize(l.company) && 
-                                   normalize(mapped.name) === normalize(l.name);
+        const emailMatch = mapped.contact_email && l.contact_email && normalize(mapped.contact_email) === normalize(l.contact_email);
+        const phoneMatch = mapped.company_phone && l.company_phone && mapped.company_phone === l.company_phone;
+        const companyContactMatch = mapped.company_name && mapped.contact_name && l.company_name && l.contact_name && 
+                                   normalize(mapped.company_name) === normalize(l.company_name) && 
+                                   normalize(mapped.contact_name) === normalize(l.contact_name);
         
-        return emailMatch || whatsappMatch || companyContactMatch;
+        return emailMatch || phoneMatch || companyContactMatch;
       });
 
       rows.push({
@@ -348,10 +323,10 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     const headersTemplate = CRM_FIELDS.map(f => f.label);
     const exampleRow = CRM_FIELDS.reduce((acc, f) => {
       if (f.id === 'value') acc[f.label] = 5000;
-      else if (f.id === 'email' || f.id === 'company_email') acc[f.label] = 'exemplo@empresa.com';
-      else if (f.id === 'company_phone' || f.id === 'phone') acc[f.label] = '(11) 99999-8888';
-      else if (f.id === 'cnpj') acc[f.label] = '00.000.000/0001-00';
-      else if (f.id === 'state') acc[f.label] = 'SP';
+      else if (f.id === 'contact_email' || f.id === 'company_email') acc[f.label] = 'exemplo@empresa.com';
+      else if (f.id === 'company_phone' || f.id === 'contact_phone') acc[f.label] = '(11) 99999-8888';
+      else if (f.id === 'company_cnpj') acc[f.label] = '00.000.000/0001-00';
+      else if (f.id === 'company_state') acc[f.label] = 'SP';
       else if (f.id === 'responsible_id') acc[f.label] = currentUser?.id || 'ID_DO_USUARIO';
       else if (f.id === 'pipeline_id') acc[f.label] = pipelines[0]?.id || 'ID_DO_PIPELINE';
       else if (f.id === 'stage') acc[f.label] = pipelines[0]?.stages[0]?.id || 'ID_DA_ETAPA';
@@ -369,9 +344,9 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       [""],
       ["REGRAS GERAIS:"],
       ["1. Preencha os dados seguindo as colunas deste modelo oficial."],
-      ["2. Campos marcados com (*) são obrigatórios (Empresa ou Nome do Negócio)."],
+      ["2. Campos marcados com (*) são obrigatórios (Empresa ou Nome do Contato)."],
       ["3. O sistema normaliza automaticamente telefones e CNPJ (salva apenas números)."],
-      ["4. Unificação: Preencha 'Telefone da Empresa' ou 'Telefone do Contato'. O sistema salvará como Telefone e WhatsApp."],
+      ["4. Unificação: Use 'Telefone da Empresa' ou 'Telefone do Contato' para ligações e WhatsApp."],
       ["5. Valores financeiros devem usar ponto ou vírgula como separador decimal."],
       ["6. Se 'ID Pipeline' ou 'ID Etapa' forem omitidos, o sistema usará a seleção feita no importador."],
       [""],
@@ -381,14 +356,14 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         f.label, 
         f.id, 
         f.required ? "OBRIGATÓRIO*" : "Opcional", 
-        f.id === 'company' ? "Nome da empresa ou organização" :
-        f.id === 'name' ? "Nome da pessoa de contato principal" :
+        f.id === 'company_name' ? "Nome da empresa ou organização" :
+        f.id === 'contact_name' ? "Nome da pessoa de contato principal" :
         f.id === 'value' ? "Valor monetário estimado do negócio" :
         f.id === 'responsible_id' ? "ID único do usuário responsável" :
         f.id === 'pipeline_id' ? "ID único do funil de vendas" :
         f.id === 'stage' ? "ID único da etapa do funil" :
-        f.id === 'company_phone' ? "Telefone/WhatsApp da empresa" :
-        f.id === 'phone' ? "Telefone/WhatsApp do contato" :
+        f.id === 'company_phone' ? "Telefone/WhatsApp da empresa (apenas números)" :
+        f.id === 'contact_phone' ? "Telefone/WhatsApp do contato (apenas números)" :
         `Dados de ${f.label.toLowerCase().replace(' (*)', '')}`,
         exampleRow[f.label]
       ])
@@ -650,13 +625,13 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                             {row.status === 'error' && <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center"><X size={16} /></div>}
                           </td>
                           <td className="p-5">
-                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase truncate max-w-[200px]">{row.mapped.company || 'Sem Empresa'}</p>
-                            <p className="text-xs text-slate-500 font-bold">{row.mapped.name || 'Sem Contato'}</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase truncate max-w-[200px]">{row.mapped.company_name || 'Sem Empresa'}</p>
+                            <p className="text-xs text-slate-500 font-bold">{row.mapped.contact_name || 'Sem Contato'}</p>
                           </td>
                           <td className="p-5">
                             <div className="flex flex-col gap-1">
-                              {row.mapped.email && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Mail size={10} /> {row.mapped.email}</div>}
-                              {row.mapped.company_whatsapp && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><MessageSquare size={10} /> {row.mapped.company_whatsapp}</div>}
+                              {row.mapped.contact_email && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Mail size={10} /> {row.mapped.contact_email}</div>}
+                              {row.mapped.contact_phone && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Phone size={10} /> {row.mapped.contact_phone}</div>}
                             </div>
                           </td>
                           <td className="p-5">

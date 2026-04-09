@@ -51,22 +51,37 @@ export const mappers = {
     // Normalization helpers
     const cleanDigits = (val: any) => val ? String(val).replace(/\D/g, '') : '';
     
-    const cleanedCnpj = cleanDigits(data.cnpj);
+    const cleanedCnpj = cleanDigits(data.company_cnpj || data.cnpj);
     const cleanedCompanyPhone = cleanDigits(data.company_phone);
-    const cleanedContactPhone = cleanDigits(data.phone);
+    const cleanedContactPhone = cleanDigits(data.contact_phone || data.phone);
 
     const payload: any = {
-      name: data.name || 'Contato não informado',
-      company: data.company || 'Empresa não informada',
-      company_id: data.company_id || null,
-      contact_id: data.contact_id || null,
-      email: data.email || '',
-      phone: cleanedContactPhone,
+      // Prospect Company Data
+      company_name: data.company_name || data.company || 'Empresa não informada',
+      company_cnpj: cleanedCnpj,
+      company_city: data.company_city || data.city || '',
+      company_state: data.company_state || data.state || '',
+      company_niche: data.company_niche || data.niche || '',
+      company_website: data.company_website || data.website || '',
+      company_email: data.company_email || '',
+      company_instagram: data.company_instagram || data.instagram || '',
+      company_linkedin: data.company_linkedin || '',
+      company_phone: cleanedCompanyPhone,
+      
+      // Contact / Decision Maker Data
+      contact_name: data.contact_name || data.name || 'Contato não informado',
+      contact_role: data.contact_role || '',
+      contact_email: data.contact_email || data.email || '',
+      contact_phone: cleanedContactPhone,
+      contact_instagram: data.contact_instagram || '',
+      contact_linkedin: data.contact_linkedin || '',
+      contact_notes: data.contact_notes || '',
+      
+      // Business Data
       pipeline_id: data.pipeline_id || null,
       stage: data.stage || null,
       value: Number(data.value) || 0,
-      notes: data.notes || '',
-      niche: data.niche || '',
+      business_notes: data.business_notes || data.notes || '',
       service_type: data.service_type || '',
       proposed_ticket: Number(data.proposed_ticket) || 0,
       next_action: data.next_action || '',
@@ -74,28 +89,17 @@ export const mappers = {
       qualification: data.qualification || '',
       source: data.source || '',
       campaign: data.campaign || '',
-      city: data.city || '',
-      state: data.state || '',
       closing_forecast: data.closing_forecast || null,
       temperature: data.temperature || 'Frio',
       probability: Number(data.probability) || 0,
       ai_score: Number(data.ai_score) || 0,
       ai_reasoning: data.ai_reasoning || '',
-      legal_name: data.legal_name || '',
-      instagram: data.instagram || '',
-      website: data.website || '',
-      cnpj: cleanedCnpj,
-      company_linkedin: data.company_linkedin || '',
-      company_whatsapp: data.company_whatsapp ? cleanDigits(data.company_whatsapp) : cleanedCompanyPhone,
-      company_email: data.company_email || '',
-      company_phone: cleanedCompanyPhone,
-      contact_role: data.contact_role || '',
-      contact_whatsapp: data.contact_whatsapp ? cleanDigits(data.contact_whatsapp) : cleanedContactPhone,
-      contact_instagram: data.contact_instagram || '',
-      contact_linkedin: data.contact_linkedin || '',
-      contact_notes: data.contact_notes || '',
+      
+      // Metadata & System
       responsible_name: data.responsible_name || '',
       responsible_id: data.responsible_id || null,
+      company_id: data.company_id || null,
+      contact_id: data.contact_id || null,
       status: data.status || 'active',
     };
 

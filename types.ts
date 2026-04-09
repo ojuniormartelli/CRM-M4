@@ -134,71 +134,69 @@ export interface FormResponse {
 export interface Lead {
   id: string;
   workspace_id: string;
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
+  
+  // Prospect Company Data
+  company_name: string;
+  company_cnpj?: string;
+  company_city?: string;
+  company_state?: string;
+  company_niche?: string;
+  company_website?: string;
+  company_email?: string;
+  company_instagram?: string;
+  company_linkedin?: string;
+  company_phone?: string;
+  
+  // Contact / Decision Maker Data
+  contact_name: string;
+  contact_role?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_instagram?: string;
+  contact_linkedin?: string;
+  contact_notes?: string;
+  
+  // Business Data
   pipeline_id?: string;
   stage: string;
   value: number;
-  notes: string;
-  niche?: string;
+  business_notes: string;
   service_type?: string;
   proposed_ticket?: number;
   next_action?: string;
   next_action_date?: string;
-  address?: string;
-  cnpj?: string;
-  partners?: string;
-  additional_emails?: string;
-  additional_phones?: string;
-  legal_nature?: string;
-  created_at: string;
-  
-  // New fields for enhanced CRM
-  contact_name?: string;
   qualification?: string;
   source?: string;
   campaign?: string;
-  city?: string;
-  state?: string;
   closing_forecast?: string;
   temperature?: LeadTemperature;
   probability?: number;
   ai_score?: number;
   ai_reasoning?: string;
   
-  // Prospect Company Data
-  company_whatsapp?: string;
-  instagram?: string;
-  company_linkedin?: string;
-  company_email?: string;
-  company_phone?: string;
-  website?: string;
-  
-  // Contact / Decision Maker Data
-  contact_role?: string;
-  contact_whatsapp?: string;
-  contact_instagram?: string;
-  contact_linkedin?: string;
-  contact_notes?: string;
-  
-  // Legacy / Other
-  legal_name?: string;
-  
-  // Contacts and Responsibility
-  contacts?: Contact[];
+  // Metadata & System
   responsible_name?: string;
   responsible_id?: string;
-  
-  // Bitrix24 Refactoring
   company_id?: string;
   contact_id?: string;
-  
   last_activity_at?: string;
   status?: 'active' | 'won' | 'lost' | 'paused' | FunnelStatus;
   interactions?: Interaction[];
   custom_fields?: Record<string, any>;
+  created_at: string;
+
+  // Legacy / Compatibility (Optional: can be removed if strictly following "total convergence")
+  name?: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  cnpj?: string;
+  instagram?: string;
+  website?: string;
+  niche?: string;
+  city?: string;
+  state?: string;
 }
 
 export interface Task {

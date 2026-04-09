@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ICONS } from '../constants';
-import { Lead, Pipeline, Contact, User } from '../types';
+import { Lead, Pipeline, User, Task } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
+import { leadService } from '../services/leadService';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -40,29 +41,28 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const modalContentRef = useRef<HTMLDivElement>(null);
 
   const CRM_FIELDS = [
-    { id: 'name', label: 'Nome / Título' },
-    { id: 'company', label: 'Empresa / Razão Social' },
-    { id: 'email', label: 'E-mail Principal' },
-    { id: 'phone', label: 'Telefone' },
-    { id: 'company_whatsapp', label: 'WhatsApp Empresa' },
-    { id: 'company_linkedin', label: 'LinkedIn Empresa' },
-    { id: 'niche', label: 'Segmento / Setor' },
-    { id: 'city', label: 'Cidade' },
-    { id: 'state', label: 'Estado' },
-    { id: 'source', label: 'Origem / Fonte' },
-    { id: 'notes', label: 'Observações' },
-    { id: 'cnpj', label: 'CNPJ' },
-    { id: 'website', label: 'Website' },
-    { id: 'instagram', label: 'Instagram' },
-    { id: 'legal_name', label: 'Razão Social Jurídica' },
-    { id: 'partners', label: 'Sócios / QSA' },
-    { id: 'address', label: 'Endereço Completo' },
-    { id: 'service_type', label: 'Tipo de Serviço' },
-    { id: 'proposed_ticket', label: 'Ticket Proposto' },
-    { id: 'contact_whatsapp', label: 'WhatsApp do Contato' },
-    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
+    { id: 'company_name', label: 'Nome da Empresa' },
+    { id: 'company_cnpj', label: 'CNPJ da Empresa' },
+    { id: 'company_city', label: 'Cidade da Empresa' },
+    { id: 'company_state', label: 'Estado da Empresa' },
+    { id: 'company_niche', label: 'Segmento / Nicho' },
+    { id: 'company_website', label: 'Website da Empresa' },
+    { id: 'company_email', label: 'E-mail da Empresa' },
+    { id: 'company_instagram', label: 'Instagram da Empresa' },
+    { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
+    { id: 'company_phone', label: 'Telefone da Empresa' },
+    { id: 'contact_name', label: 'Nome do Contato' },
     { id: 'contact_role', label: 'Cargo do Contato' },
+    { id: 'contact_email', label: 'E-mail do Contato' },
+    { id: 'contact_phone', label: 'Telefone do Contato' },
     { id: 'contact_instagram', label: 'Instagram do Contato' },
+    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
+    { id: 'contact_notes', label: 'Notas do Contato' },
+    { id: 'business_notes', label: 'Notas do Negócio' },
+    { id: 'service_type', label: 'Tipo de Serviço' },
+    { id: 'source', label: 'Origem / Fonte' },
+    { id: 'campaign', label: 'Campanha' },
+    { id: 'value', label: 'Valor Estimado' },
   ];
 
   useEffect(() => {
@@ -85,10 +85,17 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
       const prompt = `Você é um engenheiro de dados especialista em CRM. 
 Analise estes cabeçalhos de uma planilha de leads: ${JSON.stringify(csvHeaders)}.
 Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(CRM_FIELDS.map(f => f.id))}.
-Considere variações: "tel", "celular", "whatsapp" -> phone; "empresa", "negócio", "razão social" -> company; "nicho", "setor" -> niche; "município" -> city; "cnpj" -> cnpj.
+Considere variações: 
+- "empresa", "negócio", "razão social", "cliente" -> company_name
+- "cnpj", "documento" -> company_cnpj
+- "tel empresa", "whatsapp empresa", "fone empresa" -> company_phone
+- "contato", "responsavel", "nome" -> contact_name
+- "tel contato", "celular", "whatsapp", "fone" -> contact_phone
+- "nicho", "setor" -> company_niche
+- "município", "cidade" -> company_city
 Retorne APENAS um objeto JSON onde as chaves são os ÍNDICES (0-based) das colunas da planilha e os valores são o ID do campo correspondente no CRM.
 Se não encontrar correspondência clara, não inclua no objeto ou use null.
-Exemplo: {"0": "name", "2": "email"}`;
+Exemplo: {"0": "company_name", "2": "contact_name"}`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -177,28 +184,37 @@ Exemplo: {"0": "name", "2": "email"}`;
       const newMapping: Record<number, { target: string }> = {};
       headers.forEach((h, index) => {
         const lower = h.toLowerCase();
-        if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping[index] = { target: 'name' };
-        else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) newMapping[index] = { target: 'email' };
-        else if (lower.includes('whatsapp') || lower.includes('wpp') || lower.includes('zap')) {
-          if (lower.includes('empresa') || lower.includes('company')) newMapping[index] = { target: 'company_whatsapp' };
-          else if (lower.includes('contato') || lower.includes('pessoal')) newMapping[index] = { target: 'contact_whatsapp' };
-          else newMapping[index] = { target: 'whatsapp' };
+        if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company_name' };
+        else if (lower.includes('cnpj')) newMapping[index] = { target: 'company_cnpj' };
+        else if (lower.includes('cidade') || lower.includes('city') || lower.includes('município')) newMapping[index] = { target: 'company_city' };
+        else if (lower.includes('estado') || lower.includes('state') || lower.includes('uf')) newMapping[index] = { target: 'company_state' };
+        else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping[index] = { target: 'company_niche' };
+        else if (lower.includes('site') || lower.includes('website')) newMapping[index] = { target: 'company_website' };
+        else if (lower.includes('instagram')) {
+          if (lower.includes('contato')) newMapping[index] = { target: 'contact_instagram' };
+          else newMapping[index] = { target: 'company_instagram' };
         }
         else if (lower.includes('linkedin') || lower.includes('linked in')) {
-          if (lower.includes('empresa') || lower.includes('company')) newMapping[index] = { target: 'company_linkedin' };
-          else if (lower.includes('contato') || lower.includes('pessoal')) newMapping[index] = { target: 'contact_linkedin' };
-          else newMapping[index] = { target: 'linkedin' };
+          if (lower.includes('contato')) newMapping[index] = { target: 'contact_linkedin' };
+          else newMapping[index] = { target: 'company_linkedin' };
         }
-        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('tel')) newMapping[index] = { target: 'phone' };
-        else if (lower.includes('empresa') || lower.includes('company') || lower.includes('razão') || lower.includes('fantasia')) newMapping[index] = { target: 'company_name' };
-        else if (lower.includes('segmento') || lower.includes('nicho') || lower.includes('segment') || lower.includes('setor')) newMapping[index] = { target: 'segment' };
-        else if (lower.includes('cidade') || lower.includes('city') || lower.includes('município')) newMapping[index] = { target: 'city' };
-        else if (lower.includes('cnpj')) newMapping[index] = { target: 'company_cnpj' };
-        else if (lower.includes('instagram')) newMapping[index] = { target: 'company_instagram' };
-        else if (lower.includes('site') || lower.includes('website')) newMapping[index] = { target: 'website' };
+        else if (lower.includes('email') || lower.includes('e-mail') || lower.includes('mail')) {
+          if (lower.includes('empresa')) newMapping[index] = { target: 'company_email' };
+          else newMapping[index] = { target: 'contact_email' };
+        }
+        else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('tel') || lower.includes('whatsapp') || lower.includes('wpp') || lower.includes('zap')) {
+          if (lower.includes('empresa')) newMapping[index] = { target: 'company_phone' };
+          else newMapping[index] = { target: 'contact_phone' };
+        }
+        else if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping[index] = { target: 'contact_name' };
+        else if (lower.includes('cargo') || lower.includes('role')) newMapping[index] = { target: 'contact_role' };
+        else if (lower.includes('nota') || lower.includes('obs') || lower.includes('notes')) {
+          if (lower.includes('contato')) newMapping[index] = { target: 'contact_notes' };
+          else newMapping[index] = { target: 'business_notes' };
+        }
         else if (lower.includes('fonte') || lower.includes('source') || lower.includes('origem')) newMapping[index] = { target: 'source' };
-        else if (lower.includes('nota') || lower.includes('obs') || lower.includes('notes')) newMapping[index] = { target: 'notes' };
-        else if (lower.includes('sócio') || lower.includes('socio') || lower.includes('partners')) newMapping[index] = { target: 'partners' };
+        else if (lower.includes('campanha') || lower.includes('campaign')) newMapping[index] = { target: 'campaign' };
+        else if (lower.includes('valor') || lower.includes('value') || lower.includes('ticket')) newMapping[index] = { target: 'value' };
       });
       
       setMapping(newMapping);
@@ -216,7 +232,6 @@ Exemplo: {"0": "name", "2": "email"}`;
     const parsed: Partial<Lead>[] = csvRows.map(row => {
       const lead: Partial<Lead> = {
         value: 0,
-        contacts: [],
         custom_fields: {}
       };
 
@@ -237,9 +252,9 @@ Exemplo: {"0": "name", "2": "email"}`;
       return lead;
     });
 
-    const validLeads = parsed.filter(l => l.name || l.company);
+    const validLeads = parsed.filter(l => l.contact_name || l.company_name);
     if (validLeads.length === 0) {
-      alert("Pelo menos o campo 'Nome' ou 'Empresa' deve estar mapeado e preenchido.");
+      alert("Pelo menos o campo 'Nome do Contato' ou 'Nome da Empresa' deve estar mapeado e preenchido.");
       return;
     }
 
@@ -519,15 +534,15 @@ Exemplo: {"0": "name", "2": "email"}`;
                       />
                     </td>
                     <td className="px-6 py-5">
-                      <p className="font-black text-slate-900 dark:text-white">{lead.name || lead.company}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.company}</p>
+                      <p className="font-black text-slate-900 dark:text-white">{lead.contact_name || lead.company_name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.company_name}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="text-slate-600 dark:text-slate-400 font-medium">{lead.email}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{lead.phone ? formatPhoneBR(lead.phone) : ''}</p>
+                      <p className="text-slate-600 dark:text-slate-400 font-medium">{lead.contact_email}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{lead.contact_phone ? formatPhoneBR(lead.contact_phone) : ''}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="text-blue-500 dark:text-blue-400 font-black text-[10px] uppercase">{lead.niche || 'Pendente'}</p>
+                      <p className="text-blue-500 dark:text-blue-400 font-black text-[10px] uppercase">{lead.company_niche || 'Pendente'}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{lead.source || 'Importação'}</p>
                     </td>
                     <td className="px-6 py-5">
@@ -622,11 +637,11 @@ Exemplo: {"0": "name", "2": "email"}`;
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome do Negócio</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome do Contato</label>
                     <textarea 
                       rows={1}
-                      value={editingLead.name || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} 
+                      value={editingLead.contact_name || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, contact_name: e.target.value })} 
                       className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -637,22 +652,20 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Qualificação</label>
-                    <select value={editingLead.qualification || ''} onChange={(e) => setEditingLead({ ...editingLead, qualification: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]">
+                    <select value={editingLead.temperature || ''} onChange={(e) => setEditingLead({ ...editingLead, temperature: e.target.value as any })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]">
                       <option value="">Selecionar...</option>
-                      <option value="1">1 - Muito Baixa</option>
-                      <option value="2">2 - Baixa</option>
-                      <option value="3">3 - Média</option>
-                      <option value="4">4 - Alta</option>
-                      <option value="5">5 - Muito Alta</option>
+                      <option value="Frio">Frio</option>
+                      <option value="Morno">Morno</option>
+                      <option value="Quente">Quente</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">WhatsApp</label>
-                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone do Contato</label>
+                    <input type="text" value={editingLead.contact_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">LinkedIn</label>
-                    <input type="text" value={editingLead.company_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, company_linkedin: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">LinkedIn do Contato</label>
+                    <input type="text" value={editingLead.contact_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_linkedin: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Valor Total</label>
@@ -693,107 +706,41 @@ Exemplo: {"0": "name", "2": "email"}`;
                 </div>
               </section>
 
-              {/* Contatos */}
+              {/* Negócio */}
               <section className="bg-slate-50/50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700">
-                <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
-                      <ICONS.Clients width="20" height="20" />
-                    </div>
-                    Contatos
-                  </h4>
-                  <button 
-                    onClick={() => {
-                      const contacts = editingLead.contacts || [];
-                      setEditingLead({ 
-                        ...editingLead, 
-                        contacts: [...contacts, { 
-                          id: crypto.randomUUID(),
-                          company_id: '',
-                          name: '', 
-                          email: '', 
-                          phone: '', 
-                          role: '',
-                          is_primary: false,
-                          created_at: new Date().toISOString(),
-                          updated_at: new Date().toISOString()
-                        } as Contact] 
-                      });
-                    }}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
-                  >
-                    + Adicionar Contato
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  {(editingLead.contacts || []).map((contact, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative group">
-                      <button 
-                        onClick={() => {
-                          const contacts = [...(editingLead.contacts || [])];
-                          contacts.splice(idx, 1);
-                          setEditingLead({ ...editingLead, contacts });
-                        }}
-                        className="absolute top-4 right-4 p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <ICONS.X width="16" height="16" />
-                      </button>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Nome</label>
-                          <input type="text" value={contact.name} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], name: e.target.value };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">E-mail</label>
-                          <input type="email" value={contact.email} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], email: e.target.value };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Telefone</label>
-                          <input type="text" value={contact.phone} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], phone: formatPhoneBR(e.target.value) };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} placeholder="(00) 00000-0000" className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">WhatsApp</label>
-                          <input type="text" value={contact.whatsapp || ''} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], whatsapp: formatPhoneBR(e.target.value) };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} placeholder="(00) 00000-0000" className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">LinkedIn</label>
-                          <input type="text" value={contact.linkedin || ''} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], linkedin: e.target.value };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Cargo</label>
-                          <input type="text" value={contact.role} onChange={(e) => {
-                            const contacts = [...(editingLead.contacts || [])];
-                            contacts[idx] = { ...contacts[idx], role: e.target.value };
-                            setEditingLead({ ...editingLead, contacts });
-                          }} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {(!editingLead.contacts || editingLead.contacts.length === 0) && (
-                    <p className="text-center py-8 text-slate-400 dark:text-slate-500 font-bold text-sm italic bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">Nenhum contato cadastrado.</p>
-                  )}
+                <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+                    <ICONS.Tasks width="20" height="20" />
+                  </div>
+                  Informações do Negócio
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Notas do Negócio</label>
+                    <textarea 
+                      rows={2}
+                      value={editingLead.business_notes || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, business_notes: e.target.value })} 
+                      className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none min-h-[100px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Notas do Contato</label>
+                    <textarea 
+                      rows={2}
+                      value={editingLead.contact_notes || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, contact_notes: e.target.value })} 
+                      className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none min-h-[100px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Serviço</label>
+                    <input type="text" value={editingLead.service_type || ''} onChange={(e) => setEditingLead({ ...editingLead, service_type: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Ticket Proposto</label>
+                    <input type="number" value={editingLead.proposed_ticket || ''} onChange={(e) => setEditingLead({ ...editingLead, proposed_ticket: Number(e.target.value) })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
                 </div>
               </section>
 
@@ -810,8 +757,8 @@ Exemplo: {"0": "name", "2": "email"}`;
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Nome Fantasia</label>
                     <textarea 
                       rows={1}
-                      value={editingLead.company || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })} 
+                      value={editingLead.company_name || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, company_name: e.target.value })} 
                       className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -824,8 +771,8 @@ Exemplo: {"0": "name", "2": "email"}`;
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Razão Social</label>
                     <textarea 
                       rows={1}
-                      value={editingLead.legal_name || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, legal_name: e.target.value })} 
+                      value={editingLead.business_notes || ''} 
+                      onChange={(e) => setEditingLead({ ...editingLead, business_notes: e.target.value })} 
                       className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -836,23 +783,19 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">CNPJ</label>
-                    <input type="text" value={editingLead.cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, cnpj: formatCNPJ(e.target.value) })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_cnpj || ''} onChange={(e) => setEditingLead({ ...editingLead, company_cnpj: formatCNPJ(e.target.value) })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Segmento / Nicho</label>
-                    <input type="text" value={editingLead.niche || ''} onChange={(e) => setEditingLead({ ...editingLead, niche: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_niche || ''} onChange={(e) => setEditingLead({ ...editingLead, company_niche: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">E-mail Corporativo</label>
                     <input type="email" value={editingLead.company_email || ''} onChange={(e) => setEditingLead({ ...editingLead, company_email: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone Corporativo</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone / WhatsApp Corporativo</label>
                     <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">WhatsApp Empresa</label>
-                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">LinkedIn Empresa</label>
@@ -860,19 +803,19 @@ Exemplo: {"0": "name", "2": "email"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Cidade</label>
-                    <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_city || ''} onChange={(e) => setEditingLead({ ...editingLead, company_city: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Estado</label>
-                    <input type="text" value={editingLead.state || ''} onChange={(e) => setEditingLead({ ...editingLead, state: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_state || ''} onChange={(e) => setEditingLead({ ...editingLead, company_state: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Instagram</label>
-                    <input type="text" value={editingLead.instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, instagram: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, company_instagram: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Site</label>
-                    <input type="text" value={editingLead.website || ''} onChange={(e) => setEditingLead({ ...editingLead, website: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_website || ''} onChange={(e) => setEditingLead({ ...editingLead, company_website: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                 </div>
               </section>
@@ -886,34 +829,6 @@ Exemplo: {"0": "name", "2": "email"}`;
                   Informações Adicionais
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Endereço Completo</label>
-                    <textarea 
-                      rows={1}
-                      value={editingLead.address || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, address: e.target.value })} 
-                      className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = target.scrollHeight + 'px';
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Sócios / QSA</label>
-                    <textarea 
-                      rows={1}
-                      value={editingLead.partners || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, partners: e.target.value })} 
-                      className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = target.scrollHeight + 'px';
-                      }}
-                    />
-                  </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Serviço</label>
                     <input type="text" value={editingLead.service_type || ''} onChange={(e) => setEditingLead({ ...editingLead, service_type: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
@@ -951,24 +866,6 @@ Exemplo: {"0": "name", "2": "email"}`;
                 </div>
               </section>
 
-              {/* Notas Adicionais */}
-              <section className="bg-slate-50/50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700">
-                <h4 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
-                    <ICONS.Tasks width="20" height="20" />
-                  </div>
-                  Notas Adicionais
-                </h4>
-                <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Observações</label>
-                  <textarea 
-                    value={editingLead.notes || ''} 
-                    onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })} 
-                    className="w-full p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[150px]"
-                    placeholder="Adicione observações ou insights sobre este lead..."
-                  />
-                </div>
-              </section>
             </div>
 
             <div className="p-12 pt-6 flex gap-4 border-t border-slate-50 dark:border-slate-800 shrink-0">

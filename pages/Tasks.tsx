@@ -300,7 +300,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     };
 
     const fetchLeads = async () => {
-      const { data } = await supabase.from('m4_leads').select('*').order('name');
+      const { data } = await supabase.from('m4_leads').select('*').order('contact_name');
       if (data) setLeads(data);
     };
 
@@ -439,7 +439,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     setIsEditing(false);
     setCompanySearch(companies.find(c => c.id === task.company_id)?.name || '');
     const lead = leads.find(l => l.id === task.lead_id);
-    setLeadSearch(lead ? `${lead.company || 'Empresa não informada'} - ${lead.name || 'Contato não informado'}` : '');
+    setLeadSearch(lead ? `${lead.company_name || 'Empresa não informada'} - ${lead.contact_name || 'Contato não informado'}` : '');
   };
 
   const openNewTaskModal = () => {
@@ -726,7 +726,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                         {task.lead_id && (
                           <span className="px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
                             <ICONS.Sales width="10" height="10" />
-                            Lead: {leads.find(l => l.id === task.lead_id)?.name || 'Lead'}
+                            Lead: {leads.find(l => l.id === task.lead_id)?.contact_name || 'Lead'}
                           </span>
                         )}
                         {task.client_id && (
@@ -1060,15 +1060,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                               {leads
                                 .filter(l => {
                                   const search = leadSearch.toLowerCase();
-                                  return (l.company?.toLowerCase().includes(search) || l.name?.toLowerCase().includes(search));
+                                  return (l.company_name?.toLowerCase().includes(search) || l.contact_name?.toLowerCase().includes(search));
                                 })
-                                .sort((a, b) => (a.company || '').localeCompare(b.company || ''))
+                                .sort((a, b) => (a.company_name || '').localeCompare(b.company_name || ''))
                                 .map(lead => (
                                   <button
                                     key={lead.id}
                                     type="button"
                                     onClick={() => {
-                                      const label = `${lead.company || 'Empresa não informada'} - ${lead.name || 'Contato não informado'}`;
+                                      const label = `${lead.company_name || 'Empresa não informada'} - ${lead.contact_name || 'Contato não informado'}`;
                                       setLeadSearch(label);
                                       if (selectedTask) setEditTask({...editTask, lead_id: lead.id, company_id: lead.company_id});
                                       else setNewTask({...newTask, lead_id: lead.id, company_id: lead.company_id});
@@ -1081,10 +1081,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate tracking-tight">
-                                        {lead.company || 'Empresa não informada'}
+                                        {lead.company_name || 'Empresa não informada'}
                                       </p>
                                       <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase truncate">
-                                        {lead.name || 'Contato não informado'}
+                                        {lead.contact_name || 'Contato não informado'}
                                       </p>
                                     </div>
                                   </button>
@@ -1102,10 +1102,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                             </div>
                             <div>
                               <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                {leads.find(l => l.id === selectedTask.lead_id)?.company || 'Empresa não informada'}
+                                {leads.find(l => l.id === selectedTask.lead_id)?.company_name || 'Empresa não informada'}
                               </p>
                               <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                                {leads.find(l => l.id === selectedTask.lead_id)?.name || 'Contato não informado'}
+                                {leads.find(l => l.id === selectedTask.lead_id)?.contact_name || 'Contato não informado'}
                               </p>
                             </div>
                           </>

@@ -59,17 +59,33 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
 -- 4. Tabela de Leads (Negócios/Deals)
 CREATE TABLE IF NOT EXISTS m4_leads (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    name TEXT NOT NULL,
-    company TEXT, -- Nome da empresa
-    company_id UUID REFERENCES public.m4_companies(id),
-    contact_id UUID REFERENCES public.m4_contacts(id),
-    email TEXT,
-    phone TEXT,
+    
+    -- Prospect Company Data
+    company_name TEXT NOT NULL,
+    company_cnpj TEXT,
+    company_city TEXT,
+    company_state TEXT,
+    company_niche TEXT,
+    company_website TEXT,
+    company_email TEXT,
+    company_instagram TEXT,
+    company_linkedin TEXT,
+    company_phone TEXT,
+    
+    -- Contact / Decision Maker Data
+    contact_name TEXT NOT NULL,
+    contact_role TEXT,
+    contact_email TEXT,
+    contact_phone TEXT,
+    contact_instagram TEXT,
+    contact_linkedin TEXT,
+    contact_notes TEXT,
+    
+    -- Business Data
     pipeline_id TEXT DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
     stage TEXT DEFAULT 's1',
     value NUMERIC DEFAULT 0,
-    notes TEXT,
-    niche TEXT, -- Nicho/Segmento
+    business_notes TEXT,
     service_type TEXT,
     proposed_ticket NUMERIC DEFAULT 0,
     next_action TEXT,
@@ -77,28 +93,17 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     qualification TEXT,
     source TEXT,
     campaign TEXT,
-    city TEXT,
-    state TEXT,
     closing_forecast DATE,
     temperature TEXT DEFAULT 'Frio',
     probability INTEGER DEFAULT 0,
     ai_score INTEGER DEFAULT 0,
     ai_reasoning TEXT,
-    legal_name TEXT,
-    instagram TEXT,
-    website TEXT,
-    cnpj TEXT,
-    company_linkedin TEXT,
-    company_whatsapp TEXT,
-    company_email TEXT,
-    company_phone TEXT,
-    contact_role TEXT,
-    contact_whatsapp TEXT,
-    contact_instagram TEXT,
-    contact_linkedin TEXT,
-    contacts JSONB DEFAULT '[]', -- Legado
+    
+    -- Metadata & System
     responsible_name TEXT,
     responsible_id TEXT,
+    company_id UUID REFERENCES public.m4_companies(id),
+    contact_id UUID REFERENCES public.m4_contacts(id),
     last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     status TEXT DEFAULT 'active',
     interactions JSONB DEFAULT '[]',
