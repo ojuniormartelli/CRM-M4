@@ -53,9 +53,9 @@ const CRM_FIELDS = [
   { id: 'service_type', label: 'Tipo de Serviço', aliases: ['servico', 'produto', 'service', 'oferta', 'tipo_servico'] },
   { id: 'source', label: 'Origem', aliases: ['source', 'origem', 'canal', 'meio'] },
   { id: 'campaign', label: 'Campanha', aliases: ['campaign', 'campanha', 'ads', 'marketing'] },
-  { id: 'responsible_name', label: 'Responsável', aliases: ['vendedor', 'consultor', 'responsavel', 'responsible_id', 'id_responsavel', 'vendedor_id'] },
-  { id: 'pipeline_name', label: 'Pipeline / Funil', aliases: ['funil', 'pipeline', 'pipeline_id', 'id_pipeline', 'funil_id'] },
-  { id: 'stage_name', label: 'Etapa', aliases: ['etapa', 'fase', 'status_etapa', 'stage_id', 'id_etapa', 'etapa_id', 'stage'] },
+  { id: 'responsible_name', label: 'Responsável', aliases: ['vendedor', 'consultor', 'responsavel', 'responsible_id', 'id_responsavel', 'vendedor_id'], isInternal: true },
+  { id: 'pipeline_name', label: 'Pipeline / Funil', aliases: ['funil', 'pipeline', 'pipeline_id', 'id_pipeline', 'funil_id'], isInternal: true },
+  { id: 'stage_name', label: 'Etapa', aliases: ['etapa', 'fase', 'status_etapa', 'stage_id', 'id_etapa', 'etapa_id', 'stage'], isInternal: true },
 ];
 
 export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onClose, pipelines, currentUser, onImportComplete }) => {
@@ -67,6 +67,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
   const [importRows, setImportRows] = useState<ImportRow[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [selectedResponsibleId, setSelectedResponsibleId] = useState('');
   const [deduplicationStrategy, setDeduplicationStrategy] = useState<'ignore' | 'update' | 'create'>('ignore');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -85,13 +86,16 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     }
   }, [isOpen, currentUser]);
 
-  // Initialize pipeline
+  // Initialize pipeline and responsible
   useEffect(() => {
     if (pipelines.length > 0 && !selectedPipelineId) {
       setSelectedPipelineId(pipelines[0].id);
       setSelectedStageId(pipelines[0].stages[0]?.id || '');
     }
-  }, [pipelines]);
+    if (currentUser && !selectedResponsibleId) {
+      setSelectedResponsibleId(currentUser.id);
+    }
+  }, [pipelines, currentUser]);
 
   useEffect(() => {
     const pipeline = pipelines.find(p => p.id === selectedPipelineId);
@@ -297,7 +301,16 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     importRows.forEach(row => {
       if (row.status === 'error') return;
 
-      const mappedPayload = mappers.lead(row.mapped, currentUser?.workspace_id);
+      // Apply global settings from Step 4
+      const finalData = {
+        ...row.mapped,
+        pipeline_id: selectedPipelineId,
+        stage: selectedStageId,
+        responsible_id: selectedResponsibleId,
+        responsible_name: dbUsers.find(u => u.id === selectedResponsibleId)?.name || currentUser?.name
+      };
+
+      const mappedPayload = mappers.lead(finalData, currentUser?.workspace_id);
 
       if (row.isDuplicate) {
         if (deduplicationStrategy === 'ignore') {
@@ -340,7 +353,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       errors: errorCount
     });
     
-    setStep(4);
+    setStep(5);
     setIsImporting(false);
     
     // Refresh leads in parent
@@ -352,16 +365,14 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
   };
 
   const downloadTemplate = () => {
-    const headersTemplate = CRM_FIELDS.map(f => f.label);
-    const exampleRow = CRM_FIELDS.reduce((acc, f) => {
+    const templateFields = CRM_FIELDS.filter(f => !(f as any).isInternal);
+    const headersTemplate = templateFields.map(f => f.label);
+    const exampleRow = templateFields.reduce((acc, f) => {
       if (f.id === 'value') acc[f.label] = 5000;
       else if (f.id === 'contact_email' || f.id === 'company_email') acc[f.label] = 'exemplo@empresa.com';
       else if (f.id === 'company_phone' || f.id === 'contact_phone') acc[f.label] = '(11) 99999-8888';
       else if (f.id === 'company_cnpj') acc[f.label] = '00.000.000/0001-00';
       else if (f.id === 'company_state') acc[f.label] = 'SP';
-      else if (f.id === 'responsible_name') acc[f.label] = currentUser?.name || 'Nome do Responsável';
-      else if (f.id === 'pipeline_name') acc[f.label] = pipelines[0]?.name || 'Nome do Pipeline';
-      else if (f.id === 'stage_name') acc[f.label] = pipelines[0]?.stages[0]?.name || 'Nome da Etapa';
       else acc[f.label] = `Exemplo ${f.label.replace(' (*)', '')}`;
       return acc;
     }, {} as any);
@@ -380,11 +391,11 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       ["3. O sistema normaliza automaticamente telefones e CNPJ (salva apenas números)."],
       ["4. Unificação: Use 'Telefone da Empresa' ou 'Telefone do Contato' para ligações e WhatsApp."],
       ["5. Valores financeiros devem usar ponto ou vírgula como separador decimal."],
-      ["6. O sistema usará a seleção feita no importador para Pipeline e Etapa, a menos que você preencha as colunas correspondentes."],
+      ["6. O destino da importação (Funil, Etapa e Responsável) será definido no aplicativo após o envio do arquivo."],
       [""],
       ["DETALHAMENTO DAS COLUNAS:"],
       ["Coluna", "Campo Interno", "Obrigatoriedade", "Descrição", "Exemplo"],
-      ...CRM_FIELDS.map(f => [
+      ...templateFields.map(f => [
         f.label, 
         f.id, 
         "Opcional", 
@@ -393,9 +404,6 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         f.id === 'value' ? "Valor monetário estimado do negócio" :
         f.id === 'company_phone' ? "Telefone/WhatsApp da empresa (apenas números)" :
         f.id === 'contact_phone' ? "Telefone/WhatsApp do contato (apenas números)" :
-        f.id === 'responsible_name' ? "Nome do usuário responsável (deve existir no CRM)" :
-        f.id === 'pipeline_name' ? "Nome do funil de vendas" :
-        f.id === 'stage_name' ? "Nome da etapa do funil" :
         `Dados de ${f.label.toLowerCase().replace(' (*)', '')}`,
         exampleRow[f.label]
       ])
@@ -406,14 +414,6 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     // Add Reference sheet
     const referenceData = [
       ["DADOS DE REFERÊNCIA"],
-      [""],
-      ["PIPELINES E ETAPAS DISPONÍVEIS:"],
-      ["Nome do Pipeline", "Etapa"],
-      ...pipelines.flatMap(p => p.stages.map(s => [p.name, s.name])),
-      [""],
-      ["RESPONSÁVEIS DISPONÍVEIS:"],
-      ["Nome", "E-mail"],
-      ...dbUsers.map(u => [u.name, u.email]),
       [""],
       ["EXEMPLOS DE ORIGEM (Source):"],
       ["Indicação", "Google Ads", "Instagram", "LinkedIn", "Site", "Evento", "Outros"]
@@ -454,10 +454,10 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
             <div>
               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importador Inteligente</h3>
               <div className="flex items-center gap-2 mt-1">
-                {[1, 2, 3, 4].map(s => (
+                {[1, 2, 3, 4, 5].map(s => (
                   <div key={s} className={`h-1.5 rounded-full transition-all ${step >= s ? 'w-8 bg-blue-600' : 'w-2 bg-slate-200 dark:bg-slate-800'}`} />
                 ))}
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Passo {step} de 4</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Passo {step} de 5</span>
               </div>
             </div>
           </div>
@@ -505,103 +505,43 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
           )}
 
           {step === 2 && (
-            <div className="space-y-10">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* Left: Settings */}
-                <div className="lg:col-span-1 space-y-8">
-                  <div className="space-y-6">
-                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                      <Filter size={14} /> Configurações de Destino
-                    </h4>
-                    
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pipeline de Destino</label>
-                        <select 
-                          value={selectedPipelineId}
-                          onChange={(e) => setSelectedPipelineId(e.target.value)}
-                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        >
-                          {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Etapa Inicial</label>
-                        <select 
-                          value={selectedStageId}
-                          onChange={(e) => setSelectedStageId(e.target.value)}
-                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        >
-                          {pipelines.find(p => p.id === selectedPipelineId)?.stages.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regra de Duplicidade</label>
-                        <div className="grid grid-cols-1 gap-2">
-                          {[
-                            { id: 'ignore', label: 'Ignorar Duplicados', desc: 'Não importa se já existir.' },
-                            { id: 'update', label: 'Atualizar Existente', desc: 'Sobrescreve dados do lead atual.' },
-                            { id: 'create', label: 'Criar Novo', desc: 'Ignora duplicidade e cria outro.' }
-                          ].map(opt => (
-                            <button
-                              key={opt.id}
-                              onClick={() => setDeduplicationStrategy(opt.id as any)}
-                              className={`p-4 rounded-2xl border-2 text-left transition-all ${deduplicationStrategy === opt.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-                            >
-                              <p className={`text-xs font-black uppercase tracking-tight ${deduplicationStrategy === opt.id ? 'text-blue-600' : 'text-slate-900 dark:text-white'}`}>{opt.label}</p>
-                              <p className="text-[10px] text-slate-500 font-bold mt-0.5">{opt.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Mapping */}
-                <div className="lg:col-span-2 space-y-6">
-                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Database size={14} /> Mapeamento de Colunas
-                  </h4>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-800">
-                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Coluna na Planilha</th>
-                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-10"><ChevronRight size={14} /></th>
-                          <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Campo no CRM</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {headers.map(header => (
-                          <tr key={header} className="group hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                            <td className="p-5">
-                              <p className="text-sm font-black text-slate-900 dark:text-white">{header}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[200px]">Ex: {rawData[0]?.[header] || '-'}</p>
-                            </td>
-                            <td className="p-5 text-center text-slate-300"><ChevronRight size={16} /></td>
-                            <td className="p-5">
-                              <select 
-                                value={mapping[header] || ''}
-                                onChange={(e) => setMapping({...mapping, [header]: e.target.value})}
-                                className={`w-full p-3 rounded-xl border-2 font-bold text-xs transition-all outline-none ${mapping[header] ? 'border-blue-100 bg-blue-50/30 text-blue-600' : 'border-slate-100 bg-white dark:bg-slate-900 text-slate-400'}`}
-                              >
-                                <option value="">Ignorar esta coluna</option>
-                                {CRM_FIELDS.map(f => (
-                                  <option key={f.id} value={f.id}>{f.label}</option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            <div className="space-y-6">
+              <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Database size={14} /> Mapeamento de Colunas
+              </h4>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800">
+                      <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Coluna na Planilha</th>
+                      <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-10"><ChevronRight size={14} /></th>
+                      <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Campo no CRM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {headers.map(header => (
+                      <tr key={header} className="group hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                        <td className="p-5">
+                          <p className="text-sm font-black text-slate-900 dark:text-white">{header}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[200px]">Ex: {rawData[0]?.[header] || '-'}</p>
+                        </td>
+                        <td className="p-5 text-center text-slate-300"><ChevronRight size={16} /></td>
+                        <td className="p-5">
+                          <select 
+                            value={mapping[header] || ''}
+                            onChange={(e) => setMapping({...mapping, [header]: e.target.value})}
+                            className={`w-full p-3 rounded-xl border-2 font-bold text-xs transition-all outline-none ${mapping[header] ? 'border-blue-100 bg-blue-50/30 text-blue-600' : 'border-slate-100 bg-white dark:bg-slate-900 text-slate-400'}`}
+                          >
+                            <option value="">Ignorar esta coluna</option>
+                            {CRM_FIELDS.map(f => (
+                              <option key={f.id} value={f.id}>{f.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -689,6 +629,74 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
           )}
 
           {step === 4 && (
+            <div className="max-w-2xl mx-auto space-y-10 py-6">
+              <div className="text-center space-y-4">
+                <h4 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Configuração Final</h4>
+                <p className="text-slate-500 font-bold">Defina o destino e o responsável para os leads importados.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-8 bg-slate-50 dark:bg-slate-800/50 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pipeline de Destino</label>
+                    <select 
+                      value={selectedPipelineId}
+                      onChange={(e) => setSelectedPipelineId(e.target.value)}
+                      className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    >
+                      {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Etapa Inicial</label>
+                    <select 
+                      value={selectedStageId}
+                      onChange={(e) => setSelectedStageId(e.target.value)}
+                      className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    >
+                      {pipelines.find(p => p.id === selectedPipelineId)?.stages.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsável Padrão</label>
+                  <select 
+                    value={selectedResponsibleId}
+                    onChange={(e) => setSelectedResponsibleId(e.target.value)}
+                    className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    {dbUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regra de Duplicidade</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { id: 'ignore', label: 'Ignorar', desc: 'Não importar' },
+                      { id: 'update', label: 'Atualizar', desc: 'Sobrescrever' },
+                      { id: 'create', label: 'Duplicar', desc: 'Criar novo' }
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setDeduplicationStrategy(opt.id as any)}
+                        className={`p-5 rounded-2xl border-2 text-left transition-all ${deduplicationStrategy === opt.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-white dark:border-slate-900 bg-white dark:bg-slate-900 hover:border-slate-200'}`}
+                      >
+                        <p className={`text-xs font-black uppercase tracking-tight ${deduplicationStrategy === opt.id ? 'text-blue-600' : 'text-slate-900 dark:text-white'}`}>{opt.label}</p>
+                        <p className="text-[10px] text-slate-500 font-bold mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
             <div className="max-w-xl mx-auto py-16 text-center space-y-10">
               <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-100 dark:shadow-none">
                 <Check size={48} />
@@ -730,7 +738,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         </div>
 
         {/* Footer */}
-        {step > 1 && step < 4 && (
+        {step > 1 && step < 5 && (
           <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0 bg-slate-50/50 dark:bg-slate-800/50">
             <button 
               onClick={() => setStep(step - 1)}
@@ -746,14 +754,24 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                 disabled={isProcessing || Object.values(mapping).length === 0}
                 className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
               >
-                {isProcessing ? 'PROCESSANDO...' : 'PRÓXIMO PASSO'} <ChevronRight size={18} />
+                {isProcessing ? 'PROCESSANDO...' : 'REVISAR DADOS'} <ChevronRight size={18} />
               </button>
             )}
 
             {step === 3 && (
               <button 
+                onClick={() => setStep(4)}
+                disabled={importRows.filter(r => r.status !== 'error').length === 0}
+                className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
+              >
+                CONFIGURAR DESTINO <ChevronRight size={18} />
+              </button>
+            )}
+
+            {step === 4 && (
+              <button 
                 onClick={executeImport}
-                disabled={isImporting || importRows.filter(r => r.status !== 'error').length === 0}
+                disabled={isImporting || !selectedPipelineId || !selectedStageId || !selectedResponsibleId}
                 className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none disabled:opacity-50"
               >
                 {isImporting ? 'IMPORTANDO...' : `IMPORTAR ${importRows.filter(r => r.status !== 'error').length} LEADS`} <Check size={18} />
