@@ -27,7 +27,7 @@ interface ImportRow {
 
 const CRM_FIELDS = [
   // SEÇÃO 1 - DADOS DA EMPRESA PROSPECTADA
-  { id: 'company_name', label: 'Nome da Empresa (*)', required: true, aliases: ['empresa', 'company', 'company_name', 'razao social', 'nome fantasia', 'organization', 'nome_empresa', 'cliente'] },
+  { id: 'company_name', label: 'Nome da Empresa', aliases: ['empresa', 'company', 'company_name', 'razao social', 'nome fantasia', 'organization', 'nome_empresa', 'cliente'] },
   { id: 'company_cnpj', label: 'CNPJ da Empresa', aliases: ['cnpj', 'company_cnpj', 'documento', 'tax id', 'cnpj/cpf'] },
   { id: 'company_city', label: 'Cidade da Empresa', aliases: ['municipio', 'city', 'company_city', 'localidade', 'cidade'] },
   { id: 'company_state', label: 'Estado da Empresa', aliases: ['uf', 'state', 'company_state', 'provincia', 'regiao', 'estado'] },
@@ -39,7 +39,7 @@ const CRM_FIELDS = [
   { id: 'company_phone', label: 'Telefone da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
 
   // SEÇÃO 2 - CONTATO / DECISOR
-  { id: 'contact_name', label: 'Nome do Contato (*)', required: true, aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name', 'name'] },
+  { id: 'contact_name', label: 'Nome do Contato', aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name', 'name'] },
   { id: 'contact_role', label: 'Cargo do Contato', aliases: ['cargo', 'funcao', 'role', 'position', 'departamento', 'contact_role'] },
   { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
   { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['instagram contato', 'insta contato', 'contact_instagram'] },
@@ -226,7 +226,9 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       // Validation
       const errors: string[] = [];
       if (!mapped.company_name && !mapped.contact_name) {
-        errors.push('Empresa ou Nome do Contato é obrigatório');
+        const errorMsg = `Linha ${index + 2}: Lead precisa de pelo menos company_name ou contact_name`;
+        errors.push(errorMsg);
+        console.warn(`[Import Error] ${errorMsg}`, rawRow);
       }
 
       // Deduplication Check
@@ -344,7 +346,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       [""],
       ["REGRAS GERAIS:"],
       ["1. Preencha os dados seguindo as colunas deste modelo oficial."],
-      ["2. Campos marcados com (*) são obrigatórios (Empresa ou Nome do Contato)."],
+      ["2. Pelo menos um dos campos (Nome da Empresa ou Nome do Contato) deve estar preenchido."],
       ["3. O sistema normaliza automaticamente telefones e CNPJ (salva apenas números)."],
       ["4. Unificação: Use 'Telefone da Empresa' ou 'Telefone do Contato' para ligações e WhatsApp."],
       ["5. Valores financeiros devem usar ponto ou vírgula como separador decimal."],
@@ -355,7 +357,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       ...CRM_FIELDS.map(f => [
         f.label, 
         f.id, 
-        f.required ? "OBRIGATÓRIO*" : "Opcional", 
+        "Opcional", 
         f.id === 'company_name' ? "Nome da empresa ou organização" :
         f.id === 'contact_name' ? "Nome da pessoa de contato principal" :
         f.id === 'value' ? "Valor monetário estimado do negócio" :
@@ -560,7 +562,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                               >
                                 <option value="">Ignorar esta coluna</option>
                                 {CRM_FIELDS.map(f => (
-                                  <option key={f.id} value={f.id}>{f.label} {f.required ? '*' : ''}</option>
+                                  <option key={f.id} value={f.id}>{f.label}</option>
                                 ))}
                               </select>
                             </td>
