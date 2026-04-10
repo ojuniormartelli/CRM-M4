@@ -112,5 +112,17 @@ export const goalsUtils = {
         Math.min((projectedTotal / monthlyGoal) * 100, 100) : 
         (projectedTotal / monthlyGoal) * 100
     };
+  },
+
+  // Obter string do mês atual formatada para o banco (YYYY-MM-01)
+  getCurrentMonthStr: () => {
+    return goalsUtils.formatMonthStr(new Date());
+  },
+
+  // Formatar uma data para string do mês (YYYY-MM-01)
+  formatMonthStr: (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
   }
 };

@@ -1,23 +1,37 @@
 
 import React from 'react';
-import { Lead, Pipeline } from '../../types';
+import { Lead, Pipeline, Goal } from '../../types';
 import { goalsUtils } from '../../utils/goals';
 
 interface GoalTrackerProps {
   leads: Lead[];
   pipelines: Pipeline[];
-  monthlyGoal: number;
+  goal: Goal | null;
 }
 
 export const GoalTracker: React.FC<GoalTrackerProps> = ({
   leads,
   pipelines,
-  monthlyGoal
+  goal
 }) => {
-  const progress = goalsUtils.getMonthlyGoalProgress(leads, pipelines, monthlyGoal);
-  const leadsNeeded = goalsUtils.getLeadsNeededForGoal(leads, pipelines, monthlyGoal);
-  const burnRate = goalsUtils.getDailyBurnRate(leads, pipelines, monthlyGoal);
-  const projection = goalsUtils.getGoalProjection(leads, pipelines, monthlyGoal);
+  const revenueGoal = goal?.revenue_goal || 0;
+  const leadsGoal = goal?.leads_goal || 0;
+
+  const progress = goalsUtils.getMonthlyGoalProgress(leads, pipelines, revenueGoal);
+  const leadsNeeded = goalsUtils.getLeadsNeededForGoal(leads, pipelines, revenueGoal);
+  const burnRate = goalsUtils.getDailyBurnRate(leads, pipelines, revenueGoal);
+  const projection = goalsUtils.getGoalProjection(leads, pipelines, revenueGoal);
+
+  // Leads progress
+  const wonThisMonth = leads.filter(l => {
+    const isWon = l.status === 'won' || (typeof l.status === 'string' && l.status.toLowerCase() === 'ganho');
+    if (!isWon) return false;
+    const wonDate = new Date(l.last_activity_at || l.created_at);
+    const now = new Date();
+    return wonDate.getMonth() === now.getMonth() && wonDate.getFullYear() === now.getFullYear();
+  });
+  const currentLeads = wonThisMonth.length;
+  const leadsProgress = leadsGoal > 0 ? (currentLeads / leadsGoal) * 100 : 0;
 
   return (
     <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
@@ -25,28 +39,56 @@ export const GoalTracker: React.FC<GoalTrackerProps> = ({
         Meta Mensal
       </h3>
       
-      {/* Barra de progresso */}
-      <div className="mb-6">
+      {/* Barra de progresso Receita */}
+      <div className="mb-8">
         <div className="flex justify-between items-end mb-2">
           <div>
-            <p className="text-3xl font-black text-foreground">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Receita</p>
+            <p className="text-2xl font-black text-foreground">
               R$ {progress.current.toLocaleString()}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               de R$ {progress.goal.toLocaleString()}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-black text-primary">
+            <p className="text-xl font-black text-primary">
               {progress.progress.toFixed(0)}%
             </p>
           </div>
         </div>
         
-        <div className="w-full h-4 bg-muted rounded-full overflow-hidden">
+        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full bg-primary transition-all duration-500"
             style={{ width: `${Math.min(progress.progress, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Barra de progresso Leads */}
+      <div className="mb-8">
+        <div className="flex justify-between items-end mb-2">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Novos Clientes (Leads)</p>
+            <p className="text-2xl font-black text-foreground">
+              {currentLeads}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              de {leadsGoal} leads
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-black text-emerald-500">
+              {leadsProgress.toFixed(0)}%
+            </p>
+          </div>
+        </div>
+        
+        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-500"
+            style={{ width: `${Math.min(leadsProgress, 100)}%` }}
           />
         </div>
       </div>
@@ -93,26 +135,33 @@ export const GoalTracker: React.FC<GoalTrackerProps> = ({
       </div>
 
       {/* Projeção */}
-      <div className={`mt-4 p-4 rounded-xl ${
-        projection.willAchieve 
-          ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/30'
-          : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30'
-      }`}>
-        <p className="text-xs uppercase font-black mb-1 text-muted-foreground">
-          Projeção (baseado no ritmo atual)
-        </p>
-        <p className={`text-xl font-black ${
-          projection.willAchieve ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+      {revenueGoal > 0 ? (
+        <div className={`mt-4 p-4 rounded-xl ${
+          projection.willAchieve 
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/30'
+            : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30'
         }`}>
-          R$ {projection.projected.toLocaleString()}
-          <span className="text-sm ml-2">
-            ({projection.confidence.toFixed(0)}% da meta)
-          </span>
-        </p>
-        <p className="text-xs mt-1 text-muted-foreground">
-          {projection.willAchieve ? '✓ Você vai bater a meta!' : '⚠️ Acelere o ritmo!'}
-        </p>
-      </div>
+          <p className="text-xs uppercase font-black mb-1 text-muted-foreground">
+            Projeção (baseado no ritmo atual)
+          </p>
+          <p className={`text-xl font-black ${
+            projection.willAchieve ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+          }`}>
+            R$ {projection.projected.toLocaleString()}
+            <span className="text-sm ml-2">
+              ({projection.confidence.toFixed(0)}% da meta)
+            </span>
+          </p>
+          <p className="text-xs mt-1 text-muted-foreground">
+            {projection.willAchieve ? '✓ Você vai bater a meta!' : '⚠️ Acelere o ritmo!'}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhuma meta definida para este mês</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Configure em "Metas de Vendas"</p>
+        </div>
+      )}
     </div>
   );
 };

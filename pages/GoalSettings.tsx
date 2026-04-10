@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Goal, User } from '../types';
 import { goalService } from '../services/goalService';
+import { goalsUtils } from '../utils/goals';
 import { ICONS } from '../constants';
 import { 
   format, 
@@ -71,7 +72,7 @@ const GoalSettings: React.FC<GoalSettingsProps> = ({ currentUser }) => {
   };
 
   const getGoalForMonth = (monthDate: Date) => {
-    const monthStr = format(monthDate, 'yyyy-MM-01');
+    const monthStr = goalsUtils.formatMonthStr(monthDate);
     return goals.find(g => g.month === monthStr);
   };
 
@@ -81,7 +82,7 @@ const GoalSettings: React.FC<GoalSettingsProps> = ({ currentUser }) => {
 
   const renderGoalCard = (monthDate: Date, isFuture: boolean = false) => {
     const goal = getGoalForMonth(monthDate);
-    const monthStr = format(monthDate, 'yyyy-MM-01');
+    const monthStr = goalsUtils.formatMonthStr(monthDate);
     const isCurrent = isSameMonth(monthDate, currentMonth);
 
     return (

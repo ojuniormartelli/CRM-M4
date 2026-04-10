@@ -5,6 +5,15 @@ import { ICONS } from '../constants';
 const TechnicalPanel: React.FC = () => {
   const [copied, setCopied] = useState<string | null>(null);
 
+  const handleResetConfig = () => {
+    if (window.confirm('Tem certeza que deseja reconfigurar a conexão? Isso limpará as credenciais do Supabase salvas localmente.')) {
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_anon_key');
+      localStorage.removeItem('m4_crm_user_id');
+      window.location.reload();
+    }
+  };
+
   const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
 -- Use este script apenas se estiver configurando do zero.
 
@@ -747,6 +756,25 @@ CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (tru
         <div className="w-48 h-48 bg-blue-600/20 rounded-[2.5rem] border border-blue-500/30 flex items-center justify-center animate-pulse">
            <ICONS.Search />
         </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="mt-12 p-10 bg-rose-50 dark:bg-rose-950/20 rounded-[2.5rem] border border-rose-100 dark:border-rose-900/30">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div>
+            <h3 className="text-xl font-black text-rose-900 dark:text-rose-400 uppercase tracking-tight">Zona de Perigo</h3>
+            <p className="text-sm font-bold text-rose-600 dark:text-rose-500 uppercase tracking-widest mt-1">Ações irreversíveis de configuração</p>
+          </div>
+          <button 
+            onClick={handleResetConfig}
+            className="px-8 py-4 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 dark:shadow-none"
+          >
+            Reconfigurar Conexão (Reset)
+          </button>
+        </div>
+        <p className="mt-6 text-[10px] font-bold text-rose-400 leading-relaxed uppercase">
+          Esta ação removerá as credenciais do Supabase salvas neste navegador. Você precisará inserir a URL e a Anon Key novamente no próximo acesso.
+        </p>
       </div>
     </div>
   );

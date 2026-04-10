@@ -346,15 +346,6 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const handleResetConfig = () => {
-    if (window.confirm('Tem certeza que deseja reconfigurar a conexão? Isso limpará as credenciais do Supabase salvas localmente.')) {
-      localStorage.removeItem('supabase_url');
-      localStorage.removeItem('supabase_anon_key');
-      localStorage.removeItem('m4_crm_user_id');
-      window.location.reload();
-    }
-  };
-
   const handleStatusChange = async (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => {
     const lead = leads.find(l => l.id === leadId);
     if (!lead) return;
@@ -648,7 +639,7 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
-          {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} pipelines={pipelines} />}
+          {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} pipelines={pipelines} currentUser={currentUser} />}
           {activeTab === 'my_day' && (
             <MyDay 
               tasks={tasks} 
@@ -774,15 +765,6 @@ const App: React.FC = () => {
               setPipelines={setPipelines}
             />
           )}
-        </div>
-        
-        <div className="px-10 pb-6 flex justify-center">
-          <button 
-            onClick={handleResetConfig}
-            className="text-[10px] font-black text-slate-300 hover:text-slate-500 uppercase tracking-widest transition-colors"
-          >
-            Reconfigurar conexão
-          </button>
         </div>
       </main>
     </div>
