@@ -421,7 +421,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       .from('m4_leads')
       .select('*')
       .eq('workspace_id', currentUser?.workspace_id);
-    if (refreshedLeads) onImportComplete(refreshedLeads);
+    if (refreshedLeads) onImportComplete(refreshedLeads.map(mappers.leadFromDb));
   };
 
   const downloadTemplate = () => {

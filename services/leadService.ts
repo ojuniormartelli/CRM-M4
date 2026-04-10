@@ -17,7 +17,7 @@ export const leadService = {
     }
     
     console.log('leadService.getAll() success, leads count:', data?.length);
-    return data as Lead[];
+    return (data || []).map(mappers.leadFromDb);
   },
 
   async create(lead: Partial<Lead>, workspaceId: string) {
@@ -28,7 +28,7 @@ export const leadService = {
       .select()
       .single();
     if (error) throw error;
-    return data as Lead;
+    return mappers.leadFromDb(data);
   },
 
   async update(id: string, lead: Partial<Lead>) {
@@ -40,7 +40,7 @@ export const leadService = {
       .select()
       .single();
     if (error) throw error;
-    return data as Lead;
+    return mappers.leadFromDb(data);
   },
 
   async updateStatus(id: string, status: string) {
@@ -51,7 +51,7 @@ export const leadService = {
       .select()
       .single();
     if (error) throw error;
-    return data as Lead;
+    return mappers.leadFromDb(data);
   },
 
   async delete(id: string) {

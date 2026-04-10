@@ -192,6 +192,7 @@ export interface Lead {
   niche?: string;
   city?: string;
   state?: string;
+  instagram?: string;
 }
 
 export interface Task {

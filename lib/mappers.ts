@@ -46,42 +46,36 @@ export const mappers = {
 
   /**
    * LEAD MAPPER
+   * 🛡️ STRICT WHITELIST: Only real columns from m4_leads table.
    */
   lead: (data: Partial<Lead>, workspaceId?: string) => {
     // Normalization helpers
     const cleanDigits = (val: any) => val ? String(val).replace(/\D/g, '') : '';
     
     const cleanedCnpj = cleanDigits(data.company_cnpj || data.cnpj);
-    const cleanedCompanyPhone = cleanDigits(data.company_phone);
-    const cleanedContactPhone = cleanDigits(data.contact_phone || data.phone);
+    const cleanedPhone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
 
+    // Build payload using ONLY confirmed real columns
     const payload: any = {
-      // Prospect Company Data
-      company_name: data.company_name || data.company || 'Empresa não informada',
-      company_cnpj: cleanedCnpj,
-      company_city: data.company_city || data.city || '',
-      company_state: data.company_state || data.state || '',
-      company_niche: data.company_niche || data.niche || '',
-      company_website: data.company_website || data.website || '',
-      company_email: data.company_email || '',
-      company_instagram: data.company_instagram || '',
-      company_linkedin: data.company_linkedin || '',
-      company_phone: cleanedCompanyPhone,
+      // Core Identity (Real Columns: company, name, email, phone)
+      company: data.company_name || data.company || 'Empresa não informada',
+      name: data.contact_name || data.name || 'Contato não informado',
+      email: data.contact_email || data.email || data.company_email || '',
+      phone: cleanedPhone,
       
-      // Contact / Decision Maker Data
-      contact_name: data.contact_name || data.name || 'Contato não informado',
-      contact_role: data.contact_role || '',
-      contact_email: data.contact_email || data.email || '',
-      contact_instagram: data.contact_instagram || '',
-      contact_linkedin: data.contact_linkedin || '',
-      contact_phone: cleanedContactPhone,
-      contact_notes: data.contact_notes || '',
+      // Additional Info (Real Columns: cnpj, city, state, niche, website, instagram)
+      cnpj: cleanedCnpj,
+      city: data.city || data.company_city || '',
+      state: data.state || data.company_state || '',
+      niche: data.niche || data.company_niche || '',
+      website: data.company_website || data.website || '',
+      instagram: data.instagram || data.company_instagram || '',
       
-      // Business Data
+      // Business Data (Real Columns: pipeline_id, stage, value, notes, service_type, proposed_ticket, next_action, next_action_date, qualification, source, campaign, closing_forecast, temperature, probability, ai_score, ai_reasoning)
       pipeline_id: data.pipeline_id || null,
       stage: data.stage || null,
       value: Number(data.value) || 0,
-      business_notes: data.business_notes || data.notes || '',
+      notes: data.business_notes || data.notes || '',
       service_type: data.service_type || '',
       proposed_ticket: Number(data.proposed_ticket) || 0,
       next_action: data.next_action || '',
@@ -95,20 +89,58 @@ export const mappers = {
       ai_score: Number(data.ai_score) || 0,
       ai_reasoning: data.ai_reasoning || '',
       
-      // Metadata & System
+      // Metadata & System (Real Columns: responsible_name, responsible_id, company_id, contact_id, status, workspace_id)
       responsible_name: data.responsible_name || '',
       responsible_id: data.responsible_id || null,
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,
       status: data.status || 'active',
-
-      // Legacy / Compatibility Fields (Ensures no 400 errors if DB expects these)
-      name: data.contact_name || data.name || 'Contato não informado',
-      company: data.company_name || data.company || 'Empresa não informada',
     };
 
+    // Optional columns that might exist in some versions but not all
+    // We only add them if they are present in the input to minimize risk
+    if (data.contact_notes) payload.contact_notes = data.contact_notes;
+    if (data.company_email) payload.company_email = data.company_email;
+    if (data.company_phone) payload.company_phone = cleanDigits(data.company_phone);
+    if (data.contact_phone) payload.contact_phone = cleanDigits(data.contact_phone);
+    if (data.company_linkedin) payload.company_linkedin = data.company_linkedin;
+    if (data.contact_linkedin) payload.contact_linkedin = data.contact_linkedin;
+    if (data.contact_instagram) payload.contact_instagram = data.contact_instagram;
+
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    
     return payload;
+  },
+
+  /**
+   * REVERSE MAPPER (DB -> UI)
+   * Ensures UI compatibility with real DB columns
+   */
+  leadFromDb: (dbLead: any): Lead => {
+    return {
+      ...dbLead,
+      // Map real columns back to UI interface names
+      company_name: dbLead.company || dbLead.company_name || '',
+      contact_name: dbLead.name || dbLead.contact_name || '',
+      contact_email: dbLead.email || dbLead.contact_email || '',
+      contact_phone: dbLead.phone || dbLead.contact_phone || '',
+      company_cnpj: dbLead.cnpj || dbLead.company_cnpj || '',
+      company_city: dbLead.city || dbLead.company_city || '',
+      company_state: dbLead.state || dbLead.company_state || '',
+      company_niche: dbLead.niche || dbLead.company_niche || '',
+      company_website: dbLead.website || dbLead.company_website || '',
+      company_email: dbLead.company_email || dbLead.email || '',
+      company_instagram: dbLead.instagram || dbLead.company_instagram || '',
+      company_linkedin: dbLead.linkedin || dbLead.company_linkedin || '',
+      company_phone: dbLead.company_phone || dbLead.phone || '',
+      business_notes: dbLead.notes || dbLead.business_notes || '',
+      
+      // Ensure legacy fields are also populated for safety
+      company: dbLead.company || dbLead.company_name || '',
+      name: dbLead.name || dbLead.contact_name || '',
+      email: dbLead.email || dbLead.contact_email || '',
+      phone: dbLead.phone || dbLead.contact_phone || '',
+    } as Lead;
   },
 
   /**
