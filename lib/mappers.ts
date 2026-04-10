@@ -1,11 +1,35 @@
-
-import { Transaction, Lead, Company, Contact, ClientAccount, Task, M4Client, TaskTemplate, WorkspaceNav, Folder, List, CustomFieldDef, CustomFieldValue, M4Automation, TimeTracking } from '../types';
+import {
+  Transaction,
+  Lead,
+  Company,
+  Contact,
+  ClientAccount,
+  Task,
+  M4Client,
+  TaskTemplate,
+  WorkspaceNav,
+  Folder,
+  List,
+  CustomFieldDef,
+  CustomFieldValue,
+  M4Automation,
+  TimeTracking,
+} from '../types';
 
 /**
  * 🛡️ WHITELIST MAPPERS
  * These functions ensure only valid database columns are sent to Supabase.
  * They also handle snake_case conversion and data sanitization.
  */
+
+const cleanDigits = (val: any) => (val ? String(val).replace(/\D/g, '') : '');
+
+const cleanText = (val: any) => (val == null ? '' : String(val).trim());
+
+const toNumberOrDefault = (val: any, fallback = 0) => {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 export const mappers = {
   /**
@@ -49,72 +73,129 @@ export const mappers = {
    * 🛡️ STRICT WHITELIST: Only real columns from m4_leads table.
    */
   lead: (data: Partial<Lead>, workspaceId?: string) => {
-    // Normalization helpers
-    const cleanDigits = (val: any) => val ? String(val).replace(/\D/g, '') : '';
-    
     const cleanedCnpj = cleanDigits(data.company_cnpj || data.cnpj);
-    const cleanedPhone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
-    const cleanedWhatsapp = cleanDigits(data.whatsapp || data.company_whatsapp || data.contact_whatsapp);
+    const cleanedMainPhone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
+    const cleanedMainWhatsapp = cleanDigits(data.whatsapp || data.contact_whatsapp || data.company_whatsapp);
 
-    // Build payload using ONLY confirmed real columns
+    const cleanedCompanyPhone = cleanDigits(data.company_phone);
+    const cleanedCompanyWhatsapp = cleanDigits(data.company_whatsapp);
+    const cleanedContactPhone = cleanDigits(data.contact_phone || data.phone);
+    const cleanedContactWhatsapp = cleanDigits(data.contact_whatsapp);
+
     const payload: any = {
-      // Core Identity (Real Columns: company, name, email, phone)
-      company: data.company_name || data.company || 'Empresa não informada',
-      name: data.contact_name || data.name || 'Contato não informado',
-      email: data.contact_email || data.email || data.company_email || '',
-      phone: cleanedPhone,
-      
-      // Additional Info (Real Columns: cnpj, city, state, niche, website, instagram, linkedin, whatsapp)
+      // Core identity in DB
+      company: cleanText(data.company_name || data.company) || 'Empresa não informada',
+      name: cleanText(data.contact_name || data.name) || 'Contato não informado',
+      email: cleanText(data.contact_email || data.email || data.company_email),
+      phone: cleanedMainPhone,
+      whatsapp: cleanedMainWhatsapp,
+
+      // Company data
+      company_id: data.company_id || null,
       cnpj: cleanedCnpj,
-      city: data.city || data.company_city || '',
-      state: data.state || data.company_state || '',
-      niche: data.niche || data.company_niche || '',
-      website: data.company_website || data.website || '',
-      instagram: data.instagram || data.company_instagram || '',
-      linkedin: data.company_linkedin || data.contact_linkedin || data.linkedin || '',
-      whatsapp: cleanedWhatsapp,
-      
-      // Business Data (Real Columns: pipeline_id, stage, value, notes, service_type, proposed_ticket, next_action, next_action_date, qualification, source, campaign, closing_forecast, temperature, probability, ai_score, ai_reasoning)
+      legal_name: cleanText(data.company_name || data.company),
+      city: cleanText(data.company_city || data.city),
+      state: cleanText(data.company_state || data.state),
+      niche: cleanText(data.company_niche || data.niche),
+      website: cleanText(data.company_website || data.website),
+      instagram: cleanText(data.company_instagram || data.instagram),
+      company_email: cleanText(data.company_email),
+      company_phone: cleanedCompanyPhone,
+      company_whatsapp: cleanedCompanyWhatsapp,
+      company_linkedin: cleanText(data.company_linkedin),
+
+      // Contact data
+      contact_id: data.contact_id || null,
+      contact_role: cleanText(data.contact_role),
+      contact_whatsapp: cleanedContactWhatsapp,
+      contact_instagram: cleanText(data.contact_instagram),
+      contact_linkedin: cleanText(data.contact_linkedin || data.linkedin),
+      contact_notes: cleanText(data.contact_notes),
+
+      // Business data
       pipeline_id: data.pipeline_id || null,
       stage: data.stage || null,
-      value: Number(data.value) || 0,
-      notes: data.business_notes || data.notes || '',
-      service_type: data.service_type || '',
-      proposed_ticket: Number(data.proposed_ticket) || 0,
-      next_action: data.next_action || '',
+      value: toNumberOrDefault(data.value, 0),
+      notes: cleanText(data.business_notes || data.notes),
+      service_type: cleanText(data.service_type),
+      proposed_ticket: toNumberOrDefault(data.proposed_ticket, 0),
+      next_action: cleanText(data.next_action),
       next_action_date: data.next_action_date || null,
-      qualification: data.qualification || '',
-      source: data.source || '',
-      campaign: data.campaign || '',
+      qualification: cleanText(data.qualification),
+      source: cleanText(data.source),
+      campaign: cleanText(data.campaign),
       closing_forecast: data.closing_forecast || null,
       temperature: data.temperature || 'Frio',
-      probability: Number(data.probability) || 0,
-      ai_score: Number(data.ai_score) || 0,
-      ai_reasoning: data.ai_reasoning || '',
-      
-      // Metadata & System (Real Columns: responsible_name, responsible_id, company_id, contact_id, status, workspace_id)
-      responsible_name: data.responsible_name || '',
+      probability: toNumberOrDefault(data.probability, 0),
+      ai_score: toNumberOrDefault(data.ai_score, 0),
+      ai_reasoning: cleanText(data.ai_reasoning),
+
+      // Metadata & system
+      responsible_name: cleanText(data.responsible_name),
       responsible_id: data.responsible_id || null,
-      company_id: data.company_id || null,
-      contact_id: data.contact_id || null,
       status: data.status || 'active',
+      interactions: data.interactions || [],
+      custom_fields: data.custom_fields || {},
     };
 
-    if (data.contact_notes) payload.contact_notes = data.contact_notes;
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
-    
-    // 🛡️ FINAL WHITELIST FILTER
-    // This ensures that even if we accidentally added a key above, it won't be sent if it's not in the real schema.
+    if (workspaceId || data.workspace_id) {
+      payload.workspace_id = workspaceId || data.workspace_id;
+    }
+
     const REAL_COLUMNS = [
-      'id', 'company', 'name', 'email', 'phone', 'cnpj', 'city', 'state', 'niche', 'website', 'instagram', 'linkedin', 'whatsapp',
-      'pipeline_id', 'stage', 'value', 'notes', 'service_type', 'proposed_ticket', 'next_action', 'next_action_date', 
-      'qualification', 'source', 'campaign', 'closing_forecast', 'temperature', 'probability', 'ai_score', 'ai_reasoning',
-      'responsible_name', 'responsible_id', 'company_id', 'contact_id', 'status', 'workspace_id', 'created_at', 'last_activity_at',
-      'interactions', 'custom_fields', 'contact_notes'
+      'id',
+      'name',
+      'company',
+      'company_id',
+      'contact_id',
+      'email',
+      'phone',
+      'pipeline_id',
+      'stage',
+      'value',
+      'notes',
+      'niche',
+      'service_type',
+      'proposed_ticket',
+      'next_action',
+      'next_action_date',
+      'qualification',
+      'source',
+      'campaign',
+      'city',
+      'state',
+      'closing_forecast',
+      'temperature',
+      'probability',
+      'ai_score',
+      'ai_reasoning',
+      'legal_name',
+      'instagram',
+      'website',
+      'company_email',
+      'company_phone',
+      'contacts',
+      'responsible_name',
+      'responsible_id',
+      'last_activity_at',
+      'status',
+      'interactions',
+      'custom_fields',
+      'workspace_id',
+      'created_at',
+      'cnpj',
+      'whatsapp',
+      'company_whatsapp',
+      'contact_role',
+      'contact_whatsapp',
+      'contact_instagram',
+      'contact_linkedin',
+      'company_linkedin',
+      'contact_notes',
     ];
 
     const finalPayload: any = {};
-    REAL_COLUMNS.forEach(col => {
+    REAL_COLUMNS.forEach((col) => {
       if (payload[col] !== undefined) {
         finalPayload[col] = payload[col];
       }
@@ -129,25 +210,75 @@ export const mappers = {
    */
   leadFromDb: (dbLead: any): Lead => {
     return {
-      ...dbLead,
-      // Map real columns back to UI interface names
-      company_name: dbLead.company || dbLead.company_name || '',
-      contact_name: dbLead.name || dbLead.contact_name || '',
-      contact_email: dbLead.email || dbLead.contact_email || '',
-      contact_phone: dbLead.phone || dbLead.contact_phone || '',
-      company_cnpj: dbLead.cnpj || dbLead.company_cnpj || '',
-      company_city: dbLead.city || dbLead.company_city || '',
-      company_state: dbLead.state || dbLead.company_state || '',
-      company_niche: dbLead.niche || dbLead.company_niche || '',
-      company_website: dbLead.website || dbLead.company_website || '',
-      company_instagram: dbLead.instagram || dbLead.company_instagram || '',
-      business_notes: dbLead.notes || dbLead.business_notes || '',
-      
-      // Ensure legacy fields are also populated for safety
-      company: dbLead.company || dbLead.company_name || '',
-      name: dbLead.name || dbLead.contact_name || '',
-      email: dbLead.email || dbLead.contact_email || '',
-      phone: dbLead.phone || dbLead.contact_phone || '',
+      id: dbLead.id,
+      workspace_id: dbLead.workspace_id || '',
+
+      // Prospect Company Data
+      company_name: dbLead.company || '',
+      company_cnpj: dbLead.cnpj || '',
+      company_city: dbLead.city || '',
+      company_state: dbLead.state || '',
+      company_niche: dbLead.niche || '',
+      company_website: dbLead.website || '',
+      company_email: dbLead.company_email || '',
+      company_instagram: dbLead.instagram || '',
+      company_linkedin: dbLead.company_linkedin || '',
+      company_phone: dbLead.company_phone || '',
+
+      // Contact / Decision Maker Data
+      contact_name: dbLead.name || '',
+      contact_role: dbLead.contact_role || '',
+      contact_email: dbLead.email || '',
+      contact_instagram: dbLead.contact_instagram || '',
+      contact_linkedin: dbLead.contact_linkedin || '',
+      contact_phone: dbLead.phone || '',
+      contact_notes: dbLead.contact_notes || '',
+
+      // Business Data
+      pipeline_id: dbLead.pipeline_id || undefined,
+      stage: dbLead.stage || '',
+      value: Number(dbLead.value) || 0,
+      business_notes: dbLead.notes || '',
+      service_type: dbLead.service_type || '',
+      whatsapp: dbLead.whatsapp || '',
+      linkedin: dbLead.contact_linkedin || dbLead.company_linkedin || '',
+      company_whatsapp: dbLead.company_whatsapp || '',
+      contact_whatsapp: dbLead.contact_whatsapp || '',
+      proposed_ticket: Number(dbLead.proposed_ticket) || 0,
+      next_action: dbLead.next_action || '',
+      next_action_date: dbLead.next_action_date || undefined,
+      qualification: dbLead.qualification || '',
+      source: dbLead.source || '',
+      campaign: dbLead.campaign || '',
+      closing_forecast: dbLead.closing_forecast || undefined,
+      temperature: dbLead.temperature || 'Frio',
+      probability: Number(dbLead.probability) || 0,
+      ai_score: Number(dbLead.ai_score) || 0,
+      ai_reasoning: dbLead.ai_reasoning || '',
+
+      // Metadata & System
+      responsible_name: dbLead.responsible_name || '',
+      responsible_id: dbLead.responsible_id || undefined,
+      company_id: dbLead.company_id || undefined,
+      contact_id: dbLead.contact_id || undefined,
+      last_activity_at: dbLead.last_activity_at || undefined,
+      status: dbLead.status || 'active',
+      interactions: Array.isArray(dbLead.interactions) ? dbLead.interactions : [],
+      custom_fields: dbLead.custom_fields && typeof dbLead.custom_fields === 'object' ? dbLead.custom_fields : {},
+      created_at: dbLead.created_at || new Date().toISOString(),
+
+      // Legacy / compatibility
+      name: dbLead.name || '',
+      company: dbLead.company || '',
+      email: dbLead.email || '',
+      phone: dbLead.phone || '',
+      notes: dbLead.notes || '',
+      cnpj: dbLead.cnpj || '',
+      website: dbLead.website || '',
+      niche: dbLead.niche || '',
+      city: dbLead.city || '',
+      state: dbLead.state || '',
+      instagram: dbLead.instagram || '',
     } as Lead;
   },
 
@@ -380,5 +511,5 @@ export const mappers = {
 
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;
-  }
+  },
 };
