@@ -101,6 +101,10 @@ export const mappers = {
       company_id: data.company_id || null,
       contact_id: data.contact_id || null,
       status: data.status || 'active',
+
+      // Legacy / Compatibility Fields (Ensures no 400 errors if DB expects these)
+      name: data.contact_name || data.name || 'Contato não informado',
+      company: data.company_name || data.company || 'Empresa não informada',
     };
 
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;

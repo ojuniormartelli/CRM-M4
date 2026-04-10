@@ -213,8 +213,18 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
             if (val === '') val = null;
           }
 
-          if (fieldId === 'value') {
-            val = parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          if (fieldId === 'value' || fieldId === 'proposed_ticket') {
+            // Remove currency symbols and thousands separators, convert comma to dot
+            const cleaned = String(val).replace(/[^\d,.-]/g, '');
+            if (cleaned.includes(',') && cleaned.includes('.')) {
+              // Format like 1.234,56
+              val = parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+            } else if (cleaned.includes(',')) {
+              // Format like 1234,56
+              val = parseFloat(cleaned.replace(',', '.')) || 0;
+            } else {
+              val = parseFloat(cleaned) || 0;
+            }
           }
           
           if (fieldId === 'company_cnpj' || fieldId === 'company_phone' || fieldId === 'contact_phone') {
@@ -304,10 +314,10 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       // Apply global settings from Step 4
       const finalData = {
         ...row.mapped,
-        pipeline_id: selectedPipelineId,
-        stage: selectedStageId,
-        responsible_id: selectedResponsibleId,
-        responsible_name: dbUsers.find(u => u.id === selectedResponsibleId)?.name || currentUser?.name
+        pipeline_id: selectedPipelineId || null,
+        stage: selectedStageId || null,
+        responsible_id: selectedResponsibleId || null,
+        responsible_name: dbUsers.find(u => u.id === selectedResponsibleId)?.name || currentUser?.name || 'Sistema'
       };
 
       const mappedPayload = mappers.lead(finalData, currentUser?.workspace_id);
