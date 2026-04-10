@@ -29,8 +29,6 @@ CREATE TABLE IF NOT EXISTS public.m4_companies (
   segment text,
   website text,
   email text,
-  instagram text,
-  linkedin text,
   phone text,
   whatsapp text,
   notes text,
@@ -48,8 +46,6 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
   email text,
   phone text,
   whatsapp text,
-  instagram text,
-  linkedin text,
   notes text,
   is_primary boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
@@ -68,8 +64,6 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     company_niche TEXT,
     company_website TEXT,
     company_email TEXT,
-    company_instagram TEXT,
-    company_linkedin TEXT,
     company_phone TEXT,
     
     -- Contact / Decision Maker Data
@@ -77,8 +71,6 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     contact_role TEXT,
     contact_email TEXT,
     contact_phone TEXT,
-    contact_instagram TEXT,
-    contact_linkedin TEXT,
     contact_notes TEXT,
     
     -- Business Data

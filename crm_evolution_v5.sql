@@ -24,8 +24,7 @@ ALTER TABLE public.m4_contacts DROP COLUMN IF EXISTS whatsapp;
 
 -- 4. Adição de campos faltantes no modal
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_email text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_instagram text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_linkedin text;
+-- No changes needed here, just removing the lines in the next chunk
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_notes text;
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS business_notes text;
 ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS proposed_ticket numeric DEFAULT 0;
