@@ -51,8 +51,6 @@ export interface Company {
   segment?: string;
   website?: string;
   email?: string;
-  instagram?: string;
-  linkedin?: string;
   phone?: string;
   whatsapp?: string;
   notes?: string;
@@ -69,8 +67,6 @@ export interface Contact {
   email?: string;
   phone?: string;
   whatsapp?: string;
-  instagram?: string;
-  linkedin?: string;
   notes?: string;
   is_primary: boolean;
   created_at: string;
@@ -143,8 +139,6 @@ export interface Lead {
   company_niche?: string;
   company_website?: string;
   company_email?: string;
-  company_instagram?: string;
-  company_linkedin?: string;
   company_phone?: string;
   
   // Contact / Decision Maker Data
@@ -152,8 +146,6 @@ export interface Lead {
   contact_role?: string;
   contact_email?: string;
   contact_phone?: string;
-  contact_instagram?: string;
-  contact_linkedin?: string;
   contact_notes?: string;
   
   // Business Data
@@ -192,7 +184,6 @@ export interface Lead {
   phone?: string;
   notes?: string;
   cnpj?: string;
-  instagram?: string;
   website?: string;
   niche?: string;
   city?: string;

@@ -470,14 +470,6 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, company_email: val })}
                       />
                       <EditableInfoItem 
-                        label="LinkedIn da Empresa" 
-                        value={editedLead.company_linkedin} 
-                        originalValue={selectedLead.company_linkedin}
-                        isEditing={isEditingLead}
-                        isLink
-                        onChange={(val) => setEditedLead({ ...editedLead, company_linkedin: val })}
-                      />
-                      <EditableInfoItem 
                         label="Telefone da Empresa" 
                         value={editedLead.company_phone} 
                         originalValue={selectedLead.company_phone}
@@ -523,21 +515,6 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         isEditing={isEditingLead}
                         isWhatsApp
                         onChange={(val) => setEditedLead({ ...editedLead, contact_phone: formatPhoneBR(val) })}
-                      />
-                      <EditableInfoItem 
-                        label="Instagram" 
-                        value={editedLead.contact_instagram} 
-                        originalValue={selectedLead.contact_instagram}
-                        isEditing={isEditingLead}
-                        onChange={(val) => setEditedLead({ ...editedLead, contact_instagram: val })}
-                      />
-                      <EditableInfoItem 
-                        label="LinkedIn" 
-                        value={editedLead.contact_linkedin} 
-                        originalValue={selectedLead.contact_linkedin}
-                        isEditing={isEditingLead}
-                        isLink
-                        onChange={(val) => setEditedLead({ ...editedLead, contact_linkedin: val })}
                       />
                     </div>
                   </div>

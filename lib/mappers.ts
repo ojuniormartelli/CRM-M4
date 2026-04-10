@@ -64,8 +64,6 @@ export const mappers = {
       company_niche: data.company_niche || data.niche || '',
       company_website: data.company_website || data.website || '',
       company_email: data.company_email || '',
-      company_instagram: data.company_instagram || data.instagram || '',
-      company_linkedin: data.company_linkedin || '',
       company_phone: cleanedCompanyPhone,
       
       // Contact / Decision Maker Data
@@ -73,8 +71,6 @@ export const mappers = {
       contact_role: data.contact_role || '',
       contact_email: data.contact_email || data.email || '',
       contact_phone: cleanedContactPhone,
-      contact_instagram: data.contact_instagram || '',
-      contact_linkedin: data.contact_linkedin || '',
       contact_notes: data.contact_notes || '',
       
       // Business Data
@@ -119,8 +115,6 @@ export const mappers = {
       segment: data.segment || '',
       website: data.website || '',
       email: data.email || '',
-      instagram: data.instagram || '',
-      linkedin: data.linkedin || '',
       phone: data.phone || '',
       whatsapp: data.whatsapp || '',
       notes: data.notes || '',
@@ -141,8 +135,6 @@ export const mappers = {
       email: data.email || '',
       phone: data.phone || '',
       whatsapp: data.whatsapp || '',
-      instagram: data.instagram || '',
-      linkedin: data.linkedin || '',
       notes: data.notes || '',
       is_primary: !!data.is_primary,
     };

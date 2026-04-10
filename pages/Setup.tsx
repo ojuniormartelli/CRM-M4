@@ -12,8 +12,30 @@ const Setup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
+-- ⚠️ AVISO: Este script apaga todas as tabelas existentes para uma instalação limpa.
+
+DROP TABLE IF EXISTS public.m4_transactions CASCADE;
+DROP TABLE IF EXISTS public.m4_bank_accounts CASCADE;
+DROP TABLE IF EXISTS public.m4_credit_cards CASCADE;
+DROP TABLE IF EXISTS public.m4_client_accounts CASCADE;
+DROP TABLE IF EXISTS public.m4_tasks CASCADE;
+DROP TABLE IF EXISTS public.m4_emails CASCADE;
+DROP TABLE IF EXISTS public.m4_interactions CASCADE;
+DROP TABLE IF EXISTS public.m4_form_responses CASCADE;
+DROP TABLE IF EXISTS public.m4_form_templates CASCADE;
+DROP TABLE IF EXISTS public.m4_leads CASCADE;
+DROP TABLE IF EXISTS public.m4_contacts CASCADE;
+DROP TABLE IF EXISTS public.m4_companies CASCADE;
+DROP TABLE IF EXISTS public.m4_settings CASCADE;
+DROP TABLE IF EXISTS public.m4_users CASCADE;
+DROP TABLE IF EXISTS public.m4_job_roles CASCADE;
+DROP TABLE IF EXISTS public.m4_pipelines CASCADE;
+DROP TABLE IF EXISTS public.m4_pipeline_stages CASCADE;
+DROP TABLE IF EXISTS public.m4_posts CASCADE;
+DROP TABLE IF EXISTS public.m4_campaigns CASCADE;
+
 -- 1. Tabela de Configurações
-CREATE TABLE IF NOT EXISTS m4_settings (
+CREATE TABLE public.m4_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID UNIQUE,
     crm_name TEXT DEFAULT 'M4 CRM',
@@ -30,7 +52,7 @@ CREATE TABLE IF NOT EXISTS m4_settings (
 );
 
 -- 2. Tabela de Empresas
-CREATE TABLE IF NOT EXISTS public.m4_companies (
+CREATE TABLE public.m4_companies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid,
   name text NOT NULL,
@@ -39,16 +61,14 @@ CREATE TABLE IF NOT EXISTS public.m4_companies (
   state text,
   segment text,
   website text,
-  instagram text,
   phone text,
-  whatsapp text,
   notes text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
 
 -- 3. Tabela de Contatos
-CREATE TABLE IF NOT EXISTS public.m4_contacts (
+CREATE TABLE public.m4_contacts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid,
   company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
@@ -56,9 +76,6 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
   role text,
   email text,
   phone text,
-  whatsapp text,
-  instagram text,
-  linkedin text,
   notes text,
   is_primary boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
@@ -66,8 +83,10 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
 );
 
 -- 4. Tabela de Leads (Negócios/Deals)
-CREATE TABLE IF NOT EXISTS m4_leads (
+CREATE TABLE public.m4_leads (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
     company_name TEXT NOT NULL,
     company_cnpj TEXT,
     company_city TEXT,
@@ -75,19 +94,15 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     company_niche TEXT,
     company_website TEXT,
     company_email TEXT,
-    company_instagram TEXT,
-    company_linkedin TEXT,
     company_phone TEXT,
     contact_name TEXT NOT NULL,
     contact_role TEXT,
     contact_email TEXT,
     contact_phone TEXT,
-    contact_instagram TEXT,
-    contact_linkedin TEXT,
     contact_notes TEXT,
     business_notes TEXT,
-    pipeline_id TEXT DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
-    stage TEXT DEFAULT 's1',
+    pipeline_id UUID DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
+    stage UUID,
     value NUMERIC DEFAULT 0,
     service_type TEXT,
     source TEXT,
@@ -97,7 +112,7 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     probability INTEGER DEFAULT 0,
     ai_score INTEGER DEFAULT 0,
     ai_reasoning TEXT,
-    responsible_id TEXT,
+    responsible_id UUID,
     last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     status TEXT DEFAULT 'active',
     interactions JSONB DEFAULT '[]',
@@ -107,7 +122,7 @@ CREATE TABLE IF NOT EXISTS m4_leads (
 );
 
 -- 5. Tabela de Tarefas
-CREATE TABLE IF NOT EXISTS m4_tasks (
+CREATE TABLE public.m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
@@ -122,12 +137,15 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     client_account_id UUID,
     is_recurring BOOLEAN DEFAULT FALSE,
     recurrence_period TEXT,
+    task_type TEXT DEFAULT 'internal',
+    interaction_success BOOLEAN DEFAULT TRUE,
+    interaction_note TEXT,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 6. Tabela de Contas de Clientes
-CREATE TABLE IF NOT EXISTS m4_client_accounts (
+CREATE TABLE public.m4_client_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     company_id UUID REFERENCES m4_companies(id),
@@ -144,7 +162,7 @@ CREATE TABLE IF NOT EXISTS m4_client_accounts (
 );
 
 -- 7. Módulo Financeiro
-CREATE TABLE IF NOT EXISTS m4_bank_accounts (
+CREATE TABLE public.m4_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     bank_type TEXT,
@@ -155,7 +173,7 @@ CREATE TABLE IF NOT EXISTS m4_bank_accounts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_credit_cards (
+CREATE TABLE public.m4_credit_cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     limit_amount NUMERIC DEFAULT 0,
@@ -166,7 +184,7 @@ CREATE TABLE IF NOT EXISTS m4_credit_cards (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_transactions (
+CREATE TABLE public.m4_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     description TEXT NOT NULL,
     amount NUMERIC NOT NULL,
@@ -189,7 +207,7 @@ CREATE TABLE IF NOT EXISTS m4_transactions (
 );
 
 -- 8. Comunicação e Social
-CREATE TABLE IF NOT EXISTS m4_emails (
+CREATE TABLE public.m4_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_name TEXT,
     sender_email TEXT,
@@ -205,7 +223,7 @@ CREATE TABLE IF NOT EXISTS m4_emails (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_posts (
+CREATE TABLE public.m4_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_name TEXT,
     user_role TEXT,
@@ -217,7 +235,7 @@ CREATE TABLE IF NOT EXISTS m4_posts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_campaigns (
+CREATE TABLE public.m4_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT,
@@ -229,32 +247,8 @@ CREATE TABLE IF NOT EXISTS m4_campaigns (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 9. Usuários
-CREATE TABLE IF NOT EXISTS public.m4_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT DEFAULT 'admin123',
-    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
-    job_role_id UUID,
-    workspace_id UUID,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    must_change_password BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Ensure job_role_id exists in m4_users
-DO $$ 
-BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_users' AND column_name='job_role_id') THEN
-        ALTER TABLE m4_users ADD COLUMN job_role_id UUID REFERENCES m4_job_roles(id);
-    END IF;
-END $$;
-
--- 12. Cargos
-CREATE TABLE IF NOT EXISTS public.m4_job_roles (
+-- 9. Cargos
+CREATE TABLE public.m4_job_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID,
     name TEXT NOT NULL,
@@ -263,31 +257,24 @@ CREATE TABLE IF NOT EXISTS public.m4_job_roles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure job_role_id exists in m4_users
-DO $$ 
-BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_users' AND column_name='job_role_id') THEN
-        ALTER TABLE m4_users ADD COLUMN job_role_id UUID REFERENCES m4_job_roles(id);
-    END IF;
-END $$;
+-- 10. Usuários
+CREATE TABLE public.m4_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT DEFAULT 'admin123',
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
+    job_role_id UUID REFERENCES public.m4_job_roles(id),
+    workspace_id UUID,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    must_change_password BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Inserir cargos padrão
-INSERT INTO public.m4_job_roles (id, name, level, permissions) VALUES
-('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'Owner', 100, '{"all": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf2', 'Administrador', 50, '{"settings": true, "users": true, "leads": true, "finance": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf5', 'Coordenador', 40, '{"leads": true, "tasks": true, "clients": true, "users": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf6', 'Supervisor', 30, '{"leads": true, "tasks": true, "clients": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf3', 'Vendedor', 20, '{"leads": true, "tasks": true, "clients": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Usuário Básico', 10, '{"tasks": true, "view_only": true}')
-ON CONFLICT (id) DO NOTHING;
-
--- Inserir usuário admin padrão vinculado ao Owner
-INSERT INTO public.m4_users (name, username, email, password, role, job_role_id, status, must_change_password)
-VALUES ('Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'active', true)
-ON CONFLICT (email) DO NOTHING;
-
--- 10. Pipelines
-CREATE TABLE IF NOT EXISTS m4_pipelines (
+-- 11. Pipelines
+CREATE TABLE public.m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     workspace_id UUID,
@@ -295,7 +282,7 @@ CREATE TABLE IF NOT EXISTS m4_pipelines (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
+CREATE TABLE public.m4_pipeline_stages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID REFERENCES m4_pipelines(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -305,7 +292,36 @@ CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. RLS (Simplified)
+-- 12. Formulários e Interações
+CREATE TABLE public.m4_form_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    questions JSONB DEFAULT '[]',
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE public.m4_form_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    answers JSONB DEFAULT '[]',
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE public.m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    type TEXT,
+    title TEXT,
+    content TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 13. RLS
 ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_contacts ENABLE ROW LEVEL SECURITY;
@@ -322,8 +338,11 @@ ALTER TABLE m4_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_job_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_pipelines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_pipeline_stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_form_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_form_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
 
--- Simple policies to allow all authenticated users for now
+-- Simple policies
 CREATE POLICY "Allow all for authenticated" ON m4_settings FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_companies FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_contacts FOR ALL USING (true);
@@ -340,6 +359,23 @@ CREATE POLICY "Allow all for authenticated" ON m4_users FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_job_roles FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_pipelines FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_form_templates FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_form_responses FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_interactions FOR ALL USING (true);
+
+-- 14. Dados Iniciais
+INSERT INTO public.m4_job_roles (id, name, level, permissions) VALUES
+('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'Owner', 100, '{"all": true}'),
+('d167f4e8-4a19-4ab7-b655-f104004f8bf2', 'Administrador', 50, '{"settings": true, "users": true, "leads": true, "finance": true}'),
+('d167f4e8-4a19-4ab7-b655-f104004f8bf5', 'Coordenador', 40, '{"leads": true, "tasks": true, "clients": true, "users": true}'),
+('d167f4e8-4a19-4ab7-b655-f104004f8bf6', 'Supervisor', 30, '{"leads": true, "tasks": true, "clients": true}'),
+('d167f4e8-4a19-4ab7-b655-f104004f8bf3', 'Vendedor', 20, '{"leads": true, "tasks": true, "clients": true}'),
+('d167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Usuário Básico', 10, '{"tasks": true, "view_only": true}')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.m4_users (name, username, email, password, role, job_role_id, status, must_change_password)
+VALUES ('Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'active', true)
+ON CONFLICT (email) DO NOTHING;
 `;
 
   const handleInstall = async () => {

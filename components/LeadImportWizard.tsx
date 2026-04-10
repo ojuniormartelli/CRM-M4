@@ -34,8 +34,6 @@ const CRM_FIELDS = [
   { id: 'company_niche', label: 'Segmento / Nicho', aliases: ['niche', 'setor', 'industria', 'industry', 'segmento', 'segment', 'company_segment', 'company_niche'] },
   { id: 'company_website', label: 'Website da Empresa', aliases: ['site', 'url', 'web', 'company_website', 'website'] },
   { id: 'company_email', label: 'E-mail da Empresa', aliases: ['email empresa', 'email corporativo', 'company_email'] },
-  { id: 'company_instagram', label: 'Instagram da Empresa', aliases: ['insta empresa', 'ig empresa', 'instagram_empresa', 'company_instagram', 'instagram'] },
-  { id: 'company_linkedin', label: 'LinkedIn da Empresa', aliases: ['linkedin empresa', 'company_linkedin'] },
   { id: 'company_phone', label: 'Telefone da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
 
   // SEÇÃO 2 - CONTATO / DECISOR
@@ -43,8 +41,6 @@ const CRM_FIELDS = [
   { id: 'contact_role', label: 'Cargo do Contato', aliases: ['cargo', 'funcao', 'role', 'position', 'departamento', 'contact_role'] },
   { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
   { id: 'contact_phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
-  { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['insta contato', 'ig contato', 'instagram_contato', 'contact_instagram'] },
-  { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin'] },
   { id: 'contact_notes', label: 'Notas do Contato', aliases: ['notas contato', 'obs contato', 'contact_notes'] },
 
   // SEÇÃO 3 - DADOS DO NEGÓCIO
