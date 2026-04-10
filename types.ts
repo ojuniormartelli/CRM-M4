@@ -139,12 +139,16 @@ export interface Lead {
   company_niche?: string;
   company_website?: string;
   company_email?: string;
+  company_instagram?: string;
+  company_linkedin?: string;
   company_phone?: string;
   
   // Contact / Decision Maker Data
   contact_name: string;
   contact_role?: string;
   contact_email?: string;
+  contact_instagram?: string;
+  contact_linkedin?: string;
   contact_phone?: string;
   contact_notes?: string;
   

@@ -64,12 +64,16 @@ export const mappers = {
       company_niche: data.company_niche || data.niche || '',
       company_website: data.company_website || data.website || '',
       company_email: data.company_email || '',
+      company_instagram: data.company_instagram || '',
+      company_linkedin: data.company_linkedin || '',
       company_phone: cleanedCompanyPhone,
       
       // Contact / Decision Maker Data
       contact_name: data.contact_name || data.name || 'Contato não informado',
       contact_role: data.contact_role || '',
       contact_email: data.contact_email || data.email || '',
+      contact_instagram: data.contact_instagram || '',
+      contact_linkedin: data.contact_linkedin || '',
       contact_phone: cleanedContactPhone,
       contact_notes: data.contact_notes || '',
       

@@ -64,12 +64,16 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     company_niche TEXT,
     company_website TEXT,
     company_email TEXT,
+    company_instagram TEXT,
+    company_linkedin TEXT,
     company_phone TEXT,
     
     -- Contact / Decision Maker Data
     contact_name TEXT NOT NULL,
     contact_role TEXT,
     contact_email TEXT,
+    contact_instagram TEXT,
+    contact_linkedin TEXT,
     contact_phone TEXT,
     contact_notes TEXT,
     

@@ -463,6 +463,20 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, company_website: val })}
                       />
                       <EditableInfoItem 
+                        label="Instagram Empresa" 
+                        value={editedLead.company_instagram} 
+                        originalValue={selectedLead.company_instagram}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_instagram: val })}
+                      />
+                      <EditableInfoItem 
+                        label="LinkedIn Empresa" 
+                        value={editedLead.company_linkedin} 
+                        originalValue={selectedLead.company_linkedin}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_linkedin: val })}
+                      />
+                      <EditableInfoItem 
                         label="E-mail da Empresa" 
                         value={editedLead.company_email} 
                         originalValue={selectedLead.company_email}
@@ -515,6 +529,20 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         isEditing={isEditingLead}
                         isWhatsApp
                         onChange={(val) => setEditedLead({ ...editedLead, contact_phone: formatPhoneBR(val) })}
+                      />
+                      <EditableInfoItem 
+                        label="Instagram" 
+                        value={editedLead.contact_instagram} 
+                        originalValue={selectedLead.contact_instagram}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_instagram: val })}
+                      />
+                      <EditableInfoItem 
+                        label="LinkedIn" 
+                        value={editedLead.contact_linkedin} 
+                        originalValue={selectedLead.contact_linkedin}
+                        isEditing={isEditingLead}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_linkedin: val })}
                       />
                     </div>
                   </div>

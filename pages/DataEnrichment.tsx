@@ -48,10 +48,14 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'company_niche', label: 'Segmento / Nicho' },
     { id: 'company_website', label: 'Website da Empresa' },
     { id: 'company_email', label: 'E-mail da Empresa' },
+    { id: 'company_instagram', label: 'Instagram da Empresa' },
+    { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
     { id: 'company_phone', label: 'Telefone da Empresa' },
     { id: 'contact_name', label: 'Nome do Contato' },
     { id: 'contact_role', label: 'Cargo do Contato' },
     { id: 'contact_email', label: 'E-mail do Contato' },
+    { id: 'contact_instagram', label: 'Instagram do Contato' },
+    { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
     { id: 'contact_phone', label: 'Telefone do Contato' },
     { id: 'contact_notes', label: 'Notas do Contato' },
     { id: 'business_notes', label: 'Notas do Negócio' },
@@ -652,6 +656,14 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                     <input type="text" value={editingLead.contact_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Instagram do Contato</label>
+                    <input type="text" value={editingLead.contact_instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_instagram: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">LinkedIn do Contato</label>
+                    <input type="text" value={editingLead.contact_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_linkedin: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Valor Total</label>
                     <input type="number" value={editingLead.value || 0} onChange={(e) => setEditingLead({ ...editingLead, value: Number(e.target.value) })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
@@ -780,6 +792,14 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone / WhatsApp Corporativo</label>
                     <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Instagram da Empresa</label>
+                    <input type="text" value={editingLead.company_instagram || ''} onChange={(e) => setEditingLead({ ...editingLead, company_instagram: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">LinkedIn da Empresa</label>
+                    <input type="text" value={editingLead.company_linkedin || ''} onChange={(e) => setEditingLead({ ...editingLead, company_linkedin: e.target.value })} className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Cidade</label>
