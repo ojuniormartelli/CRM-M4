@@ -158,6 +158,10 @@ export interface Lead {
   value: number;
   business_notes: string;
   service_type?: string;
+  whatsapp?: string;
+  linkedin?: string;
+  company_whatsapp?: string;
+  contact_whatsapp?: string;
   proposed_ticket?: number;
   next_action?: string;
   next_action_date?: string;

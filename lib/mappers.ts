@@ -54,6 +54,7 @@ export const mappers = {
     
     const cleanedCnpj = cleanDigits(data.company_cnpj || data.cnpj);
     const cleanedPhone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
+    const cleanedWhatsapp = cleanDigits(data.whatsapp || data.company_whatsapp || data.contact_whatsapp);
 
     // Build payload using ONLY confirmed real columns
     const payload: any = {
@@ -63,13 +64,15 @@ export const mappers = {
       email: data.contact_email || data.email || data.company_email || '',
       phone: cleanedPhone,
       
-      // Additional Info (Real Columns: cnpj, city, state, niche, website, instagram)
+      // Additional Info (Real Columns: cnpj, city, state, niche, website, instagram, linkedin, whatsapp)
       cnpj: cleanedCnpj,
       city: data.city || data.company_city || '',
       state: data.state || data.company_state || '',
       niche: data.niche || data.company_niche || '',
       website: data.company_website || data.website || '',
       instagram: data.instagram || data.company_instagram || '',
+      linkedin: data.company_linkedin || data.contact_linkedin || data.linkedin || '',
+      whatsapp: cleanedWhatsapp,
       
       // Business Data (Real Columns: pipeline_id, stage, value, notes, service_type, proposed_ticket, next_action, next_action_date, qualification, source, campaign, closing_forecast, temperature, probability, ai_score, ai_reasoning)
       pipeline_id: data.pipeline_id || null,
@@ -97,19 +100,27 @@ export const mappers = {
       status: data.status || 'active',
     };
 
-    // Optional columns that might exist in some versions but not all
-    // We only add them if they are present in the input to minimize risk
     if (data.contact_notes) payload.contact_notes = data.contact_notes;
-    if (data.company_email) payload.company_email = data.company_email;
-    if (data.company_phone) payload.company_phone = cleanDigits(data.company_phone);
-    if (data.contact_phone) payload.contact_phone = cleanDigits(data.contact_phone);
-    if (data.company_linkedin) payload.company_linkedin = data.company_linkedin;
-    if (data.contact_linkedin) payload.contact_linkedin = data.contact_linkedin;
-    if (data.contact_instagram) payload.contact_instagram = data.contact_instagram;
-
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     
-    return payload;
+    // 🛡️ FINAL WHITELIST FILTER
+    // This ensures that even if we accidentally added a key above, it won't be sent if it's not in the real schema.
+    const REAL_COLUMNS = [
+      'id', 'company', 'name', 'email', 'phone', 'cnpj', 'city', 'state', 'niche', 'website', 'instagram', 'linkedin', 'whatsapp',
+      'pipeline_id', 'stage', 'value', 'notes', 'service_type', 'proposed_ticket', 'next_action', 'next_action_date', 
+      'qualification', 'source', 'campaign', 'closing_forecast', 'temperature', 'probability', 'ai_score', 'ai_reasoning',
+      'responsible_name', 'responsible_id', 'company_id', 'contact_id', 'status', 'workspace_id', 'created_at', 'last_activity_at',
+      'interactions', 'custom_fields', 'contact_notes'
+    ];
+
+    const finalPayload: any = {};
+    REAL_COLUMNS.forEach(col => {
+      if (payload[col] !== undefined) {
+        finalPayload[col] = payload[col];
+      }
+    });
+
+    return finalPayload;
   },
 
   /**
@@ -129,10 +140,7 @@ export const mappers = {
       company_state: dbLead.state || dbLead.company_state || '',
       company_niche: dbLead.niche || dbLead.company_niche || '',
       company_website: dbLead.website || dbLead.company_website || '',
-      company_email: dbLead.company_email || dbLead.email || '',
       company_instagram: dbLead.instagram || dbLead.company_instagram || '',
-      company_linkedin: dbLead.linkedin || dbLead.company_linkedin || '',
-      company_phone: dbLead.company_phone || dbLead.phone || '',
       business_notes: dbLead.notes || dbLead.business_notes || '',
       
       // Ensure legacy fields are also populated for safety

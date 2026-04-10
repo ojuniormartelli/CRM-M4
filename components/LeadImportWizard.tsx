@@ -86,6 +86,9 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       setImportSummary({ success: 0, updated: 0, ignored: 0, errors: 0 });
       setIsProcessing(false);
       setIsImporting(false);
+    } else {
+      // Also reset when opening just in case
+      setStep(1);
     }
   }, [isOpen]);
 
@@ -203,7 +206,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     // Fetch existing leads for deduplication check
     const { data: existingLeads } = await supabase
       .from('m4_leads')
-      .select('id, company_name, contact_email, company_phone, contact_name')
+      .select('id, company, email, phone, name')
       .eq('workspace_id', currentUser?.workspace_id);
 
     rawData.forEach((rawRow, index) => {
@@ -292,11 +295,11 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
 
       // Deduplication Check
       const duplicate = existingLeads?.find(l => {
-        const emailMatch = mapped.contact_email && l.contact_email && normalize(mapped.contact_email) === normalize(l.contact_email);
-        const phoneMatch = mapped.company_phone && l.company_phone && mapped.company_phone === l.company_phone;
-        const companyContactMatch = mapped.company_name && mapped.contact_name && l.company_name && l.contact_name && 
-                                   normalize(mapped.company_name) === normalize(l.company_name) && 
-                                   normalize(mapped.contact_name) === normalize(l.contact_name);
+        const emailMatch = mapped.contact_email && l.email && normalize(mapped.contact_email) === normalize(l.email);
+        const phoneMatch = mapped.contact_phone && l.phone && mapped.contact_phone === l.phone;
+        const companyContactMatch = mapped.company_name && mapped.contact_name && l.company && l.name && 
+                                   normalize(mapped.company_name) === normalize(l.company) && 
+                                   normalize(mapped.contact_name) === normalize(l.name);
         
         return emailMatch || phoneMatch || companyContactMatch;
       });
@@ -521,7 +524,13 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all">
+          <button 
+            onClick={() => {
+              setStep(1);
+              onClose();
+            }} 
+            className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
+          >
             <X size={20} />
           </button>
         </div>
@@ -802,7 +811,10 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
 
               <div className="pt-6">
                 <button 
-                  onClick={onClose}
+                  onClick={() => {
+                    setStep(1);
+                    onClose();
+                  }}
                   className="px-10 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[2rem] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-slate-200 dark:shadow-none"
                 >
                   Concluir e Ver Leads
