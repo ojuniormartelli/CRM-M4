@@ -53,9 +53,9 @@ const CRM_FIELDS = [
   { id: 'service_type', label: 'Tipo de Serviço', aliases: ['servico', 'produto', 'service', 'oferta', 'tipo_servico'] },
   { id: 'source', label: 'Origem', aliases: ['source', 'origem', 'canal', 'meio'] },
   { id: 'campaign', label: 'Campanha', aliases: ['campaign', 'campanha', 'ads', 'marketing'] },
-  { id: 'responsible_id', label: 'ID Responsável', aliases: ['vendedor_id', 'user_id', 'responsible_id', 'id_responsavel'] },
-  { id: 'pipeline_id', label: 'ID Pipeline', aliases: ['pipeline_id', 'id_pipeline', 'funil_id', 'pipeline_name'] },
-  { id: 'stage', label: 'ID Etapa', aliases: ['stage_id', 'id_etapa', 'etapa_id', 'stage', 'stage_name'] },
+  { id: 'responsible_name', label: 'Responsável', aliases: ['vendedor', 'consultor', 'responsavel', 'responsible_id', 'id_responsavel', 'vendedor_id'] },
+  { id: 'pipeline_name', label: 'Pipeline / Funil', aliases: ['funil', 'pipeline', 'pipeline_id', 'id_pipeline', 'funil_id'] },
+  { id: 'stage_name', label: 'Etapa', aliases: ['etapa', 'fase', 'status_etapa', 'stage_id', 'id_etapa', 'etapa_id', 'stage'] },
 ];
 
 export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onClose, pipelines, currentUser, onImportComplete }) => {
@@ -223,6 +223,36 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         }
       });
 
+      // Resolve Names to IDs
+      if (mapped.responsible_name) {
+        const user = dbUsers.find(u => 
+          normalize(u.name) === normalize(mapped.responsible_name) || 
+          normalize(u.email) === normalize(mapped.responsible_name)
+        );
+        if (user) {
+          mapped.responsible_id = user.id;
+          mapped.responsible_name = user.name;
+        }
+      }
+      
+      if (mapped.pipeline_name) {
+        const pipeline = pipelines.find(p => normalize(p.name) === normalize(mapped.pipeline_name));
+        if (pipeline) {
+          mapped.pipeline_id = pipeline.id;
+        }
+      }
+
+      if (mapped.stage_name) {
+        const pipeline = pipelines.find(p => p.id === mapped.pipeline_id);
+        if (pipeline) {
+          const stage = pipeline.stages.find(s => normalize(s.name) === normalize(mapped.stage_name));
+          if (stage) {
+            mapped.stage = stage.id;
+            mapped.status = stage.status || 'active';
+          }
+        }
+      }
+
       // Validation
       const errors: string[] = [];
       if (!mapped.company_name && !mapped.contact_name) {
@@ -329,9 +359,9 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       else if (f.id === 'company_phone' || f.id === 'contact_phone') acc[f.label] = '(11) 99999-8888';
       else if (f.id === 'company_cnpj') acc[f.label] = '00.000.000/0001-00';
       else if (f.id === 'company_state') acc[f.label] = 'SP';
-      else if (f.id === 'responsible_id') acc[f.label] = currentUser?.id || 'ID_DO_USUARIO';
-      else if (f.id === 'pipeline_id') acc[f.label] = pipelines[0]?.id || 'ID_DO_PIPELINE';
-      else if (f.id === 'stage') acc[f.label] = pipelines[0]?.stages[0]?.id || 'ID_DA_ETAPA';
+      else if (f.id === 'responsible_name') acc[f.label] = currentUser?.name || 'Nome do Responsável';
+      else if (f.id === 'pipeline_name') acc[f.label] = pipelines[0]?.name || 'Nome do Pipeline';
+      else if (f.id === 'stage_name') acc[f.label] = pipelines[0]?.stages[0]?.name || 'Nome da Etapa';
       else acc[f.label] = `Exemplo ${f.label.replace(' (*)', '')}`;
       return acc;
     }, {} as any);
@@ -350,7 +380,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       ["3. O sistema normaliza automaticamente telefones e CNPJ (salva apenas números)."],
       ["4. Unificação: Use 'Telefone da Empresa' ou 'Telefone do Contato' para ligações e WhatsApp."],
       ["5. Valores financeiros devem usar ponto ou vírgula como separador decimal."],
-      ["6. Se 'ID Pipeline' ou 'ID Etapa' forem omitidos, o sistema usará a seleção feita no importador."],
+      ["6. O sistema usará a seleção feita no importador para Pipeline e Etapa, a menos que você preencha as colunas correspondentes."],
       [""],
       ["DETALHAMENTO DAS COLUNAS:"],
       ["Coluna", "Campo Interno", "Obrigatoriedade", "Descrição", "Exemplo"],
@@ -361,11 +391,11 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         f.id === 'company_name' ? "Nome da empresa ou organização" :
         f.id === 'contact_name' ? "Nome da pessoa de contato principal" :
         f.id === 'value' ? "Valor monetário estimado do negócio" :
-        f.id === 'responsible_id' ? "ID único do usuário responsável" :
-        f.id === 'pipeline_id' ? "ID único do funil de vendas" :
-        f.id === 'stage' ? "ID único da etapa do funil" :
         f.id === 'company_phone' ? "Telefone/WhatsApp da empresa (apenas números)" :
         f.id === 'contact_phone' ? "Telefone/WhatsApp do contato (apenas números)" :
+        f.id === 'responsible_name' ? "Nome do usuário responsável (deve existir no CRM)" :
+        f.id === 'pipeline_name' ? "Nome do funil de vendas" :
+        f.id === 'stage_name' ? "Nome da etapa do funil" :
         `Dados de ${f.label.toLowerCase().replace(' (*)', '')}`,
         exampleRow[f.label]
       ])
@@ -375,15 +405,15 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
 
     // Add Reference sheet
     const referenceData = [
-      ["DADOS DE REFERÊNCIA (Para IDs)"],
+      ["DADOS DE REFERÊNCIA"],
       [""],
       ["PIPELINES E ETAPAS DISPONÍVEIS:"],
-      ["Nome do Pipeline", "ID do Pipeline", "Etapa", "ID da Etapa"],
-      ...pipelines.flatMap(p => p.stages.map(s => [p.name, p.id, s.name, s.id])),
+      ["Nome do Pipeline", "Etapa"],
+      ...pipelines.flatMap(p => p.stages.map(s => [p.name, s.name])),
       [""],
       ["RESPONSÁVEIS DISPONÍVEIS:"],
-      ["Nome", "E-mail", "ID do Usuário"],
-      ...dbUsers.map(u => [u.name, u.email, u.id]),
+      ["Nome", "E-mail"],
+      ...dbUsers.map(u => [u.name, u.email]),
       [""],
       ["EXEMPLOS DE ORIGEM (Source):"],
       ["Indicação", "Google Ads", "Instagram", "LinkedIn", "Site", "Evento", "Outros"]
