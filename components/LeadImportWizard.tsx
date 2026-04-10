@@ -74,6 +74,21 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
   const [importSummary, setImportSummary] = useState({ success: 0, updated: 0, ignored: 0, errors: 0 });
   const [dbUsers, setDbUsers] = useState<User[]>([]);
 
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setStep(1);
+      setFile(null);
+      setHeaders([]);
+      setRawData([]);
+      setMapping({});
+      setImportRows([]);
+      setImportSummary({ success: 0, updated: 0, ignored: 0, errors: 0 });
+      setIsProcessing(false);
+      setIsImporting(false);
+    }
+  }, [isOpen]);
+
   // Fetch users for reference
   useEffect(() => {
     if (isOpen) {
@@ -305,11 +320,23 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
   const executeImport = async () => {
     setIsImporting(true);
     const toInsert: any[] = [];
-    const toUpdate: { id: string, data: any }[] = [];
+    const toUpdate: { id: string, data: any, rowIndex: number }[] = [];
     let ignored = 0;
+    const rowErrors: { rowIndex: number, error: string }[] = [];
 
-    importRows.forEach(row => {
-      if (row.status === 'error') return;
+    console.log('🚀 INICIANDO IMPORTAÇÃO DE LEADS');
+    console.log('Configurações:', {
+      pipeline: selectedPipelineId,
+      stage: selectedStageId,
+      responsible: selectedResponsibleId,
+      strategy: deduplicationStrategy
+    });
+
+    importRows.forEach((row, index) => {
+      if (row.status === 'error') {
+        rowErrors.push({ rowIndex: index, error: `Erro de validação: ${row.errors.join(', ')}` });
+        return;
+      }
 
       // Apply global settings from Step 4
       const finalData = {
@@ -330,7 +357,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         if (deduplicationStrategy === 'update' && row.existingLeadId) {
           // Exclude metadata from updates
           const { created_at, workspace_id, ...updateData } = mappedPayload;
-          toUpdate.push({ id: row.existingLeadId, data: updateData });
+          toUpdate.push({ id: row.existingLeadId, data: updateData, rowIndex: index });
           return;
         }
       }
@@ -344,16 +371,35 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
 
     // Batch Insert
     if (toInsert.length > 0) {
+      console.log('Payload de Inserção (primeiros 2):', toInsert.slice(0, 2));
       const { data, error } = await supabase.from('m4_leads').insert(toInsert).select();
-      if (!error) successCount = data.length;
-      else errorCount += toInsert.length;
+      
+      if (error) {
+        console.error('❌ ERRO NO BATCH INSERT:', error);
+        console.error('Detalhes do Erro:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        errorCount += toInsert.length;
+        toInsert.forEach((_, i) => rowErrors.push({ rowIndex: i, error: `Falha na inserção: ${error.message}` }));
+      } else {
+        console.log('✅ BATCH INSERT SUCESSO:', data.length, 'leads');
+        successCount = data.length;
+      }
     }
 
-    // Individual Updates (Supabase doesn't support batch update with different values easily in a single call without RPC)
+    // Individual Updates
     for (const item of toUpdate) {
       const { error } = await supabase.from('m4_leads').update(item.data).eq('id', item.id);
-      if (!error) updateCount++;
-      else errorCount++;
+      if (!error) {
+        updateCount++;
+      } else {
+        console.error(`❌ ERRO NO UPDATE (ID: ${item.id}):`, error);
+        errorCount++;
+        rowErrors.push({ rowIndex: item.rowIndex, error: `Falha na atualização: ${error.message}` });
+      }
     }
 
     setImportSummary({
@@ -362,6 +408,10 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
       ignored: ignored,
       errors: errorCount
     });
+    
+    // Store row errors in a ref or state if needed, but for now we'll just show the summary
+    // and maybe log them to console for the user to see in debug.
+    (window as any).lastImportErrors = rowErrors;
     
     setStep(5);
     setIsImporting(false);
@@ -707,41 +757,57 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
           )}
 
           {step === 5 && (
-            <div className="max-w-xl mx-auto py-16 text-center space-y-10">
-              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-100 dark:shadow-none">
-                <Check size={48} />
-              </div>
-              
+            <div className="max-w-2xl mx-auto py-10 text-center space-y-8">
               <div className="space-y-4">
-                <h4 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importação Finalizada!</h4>
-                <p className="text-slate-500 font-bold">Processamos sua lista e os leads já estão no pipeline.</p>
+                <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                  <Check size={40} />
+                </div>
+                <h4 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Importação Finalizada</h4>
+                <p className="text-slate-500 font-bold">Confira o resumo da operação abaixo.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Novos Leads</p>
-                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.success}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl border border-emerald-100 dark:border-emerald-900/30">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Novos</p>
+                  <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{importSummary.success}</p>
                 </div>
-                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Atualizados</p>
-                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.updated}</p>
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Atualizados</p>
+                  <p className="text-3xl font-black text-blue-700 dark:text-blue-400">{importSummary.updated}</p>
                 </div>
-                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ignorados</p>
-                  <p className="text-3xl font-black text-slate-900 dark:text-white">{importSummary.ignored}</p>
+                <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-3xl border border-amber-100 dark:border-amber-900/30">
+                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Ignorados</p>
+                  <p className="text-3xl font-black text-amber-700 dark:text-amber-400">{importSummary.ignored}</p>
                 </div>
-                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Erros</p>
-                  <p className="text-3xl font-black text-rose-600">{importSummary.errors}</p>
+                <div className="p-6 bg-rose-50 dark:bg-rose-900/20 rounded-3xl border border-rose-100 dark:border-rose-900/30">
+                  <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1">Erros</p>
+                  <p className="text-3xl font-black text-rose-700 dark:text-rose-400">{importSummary.errors}</p>
                 </div>
               </div>
 
-              <button 
-                onClick={onClose}
-                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 dark:shadow-none"
-              >
-                Concluir e Ver Leads
-              </button>
+              {importSummary.errors > 0 && (window as any).lastImportErrors && (
+                <div className="bg-rose-50 dark:bg-rose-900/10 rounded-3xl border border-rose-100 dark:border-rose-900/20 p-6 text-left">
+                  <h5 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <AlertTriangle size={14} /> Detalhes dos Erros
+                  </h5>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-2 scrollbar-none">
+                    {(window as any).lastImportErrors.map((err: any, i: number) => (
+                      <div key={i} className="text-[10px] font-bold text-rose-500 bg-white dark:bg-slate-900 p-2 rounded-lg border border-rose-100 dark:border-rose-900/20">
+                        Linha {err.rowIndex + 1}: {err.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-6">
+                <button 
+                  onClick={onClose}
+                  className="px-10 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[2rem] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-slate-200 dark:shadow-none"
+                >
+                  Concluir e Ver Leads
+                </button>
+              </div>
             </div>
           )}
 
