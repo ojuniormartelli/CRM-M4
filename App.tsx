@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, M4Client, Project, AppMode, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, M4Client, Project, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -48,7 +48,6 @@ const App: React.FC = () => {
     admin: false
   });
   const [loading, setLoading] = useState(true);
-  const [appMode, setAppMode] = useState<AppMode>(AppMode.EUGENCIA);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -445,18 +444,7 @@ const App: React.FC = () => {
         { id: 'tasks', icon: ICONS.Tasks, label: 'Minhas Tarefas' },
         { id: 'projects', icon: ICONS.Projects, label: 'Projetos & Squads' },
       ]
-    },
-    ...(appMode === AppMode.AGENCIA ? [{
-      title: "Agência Plus",
-      items: [
-        { id: 'emails', icon: ICONS.Mail, label: 'E-mail (Inbox)' },
-        { id: 'enrichment', icon: ICONS.Database, label: 'Importar Leads' },
-        { id: 'marketing', icon: ICONS.Marketing, label: 'Marketing CRM' },
-        { id: 'contact', icon: ICONS.ContactCenter, label: 'Contact Center' },
-        { id: 'automation', icon: ICONS.Automation, label: 'IA & Automações' },
-        { id: 'collaboration', icon: ICONS.Collaboration, label: 'Feed & Chat' },
-      ]
-    }] : [])
+    }
   ];
 
   if (loading) {
@@ -491,12 +479,6 @@ const App: React.FC = () => {
             <h1 className="font-black text-foreground text-xl leading-none">{settings?.crm_name || 'M4 CRM'}</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-[10px] font-black text-primary uppercase">{settings?.company_name || 'Agency Cloud'}</p>
-              <button 
-                onClick={() => setAppMode(appMode === AppMode.EUGENCIA ? AppMode.AGENCIA : AppMode.EUGENCIA)}
-                className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-[8px] font-black hover:bg-blue-100 hover:text-primary transition-colors"
-              >
-                {appMode === AppMode.EUGENCIA ? 'EUGÊNCIA' : 'AGÊNCIA'}
-              </button>
             </div>
           </div>
         </div>
@@ -738,7 +720,6 @@ const App: React.FC = () => {
               setTransactions={setTransactions}
               setBankAccounts={setBankAccounts}
               setCreditCards={setCreditCards}
-              appMode={appMode}
               currentUser={currentUser}
               financeCategories={financeCategories}
               paymentMethods={paymentMethods}
@@ -751,7 +732,6 @@ const App: React.FC = () => {
           {(activeTab === 'administrativo' || activeTab.startsWith('admin_')) && <Admin currentUser={currentUser} activeTab={activeTab} />}
           {activeTab === 'settings' && (
             <Settings 
-              appMode={appMode} 
               currentUser={currentUser} 
               onUserUpdate={setCurrentUser} 
               services={services} 

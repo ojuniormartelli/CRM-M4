@@ -8,10 +8,9 @@ import { formatPhoneBR } from '../utils/formatters';
 import { format } from 'date-fns';
 
 import { ChevronDown } from 'lucide-react';
-import { AppMode, User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod, Pipeline, FunnelStatus } from '../types';
+import { User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod, Pipeline, FunnelStatus } from '../types';
 
 interface SettingsProps {
-  appMode: AppMode;
   currentUser: User | null;
   onUserUpdate: (user: User) => void;
   services: Service[];
@@ -195,7 +194,6 @@ const BackupTab = () => {
 };
 
 const Settings: React.FC<SettingsProps> = ({ 
-  appMode, 
   currentUser, 
   onUserUpdate, 
   services, 

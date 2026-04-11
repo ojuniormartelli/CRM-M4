@@ -1,9 +1,4 @@
 
-export enum AppMode {
-  EUGENCIA = 'eugencia',
-  AGENCIA = 'agencia'
-}
-
 export enum FunnelStatus {
   INITIAL = 'inicial',
   INTERMEDIATE = 'intermediario',

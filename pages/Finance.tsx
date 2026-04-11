@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import * as ICONS from 'lucide-react';
-import { Transaction, BankAccount, CreditCard, ClientAccount, AppMode, User, FinanceCategory, PaymentMethod } from '../types';
+import { Transaction, BankAccount, CreditCard, ClientAccount, User, FinanceCategory, PaymentMethod } from '../types';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, addWeeks, addYears, addDays, isWithinInterval, isToday, isTomorrow, parseISO, isAfter, isSameDay, isSameMonth, isSameYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { mappers } from '../lib/mappers';
@@ -19,7 +19,6 @@ interface FinanceProps {
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
   setCreditCards: React.Dispatch<React.SetStateAction<CreditCard[]>>;
-  appMode: AppMode;
   currentUser?: User | null;
 }
 
@@ -33,7 +32,6 @@ const Finance: React.FC<FinanceProps> = ({
   setTransactions,
   setBankAccounts,
   setCreditCards,
-  appMode,
   currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'receivables' | 'payables' | 'cards'>('overview');
@@ -1179,12 +1177,10 @@ const Finance: React.FC<FinanceProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
-            {appMode === AppMode.EUGENCIA ? 'Minhas Finanças' : 'Gestão Financeira'}
+            Minhas Finanças
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">
-            {appMode === AppMode.EUGENCIA 
-              ? 'Controle simples do meu caixa, contas e cartões.' 
-              : 'Controle total de caixa, contas e cartões da agência.'}
+            Controle simples do meu caixa, contas e cartões.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
