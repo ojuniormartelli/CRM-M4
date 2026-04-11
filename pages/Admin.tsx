@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
-import { User, WorkspaceNav, M4Automation, CustomFieldDef } from '../types';
+import { User, WorkspaceNav, Automation, CustomFieldDef } from '../types';
 import { supabase } from '../lib/supabase';
 
 const Admin: React.FC<{ currentUser: User | null; activeTab: string }> = ({ currentUser, activeTab }) => {
@@ -14,7 +14,7 @@ const Admin: React.FC<{ currentUser: User | null; activeTab: string }> = ({ curr
   }, [activeTab]);
   const [users, setUsers] = useState<User[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceNav[]>([]);
-  const [automations, setAutomations] = useState<M4Automation[]>([]);
+  const [automations, setAutomations] = useState<Automation[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDef[]>([]);
   const [loading, setLoading] = useState(true);
 

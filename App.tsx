@@ -571,6 +571,10 @@ const App: React.FC = () => {
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Configurações
                       </button>
+                      <button onClick={() => setActiveTab('automation')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Automações
+                      </button>
                     </div>
                   )}
                 </React.Fragment>
@@ -728,7 +732,7 @@ const App: React.FC = () => {
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'goal_settings' && <GoalSettings currentUser={currentUser} />}
           {activeTab === 'contact' && <ContactCenter />}
-          {activeTab === 'automation' && <Automation leads={leads} />}
+          {activeTab === 'automation' && <Automation leads={leads} currentUser={currentUser} />}
           {(activeTab === 'administrativo' || activeTab.startsWith('admin_')) && <Admin currentUser={currentUser} activeTab={activeTab} />}
           {activeTab === 'settings' && (
             <Settings 

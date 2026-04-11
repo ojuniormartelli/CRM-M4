@@ -12,7 +12,7 @@ import {
   List,
   CustomFieldDef,
   CustomFieldValue,
-  M4Automation,
+  Automation,
   TimeTracking,
 } from '../types';
 
@@ -498,14 +498,16 @@ export const mappers = {
   /**
    * AUTOMATION MAPPER
    */
-  automation: (data: Partial<M4Automation>, workspaceId?: string) => {
-    const payload: any = {
-      name: data.name || 'Sem nome',
-      trigger_type: data.trigger_type,
-      trigger_conditions: data.trigger_conditions || {},
-      actions: data.actions || [],
-      is_active: !!data.is_active,
-    };
+  automation: (data: Partial<Automation>, workspaceId?: string, isUpdate: boolean = false) => {
+    const payload: any = {};
+    
+    if (data.name !== undefined) payload.name = data.name || (isUpdate ? undefined : 'Sem nome');
+    if (data.entity_type !== undefined) payload.entity_type = data.entity_type;
+    if (data.trigger_type !== undefined) payload.trigger_type = data.trigger_type;
+    if (data.trigger_conditions !== undefined) payload.trigger_conditions = data.trigger_conditions || [];
+    if (data.actions !== undefined) payload.actions = data.actions || [];
+    if (data.is_active !== undefined) payload.is_active = !!data.is_active;
+    else if (!isUpdate) payload.is_active = true;
 
     if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
     return payload;

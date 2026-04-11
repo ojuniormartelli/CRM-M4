@@ -1,10 +1,102 @@
 
 import { supabase } from '../lib/supabase';
 import { mappers } from '../lib/mappers';
-import { Lead, TaskTemplate, M4Client } from '../types';
+import { Lead, TaskTemplate, M4Client, Automation } from '../types';
 import { addDays } from 'date-fns';
 
 export const automationService = {
+  /**
+   * List all automations for a workspace
+   */
+  async list(workspaceId: string) {
+    const { data, error } = await supabase
+      .from('m4_automations')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Automation[];
+  },
+
+  /**
+   * Get a single automation by ID
+   */
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from('m4_automations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data as Automation;
+  },
+
+  /**
+   * Create a new automation
+   */
+  async create(data: Partial<Automation>, workspaceId: string) {
+    const payload = mappers.automation(data, workspaceId);
+    
+    const { data: automation, error } = await supabase
+      .from('m4_automations')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return automation as Automation;
+  },
+
+  /**
+   * Update an existing automation
+   */
+  async update(id: string, data: Partial<Automation>) {
+    const payload = mappers.automation(data, undefined, true);
+    
+    // Remove workspace_id from update if it exists to prevent accidental changes
+    delete payload.workspace_id;
+
+    const { data: automation, error } = await supabase
+      .from('m4_automations')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return automation as Automation;
+  },
+
+  /**
+   * Delete an automation
+   */
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('m4_automations')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  },
+
+  /**
+   * Toggle automation active status
+   */
+  async toggleActive(id: string, isActive: boolean) {
+    const { data, error } = await supabase
+      .from('m4_automations')
+      .update({ is_active: isActive })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Automation;
+  },
+
   /**
    * Converts a lead to a client and triggers onboarding tasks
    * IDEMPOTENT: Checks if client already exists for this lead

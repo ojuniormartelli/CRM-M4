@@ -349,18 +349,46 @@ export interface CustomFieldValue {
   created_at: string;
 }
 
-export interface M4Automation {
+// Automation Types
+export enum AutomationEntityType {
+  LEAD = 'lead',
+  TASK = 'task',
+  CLIENT = 'client'
+}
+
+export enum AutomationTriggerType {
+  LEAD_CREATED = 'lead_created',
+  STATUS_CHANGE = 'status_change',
+  STAGE_CHANGE = 'stage_change',
+  FIELD_UPDATE = 'field_update',
+  NO_ACTIVITY = 'no_activity',
+  DATE_TRIGGER = 'date_trigger',
+  TASK_CREATED = 'task_created',
+  TASK_COMPLETED = 'task_completed'
+}
+
+export interface AutomationCondition {
+  field: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+  value: any;
+}
+
+export interface AutomationAction {
+  type: 'update_field' | 'create_task' | 'send_notification' | 'send_webhook' | 'change_stage' | 'assign_user';
+  config: Record<string, any>;
+}
+
+export interface Automation {
   id: string;
+  workspace_id: string;
   name: string;
-  trigger_type: 'status_change' | 'date_trigger' | 'field_update' | 'stage_change' | 'lead_created' | 'no_activity';
-  trigger_conditions: any;
-  actions: {
-    type: 'create_task' | 'send_email' | 'create_project' | 'alert_user' | 'create_client';
-    config: any;
-  }[];
+  entity_type: AutomationEntityType;
+  trigger_type: AutomationTriggerType;
+  trigger_conditions: AutomationCondition[];
+  actions: AutomationAction[];
   is_active: boolean;
-  workspace_id?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface TimeTracking {
@@ -552,3 +580,4 @@ export interface Goal {
   created_at: string;
   updated_at: string;
 }
+
