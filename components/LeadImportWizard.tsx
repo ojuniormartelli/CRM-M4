@@ -43,7 +43,7 @@ const CRM_FIELDS = [
   { id: 'contact_role', label: 'Cargo do Contato', aliases: ['cargo', 'funcao', 'role', 'position', 'departamento', 'contact_role'] },
   { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
   { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['instagram contato', 'insta contato', 'contact_instagram'] },
-  { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin'] },
+  { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin', 'linkedin'] },
   { id: 'contact_phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
   { id: 'contact_notes', label: 'Notas do Contato', aliases: ['notas contato', 'obs contato', 'contact_notes'] },
 
@@ -350,6 +350,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         responsible_name: dbUsers.find(u => u.id === selectedResponsibleId)?.name || currentUser?.name || 'Sistema'
       };
 
+      // 🛡️ CENTRALIZED PERSISTENCE: buildLeadInsertPayload
       const mappedPayload = mappers.lead(finalData, currentUser?.workspace_id);
 
       if (row.isDuplicate) {
@@ -358,8 +359,9 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
           return;
         }
         if (deduplicationStrategy === 'update' && row.existingLeadId) {
-          // Exclude metadata from updates
-          const { created_at, workspace_id, ...updateData } = mappedPayload;
+          // 🛡️ Use isUpdate: true for deduplication updates to avoid overwriting with defaults
+          const updatePayload = mappers.lead(finalData, currentUser?.workspace_id, true);
+          const { created_at, workspace_id, ...updateData } = updatePayload;
           toUpdate.push({ id: row.existingLeadId, data: updateData, rowIndex: index });
           return;
         }

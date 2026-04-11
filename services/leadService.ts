@@ -38,7 +38,7 @@ export const leadService = {
   },
 
   async update(id: string, lead: Partial<Lead>) {
-    const payload = mappers.lead(lead);
+    const payload = mappers.lead(lead, undefined, true);
 
     const { data, error } = await supabase
       .from('m4_leads')

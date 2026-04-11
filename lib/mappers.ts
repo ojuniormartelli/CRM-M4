@@ -72,76 +72,90 @@ export const mappers = {
    * LEAD MAPPER
    * 🛡️ STRICT WHITELIST: Only real columns from m4_leads table.
    */
-  lead: (data: Partial<Lead>, workspaceId?: string) => {
-    const cleanedCnpj = cleanDigits(data.company_cnpj || data.cnpj);
-    const cleanedMainPhone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
-    const cleanedMainWhatsapp = cleanDigits(data.whatsapp || data.contact_whatsapp || data.company_whatsapp);
+  lead: (data: Partial<Lead>, workspaceId?: string, isUpdate: boolean = false) => {
+    const payload: any = {};
 
-    const cleanedCompanyPhone = cleanDigits(data.company_phone);
-    const cleanedCompanyWhatsapp = cleanDigits(data.company_whatsapp);
-    const cleanedContactPhone = cleanDigits(data.contact_phone || data.phone);
-    const cleanedContactWhatsapp = cleanDigits(data.contact_whatsapp);
+    // Helper to check if any source key exists in the input data
+    const has = (...keys: string[]) => keys.some(k => k in data);
 
-    const payload: any = {
-      // Core identity in DB
-      company: cleanText(data.company_name || data.company) || 'Empresa não informada',
-      name: cleanText(data.contact_name || data.name) || 'Contato não informado',
-      email: cleanText(data.contact_email || data.email || data.company_email),
-      phone: cleanedMainPhone,
-      whatsapp: cleanedMainWhatsapp,
+    // 🛡️ IDENTITY & CORE DATA
+    if (has('company_name', 'company')) {
+      payload.company = cleanText(data.company_name || data.company) || (isUpdate ? undefined : 'Empresa não informada');
+      payload.legal_name = cleanText(data.company_name || data.company);
+    } else if (!isUpdate) {
+      payload.company = 'Empresa não informada';
+    }
 
-      // Company data
-      company_id: data.company_id || null,
-      cnpj: cleanedCnpj,
-      legal_name: cleanText(data.company_name || data.company),
-      city: cleanText(data.company_city || data.city),
-      state: cleanText(data.company_state || data.state),
-      niche: cleanText(data.company_niche || data.niche),
-      website: cleanText(data.company_website || data.website),
-      instagram: cleanText(data.company_instagram || data.instagram),
-      company_email: cleanText(data.company_email),
-      company_phone: cleanedCompanyPhone,
-      company_whatsapp: cleanedCompanyWhatsapp,
-      company_linkedin: cleanText(data.company_linkedin),
+    if (has('contact_name', 'name')) {
+      payload.name = cleanText(data.contact_name || data.name) || (isUpdate ? undefined : 'Contato não informado');
+    } else if (!isUpdate) {
+      payload.name = 'Contato não informado';
+    }
 
-      // Contact data
-      contact_id: data.contact_id || null,
-      contact_role: cleanText(data.contact_role),
-      contact_whatsapp: cleanedContactWhatsapp,
-      contact_instagram: cleanText(data.contact_instagram),
-      contact_linkedin: cleanText(data.contact_linkedin || data.linkedin),
-      contact_notes: cleanText(data.contact_notes),
+    if (has('contact_email', 'email', 'company_email')) {
+      payload.email = cleanText(data.contact_email || data.email || data.company_email);
+    }
 
-      // Business data
-      pipeline_id: data.pipeline_id || null,
-      stage: data.stage || null,
-      value: toNumberOrDefault(data.value, 0),
-      notes: cleanText(data.business_notes || data.notes),
-      service_type: cleanText(data.service_type),
-      proposed_ticket: toNumberOrDefault(data.proposed_ticket, 0),
-      next_action: cleanText(data.next_action),
-      next_action_date: data.next_action_date || null,
-      qualification: cleanText(data.qualification),
-      source: cleanText(data.source),
-      campaign: cleanText(data.campaign),
-      closing_forecast: data.closing_forecast || null,
-      temperature: data.temperature || 'Frio',
-      probability: toNumberOrDefault(data.probability, 0),
-      ai_score: toNumberOrDefault(data.ai_score, 0),
-      ai_reasoning: cleanText(data.ai_reasoning),
+    // Phones & Whatsapp
+    if (has('contact_phone', 'phone', 'company_phone')) {
+      payload.phone = cleanDigits(data.contact_phone || data.phone || data.company_phone);
+    }
+    if (has('whatsapp', 'contact_whatsapp', 'company_whatsapp')) {
+      payload.whatsapp = cleanDigits(data.whatsapp || data.contact_whatsapp || data.company_whatsapp);
+    }
 
-      // Metadata & system
-      responsible_name: cleanText(data.responsible_name),
-      responsible_id: data.responsible_id || null,
-      status: data.status || 'active',
-      interactions: data.interactions || [],
-      custom_fields: data.custom_fields || {},
-    };
+    // 🛡️ COMPANY DATA
+    if (has('company_id')) payload.company_id = data.company_id || null;
+    if (has('company_cnpj', 'cnpj')) payload.cnpj = cleanDigits(data.company_cnpj || data.cnpj);
+    if (has('company_city', 'city')) payload.city = cleanText(data.company_city || data.city);
+    if (has('company_state', 'state')) payload.state = cleanText(data.company_state || data.state);
+    if (has('company_niche', 'niche')) payload.niche = cleanText(data.company_niche || data.niche);
+    if (has('company_website', 'website')) payload.website = cleanText(data.company_website || data.website);
+    if (has('company_instagram', 'instagram')) payload.instagram = cleanText(data.company_instagram || data.instagram);
+    if (has('company_email')) payload.company_email = cleanText(data.company_email);
+    if (has('company_phone')) payload.company_phone = cleanDigits(data.company_phone);
+    if (has('company_whatsapp')) payload.company_whatsapp = cleanDigits(data.company_whatsapp);
+    if (has('company_linkedin')) payload.company_linkedin = cleanText(data.company_linkedin);
+
+    // 🛡️ CONTACT DATA
+    if (has('contact_id')) payload.contact_id = data.contact_id || null;
+    if (has('contact_role')) payload.contact_role = cleanText(data.contact_role);
+    if (has('contact_whatsapp')) payload.contact_whatsapp = cleanDigits(data.contact_whatsapp);
+    if (has('contact_instagram')) payload.contact_instagram = cleanText(data.contact_instagram);
+    if (has('contact_linkedin', 'linkedin')) payload.contact_linkedin = cleanText(data.contact_linkedin || data.linkedin);
+    if (has('contact_notes')) payload.contact_notes = cleanText(data.contact_notes);
+
+    // 🛡️ BUSINESS DATA
+    if (has('pipeline_id')) payload.pipeline_id = data.pipeline_id || null;
+    if (has('stage')) payload.stage = data.stage || null;
+    if (has('value')) payload.value = toNumberOrDefault(data.value, 0);
+    if (has('business_notes', 'notes')) payload.notes = cleanText(data.business_notes || data.notes);
+    if (has('service_type')) payload.service_type = cleanText(data.service_type);
+    if (has('proposed_ticket')) payload.proposed_ticket = toNumberOrDefault(data.proposed_ticket, 0);
+    if (has('next_action')) payload.next_action = cleanText(data.next_action);
+    if (has('next_action_date')) payload.next_action_date = data.next_action_date || null;
+    if (has('qualification')) payload.qualification = cleanText(data.qualification);
+    if (has('source')) payload.source = cleanText(data.source);
+    if (has('campaign')) payload.campaign = cleanText(data.campaign);
+    if (has('closing_forecast')) payload.closing_forecast = data.closing_forecast || null;
+    if (has('temperature')) payload.temperature = data.temperature || 'Frio';
+    if (has('probability')) payload.probability = toNumberOrDefault(data.probability, 0);
+    if (has('ai_score')) payload.ai_score = toNumberOrDefault(data.ai_score, 0);
+    if (has('ai_reasoning')) payload.ai_reasoning = cleanText(data.ai_reasoning);
+
+    // 🛡️ METADATA & SYSTEM
+    if (has('responsible_name')) payload.responsible_name = cleanText(data.responsible_name);
+    if (has('responsible_id')) payload.responsible_id = data.responsible_id || null;
+    if (has('status')) payload.status = data.status || 'active';
+    if (has('interactions')) payload.interactions = data.interactions || [];
+    if (has('custom_fields')) payload.custom_fields = data.custom_fields || {};
 
     if (workspaceId || data.workspace_id) {
       payload.workspace_id = workspaceId || data.workspace_id;
     }
 
+    // 🛡️ STRICT WHITELIST: Only real columns from m4_leads table.
+    // REMOVED: 'linkedin', 'company_name', 'contact_email', 'contact_phone', 'business_notes'
     const REAL_COLUMNS = [
       'id',
       'name',

@@ -3,6 +3,7 @@ import { ICONS } from '../constants';
 import { Lead, Pipeline, User, Task } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
+import { mappers } from '../lib/mappers';
 import { leadService } from '../services/leadService';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 import Papa from 'papaparse';
@@ -286,16 +287,15 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
     }
 
     const toInsert = leadsToSave.map(lead => {
-      const { ...leadData } = lead;
-      return {
-        ...leadData,
+      const finalData = {
+        ...lead,
         pipeline_id: selectedPipeline,
         stage: selectedStage,
-        workspace_id: currentUser?.workspace_id,
-        created_at: new Date().toISOString(),
         next_action: 'Qualificar lead importado',
         next_action_date: new Date().toISOString().split('T')[0]
       };
+      
+      return mappers.lead(finalData, currentUser?.workspace_id);
     });
 
     const { error } = await supabase
