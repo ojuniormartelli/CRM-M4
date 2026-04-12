@@ -578,6 +578,44 @@ CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (tru
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const automationFixSQL = `-- 🛠️ CORREÇÃO DE AUTOMAÇÕES (Isolamento e Workspace)
+-- Execute este script no SQL Editor do Supabase se as automações não estiverem salvando ou aparecendo.
+
+-- 1. Tornar workspace_id opcional para suportar estado padrão
+ALTER TABLE public.m4_automations ALTER COLUMN workspace_id DROP NOT NULL;
+ALTER TABLE public.m4_automation_logs ALTER COLUMN workspace_id DROP NOT NULL;
+
+-- 2. Garantir que a coluna de origem exista para duplicação
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS origin_lead_id UUID;
+
+-- 3. Atualizar políticas de RLS para serem mais flexíveis
+DROP POLICY IF EXISTS "Users can manage automations in their workspace" ON m4_automations;
+
+CREATE POLICY "Users can manage automations in their workspace" 
+ON m4_automations
+FOR ALL
+USING (
+    workspace_id IS NULL OR 
+    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+)
+WITH CHECK (
+    workspace_id IS NULL OR 
+    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+);
+
+-- 3. Garantir que a tabela de logs também seja acessível
+ALTER TABLE IF EXISTS public.m4_automation_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view logs in their workspace" ON m4_automation_logs;
+
+CREATE POLICY "Users can view logs in their workspace" 
+ON m4_automation_logs
+FOR SELECT
+USING (
+    workspace_id IS NULL OR 
+    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+);
+`;
+
   return (
     <div className="h-full overflow-y-auto pr-4 scrollbar-none max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <div className="flex items-center gap-6">
@@ -638,6 +676,31 @@ CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (tru
           <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
              <div className="text-emerald-500"><ICONS.Automation /></div>
              <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Dica: Este script garante que o funil esteja ordenado e as novas tabelas de interações e serviços existam.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-amber-100 bg-amber-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-amber-900 dark:text-amber-400 uppercase tracking-tight">Fix Automações</h3>
+              <p className="text-xs font-bold text-amber-400 mt-1 uppercase tracking-widest">Correção de Workspace & RLS</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(automationFixSQL, 'autofix')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'autofix' ? 'bg-emerald-500 text-white' : 'bg-amber-50 text-amber-400 hover:bg-amber-600 hover:text-white'}`}
+            >
+              {copied === 'autofix' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-amber-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {automationFixSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
+             <div className="text-amber-500"><ICONS.Automation /></div>
+             <p className="text-[11px] font-bold text-amber-700 leading-relaxed uppercase">Importante: Use este script se as automações sumirem após o refresh ou se der erro ao salvar.</p>
           </div>
         </div>
 

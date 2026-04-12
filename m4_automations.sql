@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS m4_automations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID NOT NULL, -- Multi-workspace support
+    workspace_id UUID, -- Multi-workspace support (nullable for default state)
     name TEXT NOT NULL,
     entity_type TEXT NOT NULL, -- lead, task, client
     trigger_type TEXT NOT NULL, -- lead_created, status_change, etc.
@@ -22,11 +22,18 @@ CREATE INDEX IF NOT EXISTS idx_m4_automations_entity_type ON m4_automations(enti
 ALTER TABLE m4_automations ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only see/edit automations from their workspace
+-- We allow access if workspace_id matches the user's workspace or if it's null (for default state)
 CREATE POLICY "Users can manage automations in their workspace" 
 ON m4_automations
 FOR ALL
-USING (workspace_id::text = (auth.jwt() ->> 'workspace_id'))
-WITH CHECK (workspace_id::text = (auth.jwt() ->> 'workspace_id'));
+USING (
+    workspace_id IS NULL OR 
+    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+)
+WITH CHECK (
+    workspace_id IS NULL OR 
+    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+);
 
 -- Trigger for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

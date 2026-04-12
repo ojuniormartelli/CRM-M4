@@ -152,8 +152,11 @@ export const mappers = {
     if (has('interactions')) payload.interactions = data.interactions || [];
     if (has('custom_fields')) payload.custom_fields = data.custom_fields || {};
 
-    if (workspaceId || data.workspace_id) {
-      payload.workspace_id = workspaceId || data.workspace_id;
+    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+    const finalWorkspaceId = (workspaceId && isUUID(workspaceId)) ? workspaceId : (data.workspace_id && isUUID(data.workspace_id)) ? data.workspace_id : null;
+
+    if (finalWorkspaceId) {
+      payload.workspace_id = finalWorkspaceId;
     }
 
     // 🛡️ STRICT WHITELIST: Only real columns from m4_leads table.
@@ -167,7 +170,6 @@ export const mappers = {
       'email',
       'phone',
       'pipeline_id',
-      'stage_id',
       'stage',
       'value',
       'notes',
@@ -513,7 +515,10 @@ export const mappers = {
     if (data.is_active !== undefined) payload.is_active = !!data.is_active;
     else if (!isUpdate) payload.is_active = true;
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+    const finalWorkspaceId = (workspaceId && isUUID(workspaceId)) ? workspaceId : (data.workspace_id && isUUID(data.workspace_id)) ? data.workspace_id : null;
+    
+    payload.workspace_id = finalWorkspaceId;
     return payload;
   },
 

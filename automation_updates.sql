@@ -21,7 +21,10 @@ ALTER TABLE public.m4_automation_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view logs from their workspace"
     ON public.m4_automation_logs FOR SELECT
-    USING (workspace_id IN (SELECT workspace_id FROM m4_users WHERE id = auth.uid()));
+    USING (
+        workspace_id IS NULL OR 
+        workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
+    );
 
 -- Index for performance
 CREATE INDEX IF NOT EXISTS idx_automation_logs_workspace ON public.m4_automation_logs(workspace_id);

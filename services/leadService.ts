@@ -70,11 +70,11 @@ export const leadService = {
       const workspaceId = updatedLead.workspace_id;
 
       // Trigger: stage_change
-      if (lead.pipeline_id || lead.stage_id) {
+      if (lead.pipeline_id || lead.stage_id || lead.stage) {
         automationService.processEvent(workspaceId, 'lead', 'stage_change', {
           pipeline_id: updatedLead.pipeline_id,
-          from_stage_id: currentLead.stage_id,
-          to_stage_id: updatedLead.stage_id
+          from_stage_id: currentLead.stage_id || currentLead.stage,
+          to_stage_id: updatedLead.stage_id || updatedLead.stage
         }, updatedLead);
       }
 

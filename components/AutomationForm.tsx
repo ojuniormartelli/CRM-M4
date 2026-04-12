@@ -24,6 +24,8 @@ interface AutomationFormProps {
   workspaceId: string;
 }
 
+const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+
 const AutomationForm: React.FC<AutomationFormProps> = ({ 
   isOpen, 
   onClose, 
@@ -61,7 +63,6 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
 
         const pipelineIds = (pData || []).map(p => p.id);
         
-        const isUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
         const validWorkspaceId = isUUID(workspaceId) ? workspaceId : null;
 
         // Depois buscamos estágios e usuários em paralelo
@@ -183,24 +184,23 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
     setLoading(true);
     setErrors({});
 
-    const isUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
     let cleanWorkspaceId = isUUID(workspaceId) ? workspaceId : null;
 
     // Se ainda não temos um workspaceId válido, tentamos buscar o primeiro disponível em várias tabelas
     if (!cleanWorkspaceId) {
       // 1. Tentar settings
       const { data: settings } = await supabase.from('m4_settings').select('workspace_id').maybeSingle();
-      if (settings?.workspace_id) {
+      if (settings?.workspace_id && isUUID(settings.workspace_id)) {
         cleanWorkspaceId = settings.workspace_id;
       } else {
         // 2. Tentar pipelines
         const { data: pipelines } = await supabase.from('m4_pipelines').select('workspace_id').not('workspace_id', 'is', null).limit(1);
-        if (pipelines && pipelines.length > 0) {
+        if (pipelines && pipelines.length > 0 && isUUID(pipelines[0].workspace_id)) {
           cleanWorkspaceId = pipelines[0].workspace_id;
         } else {
           // 3. Tentar usuários
           const { data: users } = await supabase.from('m4_users').select('workspace_id').not('workspace_id', 'is', null).limit(1);
-          if (users && users.length > 0) {
+          if (users && users.length > 0 && isUUID(users[0].workspace_id)) {
             cleanWorkspaceId = users[0].workspace_id;
           }
         }

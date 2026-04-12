@@ -5,6 +5,7 @@ import { Lead, Automation, User } from '../types';
 import { automationService } from '../services/automationService';
 import { supabase } from '../lib/supabase';
 import AutomationForm from '../components/AutomationForm';
+import ConfirmModal from '../components/ConfirmModal';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -19,12 +20,17 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAutomation, setEditingAutomation] = useState<Automation | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [automationToDelete, setAutomationToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const isUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+  const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
   const [workspaceId, setWorkspaceId] = useState<string>(() => {
     const initial = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
     return isUUID(initial) ? initial : '';
   });
+
+  const [isWorkspaceChecked, setIsWorkspaceChecked] = useState(false);
 
   useEffect(() => {
     const checkWorkspace = async () => {
@@ -43,15 +49,12 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
           }
         }
       }
+      setIsWorkspaceChecked(true);
     };
     checkWorkspace();
   }, [currentUser, workspaceId]);
 
   const fetchAutomations = async () => {
-    if (!isUUID(workspaceId)) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -66,8 +69,10 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
   };
 
   useEffect(() => {
-    fetchAutomations();
-  }, [workspaceId]);
+    if (isWorkspaceChecked) {
+      fetchAutomations();
+    }
+  }, [workspaceId, isWorkspaceChecked]);
 
   const handleCreate = () => {
     setEditingAutomation(null);
@@ -79,14 +84,23 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta automação?')) return;
+  const handleDeleteClick = (id: string) => {
+    setAutomationToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!automationToDelete) return;
     try {
-      await automationService.delete(id);
-      setAutomations(automations.filter(a => a.id !== id));
+      setIsDeleting(true);
+      await automationService.delete(automationToDelete);
+      setAutomations(automations.filter(a => a.id !== automationToDelete));
+      setIsDeleteModalOpen(false);
+      setAutomationToDelete(null);
     } catch (err) {
       console.error('Error deleting automation:', err);
-      alert('Erro ao excluir automação.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -221,7 +235,7 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
                     <ICONS.Edit className="w-5 h-5" />
                   </button>
                   <button 
-                    onClick={() => handleDelete(a.id)}
+                    onClick={() => handleDeleteClick(a.id)}
                     className="p-3 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                     title="Excluir"
                   >
@@ -240,6 +254,21 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
         onSave={handleSave}
         automation={editingAutomation}
         workspaceId={workspaceId}
+      />
+
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        title="Excluir Automação"
+        message="Tem certeza que deseja excluir esta automação? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setAutomationToDelete(null);
+        }}
+        variant="danger"
+        isLoading={isDeleting}
       />
 
       {/* AI COPILOT SECTION */}

@@ -13,7 +13,9 @@ export const automationService = {
       .from('m4_automations')
       .select('*');
     
-    if (workspaceId && workspaceId !== 'default') {
+    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+    
+    if (workspaceId && isUUID(workspaceId)) {
       query = query.eq('workspace_id', workspaceId);
     } else {
       query = query.is('workspace_id', null);
@@ -138,6 +140,8 @@ export const automationService = {
    * Duplicate a lead to a different pipeline and stage
    */
   async duplicateLeadToPipeline(leadId: string, pipelineId: string, stageId: string, automationId?: string) {
+    console.log(`[Automation] Duplicating lead ${leadId} to pipeline ${pipelineId}, stage ${stageId}`);
+    
     // 1. Idempotency check: Check if this automation already duplicated this lead to this pipeline/stage
     if (automationId) {
       const { data: existingLog } = await supabase
@@ -149,7 +153,7 @@ export const automationService = {
         .maybeSingle();
 
       if (existingLog) {
-        console.log('Lead already duplicated by this automation:', leadId);
+        console.log(`[Automation] Lead ${leadId} already duplicated by automation ${automationId}. Skipping.`);
         return null; // Or throw error, but returning null is safer for bulk operations
       }
     }
@@ -165,15 +169,17 @@ export const automationService = {
 
     // 2. Prepare new lead payload (copying all relevant data)
     // We remove ID and timestamps to let Supabase generate new ones
+    // Note: 'updated_at' does not exist in the current m4_leads schema
     const { id, created_at, updated_at, ...leadData } = originalLead;
     
-    const newLeadPayload = {
+    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+
+    const newLeadPayload: any = {
       ...leadData,
       pipeline_id: pipelineId,
-      stage_id: stageId,
+      stage: isUUID(stageId) ? (leadData.stage || 'new') : stageId,
       origin_lead_id: leadId, // Link to original
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: new Date().toISOString()
     };
 
     // 3. Insert new lead
@@ -183,7 +189,12 @@ export const automationService = {
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('[Automation] Error inserting duplicated lead:', insertError);
+      throw insertError;
+    }
+
+    console.log(`[Automation] Lead duplicated successfully. New ID: ${newLead.id}`);
 
     if (automationId && newLead) {
       await this.logExecution({
@@ -216,9 +227,29 @@ export const automationService = {
     error_message?: string;
     execution_details?: any;
   }) {
+    // Sanitize workspace_id for logs
+    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+    
+    // If workspace_id is missing or invalid, try to use a default or omit it if the DB allows
+    // However, since it's NOT NULL in some schemas, we use a fallback if possible
+    const sanitizedWorkspaceId = isUUID(logData.workspace_id) 
+      ? logData.workspace_id 
+      : (isUUID(localStorage.getItem('m4_crm_workspace_id')) ? localStorage.getItem('m4_crm_workspace_id') : null);
+
+    const sanitizedLogData = {
+      ...logData,
+      workspace_id: sanitizedWorkspaceId
+    };
+
+    // If we still have no workspace_id and it's required, we might need to skip or it will fail
+    if (!sanitizedLogData.workspace_id) {
+      console.warn('[Automation] Skipping log execution due to missing workspace_id');
+      return;
+    }
+
     const { error } = await supabase
       .from('m4_automation_logs')
-      .insert(logData);
+      .insert(sanitizedLogData);
 
     if (error) {
       console.error('Error logging automation execution:', error);
@@ -231,14 +262,22 @@ export const automationService = {
   evaluateTrigger(automation: Automation, eventData: any): boolean {
     const { trigger_type, trigger_conditions: cond } = automation;
 
+    console.log(`[Automation] Evaluating trigger "${automation.name}" (${trigger_type})`, { cond, eventData });
+
     if (trigger_type === 'stage_change') {
       const { pipeline_id, from_stage_id, to_stage_id } = cond || {};
       const { pipeline_id: e_pipeline, from_stage_id: e_from, to_stage_id: e_to } = eventData;
 
+      console.log(`[Automation] Stage Change Check:`, { 
+        pipeline: { cond: pipeline_id, event: e_pipeline },
+        from: { cond: from_stage_id, event: e_from },
+        to: { cond: to_stage_id, event: e_to }
+      });
+
       if (pipeline_id && pipeline_id !== e_pipeline) return false;
       if (from_stage_id && from_stage_id !== e_from) return false;
       if (to_stage_id && to_stage_id !== e_to) return false;
-      
+
       return true;
     }
 
@@ -291,22 +330,53 @@ export const automationService = {
    */
   async processEvent(workspaceId: string, entityType: string, triggerType: string, eventData: any, entity: any) {
     try {
-      // 1. Fetch active automations for this trigger and entity
-      const { data: automations, error } = await supabase
+      // 1. Sanitize workspaceId (ensure it's a valid UUID or null)
+      const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+      
+      let validWorkspaceId: string | null = isUUID(workspaceId) ? workspaceId : null;
+      
+      // Fallback to entity's workspace if provided workspaceId is invalid
+      if (!validWorkspaceId && entity && isUUID(entity.workspace_id)) {
+        validWorkspaceId = entity.workspace_id;
+      }
+
+      console.log(`[Automation] Processing event: ${triggerType} for ${entityType} in workspace ${validWorkspaceId} (Input: ${workspaceId})`);
+      
+      const query = supabase
         .from('m4_automations')
         .select('*')
-        .eq('workspace_id', workspaceId)
         .eq('entity_type', entityType)
         .eq('trigger_type', triggerType)
         .eq('is_active', true);
 
-      if (error) throw error;
-      if (!automations || automations.length === 0) return;
+      // Apply workspace filter correctly
+      if (validWorkspaceId) {
+        query.eq('workspace_id', validWorkspaceId);
+      } else {
+        query.is('workspace_id', null);
+      }
+
+      const { data: automations, error } = await query;
+
+      if (error) {
+        console.error('[Automation] Error fetching automations:', error);
+        throw error;
+      }
+      
+      if (!automations || automations.length === 0) {
+        console.log(`[Automation] No active automations found for ${triggerType} on ${entityType}`);
+        return;
+      }
+
+      console.log(`[Automation] Found ${automations.length} active automations`);
 
       for (const auto of automations) {
         // 2. Evaluate conditions
-        if (this.evaluateTrigger(auto, eventData)) {
-          console.log(`Triggering automation: ${auto.name} (${auto.id})`);
+        const isTriggered = this.evaluateTrigger(auto, eventData);
+        console.log(`[Automation] Evaluating "${auto.name}": ${isTriggered ? 'MATCHED' : 'SKIPPED'}`);
+        
+        if (isTriggered) {
+          console.log(`[Automation] Executing actions for: ${auto.name}`);
           
           // 3. Execute actions
           for (const action of (auto.actions || [])) {
@@ -330,6 +400,11 @@ export const automationService = {
           await supabase.from('m4_automations').update({ last_triggered_at: new Date().toISOString() }).eq('id', auto.id);
         }
       }
+
+      // Dispatch event for UI refresh
+      window.dispatchEvent(new CustomEvent('m4_automation_executed', { 
+        detail: { entityType, triggerType, workspaceId } 
+      }));
     } catch (err) {
       console.error('Error in automation engine:', err);
     }

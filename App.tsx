@@ -340,6 +340,26 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
+  // Listen for automation execution events to refresh data
+  useEffect(() => {
+    const handleAutomationExecuted = (e: any) => {
+      console.log('App.tsx: Automation executed, refreshing data...', e.detail);
+      // We wait a bit to ensure DB has finished all operations
+      setTimeout(() => {
+        fetchLeads();
+        // Also refresh tasks as some automations create tasks
+        const refreshTasks = async () => {
+          const { data: tasksData } = await supabase.from('m4_tasks').select('*');
+          setTasks(tasksData || []);
+        };
+        refreshTasks();
+      }, 1000);
+    };
+
+    window.addEventListener('m4_automation_executed', handleAutomationExecuted);
+    return () => window.removeEventListener('m4_automation_executed', handleAutomationExecuted);
+  }, []);
+
   const handleLogout = async () => {
     localStorage.removeItem('m4_crm_user_id');
     setCurrentUser(null);
