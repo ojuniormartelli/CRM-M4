@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { Lead, Automation, User } from '../types';
 import { automationService } from '../services/automationService';
+import { supabase } from '../lib/supabase';
 import AutomationForm from '../components/AutomationForm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,10 +20,38 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAutomation, setEditingAutomation] = useState<Automation | null>(null);
 
-  const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
+  const isUUID = (uuid: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+  const [workspaceId, setWorkspaceId] = useState<string>(() => {
+    const initial = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
+    return isUUID(initial) ? initial : '';
+  });
+
+  useEffect(() => {
+    const checkWorkspace = async () => {
+      if (!isUUID(workspaceId)) {
+        // Try to find any workspace in the database
+        const { data: settings } = await supabase.from('m4_settings').select('workspace_id').maybeSingle();
+        if (settings?.workspace_id && isUUID(settings.workspace_id)) {
+          setWorkspaceId(settings.workspace_id);
+          localStorage.setItem('m4_crm_workspace_id', settings.workspace_id);
+        } else {
+          // If still no workspace, try to find one from pipelines
+          const { data: pipelines } = await supabase.from('m4_pipelines').select('workspace_id').not('workspace_id', 'is', null).limit(1);
+          if (pipelines && pipelines.length > 0 && pipelines[0].workspace_id && isUUID(pipelines[0].workspace_id)) {
+            setWorkspaceId(pipelines[0].workspace_id);
+            localStorage.setItem('m4_crm_workspace_id', pipelines[0].workspace_id);
+          }
+        }
+      }
+    };
+    checkWorkspace();
+  }, [currentUser, workspaceId]);
 
   const fetchAutomations = async () => {
-    if (!workspaceId) return;
+    if (!isUUID(workspaceId)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -169,7 +198,9 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Condições</p>
-                  <p className="text-lg font-black text-slate-700 dark:text-slate-200">{a.trigger_conditions?.length || 0}</p>
+                  <p className="text-lg font-black text-slate-700 dark:text-slate-200">
+                    {Array.isArray(a.trigger_conditions) ? a.trigger_conditions.length : (a.trigger_conditions ? 1 : 0)}
+                  </p>
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Ações</p>

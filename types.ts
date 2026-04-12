@@ -146,9 +146,11 @@ export interface Lead {
   contact_linkedin?: string;
   contact_phone?: string;
   contact_notes?: string;
+  origin_lead_id?: string;
   
   // Business Data
   pipeline_id?: string;
+  stage_id?: string;
   stage: string;
   value: number;
   business_notes: string;
@@ -360,6 +362,7 @@ export enum AutomationTriggerType {
   LEAD_CREATED = 'lead_created',
   STATUS_CHANGE = 'status_change',
   STAGE_CHANGE = 'stage_change',
+  RESPONSIBLE_CHANGE = 'responsible_change',
   FIELD_UPDATE = 'field_update',
   NO_ACTIVITY = 'no_activity',
   DATE_TRIGGER = 'date_trigger',
@@ -374,7 +377,7 @@ export interface AutomationCondition {
 }
 
 export interface AutomationAction {
-  type: 'update_field' | 'create_task' | 'send_notification' | 'send_webhook' | 'change_stage' | 'assign_user';
+  type: 'update_field' | 'create_task' | 'send_notification' | 'send_webhook' | 'change_stage' | 'assign_user' | 'move_to_pipeline' | 'duplicate_to_pipeline';
   config: Record<string, any>;
 }
 
@@ -384,7 +387,7 @@ export interface Automation {
   name: string;
   entity_type: AutomationEntityType;
   trigger_type: AutomationTriggerType;
-  trigger_conditions: AutomationCondition[];
+  trigger_conditions: any; // Flexible JSONB structure
   actions: AutomationAction[];
   is_active: boolean;
   created_at: string;

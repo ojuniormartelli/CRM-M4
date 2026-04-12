@@ -8,16 +8,16 @@ export const automationConditionSchema = z.object({
 });
 
 export const automationActionSchema = z.object({
-  type: z.enum(['update_field', 'create_task', 'send_notification', 'send_webhook', 'change_stage', 'assign_user']),
+  type: z.enum(['update_field', 'create_task', 'send_notification', 'send_webhook', 'change_stage', 'assign_user', 'move_to_pipeline', 'duplicate_to_pipeline']),
   config: z.record(z.string(), z.any()),
 });
 
 export const automationSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-  workspace_id: z.string().uuid('Workspace ID inválido'),
+  workspace_id: z.string().nullable().optional(),
   entity_type: z.nativeEnum(AutomationEntityType),
   trigger_type: z.nativeEnum(AutomationTriggerType),
-  trigger_conditions: z.array(automationConditionSchema).default([]),
+  trigger_conditions: z.any().optional(),
   actions: z.array(automationActionSchema).min(1, 'Pelo menos uma ação é necessária'),
   is_active: z.boolean().default(true),
 });

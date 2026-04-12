@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { mappers } from '../lib/mappers';
 import { Task } from '../types';
+import { automationService } from './automationService';
 
 export const taskService = {
   async getAll() {
@@ -21,10 +22,16 @@ export const taskService = {
       .select()
       .single();
     if (error) throw error;
-    return data as Task;
+    
+    const createdTask = data as Task;
+    automationService.processEvent(workspaceId, 'task', 'task_created', {}, createdTask);
+    
+    return createdTask;
   },
 
   async update(id: string, task: Partial<Task>) {
+    const { data: currentTask } = await supabase.from('m4_tasks').select('*').eq('id', id).single();
+    
     const payload = mappers.task(task);
     const { data, error } = await supabase
       .from('m4_tasks')
@@ -33,7 +40,20 @@ export const taskService = {
       .select()
       .single();
     if (error) throw error;
-    return data as Task;
+    
+    const updatedTask = data as Task;
+    
+    if (currentTask) {
+      if (task.status && task.status !== currentTask.status) {
+        const trigger = task.status === 'Concluído' ? 'task_completed' : 'status_change';
+        automationService.processEvent(updatedTask.workspace_id || '', 'task', trigger, {
+          from_status: currentTask.status,
+          to_status: updatedTask.status
+        }, updatedTask);
+      }
+    }
+    
+    return updatedTask;
   },
 
   async delete(id: string) {

@@ -127,6 +127,7 @@ export const mappers = {
 
     // 🛡️ BUSINESS DATA
     if (has('pipeline_id')) payload.pipeline_id = data.pipeline_id || null;
+    if (has('stage_id')) payload.stage_id = data.stage_id || null;
     if (has('stage')) payload.stage = data.stage || null;
     if (has('value')) payload.value = toNumberOrDefault(data.value, 0);
     if (has('business_notes', 'notes')) payload.notes = cleanText(data.business_notes || data.notes);
@@ -146,6 +147,7 @@ export const mappers = {
     // 🛡️ METADATA & SYSTEM
     if (has('responsible_name')) payload.responsible_name = cleanText(data.responsible_name);
     if (has('responsible_id')) payload.responsible_id = data.responsible_id || null;
+    if (has('origin_lead_id')) payload.origin_lead_id = data.origin_lead_id || null;
     if (has('status')) payload.status = data.status || 'active';
     if (has('interactions')) payload.interactions = data.interactions || [];
     if (has('custom_fields')) payload.custom_fields = data.custom_fields || {};
@@ -165,6 +167,7 @@ export const mappers = {
       'email',
       'phone',
       'pipeline_id',
+      'stage_id',
       'stage',
       'value',
       'notes',
@@ -250,6 +253,7 @@ export const mappers = {
 
       // Business Data
       pipeline_id: dbLead.pipeline_id || undefined,
+      stage_id: dbLead.stage_id || undefined,
       stage: dbLead.stage || '',
       value: Number(dbLead.value) || 0,
       business_notes: dbLead.notes || '',

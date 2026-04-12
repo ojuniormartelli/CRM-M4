@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS public.m4_client_accounts CASCADE;
 DROP TABLE IF EXISTS public.m4_tasks CASCADE;
 DROP TABLE IF EXISTS public.m4_emails CASCADE;
 DROP TABLE IF EXISTS public.m4_interactions CASCADE;
+DROP TABLE IF EXISTS public.m4_automations CASCADE;
 DROP TABLE IF EXISTS public.m4_form_responses CASCADE;
 DROP TABLE IF EXISTS public.m4_form_templates CASCADE;
 DROP TABLE IF EXISTS public.m4_leads CASCADE;
@@ -325,7 +326,21 @@ CREATE TABLE public.m4_interactions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 13. RLS
+-- 13. Automações
+CREATE TABLE public.m4_automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    trigger_conditions JSONB DEFAULT '[]',
+    actions JSONB DEFAULT '[]',
+    is_active BOOLEAN DEFAULT true,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 14. RLS
 ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_contacts ENABLE ROW LEVEL SECURITY;
@@ -345,6 +360,7 @@ ALTER TABLE m4_pipeline_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_form_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_form_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_automations ENABLE ROW LEVEL SECURITY;
 
 -- Simple policies
 CREATE POLICY "Allow all for authenticated" ON m4_settings FOR ALL USING (true);
@@ -366,6 +382,7 @@ CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING 
 CREATE POLICY "Allow all for authenticated" ON m4_form_templates FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_form_responses FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated" ON m4_interactions FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated" ON m4_automations FOR ALL USING (true);
 
 -- 14. Dados Iniciais
 INSERT INTO public.m4_job_roles (id, name, level, permissions) VALUES
@@ -407,6 +424,9 @@ ON CONFLICT (email) DO NOTHING;
       await new Promise(r => setTimeout(r, 1000));
 
       setProgress('Criando tabelas e estruturas...');
+      
+      const defaultWorkspaceId = 'e167f4e8-4a19-4ab7-b655-f104004f8bf0';
+
       // Tentamos inserir o usuário admin. Se falhar, é porque as tabelas não existem.
       const { error: userError } = await supabase.from('m4_users').upsert({
         name: 'Administrador',
@@ -415,6 +435,7 @@ ON CONFLICT (email) DO NOTHING;
         password: 'admin123',
         role: 'owner',
         status: 'active',
+        workspace_id: defaultWorkspaceId,
         must_change_password: true
       }, { onConflict: 'email' });
 
@@ -425,10 +446,17 @@ ON CONFLICT (email) DO NOTHING;
         throw userError;
       }
 
+      setProgress('Configurando workspace padrão...');
+      await supabase.from('m4_settings').upsert({
+        workspace_id: defaultWorkspaceId,
+        crm_name: 'M4 CRM',
+        company_name: 'Minha Agência'
+      }, { onConflict: 'workspace_id' });
+
       setProgress('Configurando pipelines padrão...');
       const pipelines = [
-        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', position: 0 },
-        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', position: 1 }
+        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', position: 0, workspace_id: defaultWorkspaceId },
+        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', position: 1, workspace_id: defaultWorkspaceId }
       ];
       await supabase.from('m4_pipelines').upsert(pipelines);
 
