@@ -814,14 +814,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este lead?')) return;
-    
     try {
       await leadService.delete(id);
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
       setIsDeleting(false);
-      alert('Lead excluído com sucesso!');
     } catch (error: any) {
       console.error('Erro ao excluir lead:', error);
       alert('Erro ao excluir: ' + error.message);
@@ -1345,21 +1342,22 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         <div className="flex items-center gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">{activePipeline.name}</h2>
               <button 
                 onClick={() => setIsPipelineModalOpen(true)}
-                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                title="Configurar Pipeline"
+                className="flex items-center gap-3 group text-left"
+                title="Trocar Pipeline"
               >
-                <ICONS.Settings width="20" height="20" />
+                <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors">{activePipeline.name}</h2>
+                <ICONS.ChevronDown className="text-muted-foreground group-hover:text-primary transition-colors w-6 h-6" />
               </button>
+              
               <button 
                 onClick={() => {
                   setEditingPipeline(activePipeline);
                   setIsStageConfigModalOpen(true);
                 }}
-                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                title="Configurar Etapas"
+                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all ml-2"
+                title="Configurar Etapas e Automações"
               >
                 <ICONS.Settings width="20" height="20" />
               </button>

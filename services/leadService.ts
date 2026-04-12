@@ -140,6 +140,22 @@ export const leadService = {
   },
 
   async delete(id: string) {
+    // 1. Manually delete related records that might not have ON DELETE CASCADE
+    // This ensures deletion works even if the database schema is missing some cascade constraints
+    try {
+      // Delete tasks linked via deal_id (some schemas use deal_id instead of lead_id)
+      await supabase.from('m4_tasks').delete().eq('deal_id', id);
+      
+      // Delete transactions
+      await supabase.from('m4_transactions').delete().eq('lead_id', id);
+      
+      // Delete emails
+      await supabase.from('m4_emails').delete().eq('lead_id', id);
+    } catch (err) {
+      console.warn('Error deleting related records (might not exist):', err);
+    }
+
+    // 2. Delete the lead itself
     const { error } = await supabase
       .from('m4_leads')
       .delete()

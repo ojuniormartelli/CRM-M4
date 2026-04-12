@@ -142,7 +142,10 @@ export const automationService = {
   async duplicateLeadToPipeline(leadId: string, pipelineId: string, stageId: string, automationId?: string) {
     console.log(`[Automation] Duplicating lead ${leadId} to pipeline ${pipelineId}, stage ${stageId}`);
     
-    // 1. Idempotency check: Check if this automation already duplicated this lead to this pipeline/stage
+    // 1. Idempotency check: Check if this lead was already duplicated to this pipeline
+    // We check both by automation_id (if provided) AND by origin_lead_id + pipeline_id
+    
+    // Check by logs first
     if (automationId) {
       const { data: existingLog } = await supabase
         .from('m4_automation_logs')
@@ -154,8 +157,21 @@ export const automationService = {
 
       if (existingLog) {
         console.log(`[Automation] Lead ${leadId} already duplicated by automation ${automationId}. Skipping.`);
-        return null; // Or throw error, but returning null is safer for bulk operations
+        return null;
       }
+    }
+
+    // Check by origin_lead_id in target pipeline (more robust)
+    const { data: existingDuplicate } = await supabase
+      .from('m4_leads')
+      .select('id')
+      .eq('origin_lead_id', leadId)
+      .eq('pipeline_id', pipelineId)
+      .maybeSingle();
+
+    if (existingDuplicate) {
+      console.log(`[Automation] Lead ${leadId} already has a duplicate in pipeline ${pipelineId}. Skipping.`);
+      return null;
     }
 
     // 2. Fetch original lead
@@ -169,7 +185,6 @@ export const automationService = {
 
     // 2. Prepare new lead payload (copying all relevant data)
     // We remove ID and timestamps to let Supabase generate new ones
-    // Note: 'updated_at' does not exist in the current m4_leads schema
     const { id, created_at, updated_at, ...leadData } = originalLead;
     
     const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
@@ -177,7 +192,7 @@ export const automationService = {
     const newLeadPayload: any = {
       ...leadData,
       pipeline_id: pipelineId,
-      stage: isUUID(stageId) ? (leadData.stage || 'new') : stageId,
+      stage: isUUID(stageId) ? stageId : (leadData.stage || 'new'),
       origin_lead_id: leadId, // Link to original
       created_at: new Date().toISOString()
     };

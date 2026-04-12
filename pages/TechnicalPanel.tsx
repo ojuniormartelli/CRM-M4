@@ -572,6 +572,25 @@ CREATE POLICY "Enable access for all" ON m4_task_dependencies FOR ALL USING (tru
 CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (true);
 `;
 
+  const fixLeadsDeletionSQL = `-- 🛠️ FIX: Adiciona ON DELETE CASCADE para referências de leads que estavam faltando
+-- Execute este script se não conseguir excluir leads (erro de chave estrangeira).
+
+-- 1. m4_transactions
+ALTER TABLE m4_transactions DROP CONSTRAINT IF EXISTS m4_transactions_lead_id_fkey;
+ALTER TABLE m4_transactions ADD CONSTRAINT m4_transactions_lead_id_fkey 
+    FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
+
+-- 2. m4_emails
+ALTER TABLE m4_emails DROP CONSTRAINT IF EXISTS m4_emails_lead_id_fkey;
+ALTER TABLE m4_emails ADD CONSTRAINT m4_emails_lead_id_fkey 
+    FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
+
+-- 3. m4_tasks (deal_id)
+ALTER TABLE m4_tasks DROP CONSTRAINT IF EXISTS m4_tasks_deal_id_fkey;
+ALTER TABLE m4_tasks ADD CONSTRAINT m4_tasks_deal_id_fkey 
+    FOREIGN KEY (deal_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
+`;
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
@@ -801,6 +820,31 @@ USING (
           <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
              <div className="text-red-500"><ICONS.Shield width="20" height="20" /></div>
              <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Use este script se os leads não estiverem aparecendo mesmo existindo no banco. Ele remove restrições de workspace_id NULL.</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-amber-100 bg-amber-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-amber-900 dark:text-amber-400 uppercase tracking-tight">Fix Lead Deletion</h3>
+              <p className="text-xs font-bold text-amber-400 mt-1 uppercase tracking-widest">Correção de Exclusão</p>
+            </div>
+            <button 
+              onClick={() => handleCopy(fixLeadsDeletionSQL, 'fix_delete')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'fix_delete' ? 'bg-emerald-500 text-white' : 'bg-amber-50 text-amber-400 hover:bg-amber-600 hover:text-white'}`}
+            >
+              {copied === 'fix_delete' ? 'Copiado!' : 'Copiar SQL'}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-amber-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {fixLeadsDeletionSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
+             <div className="text-amber-500"><ICONS.Trash width="20" height="20" /></div>
+             <p className="text-[11px] font-bold text-amber-700 leading-relaxed uppercase">Este script adiciona o comportamento de "Cascata" na exclusão de leads, permitindo remover leads que possuem transações ou e-mails vinculados.</p>
           </div>
         </div>
       </div>
