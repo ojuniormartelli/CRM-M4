@@ -283,14 +283,14 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     try {
       // 🛡️ CONSOLIDAÇÃO: Agora salvamos interações como tarefas concluídas do domínio comercial
       const interactionTask = {
-        title: `${interactionType}: ${interactionNote.substring(0, 30)}${interactionNote.length > 30 ? '...' : ''}`,
+        title: `${interactionType} (${interactionResult}): ${interactionNote.substring(0, 30)}${interactionNote.length > 30 ? '...' : ''}`,
         description: interactionNote,
         type: interactionType,
         status: 'Concluído',
         task_type: 'commercial' as const,
         lead_id: selectedLead.id,
         company_id: selectedLead.company_id,
-        interaction_success: interactionSuccess,
+        interaction_success: interactionResult !== 'Não atendeu',
         interaction_note: interactionNote,
         due_date: new Date().toISOString()
       };
@@ -309,8 +309,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         setInteractions([data as Task, ...interactions]);
         setTasks([data as Task, ...tasks]); // Também atualiza a lista global de tarefas
         setInteractionNote('');
-        // Reset success to true for next interaction
-        setInteractionSuccess(true);
+        setInteractionResult('Sucesso');
+        setShowInteractionForm(false);
       }
     } catch (error) {
       console.error('Error registering interaction:', error);
@@ -336,6 +336,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [interactionNote, setInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<Interaction['type']>('WhatsApp');
   const [interactionSuccess, setInteractionSuccess] = useState(true);
+  const [interactionResult, setInteractionResult] = useState<'Envio de mensagem' | 'Sucesso' | 'Não atendeu'>('Sucesso');
+  const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -2210,80 +2212,94 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 <div className="flex-1 overflow-y-auto p-10 scrollbar-none">
                   {activeTab360 === 'history' && (
                     <div className="space-y-8">
+                      {/* Interaction Actions */}
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Histórico de Atividades</h4>
+                        <button
+                          onClick={() => setShowInteractionForm(!showInteractionForm)}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                            showInteractionForm 
+                              ? 'bg-muted text-muted-foreground hover:bg-muted/80' 
+                              : 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 hover:scale-105 active:scale-95'
+                          }`}
+                        >
+                          {showInteractionForm ? (
+                            <><X className="w-3 h-3" /> Cancelar</>
+                          ) : (
+                            <><Plus className="w-3 h-3" /> Registrar Interação</>
+                          )}
+                        </button>
+                      </div>
+
                       {/* Registrar Interação Form */}
-                      <div className="p-8 bg-card rounded-3xl border border-border shadow-sm">
-                        <h5 className="text-[10px] font-black text-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                          <ICONS.Plus className="w-3 h-3 text-primary" /> Registrar Interação
-                        </h5>
-                        
-                        <div className="space-y-6">
-                          <textarea
-                            value={interactionNote}
-                            onChange={(e) => setInteractionNote(e.target.value)}
-                            placeholder="O que foi conversado com o lead?"
-                            className="w-full p-5 bg-muted/50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all min-h-[120px] resize-none text-foreground"
-                          />
+                      {showInteractionForm && (
+                        <div className="p-8 bg-card rounded-3xl border-2 border-primary/20 shadow-xl animate-in zoom-in-95 duration-300">
+                          <h5 className="text-[10px] font-black text-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <ICONS.Plus className="w-3 h-3 text-primary" /> Nova Interação
+                          </h5>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Canal</label>
-                              <div className="flex flex-wrap gap-2">
-                                {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro'].map((type) => (
-                                  <button
-                                    key={type}
-                                    onClick={() => setInteractionType(type as any)}
-                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                      interactionType === type 
-                                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                    }`}
-                                  >
-                                    {type}
-                                  </button>
-                                ))}
+                          <div className="space-y-6">
+                            <textarea
+                              value={interactionNote}
+                              onChange={(e) => setInteractionNote(e.target.value)}
+                              placeholder="O que foi conversado com o lead?"
+                              className="w-full p-5 bg-muted/50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all min-h-[120px] resize-none text-foreground"
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Canal</label>
+                                <div className="flex flex-wrap gap-2">
+                                  {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro'].map((type) => (
+                                    <button
+                                      key={type}
+                                      onClick={() => setInteractionType(type as any)}
+                                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        interactionType === type 
+                                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                      }`}
+                                    >
+                                      {type}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Resultado</label>
+                                <div className="flex flex-wrap gap-2">
+                                  {(['Envio de mensagem', 'Sucesso', 'Não atendeu'] as const).map((res) => (
+                                    <button
+                                      key={res}
+                                      onClick={() => setInteractionResult(res)}
+                                      className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        interactionResult === res 
+                                          ? res === 'Não atendeu' ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20' : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                      }`}
+                                    >
+                                      {res} {res === 'Sucesso' ? '✅' : res === 'Não atendeu' ? '❌' : '📩'}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                             
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Sucesso</label>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => setInteractionSuccess(true)}
-                                  className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    interactionSuccess === true 
-                                      ? 'bg-primary text-primary-foreground shadow-none' 
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  Consegui falar ✅
-                                </button>
-                                <button
-                                  onClick={() => setInteractionSuccess(false)}
-                                  className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    interactionSuccess === false 
-                                      ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20' 
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  Não atendeu ❌
-                                </button>
-                              </div>
-                            </div>
+                            <button
+                              onClick={handleRegisterInteraction}
+                              disabled={isRegisteringInteraction || !interactionNote.trim()}
+                              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                            >
+                              {isRegisteringInteraction ? (
+                                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                              ) : (
+                                <>SALVAR INTERAÇÃO</>
+                              )}
+                            </button>
                           </div>
-                          
-                          <button
-                            onClick={handleRegisterInteraction}
-                            disabled={isRegisteringInteraction || !interactionNote.trim()}
-                            className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                          >
-                            {isRegisteringInteraction ? (
-                              <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                            ) : (
-                              <>REGISTRAR INTERAÇÃO</>
-                            )}
-                          </button>
                         </div>
-                      </div>
+                      )}
 
                       {/* AI Summary */}
                       <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10">

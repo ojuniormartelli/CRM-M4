@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     due_date TIMESTAMP WITH TIME ZONE,
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     company_id UUID REFERENCES m4_companies(id),
+    contact_id UUID REFERENCES m4_contacts(id),
     deal_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     client_account_id UUID,
     is_recurring BOOLEAN DEFAULT FALSE,
@@ -160,6 +161,14 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     actual_hours DECIMAL(5,2) DEFAULT 0,
     start_date DATE,
     depends_on_task_id UUID REFERENCES m4_tasks(id),
+    parent_task_id UUID REFERENCES m4_tasks(id),
+    task_type TEXT DEFAULT 'internal',
+    interaction_success BOOLEAN DEFAULT TRUE,
+    interaction_note TEXT,
+    client_id UUID,
+    list_id UUID,
+    checklist JSONB DEFAULT '[]',
+    dependencies JSONB DEFAULT '[]',
     tags TEXT,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -373,7 +382,16 @@ BEGIN
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS actual_hours DECIMAL(5,2) DEFAULT 0;
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES m4_tasks(id);
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS parent_task_id UUID REFERENCES m4_tasks(id);
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS task_type TEXT DEFAULT 'internal';
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS interaction_success BOOLEAN DEFAULT TRUE;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS interaction_note TEXT;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS client_id UUID;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS list_id UUID;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]';
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS dependencies JSONB DEFAULT '[]';
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS tags TEXT;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS contact_id UUID REFERENCES public.m4_contacts(id);
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS deal_id UUID REFERENCES m4_leads(id);
 
     -- 4. Correção de Constraints (Cascade Delete)
