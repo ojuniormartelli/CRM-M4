@@ -10,7 +10,7 @@ import { aiService } from '../services/aiService';
 import { leadService } from '../services/leadService';
 import { metricsUtils } from '../utils/metrics';
 import { funnelUtils } from '../utils/funnel';
-import { Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
+import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -339,6 +339,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [interactionResult, setInteractionResult] = useState<'Envio de mensagem' | 'Sucesso' | 'Não atendeu'>('Sucesso');
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
+  const [cardDensity, setCardDensity] = useState<'normal' | 'compact'>('normal');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [sortOrder, setSortOrder] = useState<'recent' | 'alphabetical' | 'value'>('recent');
   const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
@@ -924,8 +927,27 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       const today = new Date().toISOString().split('T')[0];
       filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today);
     }
-    return funnelUtils.groupLeadsByStage(filtered, activePipeline);
-  }, [leads, activePipeline, filterMode]);
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortOrder === 'recent') {
+        const dateA = new Date(a.last_activity_at || a.created_at).getTime();
+        const dateB = new Date(b.last_activity_at || b.created_at).getTime();
+        return dateB - dateA; // Most recent first
+      }
+      if (sortOrder === 'alphabetical') {
+        const nameA = (a.company || a.name || '').toLowerCase();
+        const nameB = (b.company || b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortOrder === 'value') {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      }
+      return 0;
+    });
+
+    return funnelUtils.groupLeadsByStage(sorted, activePipeline);
+  }, [leads, activePipeline, filterMode, sortOrder]);
 
   const getLeadsByStage = (stageId: string) => leadsByStage[stageId] || [];
   
@@ -1373,6 +1395,52 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         </div>
 
           <div className="flex gap-4">
+            <div className="flex bg-muted p-1 rounded-xl mr-2">
+              <button 
+                onClick={() => setViewMode('kanban')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                title="Visualização em Kanban"
+              >
+                <LayoutGrid width="18" height="18" />
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                title="Visualização em Lista"
+              >
+                <List width="18" height="18" />
+              </button>
+            </div>
+
+            {viewMode === 'kanban' && (
+              <div className="flex bg-muted p-1 rounded-xl mr-2">
+                <button 
+                  onClick={() => setCardDensity('normal')}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${cardDensity === 'normal' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Normal
+                </button>
+                <button 
+                  onClick={() => setCardDensity('compact')}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${cardDensity === 'compact' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Compacto
+                </button>
+              </div>
+            )}
+
+            <div className="flex bg-muted p-1 rounded-xl mr-2">
+              <select 
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as any)}
+                className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest text-muted-foreground focus:ring-0 cursor-pointer px-3"
+              >
+                <option value="recent">Mais Recentes</option>
+                <option value="alphabetical">A-Z</option>
+                <option value="value">Maior Valor</option>
+              </select>
+            </div>
+
             <div className="flex bg-muted p-1 rounded-xl mr-4">
               <button 
                 onClick={() => setFilterMode('all')}
@@ -1427,97 +1495,196 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         </div>
       )}
 
-      <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none">
-        <div className="flex gap-8 h-full min-w-max">
-          {activePipeline.stages.map((stage) => (
-            <div 
-              key={stage.id} 
-              onDragOver={onDragOver} 
-              onDrop={(e) => onDrop(e, stage.id)}
-              className={`w-[360px] flex flex-col bg-muted/30 rounded-[2.5rem] border transition-all duration-500 p-3 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
-            >
-              <div className="p-6 flex justify-between items-center bg-card/60 rounded-[2rem] border-b border-border/50 mb-4 shadow-sm">
-                <div className="flex items-center gap-3">
+      {viewMode === 'kanban' ? (
+        <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none">
+          <div className="flex gap-8 h-full min-w-max">
+            {activePipeline.stages.map((stage) => (
+              <div 
+                key={stage.id} 
+                onDragOver={onDragOver} 
+                onDrop={(e) => onDrop(e, stage.id)}
+                className={`w-[360px] flex flex-col bg-muted/30 rounded-[2.5rem] border transition-all duration-500 p-3 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
+              >
+                <div className="p-6 flex justify-between items-center bg-card/60 rounded-[2rem] border-b border-border/50 mb-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
+                    <h3 className="font-black text-foreground text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
+                    <div className="w-5 h-5 bg-primary/10 text-primary rounded-lg flex items-center justify-center" title="Automações Ativas">
+                      <ICONS.Automation width="12" height="12" />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="bg-foreground dark:bg-muted px-3 py-1 rounded-full text-[10px] font-black text-background dark:text-foreground">{getLeadsByStage(stage.id).length}</span>
+                    <p className="text-[10px] font-black text-muted-foreground mt-1">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="p-2 space-y-5 overflow-y-auto flex-1 max-h-[calc(100vh-340px)] scrollbar-none pb-6">
+                  {getLeadsByStage(stage.id).map((lead) => (
+                    <div 
+                      key={lead.id} 
+                      draggable
+                      onDragStart={(e) => onDragStart(e, lead.id)}
+                      onClick={() => setSelectedLead(lead)}
+                      className={`bg-card rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'} ${cardDensity === 'compact' ? 'p-4' : 'p-6'}`}
+                    >
+                      <div className={`flex justify-between items-start ${cardDensity === 'compact' ? 'mb-2' : 'mb-4'}`}>
+                        <span className={`uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-3.5 py-1.5 rounded-xl border border-primary/20 inline-block max-w-full break-words ${cardDensity === 'compact' ? 'text-[8px]' : 'text-[9px]'}`}>
+                          {lead.niche || 'Sem Nicho'}
+                        </span>
+                        {isStale(lead) && (
+                          <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
+                        )}
+                      </div>
+                      
+                      <h4 className={`font-black text-foreground group-hover:text-primary transition-colors truncate ${cardDensity === 'compact' ? 'text-sm mb-0' : 'text-lg mb-0.5'}`}>
+                        {lead.company || (lead.responsible_id ? '' : lead.name) || 'Novo Negócio'}
+                      </h4>
+                      
+                      <p className={`font-bold text-muted-foreground uppercase tracking-widest truncate ${cardDensity === 'compact' ? 'text-[8px] mb-2' : 'text-[10px] mb-4'}`}>
+                        {lead.responsible_id ? lead.name : (lead.responsible_name || 'Contato não informado')}
+                      </p>
+
+                      {cardDensity === 'normal' && (
+                        <>
+                          {lead.next_action && (
+                            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
+                              <ICONS.Clock width="12" height="12" />
+                              <p className="text-[10px] font-black uppercase truncate">{lead.next_action}</p>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground font-bold mb-6 line-clamp-2">{lead.notes}</p>
+                          
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                              lead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' :
+                              lead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
+                              'bg-muted text-muted-foreground'
+                            }`}>
+                              {lead.temperature || 'Frio'}
+                            </div>
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
+                          </div>
+                        </>
+                      )}
+
+                      <div className={`flex justify-between items-center border-t border-border/50 ${cardDensity === 'compact' ? 'pt-3 mt-2' : 'pt-6'}`}>
+                        <div className={`font-black text-foreground ${cardDensity === 'compact' ? 'text-xs' : 'text-base'}`}>
+                          R$ {Number(lead.value).toLocaleString()}
+                        </div>
+                        {cardDensity === 'normal' && (
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
+                              className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
+                              title="Mover para etapa anterior"
+                            >
+                              <ICONS.ArrowRight className="rotate-180" width="14" height="14" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'next'); }}
+                              className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
+                              title="Mover para próxima etapa"
+                            >
+                              <ICONS.ArrowRight width="14" height="14" />
+                            </button>
+                          </div>
+                        )}
+                        <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className={`${cardDensity === 'compact' ? 'w-6 h-6' : 'w-9 h-9'} rounded-2xl border-2 border-card shadow-xl`} alt="Owner" />
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground/50 text-[11px] font-black uppercase tracking-[0.2em] hover:border-primary hover:text-primary hover:bg-card transition-all">+ NOVO LEAD</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto pb-10 scrollbar-none space-y-10">
+          {activePipeline.stages.map((stage) => {
+            const stageLeads = getLeadsByStage(stage.id);
+            if (stageLeads.length === 0) return null;
+
+            return (
+              <div key={stage.id} className="space-y-4">
+                <div className="flex items-center gap-3 px-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
                   <h3 className="font-black text-foreground text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
-                  <div className="w-5 h-5 bg-primary/10 text-primary rounded-lg flex items-center justify-center" title="Automações Ativas">
-                    <ICONS.Automation width="12" height="12" />
-                  </div>
+                  <span className="bg-muted px-3 py-1 rounded-full text-[10px] font-black text-muted-foreground">
+                    {stageLeads.length} {stageLeads.length === 1 ? 'Lead' : 'Leads'}
+                  </span>
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest ml-auto">
+                    Total: R$ {calculateStageTotal(stage.id).toLocaleString()}
+                  </span>
                 </div>
-                <div className="text-right">
-                  <span className="bg-foreground dark:bg-muted px-3 py-1 rounded-full text-[10px] font-black text-background dark:text-foreground">{getLeadsByStage(stage.id).length}</span>
-                  <p className="text-[10px] font-black text-muted-foreground mt-1">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
+
+                <div className="bg-card rounded-[2.5rem] border border-border overflow-hidden shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Empresa</th>
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Contato</th>
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nicho</th>
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Valor</th>
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</th>
+                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stageLeads.map((lead) => (
+                        <tr 
+                          key={lead.id} 
+                          onClick={() => setSelectedLead(lead)}
+                          className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer group"
+                        >
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black">
+                                {lead.company?.charAt(0) || lead.name?.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-bold text-foreground group-hover:text-primary transition-colors">{lead.company || 'Sem Nome'}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">{lead.website || 'Sem website'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <p className="text-sm font-bold text-foreground">{lead.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{lead.email}</p>
+                          </td>
+                          <td className="p-6">
+                            <span className="px-3 py-1 bg-muted rounded-full text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                              {lead.niche || 'Geral'}
+                            </span>
+                          </td>
+                          <td className="p-6">
+                            <p className="text-sm font-black text-foreground">R$ {Number(lead.value).toLocaleString()}</p>
+                          </td>
+                          <td className="p-6">
+                            <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              lead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600' :
+                              lead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
+                              'bg-muted text-muted-foreground'
+                            }`}>
+                              {lead.temperature || 'Frio'}
+                            </div>
+                          </td>
+                          <td className="p-6 text-right">
+                            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
+                              <ICONS.ArrowRight width="16" height="16" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-
-              <div className="p-2 space-y-5 overflow-y-auto flex-1 max-h-[calc(100vh-340px)] scrollbar-none pb-6">
-                {getLeadsByStage(stage.id).map((lead) => (
-                  <div 
-                    key={lead.id} 
-                    draggable
-                    onDragStart={(e) => onDragStart(e, lead.id)}
-                    onClick={() => setSelectedLead(lead)}
-                    className={`bg-card p-6 rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'}`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-[9px] uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-3.5 py-1.5 rounded-xl border border-primary/20 inline-block max-w-full break-words">{lead.niche || 'Sem Nicho'}</span>
-                      {isStale(lead) && (
-                        <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
-                      )}
-                    </div>
-                    <h4 className="font-black text-foreground text-lg mb-0.5 group-hover:text-primary transition-colors truncate">
-                      {lead.company || (lead.responsible_id ? '' : lead.name) || 'Novo Negócio'}
-                    </h4>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 truncate">
-                      {lead.responsible_id ? lead.name : (lead.responsible_name || 'Contato não informado')}
-                    </p>
-                    {lead.next_action && (
-                      <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
-                        <ICONS.Clock width="12" height="12" />
-                        <p className="text-[10px] font-black uppercase truncate">{lead.next_action}</p>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground font-bold mb-6">{lead.notes}</p>
-                    
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                        lead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' :
-                        lead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {lead.temperature || 'Frio'}
-                      </div>
-                      <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-6 border-t border-border/50">
-                      <div className="font-black text-foreground text-base">R$ {Number(lead.value).toLocaleString()}</div>
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
-                          className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
-                          title="Mover para etapa anterior"
-                        >
-                          <ICONS.ArrowRight className="rotate-180" width="14" height="14" />
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'next'); }}
-                          className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
-                          title="Mover para próxima etapa"
-                        >
-                          <ICONS.ArrowRight width="14" height="14" />
-                        </button>
-                      </div>
-                      <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className="w-9 h-9 rounded-2xl border-4 border-card shadow-xl" alt="Owner" />
-                    </div>
-                  </div>
-                ))}
-                <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground/50 text-[11px] font-black uppercase tracking-[0.2em] hover:border-primary hover:text-primary hover:bg-card transition-all">+ NOVO LEAD</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
