@@ -17,7 +17,7 @@ const TechnicalPanel: React.FC = () => {
   const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
 -- Use este script apenas se estiver configurando do zero.
 
--- 1. Tabela de Configurações
+-- 1. Tabelas Base e Configurações
 CREATE TABLE IF NOT EXISTS m4_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID UNIQUE,
@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS m4_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Tabela de Empresas
 CREATE TABLE IF NOT EXISTS public.m4_companies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid,
@@ -52,7 +51,6 @@ CREATE TABLE IF NOT EXISTS public.m4_companies (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 3. Tabela de Contatos
 CREATE TABLE IF NOT EXISTS public.m4_contacts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid,
@@ -68,17 +66,35 @@ CREATE TABLE IF NOT EXISTS public.m4_contacts (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- 4. Tabela de Leads (Negócios/Deals)
+-- 2. Leads e Pipelines
+CREATE TABLE IF NOT EXISTS m4_pipelines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_pipeline_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pipeline_id UUID REFERENCES m4_pipelines(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    color TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS m4_leads (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
-    company TEXT, -- Nome da empresa (legado)
+    company TEXT,
     company_id UUID REFERENCES public.m4_companies(id),
     contact_id UUID REFERENCES public.m4_contacts(id),
     email TEXT,
     phone TEXT,
     pipeline_id TEXT DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
-    stage TEXT DEFAULT 's1',
+    stage TEXT DEFAULT 'new',
     value NUMERIC DEFAULT 0,
     notes TEXT,
     niche TEXT,
@@ -110,18 +126,17 @@ CREATE TABLE IF NOT EXISTS m4_leads (
     contact_phone TEXT,
     contact_notes TEXT,
     business_notes TEXT,
-    contacts JSONB DEFAULT '[]', -- Legado
     responsible_name TEXT,
     responsible_id TEXT,
     last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     status TEXT DEFAULT 'active',
-    interactions JSONB DEFAULT '[]',
     custom_fields JSONB DEFAULT '{}',
     workspace_id UUID,
+    origin_lead_id UUID,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 5. Tabela de Tarefas
+-- 3. Tarefas e ClickUp Advanced
 CREATE TABLE IF NOT EXISTS m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
@@ -132,7 +147,7 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     due_date TIMESTAMP WITH TIME ZONE,
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     company_id UUID REFERENCES m4_companies(id),
-    deal_id UUID REFERENCES m4_leads(id),
+    deal_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     client_account_id UUID,
     is_recurring BOOLEAN DEFAULT FALSE,
     recurrence_type TEXT,
@@ -141,60 +156,42 @@ CREATE TABLE IF NOT EXISTS m4_tasks (
     recurrence_month_week TEXT,
     recurrence_end_date DATE,
     recurrence_occurrences INTEGER,
+    estimated_hours DECIMAL(5,2),
+    actual_hours DECIMAL(5,2) DEFAULT 0,
+    start_date DATE,
+    depends_on_task_id UUID REFERENCES m4_tasks(id),
+    tags TEXT,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Tabela de Contas de Clientes (Follow-up)
-CREATE TABLE IF NOT EXISTS m4_client_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
-    company_id UUID REFERENCES m4_companies(id),
-    status TEXT DEFAULT 'ativo',
-    service_type TEXT,
-    start_date DATE DEFAULT CURRENT_DATE,
-    end_date DATE,
-    billing_model TEXT DEFAULT 'recorrente',
-    monthly_value NUMERIC DEFAULT 0,
-    notes TEXT,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS m4_task_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  user_id UUID,
+  comment TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Módulo Financeiro
+CREATE TABLE IF NOT EXISTS m4_task_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_size INTEGER,
+  file_type TEXT,
+  storage_path TEXT NOT NULL,
+  uploaded_by UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Financeiro
 CREATE TABLE IF NOT EXISTS m4_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT,
     balance NUMERIC DEFAULT 0,
     currency TEXT DEFAULT 'BRL',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_finance_categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_payment_methods (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_credit_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    limit_amount NUMERIC DEFAULT 0,
-    closing_day INTEGER,
-    due_day INTEGER,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -209,11 +206,9 @@ CREATE TABLE IF NOT EXISTS m4_transactions (
     date DATE DEFAULT CURRENT_DATE,
     status TEXT DEFAULT 'Pendente',
     bank_account_id UUID REFERENCES m4_bank_accounts(id),
-    client_account_id UUID REFERENCES m4_client_accounts(id),
-    lead_id UUID REFERENCES m4_leads(id),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     company_id UUID REFERENCES m4_companies(id),
-    deal_id UUID REFERENCES m4_leads(id),
-    credit_card_id UUID REFERENCES m4_credit_cards(id),
+    deal_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     payment_method TEXT,
     due_date DATE,
     paid_date DATE,
@@ -225,13 +220,35 @@ CREATE TABLE IF NOT EXISTS m4_transactions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 8. Comunicação e Social
+-- 5. Automações e Interações
+CREATE TABLE IF NOT EXISTS m4_automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    trigger_type TEXT NOT NULL,
+    trigger_config JSONB NOT NULL DEFAULT '{}',
+    actions JSONB NOT NULL DEFAULT '[]',
+    is_active BOOLEAN DEFAULT TRUE,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS m4_automation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    automation_id UUID REFERENCES m4_automations(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    message TEXT,
+    workspace_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS m4_interactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     type TEXT,
     note TEXT,
-    success BOOLEAN,
+    success BOOLEAN DEFAULT TRUE,
     workspace_id UUID,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -246,66 +263,13 @@ CREATE TABLE IF NOT EXISTS m4_emails (
     folder TEXT DEFAULT 'inbox',
     is_read BOOLEAN DEFAULT FALSE,
     company_id UUID REFERENCES m4_companies(id),
-    contact_id UUID REFERENCES m4_contacts(id),
-    lead_id UUID REFERENCES m4_leads(id),
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     workspace_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS m4_posts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_name TEXT,
-    user_role TEXT,
-    content TEXT,
-    likes INTEGER DEFAULT 0,
-    comments INTEGER DEFAULT 0,
-    type TEXT DEFAULT 'update',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_campaigns (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    type TEXT,
-    status TEXT DEFAULT 'Agendada',
-    sent_count INTEGER DEFAULT 0,
-    open_rate TEXT DEFAULT '-',
-    click_rate TEXT DEFAULT '-',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- RLS Policies
-ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable all for authenticated users" ON m4_interactions FOR ALL USING (auth.role() = 'authenticated');
-`;
-
-  const updateV4SQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO v4 (M4 CRM)
--- Adiciona tabelas faltantes e ajusta a posição das etapas do funil.
-
--- 1. Tabela de Interações (Histórico do Lead)
-CREATE TABLE IF NOT EXISTS public.m4_interactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
-    type TEXT CHECK (type IN ('WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro', 'ai_insight', 'Call', 'Email', 'Meeting', 'Note')),
-    note TEXT,
-    success BOOLEAN DEFAULT true,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 2. Tabela de Serviços
-CREATE TABLE IF NOT EXISTS public.m4_services (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    default_price NUMERIC DEFAULT 0,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 3. Tabelas de Questionários (Forms)
-CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+-- 6. Questionários (Forms)
+CREATE TABLE IF NOT EXISTS m4_form_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
@@ -314,281 +278,134 @@ CREATE TABLE IF NOT EXISTS public.m4_form_templates (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+CREATE TABLE IF NOT EXISTS m4_form_responses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
-    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    form_id UUID REFERENCES m4_form_templates(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
     answers JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Ajustar posições das etapas para garantir "Novo Lead" no topo (posição 1)
--- Nota: Isso assume que você está usando o pipeline padrão.
-UPDATE public.m4_pipeline_stages SET position = 1 WHERE name = 'Novo Lead';
-UPDATE public.m4_pipeline_stages SET position = 2 WHERE name = 'Qualificado';
-UPDATE public.m4_pipeline_stages SET position = 3 WHERE name = 'Reunião Agendada';
-UPDATE public.m4_pipeline_stages SET position = 4 WHERE name = 'Proposta Enviada';
-UPDATE public.m4_pipeline_stages SET position = 5 WHERE name = 'Aguardando Decisão';
-UPDATE public.m4_pipeline_stages SET position = 6 WHERE name = 'Fechado – Ganho';
-UPDATE public.m4_pipeline_stages SET position = 7 WHERE name = 'Fechado – Perdido';
-
--- 5. Garantir que o stage padrão dos leads seja 'new' (Novo Lead)
-ALTER TABLE public.m4_leads ALTER COLUMN stage SET DEFAULT 'new';
-UPDATE public.m4_leads SET stage = 'new' WHERE stage = 's1' OR stage IS NULL;
-
--- 6. Habilitar RLS para as novas tabelas
+-- 7. RLS e Políticas (Acesso Total para Autenticados)
+ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_pipelines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_pipeline_stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_task_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_task_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_bank_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_automations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_automation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE m4_emails ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_form_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE m4_form_responses ENABLE ROW LEVEL SECURITY;
 
--- Políticas simplificadas (ajuste conforme necessário)
-CREATE POLICY "Allow all for authenticated" ON m4_interactions FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_services FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_form_templates FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_form_responses FOR ALL USING (true);`;
-
-  const updateOnlySQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO (M4 CRM - CRM Evolution)
--- Use este script para adicionar novas funcionalidades a um banco já existente.
-
--- 1. Criar tabela de Empresas (se não existir)
-CREATE TABLE IF NOT EXISTS public.m4_companies (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id uuid,
-  name text NOT NULL,
-  cnpj text,
-  city text,
-  state text,
-  segment text,
-  website text,
-  email text,
-  phone text,
-  whatsapp text,
-  notes text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now()
-);
-
--- 2. Criar tabela de Contatos (se não existir)
-CREATE TABLE IF NOT EXISTS public.m4_contacts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id uuid,
-  company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  role text,
-  email text,
-  phone text,
-  whatsapp text,
-  notes text,
-  is_primary boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now()
-);
-
--- 3. Vincular Leads (Negócios) às Empresas e Contatos
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS workspace_id uuid;
-
--- 4. Vincular Contas de Clientes às Empresas
-ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
-ALTER TABLE public.m4_client_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
-
--- 5. Vincular Tarefas às Empresas e Negócios
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS workspace_id uuid;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT false;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_days TEXT[];
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_day_of_month INTEGER;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_month_week TEXT;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_end_date DATE;
-ALTER TABLE public.m4_tasks ADD COLUMN IF NOT EXISTS recurrence_occurrences INTEGER;
-
--- 6. Vincular Transações às Empresas e Negócios
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS deal_id uuid REFERENCES public.m4_leads(id);
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS workspace_id uuid;
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurring_id UUID;
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurrence_type TEXT;
-ALTER TABLE public.m4_transactions ADD COLUMN IF NOT EXISTS recurrence_period TEXT;
-
--- 7. Vincular E-mails às Empresas, Contatos e Negócios
-ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.m4_companies(id);
-ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES public.m4_contacts(id);
-ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES public.m4_leads(id);
-ALTER TABLE public.m4_emails ADD COLUMN IF NOT EXISTS workspace_id uuid;
-
--- 8. Adicionar workspace_id às tabelas restantes
-ALTER TABLE m4_bank_accounts ADD COLUMN IF NOT EXISTS workspace_id UUID;
-ALTER TABLE m4_credit_cards ADD COLUMN IF NOT EXISTS workspace_id UUID;
-ALTER TABLE m4_posts ADD COLUMN IF NOT EXISTS workspace_id UUID;
-ALTER TABLE m4_campaigns ADD COLUMN IF NOT EXISTS workspace_id UUID;
-ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID;
-
--- 9. Novas Tabelas e Correções
-CREATE TABLE IF NOT EXISTS m4_finance_categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_payment_methods (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS m4_interactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
-    type TEXT,
-    note TEXT,
-    success BOOLEAN,
-    workspace_id UUID,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
 DO $$ 
-BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all for authenticated users' AND tablename = 'm4_interactions') THEN
-    CREATE POLICY "Enable all for authenticated users" ON m4_interactions FOR ALL USING (auth.role() = 'authenticated');
-  END IF;
-END $$;
-
-DO $$ 
-BEGIN 
-  -- Tenta renomear bank_type para type apenas se bank_type existir E type NÃO existir
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='bank_type') 
-     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='type') THEN
-    ALTER TABLE m4_bank_accounts RENAME COLUMN bank_type TO type;
-  END IF;
-
-  -- Tenta renomear current_balance para balance apenas se current_balance existir E balance NÃO existir
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='current_balance') 
-     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_bank_accounts' AND column_name='balance') THEN
-    ALTER TABLE m4_bank_accounts RENAME COLUMN current_balance TO balance;
-  END IF;
+DECLARE
+    t text;
+BEGIN
+    FOR t IN 
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name LIKE 'm4_%'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
+        EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
+    END LOOP;
 END $$;
 `;
 
-  const rlsFixSQL = `-- 🛠️ FIX: RLS Policies for Leads and Tasks
--- Allowing access even if workspace_id is NULL, and ensuring "Allow all" for authenticated users.
+  const updateSQL = `-- 🔄 SCRIPT DE ATUALIZAÇÃO SEGURA (Sem perda de dados)
+-- Use este script para adicionar novas colunas e tabelas sem apagar nada.
 
 DO $$ 
 BEGIN
-    -- 1. Leads
-    DROP POLICY IF EXISTS "Workspace isolation" ON m4_leads;
-    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_leads;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_leads' AND policyname = 'Allow all access') THEN
-        CREATE POLICY "Allow all access" ON m4_leads FOR ALL USING (true);
-    END IF;
+    -- 1. Novas Tabelas (Interações, Serviços, Forms)
+    CREATE TABLE IF NOT EXISTS public.m4_interactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+        type TEXT,
+        note TEXT,
+        success BOOLEAN DEFAULT true,
+        workspace_id UUID,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
 
-    -- 2. Tasks
-    DROP POLICY IF EXISTS "Workspace isolation" ON m4_tasks;
-    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_tasks;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_tasks' AND policyname = 'Allow all access') THEN
-        CREATE POLICY "Allow all access" ON m4_tasks FOR ALL USING (true);
-    END IF;
+    CREATE TABLE IF NOT EXISTS public.m4_services (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        default_price NUMERIC DEFAULT 0,
+        workspace_id UUID,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
 
-    -- 3. Pipelines & Stages
-    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_pipelines;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_pipelines' AND policyname = 'Allow all access') THEN
-        CREATE POLICY "Allow all access" ON m4_pipelines FOR ALL USING (true);
-    END IF;
+    CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title TEXT NOT NULL,
+        description TEXT,
+        questions JSONB NOT NULL DEFAULT '[]',
+        workspace_id UUID,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
 
-    DROP POLICY IF EXISTS "Allow all for authenticated" ON m4_pipeline_stages;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'm4_pipeline_stages' AND policyname = 'Allow all access') THEN
-        CREATE POLICY "Allow all access" ON m4_pipeline_stages FOR ALL USING (true);
-    END IF;
-END $$;`;
+    CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+        lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+        answers JSONB NOT NULL DEFAULT '[]',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
 
-  const clickupAdvancedSQL = `
--- 1. SISTEMA DE COMENTÁRIOS
-CREATE TABLE IF NOT EXISTS m4_task_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES m4_users(id),
-  comment TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+    -- 2. Colunas Faltantes em Leads
+    ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS origin_lead_id UUID;
+    ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id);
+    ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_id UUID REFERENCES public.m4_contacts(id);
+    ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS workspace_id UUID;
+    ALTER TABLE public.m4_leads ALTER COLUMN stage SET DEFAULT 'new';
 
--- 2. SISTEMA DE ANEXOS
-CREATE TABLE IF NOT EXISTS m4_task_attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
-  file_name TEXT NOT NULL,
-  file_size INTEGER,
-  file_type TEXT,
-  storage_path TEXT NOT NULL,
-  uploaded_by UUID REFERENCES m4_users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+    -- 3. Colunas Faltantes em Tarefas (ClickUp Advanced)
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS estimated_hours DECIMAL(5,2);
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS actual_hours DECIMAL(5,2) DEFAULT 0;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES m4_tasks(id);
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS tags TEXT;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS deal_id UUID REFERENCES m4_leads(id);
 
--- 3. DEPENDÊNCIAS ENTRE TAREFAS
-CREATE TABLE IF NOT EXISTS m4_task_dependencies (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
-  depends_on_task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(task_id, depends_on_task_id)
-);
+    -- 4. Correção de Constraints (Cascade Delete)
+    ALTER TABLE m4_transactions DROP CONSTRAINT IF EXISTS m4_transactions_lead_id_fkey;
+    ALTER TABLE m4_transactions ADD CONSTRAINT m4_transactions_lead_id_fkey 
+        FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
 
--- 4. TRACKING DE TEMPO
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS estimated_hours DECIMAL(5,2);
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS actual_hours DECIMAL(5,2) DEFAULT 0;
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES m4_tasks(id);
-ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS tags TEXT;
+    ALTER TABLE m4_emails DROP CONSTRAINT IF EXISTS m4_emails_lead_id_fkey;
+    ALTER TABLE m4_emails ADD CONSTRAINT m4_emails_lead_id_fkey 
+        FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
 
-CREATE TABLE IF NOT EXISTS m4_task_time_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID REFERENCES m4_tasks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES m4_users(id),
-  start_time TIMESTAMPTZ NOT NULL,
-  end_time TIMESTAMPTZ,
-  duration_minutes INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+    ALTER TABLE m4_tasks DROP CONSTRAINT IF EXISTS m4_tasks_deal_id_fkey;
+    ALTER TABLE m4_tasks ADD CONSTRAINT m4_tasks_deal_id_fkey 
+        FOREIGN KEY (deal_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
 
--- HABILITAR RLS PARA NOVAS TABELAS
-ALTER TABLE m4_task_comments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_task_attachments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_task_dependencies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_task_time_entries ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Enable access for all" ON m4_task_comments FOR ALL USING (true);
-CREATE POLICY "Enable access for all" ON m4_task_attachments FOR ALL USING (true);
-CREATE POLICY "Enable access for all" ON m4_task_dependencies FOR ALL USING (true);
-CREATE POLICY "Enable access for all" ON m4_task_time_entries FOR ALL USING (true);
-`;
-
-  const fixLeadsDeletionSQL = `-- 🛠️ FIX: Adiciona ON DELETE CASCADE para referências de leads que estavam faltando
--- Execute este script se não conseguir excluir leads (erro de chave estrangeira).
-
--- 1. m4_transactions
-ALTER TABLE m4_transactions DROP CONSTRAINT IF EXISTS m4_transactions_lead_id_fkey;
-ALTER TABLE m4_transactions ADD CONSTRAINT m4_transactions_lead_id_fkey 
-    FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
-
--- 2. m4_emails
-ALTER TABLE m4_emails DROP CONSTRAINT IF EXISTS m4_emails_lead_id_fkey;
-ALTER TABLE m4_emails ADD CONSTRAINT m4_emails_lead_id_fkey 
-    FOREIGN KEY (lead_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
-
--- 3. m4_tasks (deal_id)
-ALTER TABLE m4_tasks DROP CONSTRAINT IF EXISTS m4_tasks_deal_id_fkey;
-ALTER TABLE m4_tasks ADD CONSTRAINT m4_tasks_deal_id_fkey 
-    FOREIGN KEY (deal_id) REFERENCES m4_leads(id) ON DELETE CASCADE;
+    -- 5. Reset de Políticas RLS (Garantir Acesso)
+    DECLARE
+        t text;
+    BEGIN
+        FOR t IN 
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name LIKE 'm4_%'
+        LOOP
+            EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+            EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
+            EXECUTE format('DROP POLICY IF EXISTS "Workspace isolation" ON %I', t);
+            EXECUTE format('DROP POLICY IF EXISTS "Allow all for authenticated" ON %I', t);
+            EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
+        END LOOP;
+    END;
+END $$;
 `;
 
   const handleCopy = (text: string, id: string) => {
@@ -597,44 +414,6 @@ ALTER TABLE m4_tasks ADD CONSTRAINT m4_tasks_deal_id_fkey
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const automationFixSQL = `-- 🛠️ CORREÇÃO DE AUTOMAÇÕES (Isolamento e Workspace)
--- Execute este script no SQL Editor do Supabase se as automações não estiverem salvando ou aparecendo.
-
--- 1. Tornar workspace_id opcional para suportar estado padrão
-ALTER TABLE public.m4_automations ALTER COLUMN workspace_id DROP NOT NULL;
-ALTER TABLE public.m4_automation_logs ALTER COLUMN workspace_id DROP NOT NULL;
-
--- 2. Garantir que a coluna de origem exista para duplicação
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS origin_lead_id UUID;
-
--- 3. Atualizar políticas de RLS para serem mais flexíveis
-DROP POLICY IF EXISTS "Users can manage automations in their workspace" ON m4_automations;
-
-CREATE POLICY "Users can manage automations in their workspace" 
-ON m4_automations
-FOR ALL
-USING (
-    workspace_id IS NULL OR 
-    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-)
-WITH CHECK (
-    workspace_id IS NULL OR 
-    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-);
-
--- 3. Garantir que a tabela de logs também seja acessível
-ALTER TABLE IF EXISTS public.m4_automation_logs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view logs in their workspace" ON m4_automation_logs;
-
-CREATE POLICY "Users can view logs in their workspace" 
-ON m4_automation_logs
-FOR SELECT
-USING (
-    workspace_id IS NULL OR 
-    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-);
-`;
-
   return (
     <div className="h-full overflow-y-auto pr-4 scrollbar-none max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <div className="flex items-center gap-6">
@@ -642,16 +421,17 @@ USING (
           <ICONS.Settings />
         </div>
         <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Painel Técnico</h2>
-          <p className="text-slate-500 font-medium italic">Gerencie a estrutura do seu banco de dados no Supabase.</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Painel Técnico SQL</h2>
+          <p className="text-slate-500 font-medium italic">Gerencie a estrutura do seu banco de dados de forma simplificada.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Opção 1: Setup Completo */}
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Configuração Inicial</h3>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">1. Instalação Geral</h3>
               <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Setup Completo do Zero</p>
             </div>
             <button 
@@ -669,182 +449,33 @@ USING (
           </div>
           <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
              <div className="text-red-500"><ICONS.Plus className="rotate-45" /></div>
-             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Aviso: Rodar este script em um banco com dados pode causar conflitos se as tabelas já existirem. Use com cautela.</p>
+             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Use este script apenas se estiver começando um banco novo. Ele cria todas as tabelas necessárias.</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
+        {/* Opção 2: Atualização Segura */}
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-xl transition-all group bg-blue-50/10">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">Atualização v4</h3>
-              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Funil & Interações</p>
+              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">2. Atualização Segura</h3>
+              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Sem apagar dados</p>
             </div>
             <button 
-              onClick={() => handleCopy(updateV4SQL, 'v4')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'v4' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
-            >
-              {copied === 'v4' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-indigo-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {updateV4SQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
-             <div className="text-emerald-500"><ICONS.Automation /></div>
-             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Dica: Este script garante que o funil esteja ordenado e as novas tabelas de interações e serviços existam.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-amber-100 bg-amber-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-amber-900 dark:text-amber-400 uppercase tracking-tight">Fix Automações</h3>
-              <p className="text-xs font-bold text-amber-400 mt-1 uppercase tracking-widest">Correção de Workspace & RLS</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(automationFixSQL, 'autofix')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'autofix' ? 'bg-emerald-500 text-white' : 'bg-amber-50 text-amber-400 hover:bg-amber-600 hover:text-white'}`}
-            >
-              {copied === 'autofix' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-amber-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {automationFixSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-             <div className="text-amber-500"><ICONS.Automation /></div>
-             <p className="text-[11px] font-bold text-amber-700 leading-relaxed uppercase">Importante: Use este script se as automações sumirem após o refresh ou se der erro ao salvar.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-slate-100">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Atualização Segura</h3>
-              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Incrementos e Migrações</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(updateOnlySQL, 'update')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'update' ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white'}`}
+              onClick={() => handleCopy(updateSQL, 'update')}
+              className={`p-4 rounded-2xl transition-all ${copied === 'update' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
             >
               {copied === 'update' ? 'Copiado!' : 'Copiar SQL'}
             </button>
           </div>
           <div className="relative">
-            <pre className="bg-slate-900 text-slate-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {updateOnlySQL}
+            <pre className="bg-slate-900 text-indigo-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {updateSQL}
             </pre>
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
-          <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
-             <div className="text-slate-500"><ICONS.Automation /></div>
-             <p className="text-[11px] font-bold text-slate-700 leading-relaxed uppercase">Nota: Script legado para migrações anteriores de empresas e contatos.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">ClickUp Advanced</h3>
-              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Comentários, Anexos e Tempo</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(clickupAdvancedSQL, 'clickup')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'clickup' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
-            >
-              {copied === 'clickup' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {clickupAdvancedSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
-             <div className="text-blue-500"><ICONS.Tasks width="20" height="20" /></div>
-             <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">Este script cria as tabelas necessárias para comentários, anexos, dependências e tracking de tempo.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-blue-100 bg-blue-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">ClickUp Advanced</h3>
-              <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">Comentários, Anexos e Tempo</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(clickupAdvancedSQL, 'clickup')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'clickup' ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white'}`}
-            >
-              {copied === 'clickup' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {clickupAdvancedSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
-             <div className="text-blue-500"><ICONS.Tasks width="20" height="20" /></div>
-             <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">Este script cria as tabelas necessárias para comentários, anexos, dependências e tracking de tempo.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-red-100 bg-red-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-red-900 dark:text-red-400 uppercase tracking-tight">Fix RLS (Leads/Tasks)</h3>
-              <p className="text-xs font-bold text-red-400 mt-1 uppercase tracking-widest">Correção de Acesso</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(rlsFixSQL, 'rls')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'rls' ? 'bg-emerald-500 text-white' : 'bg-red-50 text-red-400 hover:bg-red-600 hover:text-white'}`}
-            >
-              {copied === 'rls' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-red-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {rlsFixSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
-             <div className="text-red-500"><ICONS.Shield width="20" height="20" /></div>
-             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">Use este script se os leads não estiverem aparecendo mesmo existindo no banco. Ele remove restrições de workspace_id NULL.</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group border-amber-100 bg-amber-50/10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-black text-amber-900 dark:text-amber-400 uppercase tracking-tight">Fix Lead Deletion</h3>
-              <p className="text-xs font-bold text-amber-400 mt-1 uppercase tracking-widest">Correção de Exclusão</p>
-            </div>
-            <button 
-              onClick={() => handleCopy(fixLeadsDeletionSQL, 'fix_delete')}
-              className={`p-4 rounded-2xl transition-all ${copied === 'fix_delete' ? 'bg-emerald-500 text-white' : 'bg-amber-50 text-amber-400 hover:bg-amber-600 hover:text-white'}`}
-            >
-              {copied === 'fix_delete' ? 'Copiado!' : 'Copiar SQL'}
-            </button>
-          </div>
-          <div className="relative">
-            <pre className="bg-slate-900 text-amber-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {fixLeadsDeletionSQL}
-            </pre>
-            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
-          </div>
-          <div className="mt-8 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
-             <div className="text-amber-500"><ICONS.Trash width="20" height="20" /></div>
-             <p className="text-[11px] font-bold text-amber-700 leading-relaxed uppercase">Este script adiciona o comportamento de "Cascata" na exclusão de leads, permitindo remover leads que possuem transações ou e-mails vinculados.</p>
+          <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
+             <div className="text-emerald-500"><ICONS.Automation /></div>
+             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Use este script para atualizar um banco existente. Ele adiciona novas colunas e tabelas sem afetar seus dados.</p>
           </div>
         </div>
       </div>
@@ -857,7 +488,7 @@ USING (
             <li>No menu lateral esquerdo, clique em <span className="text-white font-bold">"SQL Editor"</span>.</li>
             <li>Clique em <span className="text-white font-bold">"+ New Query"</span>.</li>
             <li>Cole o código copiado aqui e clique em <span className="text-blue-500 font-black italic">"RUN"</span>.</li>
-            <li>Pronto! Seu CRM estará 100% funcional.</li>
+            <li>Pronto! Seu CRM estará atualizado.</li>
           </ol>
         </div>
         <div className="w-48 h-48 bg-blue-600/20 rounded-[2.5rem] border border-blue-500/30 flex items-center justify-center animate-pulse">
@@ -879,9 +510,6 @@ USING (
             Reconfigurar Conexão (Reset)
           </button>
         </div>
-        <p className="mt-6 text-[10px] font-bold text-rose-400 leading-relaxed uppercase">
-          Esta ação removerá as credenciais do Supabase salvas neste navegador. Você precisará inserir a URL e a Anon Key novamente no próximo acesso.
-        </p>
       </div>
     </div>
   );
