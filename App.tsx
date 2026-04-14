@@ -23,7 +23,7 @@ import SalesCRM from './pages/SalesCRM';
 import Clients from './pages/Clients';
 import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
-import Finance from './pages/Finance';
+import Finance from './pages/FinanceOrganizador';
 import ClientAccounts from './pages/ClientAccounts';
 import Admin from './pages/Admin';
 import Automation from './pages/Automation';
@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [expandedMenus, setExpandedMenus] = useState({
     sales: true,
     clients: true,
+    finance: true,
     admin: false
   });
   const [loading, setLoading] = useState(true);
@@ -455,7 +456,7 @@ const App: React.FC = () => {
     {
       title: "Financeiro",
       items: [
-        { id: 'finance', icon: ICONS.Finance, label: 'Gestão Financeira' },
+        { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
       ]
     },
     {
@@ -561,19 +562,40 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {item.id === 'operacao' && expandedMenus.clients && isSidebarOpen && (
+                  {item.id === 'finance_group' && expandedMenus.finance && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                        <button onClick={() => setActiveTab('clients_overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'clients_overview' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Visão Geral
+                      <button onClick={() => setActiveTab('finance_dashboard')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_dashboard' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dashboard' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Dashboard
                       </button>
-                      <button onClick={() => setActiveTab('companies')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Empresas
+                      <button onClick={() => setActiveTab('finance_transactions')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_transactions' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_transactions' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Lançamentos
                       </button>
-                      <button onClick={() => setActiveTab('contacts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'contacts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Contatos
+                      <button onClick={() => setActiveTab('finance_dre')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_dre' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dre' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        DRE Gerencial
+                      </button>
+                      <button onClick={() => setActiveTab('finance_performance')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_performance' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_performance' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Performance & KPIs
+                      </button>
+                      <div className="pt-2 pb-1 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Cadastros</div>
+                      <button onClick={() => setActiveTab('finance_accounts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_accounts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_accounts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Contas Bancárias
+                      </button>
+                      <button onClick={() => setActiveTab('finance_categories')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_categories' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_categories' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Categorias
+                      </button>
+                      <button onClick={() => setActiveTab('finance_cost_centers')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_cost_centers' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_cost_centers' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Centros de Custo
+                      </button>
+                      <button onClick={() => setActiveTab('finance_counterparties')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_counterparties' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_counterparties' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Contrapartes
                       </button>
                     </div>
                   )}
@@ -735,20 +757,7 @@ const App: React.FC = () => {
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
           {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
-          {activeTab === 'finance' && (
-            <Finance 
-              transactions={transactions} 
-              bankAccounts={bankAccounts} 
-              creditCards={creditCards} 
-              clientAccounts={clientAccounts}
-              setTransactions={setTransactions}
-              setBankAccounts={setBankAccounts}
-              setCreditCards={setCreditCards}
-              currentUser={currentUser}
-              financeCategories={financeCategories}
-              paymentMethods={paymentMethods}
-            />
-          )}
+          {(activeTab === 'finance' || activeTab.startsWith('finance_')) && <Finance currentUser={currentUser} activeTab={activeTab} />}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'goal_settings' && <GoalSettings currentUser={currentUser} />}
           {activeTab === 'contact' && <ContactCenter />}
