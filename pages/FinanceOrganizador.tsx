@@ -73,6 +73,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [costCenters, setCostCenters] = useState<FinanceCostCenter[]>([]);
   const [counterparties, setCounterparties] = useState<FinanceCounterparty[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<FinancePaymentMethod[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
@@ -143,13 +145,24 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         return;
       }
 
-      const [transData, accountsData, catsData, ccData, cpData, pmData] = await Promise.all([
+      const [
+        transData, 
+        accountsData, 
+        catsData, 
+        ccData, 
+        cpData, 
+        pmData,
+        leadsData,
+        clientsData
+      ] = await Promise.all([
         financeService.getTransactions(workspaceId),
         financeService.getBankAccounts(workspaceId),
         financeService.getCategories(workspaceId),
         financeService.getCostCenters(workspaceId),
         financeService.getCounterparties(workspaceId),
-        financeService.getPaymentMethods(workspaceId)
+        financeService.getPaymentMethods(workspaceId),
+        supabase.from('m4_leads').select('id, name, company').eq('workspace_id', workspaceId),
+        supabase.from('m4_clients').select('id, name, company_name').eq('workspace_id', workspaceId)
       ]);
       setTransactions(transData);
       setBankAccounts(accountsData);
@@ -157,6 +170,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       setCostCenters(ccData);
       setCounterparties(cpData);
       setPaymentMethods(pmData);
+      setLeads(leadsData.data || []);
+      setClients(clientsData.data || []);
 
       // Auto-migrate if new tables are empty but old ones might have data
       if (accountsData.length === 0 && catsData.length === 0) {
@@ -171,64 +186,121 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
   const checkAndMigrate = async (workspaceId: string) => {
     try {
-      // Check if old tables have data
-      const [{ data: oldAccounts }, { data: oldCats }, { data: oldPMs }] = await Promise.all([
-        supabase.from('m4_bank_accounts').select('*').eq('workspace_id', workspaceId),
-        supabase.from('m4_finance_categories').select('*').eq('workspace_id', workspaceId),
-        supabase.from('m4_payment_methods').select('*').eq('workspace_id', workspaceId)
-      ]);
+      // 1. Verificar se já existem dados nas tabelas novas
+      const { data: accountsData } = await supabase.from('m4_fin_bank_accounts').select('id').eq('workspace_id', workspaceId).limit(1);
+      const { data: catsData } = await supabase.from('m4_fin_categories').select('id').eq('workspace_id', workspaceId).limit(1);
 
-      if ((oldAccounts?.length || 0) > 0 || (oldCats?.length || 0) > 0) {
-        if (confirm('Detectamos dados financeiros da versão anterior. Deseja importar para o novo Organizador Financeiro?')) {
-          setIsMigrating(true);
-          
-          // Migrate Accounts
-          if (oldAccounts) {
-            for (const acc of oldAccounts) {
-              await financeService.createBankAccount({
-                workspace_id: workspaceId,
-                name: acc.name,
-                bank: acc.bank,
-                type: FinanceBankAccountType.CHECKING,
-                initial_balance: acc.balance || 0,
-                initial_balance_date: new Date().toISOString().split('T')[0],
-                current_balance: acc.balance || 0,
-                is_active: acc.is_active !== false,
-                currency: 'BRL'
-              });
-            }
-          }
+      if ((accountsData?.length || 0) === 0 && (catsData?.length || 0) === 0) {
+        // 2. Buscar dados das tabelas antigas (incluindo workspace_id nulo)
+        const [{ data: oldAccounts }, { data: oldCats }, { data: oldPMs }, { data: oldTxs }] = await Promise.all([
+          supabase.from('m4_bank_accounts').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
+          supabase.from('m4_finance_categories').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
+          supabase.from('m4_payment_methods').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
+          supabase.from('m4_transactions').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`)
+        ]);
 
-          // Migrate Categories
-          if (oldCats) {
-            for (const cat of oldCats) {
-              await financeService.createCategory({
+        if ((oldAccounts?.length || 0) > 0 || (oldCats?.length || 0) > 0 || (oldTxs?.length || 0) > 0) {
+          if (confirm('Detectamos dados financeiros da versão anterior (Bancos e Lançamentos). Deseja importar para o novo Organizador Financeiro?')) {
+            setIsMigrating(true);
+            
+            // 3. Migrar Categorias
+            if (oldCats && oldCats.length > 0) {
+              const catsToInsert = oldCats.map(c => ({
+                id: c.id,
                 workspace_id: workspaceId,
-                name: cat.name,
-                type: cat.type === 'income' ? FinanceCategoryType.INCOME : FinanceCategoryType.EXPENSE,
-                level: 0,
-                order: 0,
-                is_active: true,
+                name: c.name,
+                type: 'both',
                 impacts_dre: true,
-                classification_type: FinanceClassificationType.OPERATIONAL
-              });
+                dre_group: 'Geral',
+                created_at: c.created_at
+              }));
+              await supabase.from('m4_fin_categories').insert(catsToInsert);
             }
-          }
 
-          // Migrate Payment Methods
-          if (oldPMs) {
-            for (const pm of oldPMs) {
-              await financeService.createPaymentMethod({
+            // Criar categorias a partir de transações se necessário
+            if (oldTxs && oldTxs.length > 0) {
+              const uniqueCatNames = Array.from(new Set(oldTxs.map(t => t.category).filter(Boolean)));
+              const { data: existingCats } = await supabase.from('m4_fin_categories').select('name').eq('workspace_id', workspaceId);
+              const existingNames = new Set(existingCats?.map(c => c.name) || []);
+              
+              const newCatsToCreate = uniqueCatNames
+                .filter(name => !existingNames.has(name))
+                .map(name => ({
+                  workspace_id: workspaceId,
+                  name: name,
+                  type: 'both'
+                }));
+              
+              if (newCatsToCreate.length > 0) {
+                await supabase.from('m4_fin_categories').insert(newCatsToCreate);
+              }
+            }
+
+            // 4. Migrar Métodos de Pagamento
+            if (oldPMs && oldPMs.length > 0) {
+              const pmsToInsert = oldPMs.map(pm => ({
+                id: pm.id,
                 workspace_id: workspaceId,
                 name: pm.name,
-                is_active: pm.is_active !== false
-              });
+                is_active: true,
+                created_at: pm.created_at
+              }));
+              await supabase.from('m4_fin_payment_methods').insert(pmsToInsert);
             }
-          }
 
-          setIsMigrating(false);
-          loadData();
-          alert('Migração concluída com sucesso!');
+            // 5. Migrar Contas Bancárias
+            if (oldAccounts && oldAccounts.length > 0) {
+              const accountsToInsert = oldAccounts.map(acc => ({
+                id: acc.id,
+                workspace_id: workspaceId,
+                name: acc.name,
+                bank: 'Importado',
+                type: 'checking',
+                initial_balance: acc.current_balance || acc.balance || 0,
+                current_balance: acc.current_balance || acc.balance || 0,
+                created_at: acc.created_at
+              }));
+              await supabase.from('m4_fin_bank_accounts').insert(accountsToInsert);
+            }
+
+            // 6. Migrar Transações
+            if (oldTxs && oldTxs.length > 0) {
+              const { data: allCats } = await supabase.from('m4_fin_categories').select('id, name').eq('workspace_id', workspaceId);
+              const catMap = new Map(allCats?.map(c => [c.name, c.id]));
+
+              const txsToInsert = oldTxs.map(t => ({
+                id: t.id,
+                workspace_id: workspaceId,
+                type: t.type === 'Receita' ? 'income' : 'expense',
+                status: ['Recebido', 'Pago'].includes(t.status) ? 'paid' : 'pending',
+                description: t.description,
+                amount: t.amount,
+                issue_date: t.date || new Date(t.created_at).toISOString().split('T')[0],
+                due_date: t.due_date || t.date || new Date(t.created_at).toISOString().split('T')[0],
+                paid_at: ['Recebido', 'Pago'].includes(t.status) ? (t.paid_date || t.date || t.created_at) : null,
+                competence_date: t.date || new Date(t.created_at).toISOString().split('T')[0],
+                bank_account_id: t.bank_account_id,
+                category_id: catMap.get(t.category),
+                payment_method: t.payment_method,
+                notes: t.notes,
+                is_recurring: t.is_recurring || false,
+                client_account_id: t.client_account_id,
+                lead_id: t.lead_id,
+                company_id: t.company_id,
+                deal_id: t.deal_id,
+                created_at: t.created_at
+              }));
+
+              for (let i = 0; i < txsToInsert.length; i += 50) {
+                const batch = txsToInsert.slice(i, i + 50);
+                await supabase.from('m4_fin_transactions').insert(batch);
+              }
+            }
+
+            setIsMigrating(false);
+            loadData();
+            alert('Migração concluída com sucesso! Seus bancos e lançamentos foram importados.');
+          }
         }
       }
     } catch (error) {
@@ -822,6 +894,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         bankAccounts={bankAccounts}
         counterparties={counterparties}
         costCenters={costCenters}
+        leads={leads}
+        clients={clients}
       />
 
       {transactionToConfirm && (

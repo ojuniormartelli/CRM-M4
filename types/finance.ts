@@ -135,11 +135,21 @@ export interface FinanceTransaction {
   created_at: string;
   updated_at: string;
   
+  // CRM Links
+  client_account_id?: string;
+  lead_id?: string;
+  company_id?: string;
+  deal_id?: string;
+  
   // Relations
   category?: FinanceCategory;
   bank_account?: FinanceBankAccount;
   counterparty?: FinanceCounterparty;
   cost_center?: FinanceCostCenter;
+  client_account?: any;
+  lead?: any;
+  company?: any;
+  deal?: any;
 }
 
 export interface FinanceDashboardStats {

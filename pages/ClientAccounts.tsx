@@ -5,6 +5,8 @@ import { ClientAccount, Lead, Task, Transaction, Interaction, Company, Service }
 import { format, addMonths, setDate, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { clientService } from '../services/clientService';
+
 interface ClientAccountsProps {
   leads: Lead[];
   tasks: Task[];
@@ -351,6 +353,35 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                     <button className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                       <ICONS.FileText className="w-4 h-4" />
                       <span className="text-xs font-bold">Gerar Relatório</span>
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (window.confirm(`Deseja encerrar esta conta e arquivar o cliente?`)) {
+                          try {
+                            const { data: client } = await supabase
+                              .from('m4_clients')
+                              .select('id')
+                              .eq('company_id', selectedAccount.company_id)
+                              .maybeSingle();
+                            
+                            if (client) {
+                              await clientService.archive(client.id);
+                              alert('Conta encerrada e cliente arquivado com sucesso.');
+                              window.location.reload();
+                            } else {
+                              await supabase.from('m4_client_accounts').update({ status: 'cancelado' }).eq('id', selectedAccount.id);
+                              alert('Conta encerrada com sucesso.');
+                              window.location.reload();
+                            }
+                          } catch (error: any) {
+                            alert('Erro ao encerrar conta: ' + error.message);
+                          }
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-all"
+                    >
+                      <ICONS.X className="w-4 h-4" />
+                      <span className="text-xs font-bold">Encerrar Conta</span>
                     </button>
                   </div>
                 </div>

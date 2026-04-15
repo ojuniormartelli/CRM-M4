@@ -9,7 +9,7 @@ import {
   FinanceCounterparty,
   FinanceCostCenter
 } from '../../types/finance';
-import { X, Calendar, Tag, Building2, Users, Info, Repeat } from 'lucide-react';
+import { X, Calendar, Tag, Building2, Users, Info, Repeat, TrendingUp, TrendingDown, Briefcase, UserCheck } from 'lucide-react';
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -20,6 +20,9 @@ interface TransactionFormProps {
   bankAccounts: FinanceBankAccount[];
   counterparties: FinanceCounterparty[];
   costCenters: FinanceCostCenter[];
+  leads?: any[];
+  clients?: any[];
+  companies?: any[];
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ 
@@ -30,7 +33,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   categories,
   bankAccounts,
   counterparties,
-  costCenters
+  costCenters,
+  leads = [],
+  clients = [],
+  companies = []
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<FinanceTransaction>>({
@@ -246,6 +252,43 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </div>
             </div>
 
+            {/* CRM Links */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Briefcase size={16} className="text-slate-400" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vínculos com CRM</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Cliente / Conta</label>
+                  <select
+                    value={formData.client_account_id}
+                    onChange={(e) => setFormData({ ...formData, client_account_id: e.target.value })}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  >
+                    <option value="">Nenhum</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.company_name || c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Lead / Negócio</label>
+                  <select
+                    value={formData.lead_id}
+                    onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  >
+                    <option value="">Nenhum</option>
+                    {leads.map(l => (
+                      <option key={l.id} value={l.id}>{l.company || l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Recurrence */}
             <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
               <div className="flex items-center justify-between mb-4">
@@ -315,13 +358,5 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     </div>
   );
 };
-
-const TrendingUp = ({ size }: { size: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-);
-
-const TrendingDown = ({ size }: { size: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
-);
 
 export default TransactionForm;

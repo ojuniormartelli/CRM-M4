@@ -219,51 +219,51 @@ const App: React.FC = () => {
         // 2. Fetch all other data
         await fetchLeads();
 
-        const { data: tasksData } = await supabase.from('m4_tasks').select('*');
+        const { data: tasksData } = await supabase.from('m4_tasks').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setTasks(tasksData || []);
 
-        const { data: transactionsData } = await supabase.from('m4_transactions').select('*');
+        const { data: transactionsData } = await supabase.from('m4_fin_transactions').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setTransactions(transactionsData || []);
 
-        const { data: emailsData } = await supabase.from('m4_emails').select('*').order('created_at', { ascending: false });
+        const { data: emailsData } = await supabase.from('m4_emails').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
         setEmails(emailsData || []);
 
-        const { data: clientsData } = await supabase.from('m4_clients').select('*');
+        const { data: clientsData } = await supabase.from('m4_clients').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setClients(clientsData || []);
 
-        const { data: projectsData } = await supabase.from('m4_projects').select('*');
+        const { data: projectsData } = await supabase.from('m4_projects').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setProjects(projectsData || []);
 
-        const { data: settingsData } = await supabase.from('m4_settings').select('*').maybeSingle();
+        const { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').maybeSingle();
         setSettings(settingsData);
 
-        const { data: postsData } = await supabase.from('m4_posts').select('*').order('created_at', { ascending: false });
+        const { data: postsData } = await supabase.from('m4_posts').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
         setPosts(postsData || []);
 
-        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').order('created_at', { ascending: false });
+        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
         setCampaigns(campaignsData || []);
 
-        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)');
+        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setClientAccounts(clientAccountsData || []);
 
         await fetchServices();
 
-        const { data: bankAccountsData } = await supabase.from('m4_bank_accounts').select('*');
+        const { data: bankAccountsData } = await supabase.from('m4_fin_bank_accounts').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setBankAccounts(bankAccountsData || []);
 
-        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*');
+        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setCreditCards(creditCardsData || []);
 
-        const { data: financeCategoriesData } = await supabase.from('m4_finance_categories').select('*').order('name');
+        const { data: financeCategoriesData } = await supabase.from('m4_fin_categories').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
         setFinanceCategories(financeCategoriesData || []);
 
-        const { data: paymentMethodsData } = await supabase.from('m4_payment_methods').select('*').order('name');
+        const { data: paymentMethodsData } = await supabase.from('m4_fin_payment_methods').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
         setPaymentMethods(paymentMethodsData || []);
 
-        const { data: companiesData } = await supabase.from('m4_companies').select('*').order('name');
+        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
         setCompanies(companiesData || []);
 
-        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').order('name');
+        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
         setContacts(contactsData || []);
 
         // 3. Fetch Pipelines and Stages

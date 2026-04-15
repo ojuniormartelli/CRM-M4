@@ -146,8 +146,9 @@ export const leadService = {
       // Delete tasks linked via deal_id (some schemas use deal_id instead of lead_id)
       await supabase.from('m4_tasks').delete().eq('deal_id', id);
       
-      // Delete transactions
+      // Delete transactions (old and new)
       await supabase.from('m4_transactions').delete().eq('lead_id', id);
+      await supabase.from('m4_fin_transactions').delete().eq('lead_id', id);
       
       // Delete emails
       await supabase.from('m4_emails').delete().eq('lead_id', id);

@@ -84,7 +84,11 @@ export const financeService = {
           category:category_id(*),
           bank_account:bank_account_id(*),
           counterparty:counterparty_id(*),
-          cost_center:cost_center_id(*)
+          cost_center:cost_center_id(*),
+          client_account:client_account_id(*),
+          lead:lead_id(*),
+          company:company_id(*),
+          deal:deal_id(*)
         `)
         .eq('workspace_id', workspaceId)
         .order('due_date', { ascending: false });

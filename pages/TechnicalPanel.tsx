@@ -598,6 +598,12 @@ BEGIN
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
 
+    -- Adicionar colunas de CRM se não existirem
+    ALTER TABLE public.m4_fin_transactions ADD COLUMN IF NOT EXISTS client_account_id UUID;
+    ALTER TABLE public.m4_fin_transactions ADD COLUMN IF NOT EXISTS lead_id UUID;
+    ALTER TABLE public.m4_fin_transactions ADD COLUMN IF NOT EXISTS company_id UUID;
+    ALTER TABLE public.m4_fin_transactions ADD COLUMN IF NOT EXISTS deal_id UUID;
+
     CREATE TABLE IF NOT EXISTS public.m4_fin_budgets (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         workspace_id UUID NOT NULL,
@@ -653,20 +659,35 @@ END $$;
 
   const migrationSQL = `
 -- MIGRAÇÃO DE DADOS: ANTIGO -> NOVO (M4_FIN)
+-- Este script migra dados de tabelas legadas para a nova estrutura financeira.
+-- Ele lida com workspace_id nulo e mantém as relações entre contas e transações.
+
 DO $$
+DECLARE
+    v_workspace_id UUID := '00000000-0000-0000-0000-000000000000'; -- Substitua pelo seu Workspace ID se necessário
 BEGIN
-    -- 1. Categorias
+    -- 1. Categorias (de m4_finance_categories se existir)
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_finance_categories') THEN
         INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, impacts_dre, dre_group, created_at)
-        SELECT id, workspace_id, name, 'both', true, 'Outras Receitas/Despesas', created_at
+        SELECT id, COALESCE(workspace_id, v_workspace_id), name, 'both', true, 'Geral', created_at
         FROM public.m4_finance_categories
         ON CONFLICT (id) DO NOTHING;
+    END IF;
+
+    -- Adicionar categorias únicas de m4_transactions que não estão em m4_fin_categories
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_transactions') THEN
+        INSERT INTO public.m4_fin_categories (workspace_id, name, type)
+        SELECT DISTINCT COALESCE(workspace_id, v_workspace_id), category, 'both'
+        FROM public.m4_transactions
+        WHERE category IS NOT NULL 
+        AND category NOT IN (SELECT name FROM public.m4_fin_categories)
+        ON CONFLICT DO NOTHING;
     END IF;
 
     -- 2. Métodos de Pagamento
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_payment_methods') THEN
         INSERT INTO public.m4_fin_payment_methods (id, workspace_id, name, is_active, created_at)
-        SELECT id, workspace_id, name, true, created_at
+        SELECT id, COALESCE(workspace_id, v_workspace_id), name, true, created_at
         FROM public.m4_payment_methods
         ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -674,7 +695,7 @@ BEGIN
     -- 3. Contas Bancárias
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_bank_accounts') THEN
         INSERT INTO public.m4_fin_bank_accounts (id, workspace_id, name, bank, type, initial_balance, current_balance, created_at)
-        SELECT id, workspace_id, name, 'Banco Importado', 'checking', balance, balance, created_at
+        SELECT id, COALESCE(workspace_id, v_workspace_id), name, 'Banco Importado', 'checking', current_balance, current_balance, created_at
         FROM public.m4_bank_accounts
         ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -684,18 +705,21 @@ BEGIN
         INSERT INTO public.m4_fin_transactions (
             id, workspace_id, type, status, description, amount, 
             issue_date, due_date, paid_at, competence_date,
-            bank_account_id, payment_method, notes, is_recurring, created_at
+            bank_account_id, category_id, payment_method, notes, is_recurring, 
+            client_account_id, lead_id, company_id, deal_id, created_at
         )
         SELECT 
-            id, workspace_id, 
-            CASE WHEN type = 'Receita' THEN 'income'::fin_transaction_type ELSE 'expense'::fin_transaction_type END,
-            CASE WHEN status IN ('Recebido', 'Pago') THEN 'paid'::fin_transaction_status ELSE 'pending'::fin_transaction_status END,
-            description, amount,
-            date::date, due_date::date, 
-            CASE WHEN status IN ('Recebido', 'Pago') THEN date::timestamp with time zone ELSE NULL END,
-            date::date,
-            bank_account_id, payment_method, notes, is_recurring, created_at
-        FROM public.m4_transactions
+            t.id, COALESCE(t.workspace_id, v_workspace_id), 
+            CASE WHEN t.type = 'Receita' THEN 'income'::fin_transaction_type ELSE 'expense'::fin_transaction_type END,
+            CASE WHEN t.status IN ('Recebido', 'Pago') THEN 'paid'::fin_transaction_status ELSE 'pending'::fin_transaction_status END,
+            t.description, t.amount,
+            COALESCE(t.date, t.created_at::date), COALESCE(t.due_date, t.date, t.created_at::date), 
+            CASE WHEN t.status IN ('Recebido', 'Pago') THEN COALESCE(t.paid_date, t.date)::timestamp with time zone ELSE NULL END,
+            COALESCE(t.date, t.created_at::date),
+            t.bank_account_id, c.id, t.payment_method, t.notes, t.is_recurring,
+            t.client_account_id, t.lead_id, t.company_id, t.deal_id, t.created_at
+        FROM public.m4_transactions t
+        LEFT JOIN public.m4_fin_categories c ON c.name = t.category AND c.workspace_id = COALESCE(t.workspace_id, v_workspace_id)
         ON CONFLICT (id) DO NOTHING;
     END IF;
 END $$;
