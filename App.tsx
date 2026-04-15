@@ -18,7 +18,7 @@ import { leadService } from './services/leadService';
 import { clientService } from './services/clientService';
 import { taskService } from './services/taskService';
 import { workspaceService } from './services/workspaceService';
-import { mappers } from './lib/mappers';
+import { mappers, isUUID } from './lib/mappers';
 import SalesCRM from './pages/SalesCRM';
 import Clients from './pages/Clients';
 import Projects from './pages/Projects';
@@ -184,6 +184,7 @@ const App: React.FC = () => {
 
         // 1. Check for local session and fetch User first
         const localUserId = localStorage.getItem('m4_crm_user_id');
+        let currentUserRecord: User | null = null;
         
         if (localUserId) {
           const { data: user, error: userError } = await supabase
@@ -197,14 +198,16 @@ const App: React.FC = () => {
           }
 
           if (user) {
+            currentUserRecord = user;
             setCurrentUser(user);
             
             // The workspace_id MUST come from the user record in the database
-            if (user.workspace_id) {
+            if (user.workspace_id && isUUID(user.workspace_id)) {
               localStorage.setItem('m4_crm_workspace_id', user.workspace_id);
             } else {
-              // This should theoretically not happen after the SQL migration
-              console.error('CRITICAL: User has no workspace_id in database.');
+              // Limpa qualquer valor inválido antigo (ex: "default")
+              localStorage.removeItem('m4_crm_workspace_id');
+              console.error('CRITICAL: User has no valid UUID workspace_id in database. workspace_id:', user.workspace_id);
             }
           } else {
             // Invalid local session
@@ -282,8 +285,8 @@ const App: React.FC = () => {
         if (!pipelinesData || pipelinesData.length === 0) {
           // Seed default pipelines if empty
           const toInsert = [
-            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: user?.workspace_id || null, position: 0 },
-            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: user?.workspace_id || null, position: 1 }
+            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: currentUserRecord?.workspace_id || null, position: 0 },
+            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: currentUserRecord?.workspace_id || null, position: 1 }
           ];
           const { data: seededPipelines, error: insertError } = await supabase.from('m4_pipelines').insert(toInsert).select();
           

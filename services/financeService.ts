@@ -29,8 +29,18 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const workspaceId = localStorage.getItem('m4_crm_workspace_id');
   const userId = localStorage.getItem('m4_crm_user_id');
 
+  // Ensure we have a string for the error message
+  let errorMessage = 'Erro desconhecido';
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'object' && error !== null) {
+    errorMessage = (error as any).message || (error as any).details || (error as any).error_description || JSON.stringify(error);
+  } else if (error) {
+    errorMessage = String(error);
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: userId || 'unknown',
       workspaceId,
@@ -49,7 +59,13 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   }
 
   console.error('Finance Service Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  // Create a clean error object that won't cause TypeErrors when accessed
+  const finalError = new Error(errorMessage);
+  (finalError as any).details = errInfo;
+  (finalError as any).errorMessage = errorMessage; // Add this for compatibility with whatever is looking for it
+  
+  throw finalError;
 }
 
 export const financeService = {
@@ -65,10 +81,10 @@ export const financeService = {
         .from('m4_fin_transactions')
         .select(`
           *,
-          category:m4_fin_categories(*),
-          bank_account:m4_fin_bank_accounts(*),
-          counterparty:m4_fin_counterparties(*),
-          cost_center:m4_fin_cost_centers(*)
+          category:category_id(*),
+          bank_account:bank_account_id(*),
+          counterparty:counterparty_id(*),
+          cost_center:cost_center_id(*)
         `)
         .eq('workspace_id', workspaceId)
         .order('due_date', { ascending: false });

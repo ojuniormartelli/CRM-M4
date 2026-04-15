@@ -120,10 +120,17 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   }, [externalActiveTab]);
 
   useEffect(() => {
-    if (currentUser?.workspace_id) {
+    const workspaceId = currentUser?.workspace_id;
+    if (workspaceId && isUUID(workspaceId)) {
       loadData();
+    } else if (workspaceId && !isUUID(workspaceId)) {
+      console.error('FinanceOrganizador: workspace_id inválido (não é UUID):', workspaceId);
+      setIsLoading(false);
+    } else if (!workspaceId) {
+      // currentUser ainda não carregou ou não tem workspace_id
+      setIsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser?.workspace_id]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -248,9 +255,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => 
-      t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.counterparty?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (t.category?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (t.counterparty?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
   }, [transactions, searchQuery]);
 
@@ -277,7 +284,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       await loadData();
     } catch (error: any) {
       console.error('Error saving transaction:', error);
-      alert('Erro ao salvar lançamento: ' + (error.message || 'Erro desconhecido'));
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      alert('Erro ao salvar lançamento: ' + msg);
       throw error;
     }
   };
@@ -328,12 +336,16 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       console.error('Error saving bank account:', error);
       
       // Try to extract a more useful error message if it's the JSON string from handleFirestoreError
-      let displayMessage = error.message || 'Erro desconhecido';
-      try {
-        const parsed = JSON.parse(error.message);
-        if (parsed.error) displayMessage = parsed.error;
-      } catch (e) {
-        // Not JSON, use original message
+      let displayMessage = error?.errorMessage || error?.message || 'Erro desconhecido';
+      
+      // If it's a JSON string (old format), try to parse it
+      if (typeof error?.message === 'string' && error.message.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) displayMessage = parsed.error;
+        } catch (e) {
+          // Not JSON, use original message
+        }
       }
       
       alert('Erro ao salvar conta bancária: ' + displayMessage);
@@ -359,7 +371,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       await loadData();
     } catch (error: any) {
       console.error('Error saving category:', error);
-      alert('Erro ao salvar categoria: ' + (error.message || 'Erro desconhecido'));
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      alert('Erro ao salvar categoria: ' + msg);
       throw error;
     }
   };
@@ -382,7 +395,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       await loadData();
     } catch (error: any) {
       console.error('Error saving cost center:', error);
-      alert('Erro ao salvar centro de custo: ' + (error.message || 'Erro desconhecido'));
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      alert('Erro ao salvar centro de custo: ' + msg);
       throw error;
     }
   };
@@ -405,7 +419,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       await loadData();
     } catch (error: any) {
       console.error('Error saving counterparty:', error);
-      alert('Erro ao salvar contraparte: ' + (error.message || 'Erro desconhecido'));
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      alert('Erro ao salvar contraparte: ' + msg);
       throw error;
     }
   };
@@ -428,7 +443,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       await loadData();
     } catch (error: any) {
       console.error('Error saving payment method:', error);
-      alert('Erro ao salvar método de pagamento: ' + (error.message || 'Erro desconhecido'));
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      alert('Erro ao salvar método de pagamento: ' + msg);
       throw error;
     }
   };
@@ -437,6 +453,17 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
     return (
       <div className="h-full flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!currentUser?.workspace_id || !isUUID(currentUser.workspace_id)) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-slate-500 font-bold">Workspace não configurado.</p>
+          <p className="text-slate-400 text-sm">Faça logout e login novamente para recarregar sua sessão.</p>
+        </div>
       </div>
     );
   }
