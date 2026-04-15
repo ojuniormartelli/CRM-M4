@@ -49,6 +49,7 @@ import TransactionForm from '../components/finance/TransactionForm';
 import PaymentModal from '../components/finance/PaymentModal';
 import BankAccountList from '../components/finance/BankAccountList';
 import BankAccountForm from '../components/finance/BankAccountForm';
+import ConfirmModal from '../components/ConfirmModal';
 import CategoryList from '../components/finance/CategoryList';
 import CategoryForm from '../components/finance/CategoryForm';
 import CostCenterList from '../components/finance/CostCenterList';
@@ -100,6 +101,11 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [isCounterpartyFormOpen, setIsCounterpartyFormOpen] = useState(false);
   const [selectedCounterparty, setSelectedCounterparty] = useState<Partial<FinanceCounterparty> | undefined>();
 
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'account' | 'transaction' | 'category' | 'cost_center' | 'payment_method' | 'counterparty' } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const [isPaymentMethodFormOpen, setIsPaymentMethodFormOpen] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<Partial<FinancePaymentMethod> | undefined>();
 
@@ -122,14 +128,16 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   }, [externalActiveTab]);
 
   useEffect(() => {
-    const workspaceId = currentUser?.workspace_id;
+    const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+    console.log('FinanceOrganizador: useEffect triggered. workspaceId:', workspaceId, 'currentUser loaded:', !!currentUser);
+    
     if (workspaceId && isUUID(workspaceId)) {
       loadData();
     } else if (workspaceId && !isUUID(workspaceId)) {
       console.error('FinanceOrganizador: workspace_id inválido (não é UUID):', workspaceId);
       setIsLoading(false);
-    } else if (!workspaceId) {
-      // currentUser ainda não carregou ou não tem workspace_id
+    } else if (!workspaceId && currentUser) {
+      console.warn('FinanceOrganizador: currentUser loaded but no workspaceId found.');
       setIsLoading(false);
     }
   }, [currentUser?.workspace_id]);
@@ -137,10 +145,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const workspaceId = currentUser?.workspace_id;
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
       
       if (!workspaceId || !isUUID(workspaceId)) {
-        console.warn('FinanceOrganizador: Invalid or missing workspaceId from currentUser. Skipping data load.', workspaceId);
         setIsLoading(false);
         return;
       }
@@ -164,6 +171,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         supabase.from('m4_leads').select('id, name, company').eq('workspace_id', workspaceId),
         supabase.from('m4_clients').select('id, name, company_name').eq('workspace_id', workspaceId)
       ]);
+      
       setTransactions(transData);
       setBankAccounts(accountsData);
       setCategories(catsData);
@@ -172,11 +180,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       setPaymentMethods(pmData);
       setLeads(leadsData.data || []);
       setClients(clientsData.data || []);
-
-      // Auto-migrate if new tables are empty but old ones might have data
-      if (accountsData.length === 0 && catsData.length === 0) {
-        checkAndMigrate(workspaceId);
-      }
     } catch (error) {
       console.error('Error loading finance data:', error);
     } finally {
@@ -184,128 +187,47 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
     }
   };
 
-  const checkAndMigrate = async (workspaceId: string) => {
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+    
+    setIsDeleting(true);
+    setDeleteError(null);
+    
     try {
-      // 1. Verificar se já existem dados nas tabelas novas
-      const { data: accountsData } = await supabase.from('m4_fin_bank_accounts').select('id').eq('workspace_id', workspaceId).limit(1);
-      const { data: catsData } = await supabase.from('m4_fin_categories').select('id').eq('workspace_id', workspaceId).limit(1);
-
-      if ((accountsData?.length || 0) === 0 && (catsData?.length || 0) === 0) {
-        // 2. Buscar dados das tabelas antigas (incluindo workspace_id nulo)
-        const [{ data: oldAccounts }, { data: oldCats }, { data: oldPMs }, { data: oldTxs }] = await Promise.all([
-          supabase.from('m4_bank_accounts').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
-          supabase.from('m4_finance_categories').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
-          supabase.from('m4_payment_methods').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
-          supabase.from('m4_transactions').select('*').or(`workspace_id.eq.${workspaceId},workspace_id.is.null`)
-        ]);
-
-        if ((oldAccounts?.length || 0) > 0 || (oldCats?.length || 0) > 0 || (oldTxs?.length || 0) > 0) {
-          if (confirm('Detectamos dados financeiros da versão anterior (Bancos e Lançamentos). Deseja importar para o novo Organizador Financeiro?')) {
-            setIsMigrating(true);
-            
-            // 3. Migrar Categorias
-            if (oldCats && oldCats.length > 0) {
-              const catsToInsert = oldCats.map(c => ({
-                id: c.id,
-                workspace_id: workspaceId,
-                name: c.name,
-                type: 'both',
-                impacts_dre: true,
-                dre_group: 'Geral',
-                created_at: c.created_at
-              }));
-              await supabase.from('m4_fin_categories').insert(catsToInsert);
-            }
-
-            // Criar categorias a partir de transações se necessário
-            if (oldTxs && oldTxs.length > 0) {
-              const uniqueCatNames = Array.from(new Set(oldTxs.map(t => t.category).filter(Boolean)));
-              const { data: existingCats } = await supabase.from('m4_fin_categories').select('name').eq('workspace_id', workspaceId);
-              const existingNames = new Set(existingCats?.map(c => c.name) || []);
-              
-              const newCatsToCreate = uniqueCatNames
-                .filter(name => !existingNames.has(name))
-                .map(name => ({
-                  workspace_id: workspaceId,
-                  name: name,
-                  type: 'both'
-                }));
-              
-              if (newCatsToCreate.length > 0) {
-                await supabase.from('m4_fin_categories').insert(newCatsToCreate);
-              }
-            }
-
-            // 4. Migrar Métodos de Pagamento
-            if (oldPMs && oldPMs.length > 0) {
-              const pmsToInsert = oldPMs.map(pm => ({
-                id: pm.id,
-                workspace_id: workspaceId,
-                name: pm.name,
-                is_active: true,
-                created_at: pm.created_at
-              }));
-              await supabase.from('m4_fin_payment_methods').insert(pmsToInsert);
-            }
-
-            // 5. Migrar Contas Bancárias
-            if (oldAccounts && oldAccounts.length > 0) {
-              const accountsToInsert = oldAccounts.map(acc => ({
-                id: acc.id,
-                workspace_id: workspaceId,
-                name: acc.name,
-                bank: 'Importado',
-                type: 'checking',
-                initial_balance: acc.current_balance || acc.balance || 0,
-                current_balance: acc.current_balance || acc.balance || 0,
-                created_at: acc.created_at
-              }));
-              await supabase.from('m4_fin_bank_accounts').insert(accountsToInsert);
-            }
-
-            // 6. Migrar Transações
-            if (oldTxs && oldTxs.length > 0) {
-              const { data: allCats } = await supabase.from('m4_fin_categories').select('id, name').eq('workspace_id', workspaceId);
-              const catMap = new Map(allCats?.map(c => [c.name, c.id]));
-
-              const txsToInsert = oldTxs.map(t => ({
-                id: t.id,
-                workspace_id: workspaceId,
-                type: t.type === 'Receita' ? 'income' : 'expense',
-                status: ['Recebido', 'Pago'].includes(t.status) ? 'paid' : 'pending',
-                description: t.description,
-                amount: t.amount,
-                issue_date: t.date || new Date(t.created_at).toISOString().split('T')[0],
-                due_date: t.due_date || t.date || new Date(t.created_at).toISOString().split('T')[0],
-                paid_at: ['Recebido', 'Pago'].includes(t.status) ? (t.paid_date || t.date || t.created_at) : null,
-                competence_date: t.date || new Date(t.created_at).toISOString().split('T')[0],
-                bank_account_id: t.bank_account_id,
-                category_id: catMap.get(t.category),
-                payment_method: t.payment_method,
-                notes: t.notes,
-                is_recurring: t.is_recurring || false,
-                client_account_id: t.client_account_id,
-                lead_id: t.lead_id,
-                company_id: t.company_id,
-                deal_id: t.deal_id,
-                created_at: t.created_at
-              }));
-
-              for (let i = 0; i < txsToInsert.length; i += 50) {
-                const batch = txsToInsert.slice(i, i + 50);
-                await supabase.from('m4_fin_transactions').insert(batch);
-              }
-            }
-
-            setIsMigrating(false);
-            loadData();
-            alert('Migração concluída com sucesso! Seus bancos e lançamentos foram importados.');
-          }
-        }
+      switch (itemToDelete.type) {
+        case 'account':
+          await financeService.deleteBankAccount(itemToDelete.id);
+          break;
+        case 'transaction':
+          await financeService.deleteTransaction(itemToDelete.id);
+          break;
+        case 'category':
+          await financeService.deleteCategory(itemToDelete.id);
+          break;
+        case 'cost_center':
+          await financeService.deleteCostCenter(itemToDelete.id);
+          break;
+        case 'payment_method':
+          await financeService.deletePaymentMethod(itemToDelete.id);
+          break;
+        case 'counterparty':
+          await financeService.deleteCounterparty(itemToDelete.id);
+          break;
       }
-    } catch (error) {
-      console.error('Migration error:', error);
-      setIsMigrating(false);
+      
+      await loadData();
+      setIsDeleteConfirmOpen(false);
+      setItemToDelete(null);
+    } catch (error: any) {
+      console.error(`Error deleting ${itemToDelete.type}:`, error);
+      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
+      if (msg.includes('foreign key constraint')) {
+        setDeleteError('Não é possível excluir este item pois existem outros registros vinculados a ele. Você deve excluir ou mover os registros vinculados primeiro.');
+      } else {
+        setDeleteError('Erro ao excluir: ' + msg);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -335,14 +257,27 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
   const handleSaveTransaction = async (data: Partial<FinanceTransaction>) => {
     try {
-      const workspaceId = currentUser?.workspace_id;
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
       
       if (!workspaceId || !isUUID(workspaceId)) {
         alert('Sessão inválida: Workspace ID não encontrado. Por favor, faça login novamente.');
         return;
       }
 
-      if (data.id) {
+      if (data.type === FinanceTransactionType.TRANSFER) {
+        await financeService.createTransfer({
+          workspace_id: workspaceId,
+          description: data.description || '',
+          amount: data.amount || 0,
+          issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+          due_date: data.due_date || new Date().toISOString().split('T')[0],
+          paid_at: data.status === FinanceTransactionStatus.PAID ? (data.paid_at || new Date().toISOString()) : undefined,
+          source_bank_account_id: data.bank_account_id || '',
+          destination_bank_account_id: data.destination_bank_account_id || '',
+          status: data.status || FinanceTransactionStatus.PENDING,
+          created_by: currentUser?.id || ''
+        });
+      } else if (data.id) {
         await financeService.updateTransaction(data.id, data);
       } else {
         await financeService.createTransaction({
@@ -379,7 +314,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const handleSaveBankAccount = async (data: Partial<FinanceBankAccount>) => {
     console.log('handleSaveBankAccount triggered with data:', data);
     try {
-      const workspaceId = currentUser?.workspace_id;
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
       
       console.log('Using workspaceId:', workspaceId, 'isUUID:', workspaceId ? isUUID(workspaceId) : false);
       
@@ -720,11 +655,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                 setSelectedTransaction(t);
                 setIsTransactionFormOpen(true);
               }}
-              onDelete={async (id) => {
-                if (confirm('Deseja excluir este lançamento?')) {
-                  await financeService.deleteTransaction(id);
-                  loadData();
-                }
+              onDelete={(id) => {
+                setItemToDelete({ id, type: 'transaction' });
+                setIsDeleteConfirmOpen(true);
+                setDeleteError(null);
               }}
               onConfirm={(t) => {
                 setTransactionToConfirm(t);
@@ -741,11 +675,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
               setSelectedBankAccount(a);
               setIsBankAccountFormOpen(true);
             }}
-            onDelete={async (id) => {
-              if (confirm('Deseja excluir esta conta?')) {
-                await financeService.deleteBankAccount(id);
-                loadData();
-              }
+            onDelete={(id) => {
+              setItemToDelete({ id, type: 'account' });
+              setIsDeleteConfirmOpen(true);
+              setDeleteError(null);
             }}
             onNew={() => {
               setSelectedBankAccount(undefined);
@@ -788,14 +721,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     Contrapartes
                   </button>
                 </div>
-
-                <button 
-                  onClick={() => checkAndMigrate(currentUser?.workspace_id || '')}
-                  className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-all"
-                >
-                  <RefreshCcw size={14} />
-                  Importar Dados Antigos
-                </button>
               </div>
 
               <div className="animate-in fade-in duration-500">
@@ -806,11 +731,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     setSelectedCategory(c);
                     setIsCategoryFormOpen(true);
                   }}
-                  onDelete={async (id) => {
-                    if (confirm('Deseja excluir esta categoria?')) {
-                      await financeService.deleteCategory(id);
-                      loadData();
-                    }
+                  onDelete={(id) => {
+                    setItemToDelete({ id, type: 'category' });
+                    setIsDeleteConfirmOpen(true);
+                    setDeleteError(null);
                   }}
                   onNew={(parentId) => {
                     setSelectedCategory({ parent_id: parentId });
@@ -826,11 +750,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     setSelectedCostCenter(cc);
                     setIsCostCenterFormOpen(true);
                   }}
-                  onDelete={async (id) => {
-                    if (confirm('Deseja excluir este centro de custo?')) {
-                      await financeService.deleteCostCenter(id);
-                      loadData();
-                    }
+                  onDelete={(id) => {
+                    setItemToDelete({ id, type: 'cost_center' });
+                    setIsDeleteConfirmOpen(true);
+                    setDeleteError(null);
                   }}
                   onNew={() => {
                     setSelectedCostCenter(undefined);
@@ -846,11 +769,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     setSelectedPaymentMethod(pm);
                     setIsPaymentMethodFormOpen(true);
                   }}
-                  onDelete={async (id) => {
-                    if (confirm('Deseja excluir este método de pagamento?')) {
-                      await financeService.deletePaymentMethod(id);
-                      loadData();
-                    }
+                  onDelete={(id) => {
+                    setItemToDelete({ id, type: 'payment_method' });
+                    setIsDeleteConfirmOpen(true);
+                    setDeleteError(null);
                   }}
                   onNew={() => {
                     setSelectedPaymentMethod(undefined);
@@ -866,11 +788,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     setSelectedCounterparty(cp);
                     setIsCounterpartyFormOpen(true);
                   }}
-                  onDelete={async (id) => {
-                    if (confirm('Deseja excluir esta contraparte?')) {
-                      await financeService.deleteCounterparty(id);
-                      loadData();
-                    }
+                  onDelete={(id) => {
+                    setItemToDelete({ id, type: 'counterparty' });
+                    setIsDeleteConfirmOpen(true);
+                    setDeleteError(null);
                   }}
                   onNew={() => {
                     setSelectedCounterparty(undefined);
@@ -942,6 +863,22 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         onClose={() => setIsPaymentMethodFormOpen(false)}
         onSave={handleSavePaymentMethod}
         initialData={selectedPaymentMethod}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Confirmar Exclusão"
+        message={deleteError || "Deseja realmente excluir este item? Esta ação não poderá ser desfeita."}
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setItemToDelete(null);
+          setDeleteError(null);
+        }}
       />
     </div>
   );

@@ -6,7 +6,9 @@ import {
   FinanceCategory, 
   FinanceBankAccount, 
   FinanceCounterparty, 
-  FinanceCostCenter 
+  FinanceCostCenter,
+  FinanceTransactionType,
+  FinanceTransactionStatus
 } from '../types/finance';
 
 enum OperationType {
@@ -84,11 +86,7 @@ export const financeService = {
           category:category_id(*),
           bank_account:bank_account_id(*),
           counterparty:counterparty_id(*),
-          cost_center:cost_center_id(*),
-          client_account:client_account_id(*),
-          lead:lead_id(*),
-          company:company_id(*),
-          deal:deal_id(*)
+          cost_center:cost_center_id(*)
         `)
         .eq('workspace_id', workspaceId)
         .order('due_date', { ascending: false });
@@ -217,13 +215,18 @@ export const financeService = {
   },
 
   async deleteBankAccount(id: string): Promise<void> {
+    console.log('financeService.deleteBankAccount: Deleting account with id:', id);
     try {
       const { error } = await supabase
         .from('m4_fin_bank_accounts')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('financeService.deleteBankAccount: Error deleting:', error);
+        throw error;
+      }
+      console.log('financeService.deleteBankAccount: Success');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'm4_fin_bank_accounts');
     }
@@ -548,6 +551,104 @@ export const financeService = {
 
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'm4_fin_transactions');
+      throw error;
+    }
+  },
+
+  async createTransfer(data: {
+    workspace_id: string;
+    description: string;
+    amount: number;
+    issue_date: string;
+    due_date: string;
+    paid_at?: string;
+    source_bank_account_id: string;
+    destination_bank_account_id: string;
+    status: FinanceTransactionStatus;
+    created_by: string;
+  }): Promise<void> {
+    try {
+      // 1. Create Outflow (Expense)
+      const outflow: Partial<FinanceTransaction> = {
+        workspace_id: data.workspace_id,
+        type: FinanceTransactionType.EXPENSE,
+        status: data.status,
+        description: `[TRANSFERÊNCIA] ${data.description}`,
+        amount: data.amount,
+        issue_date: data.issue_date,
+        due_date: data.due_date,
+        paid_at: data.paid_at,
+        competence_date: data.issue_date,
+        bank_account_id: data.source_bank_account_id,
+        destination_bank_account_id: data.destination_bank_account_id,
+        created_by: data.created_by,
+        updated_by: data.created_by
+      };
+
+      const { data: outflowResult, error: outflowError } = await supabase
+        .from('m4_fin_transactions')
+        .insert([outflow])
+        .select()
+        .single();
+
+      if (outflowError) throw outflowError;
+
+      // 2. Create Inflow (Income)
+      const inflow: Partial<FinanceTransaction> = {
+        workspace_id: data.workspace_id,
+        type: FinanceTransactionType.INCOME,
+        status: data.status,
+        description: `[TRANSFERÊNCIA] ${data.description}`,
+        amount: data.amount,
+        issue_date: data.issue_date,
+        due_date: data.due_date,
+        paid_at: data.paid_at,
+        competence_date: data.issue_date,
+        bank_account_id: data.destination_bank_account_id,
+        parent_transaction_id: outflowResult.id, // Link to the outflow
+        created_by: data.created_by,
+        updated_by: data.created_by
+      };
+
+      const { error: inflowError } = await supabase
+        .from('m4_fin_transactions')
+        .insert([inflow]);
+
+      if (inflowError) throw inflowError;
+
+      // 3. Update balances if status is PAID
+      if (data.status === FinanceTransactionStatus.PAID) {
+        // Source Account
+        const { data: sourceAcc, error: sourceAccError } = await supabase
+          .from('m4_fin_bank_accounts')
+          .select('current_balance')
+          .eq('id', data.source_bank_account_id)
+          .single();
+        
+        if (sourceAccError) throw sourceAccError;
+
+        await supabase
+          .from('m4_fin_bank_accounts')
+          .update({ current_balance: Number(sourceAcc.current_balance) - data.amount })
+          .eq('id', data.source_bank_account_id);
+
+        // Destination Account
+        const { data: destAcc, error: destAccError } = await supabase
+          .from('m4_fin_bank_accounts')
+          .select('current_balance')
+          .eq('id', data.destination_bank_account_id)
+          .single();
+        
+        if (destAccError) throw destAccError;
+
+        await supabase
+          .from('m4_fin_bank_accounts')
+          .update({ current_balance: Number(destAcc.current_balance) + data.amount })
+          .eq('id', data.destination_bank_account_id);
+      }
+
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'm4_fin_transactions');
       throw error;
     }
   }

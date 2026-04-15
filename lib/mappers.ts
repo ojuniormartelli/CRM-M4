@@ -31,9 +31,11 @@ const toNumberOrDefault = (val: any, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export const isUUID = (uuid: any) => 
-  typeof uuid === 'string' && 
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+export const isUUID = (uuid: any) => {
+  if (typeof uuid !== 'string') return false;
+  const cleanUuid = uuid.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanUuid);
+};
 
 const getValidWorkspaceId = (workspaceId?: string, dataWorkspaceId?: string) => {
   if (workspaceId && isUUID(workspaceId)) return workspaceId;

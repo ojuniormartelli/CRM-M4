@@ -199,16 +199,31 @@ const App: React.FC = () => {
 
           if (user) {
             currentUserRecord = user;
-            setCurrentUser(user);
             
-            // The workspace_id MUST come from the user record in the database
-            if (user.workspace_id && isUUID(user.workspace_id)) {
-              localStorage.setItem('m4_crm_workspace_id', user.workspace_id);
-            } else {
-              // Limpa qualquer valor inválido antigo (ex: "default")
-              localStorage.removeItem('m4_crm_workspace_id');
-              console.error('CRITICAL: User has no valid UUID workspace_id in database. workspace_id:', user.workspace_id);
+            // Tenta recuperar workspace_id se estiver faltando no banco
+            let effectiveWorkspaceId = user.workspace_id;
+            const localWorkspaceId = localStorage.getItem('m4_crm_workspace_id');
+
+            if (!effectiveWorkspaceId || !isUUID(effectiveWorkspaceId)) {
+              if (localWorkspaceId && isUUID(localWorkspaceId)) {
+                console.log('App: Recovering workspace_id from localStorage:', localWorkspaceId);
+                effectiveWorkspaceId = localWorkspaceId;
+                // Atualiza o banco para persistir
+                await supabase.from('m4_users').update({ workspace_id: localWorkspaceId }).eq('id', user.id);
+              } else {
+                // Fallback para o workspace padrão se nada for encontrado
+                const defaultWorkspaceId = 'fb786658-1234-4321-8888-999988887777';
+                console.warn('App: User has no workspace_id. Falling back to default:', defaultWorkspaceId);
+                effectiveWorkspaceId = defaultWorkspaceId;
+                await supabase.from('m4_users').update({ workspace_id: defaultWorkspaceId }).eq('id', user.id);
+              }
             }
+
+            const finalUser = { ...user, workspace_id: effectiveWorkspaceId };
+            currentUserRecord = finalUser;
+            setCurrentUser(finalUser);
+            localStorage.setItem('m4_crm_workspace_id', effectiveWorkspaceId || '');
+            console.log('App: Current User initialized with workspace:', effectiveWorkspaceId);
           } else {
             // Invalid local session
             localStorage.removeItem('m4_crm_user_id');
@@ -467,7 +482,8 @@ const App: React.FC = () => {
         { id: 'my_day', icon: CheckCircle2, label: 'Meu Dia' },
         { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
         { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
-        { id: 'administrativo', icon: ICONS.Finance, label: 'Administrativo', hasSubItems: true, menuKey: 'admin' },
+        { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
+        { id: 'administrativo', icon: ICONS.Settings, label: 'Configurações', hasSubItems: true, menuKey: 'admin' },
       ]
     },
     {
@@ -476,12 +492,6 @@ const App: React.FC = () => {
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
         { id: 'goal_settings', icon: ICONS.Target, label: 'Metas de Vendas' },
         { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
-      ]
-    },
-    {
-      title: "Financeiro",
-      items: [
-        { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
       ]
     },
     {
@@ -587,6 +597,44 @@ const App: React.FC = () => {
                     </div>
                   )}
 
+                  {item.id === 'operacao' && expandedMenus.clients && isSidebarOpen && (
+                    <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
+                      <button
+                        onClick={() => setActiveTab('clients_overview')}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
+                          activeTab === 'clients_overview'
+                            ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Visão Geral
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('companies')}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
+                          activeTab === 'companies'
+                            ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Empresas
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('contacts')}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
+                          activeTab === 'contacts'
+                            ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Contatos
+                      </button>
+                    </div>
+                  )}
+
                   {item.id === 'finance_group' && expandedMenus.finance && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
                       <button onClick={() => setActiveTab('finance_dashboard')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_dashboard' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
@@ -644,7 +692,11 @@ const App: React.FC = () => {
                       </button>
                       <button onClick={() => setActiveTab('admin_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Configurações
+                        Sistema (Branding)
+                      </button>
+                      <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Meu Perfil & Serviços
                       </button>
                       <button onClick={() => setActiveTab('automation')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -676,8 +728,7 @@ const App: React.FC = () => {
         </nav>
 
         <div className="p-6 border-t border-border">
-          <SidebarItem id="settings" icon={ICONS.Settings} label="Configurações" isActive={activeTab === 'settings'} />
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="w-full mt-4 flex items-center justify-center p-3 text-muted-foreground dark:text-slate-500 hover:text-primary rounded-2xl transition-all">
+          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center p-3 text-muted-foreground dark:text-slate-500 hover:text-primary rounded-2xl transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`${!isSidebarOpen ? 'rotate-180' : ''}`}><path d="m15 18-6-6 6-6"/></svg>
           </button>
         </div>
