@@ -6,7 +6,7 @@ import Contacts from './pages/Contacts';
 import SupabaseStatus from './components/SupabaseStatus';
 import UserMenu from './components/UserMenu';
 import Login from './components/Login';
-import { Pipeline, Lead, Task, Transaction, EmailMessage, M4Client, Project, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus } from './types';
+import { Pipeline, Lead, Task, Transaction, EmailMessage, M4Client, Project, Company, Contact, User, Service, FinanceCategory, PaymentMethod, FunnelStatus, UserRole } from './types';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Setup from './pages/Setup';
 import { AGENCY_PIPELINE_STAGES } from './constants';
@@ -25,7 +25,6 @@ import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Finance from './pages/FinanceOrganizador';
 import ClientAccounts from './pages/ClientAccounts';
-import Admin from './pages/Admin';
 import Automation from './pages/Automation';
 import Collaboration from './pages/Collaboration';
 import ContactCenter from './pages/ContactCenter';
@@ -483,7 +482,7 @@ const App: React.FC = () => {
         { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
         { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
         { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
-        { id: 'administrativo', icon: ICONS.Settings, label: 'Configurações', hasSubItems: true, menuKey: 'admin' },
+        { id: 'settings_group', icon: ICONS.Settings, label: 'Configurações', hasSubItems: true, menuKey: 'admin' },
       ]
     },
     {
@@ -680,28 +679,52 @@ const App: React.FC = () => {
                       </button>
                     </div>
                   )}
-                  {item.id === 'administrativo' && expandedMenus.admin && isSidebarOpen && (
+                  {item.id === 'settings_group' && expandedMenus.admin && isSidebarOpen && (
                     <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                      <button onClick={() => setActiveTab('admin_users')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_users' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_users' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Usuários
-                      </button>
-                      <button onClick={() => setActiveTab('admin_workspaces')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Workspaces
-                      </button>
-                      <button onClick={() => setActiveTab('admin_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'admin_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'admin_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Sistema (Branding)
-                      </button>
                       <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        Meu Perfil & Serviços
+                        Geral
                       </button>
-                      <button onClick={() => setActiveTab('automation')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                      <button onClick={() => setActiveTab('settings_profile')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_profile' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_profile' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Meu Perfil
+                      </button>
+                      <button onClick={() => setActiveTab('settings_users')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_users' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_users' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Equipe (Usuários e Cargos)
+                      </button>
+                      <button onClick={() => setActiveTab('settings_workspaces')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Workspaces
+                      </button>
+                      <button onClick={() => setActiveTab('settings_branding')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_branding' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_branding' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Sistema (Branding)
+                      </button>
+                      <button onClick={() => setActiveTab('settings_services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_services' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_services' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Serviços
+                      </button>
+                      <button onClick={() => setActiveTab('settings_pipelines')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_pipelines' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_pipelines' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Funil de Vendas
+                      </button>
+                      <button onClick={() => setActiveTab('settings_automation')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Automações
                       </button>
+                      {currentUser?.role === UserRole.OWNER && (
+                        <>
+                          <button onClick={() => setActiveTab('settings_backup')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_backup' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_backup' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                            Backup
+                          </button>
+                          <button onClick={() => setActiveTab('settings_technical')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_technical' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_technical' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                            Painel Técnico
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </React.Fragment>
@@ -845,9 +868,7 @@ const App: React.FC = () => {
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}
           {activeTab === 'goal_settings' && <GoalSettings currentUser={currentUser} />}
           {activeTab === 'contact' && <ContactCenter />}
-          {activeTab === 'automation' && <Automation leads={leads} currentUser={currentUser} />}
-          {(activeTab === 'administrativo' || activeTab.startsWith('admin_')) && <Admin currentUser={currentUser} activeTab={activeTab} />}
-          {activeTab === 'settings' && (
+          {(activeTab === 'settings' || activeTab.startsWith('settings_')) && (
             <Settings 
               currentUser={currentUser} 
               onUserUpdate={setCurrentUser} 
@@ -856,6 +877,8 @@ const App: React.FC = () => {
               fetchServices={fetchServices} 
               pipelines={pipelines}
               setPipelines={setPipelines}
+              activeTab={activeTab}
+              leads={leads}
             />
           )}
         </div>

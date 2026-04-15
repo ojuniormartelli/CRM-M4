@@ -76,7 +76,46 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onNavigate, onLogout }) => {
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 transition-colors">
               <ICONS.Settings size={16} />
             </div>
+            <span className="text-xs font-bold uppercase tracking-tight">Geral</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onNavigate('settings_profile');
+              setIsOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-left flex items-center gap-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 transition-colors">
+              <ICONS.User size={16} />
+            </div>
             <span className="text-xs font-bold uppercase tracking-tight">Meu Perfil</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onNavigate('settings_users');
+              setIsOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-left flex items-center gap-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 transition-colors">
+              <ICONS.Clients size={16} />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-tight">Equipe</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onNavigate('settings_workspaces');
+              setIsOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-left flex items-center gap-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 transition-colors">
+              <ICONS.Dashboard size={16} />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-tight">Workspaces</span>
           </button>
 
           <div className="h-px bg-slate-50 dark:bg-slate-800/50 my-1 mx-4" />

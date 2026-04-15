@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import TechnicalPanel from './TechnicalPanel';
+import AutomationPage from './Automation';
 import { useTheme } from '../ThemeContext';
 import { formatPhoneBR } from '../utils/formatters';
 import { format } from 'date-fns';
@@ -18,6 +19,8 @@ interface SettingsProps {
   fetchServices: () => Promise<void>;
   pipelines: Pipeline[];
   setPipelines: React.Dispatch<React.SetStateAction<Pipeline[]>>;
+  activeTab: string;
+  leads: any[];
 }
 
 const BackupTab = () => {
@@ -205,15 +208,18 @@ const Settings: React.FC<SettingsProps> = ({
   setServices, 
   fetchServices,
   pipelines,
-  setPipelines
+  setPipelines,
+  activeTab: parentActiveTab,
+  leads
 }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'backup' | 'pipelines'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'backup' | 'pipelines' | 'workspaces' | 'automation'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
@@ -221,6 +227,21 @@ const Settings: React.FC<SettingsProps> = ({
   const [editingPipeline, setEditingPipeline] = useState<Partial<Pipeline> | null>(null);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+
+  // Sync with parent active tab
+  useEffect(() => {
+    if (parentActiveTab === 'settings_profile') setActiveTab('profile');
+    else if (parentActiveTab === 'settings_users') setActiveTab('users');
+    else if (parentActiveTab === 'settings_workspaces') setActiveTab('workspaces');
+    else if (parentActiveTab === 'settings_branding') setActiveTab('visual');
+    else if (parentActiveTab === 'settings_services') setActiveTab('services');
+    else if (parentActiveTab === 'settings_pipelines') setActiveTab('pipelines');
+    else if (parentActiveTab === 'settings_automation') setActiveTab('automation');
+    else if (parentActiveTab === 'settings_backup') setActiveTab('backup');
+    else if (parentActiveTab === 'settings_technical') setActiveTab('technical');
+    else if (parentActiveTab === 'settings') setActiveTab('general');
+  }, [parentActiveTab]);
   const [settings, setSettings] = useState({
     id: undefined as string | undefined,
     workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'), // Default for single-tenant apps
@@ -268,18 +289,29 @@ const Settings: React.FC<SettingsProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       console.log('fetchData triggered. activeTab:', activeTab, 'currentUser:', currentUser);
-      if (activeTab === 'users' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER)) {
-        const { data: usersData } = await supabase.from('m4_users').select('*, job_role:m4_job_roles(*)').order('name');
-        if (usersData) setUsers(usersData);
-        
-        const { data: rolesData } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
-        if (rolesData) setJobRoles(rolesData);
-      }
-      if (activeTab === 'roles') {
-        console.log('Buscando cargos...');
-        const { data: rolesData, error } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
-        console.log('Cargos retornados:', rolesData, 'Erro:', error);
-        if (rolesData) setJobRoles(rolesData);
+      setLoading(true);
+      try {
+        if (activeTab === 'users' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER)) {
+          const { data: usersData } = await supabase.from('m4_users').select('*, job_role:m4_job_roles(*)').order('name');
+          if (usersData) setUsers(usersData);
+          
+          const { data: rolesData } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
+          if (rolesData) setJobRoles(rolesData);
+        }
+        if (activeTab === 'roles') {
+          console.log('Buscando cargos...');
+          const { data: rolesData, error } = await supabase.from('m4_job_roles').select('*').order('level', { ascending: false });
+          console.log('Cargos retornados:', rolesData, 'Erro:', error);
+          if (rolesData) setJobRoles(rolesData);
+        }
+        if (activeTab === 'workspaces') {
+          const { data: wsData } = await supabase.from('m4_workspaces').select('*');
+          if (wsData) setWorkspaces(wsData);
+        }
+      } catch (err) {
+        console.error('Error fetching settings data:', err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -790,34 +822,28 @@ const Settings: React.FC<SettingsProps> = ({
           Geral
         </button>
         <button 
-          onClick={() => setActiveTab('visual')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          onClick={() => setActiveTab('profile')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
-          Identidade Visual
-        </button>
-        <button 
-          onClick={() => setActiveTab('technical')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Painel Técnico (SQL)
+          Meu Perfil
         </button>
         <button 
           onClick={() => setActiveTab('users')}
           className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
-          Usuários
+          Equipe (Usuários e Cargos)
         </button>
         <button 
-          onClick={() => setActiveTab('roles')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          onClick={() => setActiveTab('workspaces')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'workspaces' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
-          Cargos
+          Workspaces
         </button>
         <button 
-          onClick={() => setActiveTab('profile')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          onClick={() => setActiveTab('visual')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
         >
-          Meu Perfil
+          Sistema (Branding)
         </button>
         <button 
           onClick={() => setActiveTab('services')}
@@ -831,7 +857,18 @@ const Settings: React.FC<SettingsProps> = ({
         >
           Funil de Vendas
         </button>
-
+        <button 
+          onClick={() => setActiveTab('automation')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'automation' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Automações
+        </button>
+        <button 
+          onClick={() => setActiveTab('technical')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Painel Técnico
+        </button>
         {currentUser?.role === UserRole.OWNER && (
           <button 
             onClick={() => setActiveTab('backup')}
@@ -1189,24 +1226,108 @@ const Settings: React.FC<SettingsProps> = ({
 
       {activeTab === 'technical' && <TechnicalPanel />}
 
-      {activeTab === 'users' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
+      {activeTab === 'automation' && <AutomationPage leads={leads} currentUser={currentUser} />}
+
+      {activeTab === 'workspaces' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Gestão de Equipe</h3>
-              <p className="text-xs text-slate-500 font-medium">Gerencie os usuários e permissões do seu workspace.</p>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Meus Workspaces</h3>
+              <p className="text-xs text-slate-500 font-medium">Gerencie os espaços de trabalho da sua organização.</p>
             </div>
-            <button 
-              onClick={() => {
-                setEditingUser({ role: UserRole.USER });
-                setIsUserModalOpen(true);
-              }}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
-            >
+            <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2">
               <ICONS.Plus size={14} />
-              NOVO USUÁRIO
+              NOVO WORKSPACE
             </button>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {workspaces.length === 0 ? (
+              <div className="col-span-full bg-white dark:bg-slate-900 p-12 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 text-center">
+                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-4">
+                  <ICONS.Dashboard size={32} />
+                </div>
+                <p className="text-slate-500 font-medium">Nenhum workspace registrado. O sistema está operando no workspace padrão.</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">ID ATUAL: {currentUser?.workspace_id || 'default'}</p>
+              </div>
+            ) : (
+              workspaces.map(ws => (
+                <div key={ws.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg" style={{ backgroundColor: ws.color || '#2563eb' }}>
+                      {ws.icon || ws.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900 dark:text-white">{ws.name}</h4>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Workspace ID: {ws.id.slice(0, 8)}...</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex-1 py-3 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                      CONFIGURAR
+                    </button>
+                    <button className="px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all">
+                      <ICONS.X width="16" height="16" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {(activeTab === 'users' || activeTab === 'roles') && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              Usuários
+            </button>
+            <button 
+              onClick={() => setActiveTab('roles')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              Cargos e Permissões
+            </button>
+          </div>
+          {activeTab === 'users' ? (
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Gestão de Equipe</h3>
+                <p className="text-xs text-slate-500 font-medium">Gerencie os usuários e permissões do seu workspace.</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setEditingUser({ role: UserRole.USER });
+                  setIsUserModalOpen(true);
+                }}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
+              >
+                <ICONS.Plus size={14} />
+                NOVO USUÁRIO
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Cargos e Permissões</h3>
+                <p className="text-xs text-slate-500 font-medium">Defina os níveis de acesso e responsabilidades da equipe.</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setEditingRole({ level: 1, permissions: {} });
+                  setIsRoleModalOpen(true);
+                }}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
+              >
+                <ICONS.Plus size={14} />
+                NOVO CARGO
+              </button>
+            </div>
+          )}
 
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
             <table className="w-full text-left border-collapse">
