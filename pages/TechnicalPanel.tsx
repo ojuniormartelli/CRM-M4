@@ -611,6 +611,15 @@ BEGIN
         updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS public.m4_fin_payment_methods (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL,
+        name TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+
     -- Índices
     CREATE INDEX IF NOT EXISTS idx_fin_trans_workspace ON public.m4_fin_transactions(workspace_id);
     CREATE INDEX IF NOT EXISTS idx_fin_trans_due_date ON public.m4_fin_transactions(due_date);
@@ -639,6 +648,56 @@ BEGIN
         EXECUTE format('DROP POLICY IF EXISTS "Allow all for authenticated" ON %I', t);
         EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
     END LOOP;
+END $$;
+`;
+
+  const migrationSQL = `
+-- MIGRAÇÃO DE DADOS: ANTIGO -> NOVO (M4_FIN)
+DO $$
+BEGIN
+    -- 1. Categorias
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_finance_categories') THEN
+        INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, impacts_dre, dre_group, created_at)
+        SELECT id, workspace_id, name, 'both', true, 'Outras Receitas/Despesas', created_at
+        FROM public.m4_finance_categories
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+
+    -- 2. Métodos de Pagamento
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_payment_methods') THEN
+        INSERT INTO public.m4_fin_payment_methods (id, workspace_id, name, is_active, created_at)
+        SELECT id, workspace_id, name, true, created_at
+        FROM public.m4_payment_methods
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+
+    -- 3. Contas Bancárias
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_bank_accounts') THEN
+        INSERT INTO public.m4_fin_bank_accounts (id, workspace_id, name, bank, type, initial_balance, current_balance, created_at)
+        SELECT id, workspace_id, name, 'Banco Importado', 'checking', balance, balance, created_at
+        FROM public.m4_bank_accounts
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+
+    -- 4. Transações
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_transactions') THEN
+        INSERT INTO public.m4_fin_transactions (
+            id, workspace_id, type, status, description, amount, 
+            issue_date, due_date, paid_at, competence_date,
+            bank_account_id, payment_method, notes, is_recurring, created_at
+        )
+        SELECT 
+            id, workspace_id, 
+            CASE WHEN type = 'Receita' THEN 'income'::fin_transaction_type ELSE 'expense'::fin_transaction_type END,
+            CASE WHEN status IN ('Recebido', 'Pago') THEN 'paid'::fin_transaction_status ELSE 'pending'::fin_transaction_status END,
+            description, amount,
+            date::date, due_date::date, 
+            CASE WHEN status IN ('Recebido', 'Pago') THEN date::timestamp with time zone ELSE NULL END,
+            date::date,
+            bank_account_id, payment_method, notes, is_recurring, created_at
+        FROM public.m4_transactions
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
 END $$;
 `;
 
@@ -711,6 +770,22 @@ END $$;
              <div className="text-emerald-500"><ICONS.Automation /></div>
              <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">Use este script para atualizar um banco existente. Ele adiciona novas colunas e tabelas sem afetar seus dados.</p>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 p-12 rounded-[3.5rem] text-white flex flex-col md:flex-row items-center justify-between gap-10">
+        <div className="flex-1 space-y-4">
+          <h4 className="text-2xl font-black uppercase tracking-tight">Migração de Dados</h4>
+          <p className="text-slate-400 font-medium text-sm">Use este script para migrar dados das tabelas antigas para a nova estrutura financeira (m4_fin).</p>
+          <button 
+            onClick={() => handleCopy(migrationSQL, 'migration')}
+            className={`px-8 py-4 rounded-2xl transition-all font-black text-xs uppercase tracking-widest ${copied === 'migration' ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          >
+            {copied === 'migration' ? 'Copiado!' : 'Copiar SQL de Migração'}
+          </button>
+        </div>
+        <div className="w-48 h-48 bg-blue-600/20 rounded-[2.5rem] border border-blue-500/30 flex items-center justify-center">
+           <ICONS.Database size={48} className="text-blue-400" />
         </div>
       </div>
 

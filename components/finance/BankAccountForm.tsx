@@ -11,6 +11,7 @@ interface BankAccountFormProps {
 }
 
 const BankAccountForm: React.FC<BankAccountFormProps> = ({ isOpen, onClose, onSave, initialData }) => {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<FinanceBankAccount>>({
     name: '',
     bank: '',
@@ -28,9 +29,18 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ isOpen, onClose, onSa
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(formData);
+    } catch (error) {
+      console.error('Error in BankAccountForm handleSubmit:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -111,19 +121,27 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ isOpen, onClose, onSa
               </div>
             </div>
           </div>
-        </form>
 
-        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSubmit}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
-          >
-            Salvar Conta
-          </button>
-        </div>
+          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
+              Cancelar
+            </button>
+            <button 
+              type="submit"
+              disabled={isSaving}
+              className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  SALVANDO...
+                </>
+              ) : (
+                'Salvar Conta'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

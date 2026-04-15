@@ -31,6 +31,16 @@ const toNumberOrDefault = (val: any, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+export const isUUID = (uuid: any) => 
+  typeof uuid === 'string' && 
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+
+const getValidWorkspaceId = (workspaceId?: string, dataWorkspaceId?: string) => {
+  if (workspaceId && isUUID(workspaceId)) return workspaceId;
+  if (dataWorkspaceId && isUUID(dataWorkspaceId)) return dataWorkspaceId;
+  return null;
+};
+
 export const mappers = {
   /**
    * TRANSACTION MAPPER
@@ -64,7 +74,9 @@ export const mappers = {
       recurring_id: data.recurring_id || null,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -145,16 +157,7 @@ export const mappers = {
     if (has('ai_reasoning')) payload.ai_reasoning = cleanText(data.ai_reasoning);
 
     // 🛡️ METADATA & SYSTEM
-    if (has('responsible_name')) payload.responsible_name = cleanText(data.responsible_name);
-    if (has('responsible_id')) payload.responsible_id = data.responsible_id || null;
-    if (has('origin_lead_id')) payload.origin_lead_id = data.origin_lead_id || null;
-    if (has('status')) payload.status = data.status || 'active';
-    if (has('interactions')) payload.interactions = data.interactions || [];
-    if (has('custom_fields')) payload.custom_fields = data.custom_fields || {};
-
-    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-    const finalWorkspaceId = (workspaceId && isUUID(workspaceId)) ? workspaceId : (data.workspace_id && isUUID(data.workspace_id)) ? data.workspace_id : null;
-
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
     if (finalWorkspaceId) {
       payload.workspace_id = finalWorkspaceId;
     }
@@ -319,7 +322,9 @@ export const mappers = {
       notes: data.notes || '',
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -338,7 +343,9 @@ export const mappers = {
       is_primary: !!data.is_primary,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -358,7 +365,9 @@ export const mappers = {
       notes: data.notes || '',
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -393,7 +402,9 @@ export const mappers = {
       interaction_note: data.interaction_note || '',
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -412,7 +423,9 @@ export const mappers = {
       manager_id: data.manager_id || null,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -426,7 +439,9 @@ export const mappers = {
       tasks: data.tasks || [],
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -440,7 +455,9 @@ export const mappers = {
       color: data.color || null,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -453,7 +470,9 @@ export const mappers = {
       name: data.name || 'Sem nome',
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -468,7 +487,9 @@ export const mappers = {
       view_type: data.view_type || 'kanban',
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -483,7 +504,9 @@ export const mappers = {
       options: data.options || [],
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -497,7 +520,9 @@ export const mappers = {
       value: data.value,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 
@@ -515,10 +540,9 @@ export const mappers = {
     if (data.is_active !== undefined) payload.is_active = !!data.is_active;
     else if (!isUpdate) payload.is_active = true;
 
-    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-    const finalWorkspaceId = (workspaceId && isUUID(workspaceId)) ? workspaceId : (data.workspace_id && isUUID(data.workspace_id)) ? data.workspace_id : null;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
     
-    payload.workspace_id = finalWorkspaceId;
     return payload;
   },
 
@@ -534,7 +558,9 @@ export const mappers = {
       duration_minutes: Number(data.duration_minutes) || 0,
     };
 
-    if (workspaceId || data.workspace_id) payload.workspace_id = workspaceId || data.workspace_id;
+    const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (finalWorkspaceId) payload.workspace_id = finalWorkspaceId;
+    
     return payload;
   },
 };

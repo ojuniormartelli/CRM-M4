@@ -15,8 +15,25 @@ interface PaymentModalProps {
 const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onConfirm, transaction, bankAccounts }) => {
   const [paidAt, setPaidAt] = useState(new Date().toISOString().split('T')[0]);
   const [bankAccountId, setBankAccountId] = useState(transaction.bank_account_id || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleSubmit = async () => {
+    if (!bankAccountId) {
+      alert('Por favor, selecione uma conta bancária.');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      await onConfirm({ paid_at: paidAt, bank_account_id: bankAccountId });
+    } catch (error) {
+      console.error('Error in PaymentModal handleSubmit:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -75,13 +92,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onConfirm,
 
         <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
           <button 
-            onClick={() => onConfirm({ paid_at: paidAt, bank_account_id: bankAccountId })}
-            className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+            onClick={handleSubmit}
+            disabled={isSaving}
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <CheckCircle2 size={18} />
-            Confirmar Pagamento
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                PROCESSANDO...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={18} />
+                Confirmar Pagamento
+              </>
+            )}
           </button>
-          <button onClick={onClose} className="w-full py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest">
+          <button 
+            onClick={onClose} 
+            disabled={isSaving}
+            className="w-full py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest disabled:opacity-50"
+          >
             Voltar
           </button>
         </div>

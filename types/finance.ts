@@ -232,3 +232,12 @@ export interface FinanceAlert {
   value?: string;
   percentage?: number;
 }
+
+export interface FinancePaymentMethod {
+  id: string;
+  workspace_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

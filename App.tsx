@@ -184,11 +184,33 @@ const App: React.FC = () => {
 
         // 1. Check for local session and fetch User first
         const localUserId = localStorage.getItem('m4_crm_user_id');
-        let user = null;
+        
         if (localUserId) {
-          const { data: userData } = await supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle();
-          user = userData;
-          if (user) setCurrentUser(user);
+          const { data: user, error: userError } = await supabase
+            .from('m4_users')
+            .select('*')
+            .eq('id', localUserId)
+            .maybeSingle();
+
+          if (userError) {
+            console.error('Error fetching user session:', userError);
+          }
+
+          if (user) {
+            setCurrentUser(user);
+            
+            // The workspace_id MUST come from the user record in the database
+            if (user.workspace_id) {
+              localStorage.setItem('m4_crm_workspace_id', user.workspace_id);
+            } else {
+              // This should theoretically not happen after the SQL migration
+              console.error('CRITICAL: User has no workspace_id in database.');
+            }
+          } else {
+            // Invalid local session
+            localStorage.removeItem('m4_crm_user_id');
+            localStorage.removeItem('m4_crm_workspace_id');
+          }
         }
 
         // 2. Fetch all other data
@@ -374,7 +396,7 @@ const App: React.FC = () => {
       await leadService.updateStatus(leadId, status);
       setLeads(leads.map(l => l.id === leadId ? { ...l, status } : l));
       
-      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
+      const workspaceId = currentUser?.workspace_id || '';
 
       if (status === 'won') {
         await automationService.convertLeadToClient(lead, workspaceId);
@@ -593,9 +615,17 @@ const App: React.FC = () => {
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_cost_centers' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Centros de Custo
                       </button>
+                      <button onClick={() => setActiveTab('finance_payment_methods')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_payment_methods' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_payment_methods' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Métodos de Pagto
+                      </button>
                       <button onClick={() => setActiveTab('finance_counterparties')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_counterparties' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_counterparties' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                         Contrapartes
+                      </button>
+                      <button onClick={() => setActiveTab('finance_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                        Configurações
                       </button>
                     </div>
                   )}
@@ -770,10 +800,6 @@ const App: React.FC = () => {
               services={services} 
               setServices={setServices} 
               fetchServices={fetchServices} 
-              financeCategories={financeCategories}
-              setFinanceCategories={setFinanceCategories}
-              paymentMethods={paymentMethods}
-              setPaymentMethods={setPaymentMethods}
               pipelines={pipelines}
               setPipelines={setPipelines}
             />

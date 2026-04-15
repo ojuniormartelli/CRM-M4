@@ -11,6 +11,7 @@ interface CounterpartyFormProps {
 }
 
 const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, onSave, initialData }) => {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<FinanceCounterparty>>({
     name: '',
     type: FinanceCounterpartyType.SUPPLIER,
@@ -27,9 +28,18 @@ const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, on
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(formData);
+    } catch (error) {
+      console.error('Error in CounterpartyForm handleSubmit:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -130,9 +140,17 @@ const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, on
           </button>
           <button 
             onClick={handleSubmit}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+            disabled={isSaving}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
           >
-            Salvar Contraparte
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                SALVANDO...
+              </>
+            ) : (
+              'Salvar Contraparte'
+            )}
           </button>
         </div>
       </div>

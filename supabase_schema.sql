@@ -305,10 +305,10 @@ INSERT INTO public.m4_job_roles (id, name, level, permissions) VALUES
 ('d167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Usuário Básico', 10, '{"tasks": true, "view_only": true}')
 ON CONFLICT (id) DO NOTHING;
 
--- Inserir usuário admin padrão vinculado ao Owner
-INSERT INTO public.m4_users (name, username, email, password, role, job_role_id, status, must_change_password)
-VALUES ('Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'active', true)
-ON CONFLICT (email) DO NOTHING;
+-- Inserir usuário admin padrão vinculado ao Owner e a um Workspace Padrão
+INSERT INTO public.m4_users (id, name, username, email, password, role, job_role_id, workspace_id, status, must_change_password)
+VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active', true)
+ON CONFLICT (email) DO UPDATE SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE public.m4_users.workspace_id IS NULL;
 
 -- 12. RLS (Simplified)
 ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
