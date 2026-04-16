@@ -14,6 +14,8 @@ import { User, UserRole, JobRole, Service, FinanceCategory, PaymentMethod, Pipel
 interface SettingsProps {
   currentUser: User | null;
   onUserUpdate: (user: User) => void;
+  settings: any;
+  setSettings: (settings: any) => void;
   services: Service[];
   setServices: (services: Service[]) => void;
   fetchServices: () => Promise<void>;
@@ -204,6 +206,8 @@ const BackupTab = () => {
 const Settings: React.FC<SettingsProps> = ({ 
   currentUser, 
   onUserUpdate, 
+  settings,
+  setSettings,
   services, 
   setServices, 
   fetchServices,
@@ -242,20 +246,6 @@ const Settings: React.FC<SettingsProps> = ({
     else if (parentActiveTab === 'settings_technical') setActiveTab('technical');
     else if (parentActiveTab === 'settings') setActiveTab('general');
   }, [parentActiveTab]);
-  const [settings, setSettings] = useState({
-    id: undefined as string | undefined,
-    workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'), // Default for single-tenant apps
-    crm_name: 'M4 CRM',
-    company_name: 'Agency Cloud',
-    theme: theme, // Use theme from context initially
-    primary_color: '#2563eb',
-    logo_url: '',
-    city: '',
-    state: '',
-    website_url: '',
-    whatsapp_number: '',
-    language: 'pt-BR'
-  });
 
   useEffect(() => {
     if (activeTab === 'services') {
@@ -265,26 +255,6 @@ const Settings: React.FC<SettingsProps> = ({
       });
     }
   }, [activeTab]);
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const { data, error } = await supabase.from('m4_settings').select('*').maybeSingle();
-        if (error) {
-          console.error('Error fetching settings:', error);
-          // Ensure we at least have the correct theme from context if fetch fails
-          setSettings(prev => ({ ...prev, theme }));
-          return;
-        }
-        if (data) {
-          setSettings(data);
-        }
-      } catch (err) {
-        console.error('Unexpected error fetching settings:', err);
-      }
-    };
-    fetchSettings();
-  }, [theme]);
 
   useEffect(() => {
     const fetchData = async () => {

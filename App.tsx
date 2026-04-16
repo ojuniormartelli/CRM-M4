@@ -13,6 +13,7 @@ import { AGENCY_PIPELINE_STAGES } from './constants';
 import { CheckCircle2 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import MyDay from './pages/MyDay';
+import { useTheme } from './ThemeContext';
 import { automationService } from './services/automationService';
 import { leadService } from './services/leadService';
 import { clientService } from './services/clientService';
@@ -38,6 +39,7 @@ import SalesOverview from './pages/SalesOverview';
 import GoalSettings from './pages/GoalSettings';
 
 const App: React.FC = () => {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,7 +105,18 @@ const App: React.FC = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activePipelineId, setActivePipelineId] = useState<string>('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<any>({
+    crm_name: 'M4 CRM',
+    company_name: 'Agency Cloud',
+    logo_url: '',
+    primary_color: '#2563eb',
+    theme: theme,
+    city: '',
+    state: '',
+    website_url: '',
+    whatsapp_number: '',
+    language: 'pt-BR'
+  });
 
   const config = getSupabaseConfig();
   const hasConfig = !!(config.url && config.key);
@@ -128,15 +141,20 @@ const App: React.FC = () => {
       if (settings.crm_name) {
         document.title = settings.crm_name;
       }
+      
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      
       if (settings.logo_url) {
         localStorage.setItem('m4_crm_logo_url', settings.logo_url);
-        let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.getElementsByTagName('head')[0].appendChild(link);
-        }
         link.href = settings.logo_url;
+      } else {
+        localStorage.removeItem('m4_crm_logo_url');
+        link.href = '/vite.svg'; // Default favicon fallback
       }
     }
   }, [settings]);
@@ -248,7 +266,17 @@ const App: React.FC = () => {
         const { data: projectsData } = await supabase.from('m4_projects').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
         setProjects(projectsData || []);
 
-        const { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').maybeSingle();
+        let { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').maybeSingle();
+        
+        // Fallback: if no settings found for this workspace, try to get any settings record
+        if (!settingsData) {
+          const { data: anySettings } = await supabase.from('m4_settings').select('*').maybeSingle();
+          if (anySettings) {
+            console.log('App: Settings not found for workspace, using fallback settings');
+            settingsData = anySettings;
+          }
+        }
+        
         setSettings(settingsData);
 
         const { data: postsData } = await supabase.from('m4_posts').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
@@ -872,6 +900,8 @@ const App: React.FC = () => {
             <Settings 
               currentUser={currentUser} 
               onUserUpdate={setCurrentUser} 
+              settings={settings}
+              setSettings={setSettings}
               services={services} 
               setServices={setServices} 
               fetchServices={fetchServices} 
