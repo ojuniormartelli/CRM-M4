@@ -10,6 +10,7 @@ export const leadService = {
     const { data, error } = await supabase
       .from('m4_leads')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -140,26 +141,10 @@ export const leadService = {
   },
 
   async delete(id: string) {
-    // 1. Manually delete related records that might not have ON DELETE CASCADE
-    // This ensures deletion works even if the database schema is missing some cascade constraints
-    try {
-      // Delete tasks linked via deal_id (some schemas use deal_id instead of lead_id)
-      await supabase.from('m4_tasks').delete().eq('deal_id', id);
-      
-      // Delete transactions (old and new)
-      await supabase.from('m4_transactions').delete().eq('lead_id', id);
-      await supabase.from('m4_fin_transactions').delete().eq('lead_id', id);
-      
-      // Delete emails
-      await supabase.from('m4_emails').delete().eq('lead_id', id);
-    } catch (err) {
-      console.warn('Error deleting related records (might not exist):', err);
-    }
-
-    // 2. Delete the lead itself
+    // 🛡️ SOFT DELETE: Instead of deleting, we set deleted_at
     const { error } = await supabase
       .from('m4_leads')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {

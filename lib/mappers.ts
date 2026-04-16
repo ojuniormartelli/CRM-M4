@@ -206,6 +206,7 @@ export const mappers = {
       'interactions',
       'custom_fields',
       'workspace_id',
+      'deleted_at',
       'created_at',
       'cnpj',
       'whatsapp',
@@ -322,6 +323,7 @@ export const mappers = {
       phone: data.phone || '',
       whatsapp: data.whatsapp || '',
       notes: data.notes || '',
+      deleted_at: data.deleted_at || null,
     };
 
     const finalWorkspaceId = getValidWorkspaceId(workspaceId, data.workspace_id);

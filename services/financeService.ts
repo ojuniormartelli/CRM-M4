@@ -564,7 +564,7 @@ export const financeService = {
     paid_at?: string;
     source_bank_account_id: string;
     destination_bank_account_id: string;
-    status: FinanceTransactionStatus;
+    status: FinanceTransactionStatus | string;
     created_by: string;
   }): Promise<void> {
     try {

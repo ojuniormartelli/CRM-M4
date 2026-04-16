@@ -10,6 +10,9 @@ import { aiService } from '../services/aiService';
 import { leadService } from '../services/leadService';
 import { metricsUtils } from '../utils/metrics';
 import { funnelUtils } from '../utils/funnel';
+import { useCRMStore } from '../lib/store';
+import { leadSchema } from '../lib/validation';
+import { LeadSkeleton } from '../components/Skeleton';
 import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
 
 interface SalesCRMProps {
@@ -339,10 +342,13 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [interactionResult, setInteractionResult] = useState<'Envio de mensagem' | 'Sucesso' | 'Não atendeu'>('Sucesso');
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
-  const [cardDensity, setCardDensity] = useState<'normal' | 'compact'>('normal');
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
-  const [sortOrder, setSortOrder] = useState<'recent' | 'alphabetical' | 'value'>('recent');
-  const [filterMode, setFilterMode] = useState<'all' | 'my_day'>('all');
+  const { 
+    filterMode, setFilterMode, 
+    sortOrder, setSortOrder,
+    viewMode, setViewMode,
+    cardDensity, setCardDensity,
+    isLoadingLeads 
+  } = useCRMStore();
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
     title: '',
@@ -669,6 +675,15 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Zod Validation
+    const validation = leadSchema.safeParse(newLead);
+    if (!validation.success) {
+      const errors = validation.error.issues.map(err => err.message).join('\n');
+      alert("Erro de validação:\n" + errors);
+      return;
+    }
+
     setIsSyncing(true);
     
     const selectedPipeline = pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId));
@@ -1520,7 +1535,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 </div>
 
                 <div className="p-2 space-y-5 overflow-y-auto flex-1 max-h-[calc(100vh-340px)] scrollbar-none pb-6">
-                  {getLeadsByStage(stage.id).map((lead) => (
+                  {isLoadingLeads ? (
+                    <>
+                      <LeadSkeleton />
+                      <LeadSkeleton />
+                      <LeadSkeleton />
+                    </>
+                  ) : (
+                    getLeadsByStage(stage.id).map((lead) => (
                     <div 
                       key={lead.id} 
                       draggable
@@ -1593,7 +1615,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className={`${cardDensity === 'compact' ? 'w-6 h-6' : 'w-9 h-9'} rounded-2xl border-2 border-card shadow-xl`} alt="Owner" />
                       </div>
                     </div>
-                  ))}
+                  )))}
                   <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground/50 text-[11px] font-black uppercase tracking-[0.2em] hover:border-primary hover:text-primary hover:bg-card transition-all">+ NOVO LEAD</button>
                 </div>
               </div>

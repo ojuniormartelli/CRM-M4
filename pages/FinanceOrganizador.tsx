@@ -168,7 +168,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         financeService.getCostCenters(workspaceId),
         financeService.getCounterparties(workspaceId),
         financeService.getPaymentMethods(workspaceId),
-        supabase.from('m4_leads').select('id, name, company').eq('workspace_id', workspaceId),
+        supabase.from('m4_leads').select('id, name, company').eq('workspace_id', workspaceId).is('deleted_at', null),
         supabase.from('m4_clients').select('id, name, company_name').eq('workspace_id', workspaceId)
       ]);
       

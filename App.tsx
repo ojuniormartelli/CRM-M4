@@ -17,6 +17,7 @@ import { useTheme } from './ThemeContext';
 import { automationService } from './services/automationService';
 import { leadService } from './services/leadService';
 import { clientService } from './services/clientService';
+import { useCRMStore } from './lib/store';
 import { taskService } from './services/taskService';
 import { workspaceService } from './services/workspaceService';
 import { mappers, isUUID } from './lib/mappers';
@@ -40,6 +41,7 @@ import GoalSettings from './pages/GoalSettings';
 
 const App: React.FC = () => {
   const { theme } = useTheme();
+  const { setIsLoadingLeads } = useCRMStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -161,12 +163,15 @@ const App: React.FC = () => {
 
   const fetchLeads = async () => {
     console.log('App.tsx fetchLeads() called');
+    setIsLoadingLeads(true);
     try {
       const data = await leadService.getAll();
       console.log('App.tsx fetchLeads() success, count:', data?.length);
       setLeads(data);
     } catch (error) {
       console.error('Erro ao buscar leads:', error);
+    } finally {
+      setIsLoadingLeads(false);
     }
   };
 
@@ -302,7 +307,7 @@ const App: React.FC = () => {
         const { data: paymentMethodsData } = await supabase.from('m4_fin_payment_methods').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
         setPaymentMethods(paymentMethodsData || []);
 
-        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
+        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').is('deleted_at', null).order('name');
         setCompanies(companiesData || []);
 
         const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');

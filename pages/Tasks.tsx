@@ -281,6 +281,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       const { data, error } = await supabase
         .from('m4_companies')
         .select('*')
+        .is('deleted_at', null)
         .order('name');
 
       // Debug logs
@@ -300,7 +301,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     };
 
     const fetchLeads = async () => {
-      const { data } = await supabase.from('m4_leads').select('*').order('contact_name');
+      const { data } = await supabase.from('m4_leads').select('*').is('deleted_at', null).order('contact_name');
       if (data) setLeads(data);
     };
 

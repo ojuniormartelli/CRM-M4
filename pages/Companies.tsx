@@ -62,6 +62,8 @@ const Companies: React.FC<CompaniesProps> = ({
   const setIsContactNewModalOpen = propSetIsContactNewModalOpen !== undefined ? propSetIsContactNewModalOpen : setLocalIsContactNewModalOpen;
   
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newContactData, setNewContactData] = useState<Partial<Contact>>({
     name: '', email: '', phone: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
   });
@@ -77,6 +79,7 @@ const Companies: React.FC<CompaniesProps> = ({
       const { data, error } = await supabase
         .from('m4_companies')
         .select('*')
+        .is('deleted_at', null)
         .order('name');
 
       if (error) {
@@ -89,6 +92,28 @@ const Companies: React.FC<CompaniesProps> = ({
       }
     } catch (err) {
       console.error('Erro inesperado ao carregar empresas:', err);
+    }
+  };
+
+  const handleDeleteCompany = async (id: string) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('m4_companies')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setCompanies(prev => prev.filter(c => c.id !== id));
+      setIsEditModalOpen(false);
+      setShowDeleteConfirm(false);
+      resetForm();
+    } catch (err: any) {
+      console.error('Erro ao excluir empresa:', err);
+      alert('Erro ao excluir empresa: ' + err.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -920,13 +945,22 @@ const Companies: React.FC<CompaniesProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 {!isEditing && activeTab === 'details' && (
-                  <button 
-                    onClick={() => setIsEditing(true)}
-                    className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all"
-                    title="Editar"
-                  >
-                    <ICONS.Edit className="w-5 h-5" />
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 transition-all"
+                      title="Editar"
+                    >
+                      <ICONS.Edit className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="p-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-100 transition-all"
+                      title="Excluir"
+                    >
+                      <ICONS.Trash className="w-5 h-5" />
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => { 
@@ -1325,6 +1359,40 @@ const Companies: React.FC<CompaniesProps> = ({
               </div>
             </div>
           )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md p-10 space-y-8 shadow-2xl animate-zoom-in-95">
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-3xl flex items-center justify-center mx-auto">
+                <ICONS.Trash width="40" height="40" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Excluir Empresa?</h3>
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                  Esta ação não pode ser desfeita. A empresa será removida da lista principal.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => editingCompany && handleDeleteCompany(editingCompany.id)}
+                disabled={isSaving}
+                className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-rose-100 dark:shadow-none"
+              >
+                {isSaving ? "EXCLUINDO..." : "EXCLUIR"}
+              </button>
+            </div>
           </div>
         </div>
       )}
