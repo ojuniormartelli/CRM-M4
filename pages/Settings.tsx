@@ -706,7 +706,7 @@ const Settings: React.FC<SettingsProps> = ({
         website_url: settings.website_url,
         whatsapp_number: settings.whatsapp_number,
         language: settings.language,
-        workspace_id: settings.workspace_id || currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
+        workspace_id: currentUser?.workspace_id || settings.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
         updated_at: new Date().toISOString() 
       };
 
@@ -1217,8 +1217,11 @@ const Settings: React.FC<SettingsProps> = ({
                 <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-4">
                   <ICONS.Dashboard size={32} />
                 </div>
-                <p className="text-slate-500 font-medium">Nenhum workspace registrado. O sistema está operando no workspace padrão.</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">ID ATUAL: {currentUser?.workspace_id || 'default'}</p>
+                <p className="text-slate-500 font-medium">Nenhum workspace registrado. Operando no workspace atual.</p>
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 inline-block">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Workspace ID Resolvido (Supabase):</p>
+                  <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 mt-1">{currentUser?.workspace_id || 'Não resolvido'}</p>
+                </div>
               </div>
             ) : (
               workspaces.map(ws => (

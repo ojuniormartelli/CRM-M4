@@ -39,9 +39,12 @@ import ClientsOverview from './pages/ClientsOverview';
 import SalesOverview from './pages/SalesOverview';
 import GoalSettings from './pages/GoalSettings';
 
+import { useWorkspace } from './hooks/useWorkspace';
+
 const App: React.FC = () => {
   const { theme } = useTheme();
   const { setIsLoadingLeads } = useCRMStore();
+  const { workspaceId: resolvedWorkspaceId, loading: workspaceLoading } = useWorkspace();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -161,11 +164,11 @@ const App: React.FC = () => {
     }
   }, [settings]);
 
-  const fetchLeads = async () => {
-    console.log('App.tsx fetchLeads() called');
+  const fetchLeads = async (wsId?: string) => {
+    console.log('App.tsx fetchLeads() called for ws:', wsId);
     setIsLoadingLeads(true);
     try {
-      const data = await leadService.getAll();
+      const data = await leadService.getAll(wsId);
       console.log('App.tsx fetchLeads() success, count:', data?.length);
       setLeads(data);
     } catch (error) {
@@ -188,230 +191,110 @@ const App: React.FC = () => {
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
+      // 1. Wait for workspace resolution
+      if (workspaceLoading) return;
+
+      // 2. Identify User
+      const localUserId = localStorage.getItem('m4_crm_user_id');
+      
+      if (!localUserId) {
+        setLoading(false);
+        return;
+      }
+
+      // 3. Ensure we have a workspaceId
+      if (!resolvedWorkspaceId) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        // 0. Check auth and table access
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('DEBUG: Supabase Session:', session ? 'Active' : 'None');
-        if (session) {
-          console.log('DEBUG: User ID:', session.user.id);
-        }
-
-        const { error: tableError } = await supabase.from('m4_leads').select('id').limit(1);
-        if (tableError) {
-          console.error('CRITICAL: Table m4_leads access error:', tableError);
-        } else {
-          console.log('SUCCESS: Table m4_leads is accessible');
-        }
-
-        // 1. Check for local session and fetch User first
-        const localUserId = localStorage.getItem('m4_crm_user_id');
-        let currentUserRecord: User | null = null;
+        console.log('App: Fetching data for workspace:', resolvedWorkspaceId);
         
-        if (localUserId) {
-          const { data: user, error: userError } = await supabase
-            .from('m4_users')
-            .select('*')
-            .eq('id', localUserId)
-            .maybeSingle();
-
-          if (userError) {
-            console.error('Error fetching user session:', userError);
-          }
-
-          if (user) {
-            currentUserRecord = user;
-            
-            // Tenta recuperar workspace_id se estiver faltando no banco
-            let effectiveWorkspaceId = user.workspace_id;
-            const localWorkspaceId = localStorage.getItem('m4_crm_workspace_id');
-
-            if (!effectiveWorkspaceId || !isUUID(effectiveWorkspaceId)) {
-              if (localWorkspaceId && isUUID(localWorkspaceId)) {
-                console.log('App: Recovering workspace_id from localStorage:', localWorkspaceId);
-                effectiveWorkspaceId = localWorkspaceId;
-                // Atualiza o banco para persistir
-                await supabase.from('m4_users').update({ workspace_id: localWorkspaceId }).eq('id', user.id);
-              } else {
-                // Fallback para o workspace padrão se nada for encontrado
-                const defaultWorkspaceId = 'fb786658-1234-4321-8888-999988887777';
-                console.warn('App: User has no workspace_id. Falling back to default:', defaultWorkspaceId);
-                effectiveWorkspaceId = defaultWorkspaceId;
-                await supabase.from('m4_users').update({ workspace_id: defaultWorkspaceId }).eq('id', user.id);
-              }
-            }
-
-            const finalUser = { ...user, workspace_id: effectiveWorkspaceId };
-            currentUserRecord = finalUser;
-            setCurrentUser(finalUser);
-            localStorage.setItem('m4_crm_workspace_id', effectiveWorkspaceId || '');
-            console.log('App: Current User initialized with workspace:', effectiveWorkspaceId);
-          } else {
-            // Invalid local session
-            localStorage.removeItem('m4_crm_user_id');
-            localStorage.removeItem('m4_crm_workspace_id');
-          }
+        // Fetch current User record to sync state
+        const { data: user } = await supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle();
+        if (user) {
+          setCurrentUser({ ...user, workspace_id: resolvedWorkspaceId });
         }
 
-        // 2. Fetch all other data
-        await fetchLeads();
+        const wsFilter = resolvedWorkspaceId;
 
-        const { data: tasksData } = await supabase.from('m4_tasks').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        // Fetch all data using the resolved workspaceId
+        await fetchLeads(wsFilter);
+
+        const { data: tasksData } = await supabase.from('m4_tasks').select('*').eq('workspace_id', wsFilter);
         setTasks(tasksData || []);
 
-        const { data: transactionsData } = await supabase.from('m4_fin_transactions').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: transactionsData } = await supabase.from('m4_fin_transactions').select('*').eq('workspace_id', wsFilter);
         setTransactions(transactionsData || []);
 
-        const { data: emailsData } = await supabase.from('m4_emails').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
+        const { data: emailsData } = await supabase.from('m4_emails').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
         setEmails(emailsData || []);
 
-        const { data: clientsData } = await supabase.from('m4_clients').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: clientsData } = await supabase.from('m4_clients').select('*').eq('workspace_id', wsFilter);
         setClients(clientsData || []);
 
-        const { data: projectsData } = await supabase.from('m4_projects').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: projectsData } = await supabase.from('m4_projects').select('*').eq('workspace_id', wsFilter);
         setProjects(projectsData || []);
 
-        let { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').maybeSingle();
+        let { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', wsFilter).maybeSingle();
         
-        // Fallback: if no settings found for this workspace, try to get any settings record
         if (!settingsData) {
           const { data: anySettings } = await supabase.from('m4_settings').select('*').maybeSingle();
-          if (anySettings) {
-            console.log('App: Settings not found for workspace, using fallback settings');
-            settingsData = anySettings;
-          }
+          if (anySettings) settingsData = anySettings;
         }
-        
         setSettings(settingsData);
 
-        const { data: postsData } = await supabase.from('m4_posts').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
+        const { data: postsData } = await supabase.from('m4_posts').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
         setPosts(postsData || []);
 
-        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('created_at', { ascending: false });
+        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
         setCampaigns(campaignsData || []);
 
-        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsFilter);
         setClientAccounts(clientAccountsData || []);
 
         await fetchServices();
 
-        const { data: bankAccountsData } = await supabase.from('m4_fin_bank_accounts').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: bankAccountsData } = await supabase.from('m4_fin_bank_accounts').select('*').eq('workspace_id', wsFilter);
         setBankAccounts(bankAccountsData || []);
 
-        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000');
+        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*').eq('workspace_id', wsFilter);
         setCreditCards(creditCardsData || []);
 
-        const { data: financeCategoriesData } = await supabase.from('m4_fin_categories').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
+        const { data: financeCategoriesData } = await supabase.from('m4_fin_categories').select('*').eq('workspace_id', wsFilter).order('name');
         setFinanceCategories(financeCategoriesData || []);
 
-        const { data: paymentMethodsData } = await supabase.from('m4_fin_payment_methods').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
+        const { data: paymentMethodsData } = await supabase.from('m4_fin_payment_methods').select('*').eq('workspace_id', wsFilter).order('name');
         setPaymentMethods(paymentMethodsData || []);
 
-        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').is('deleted_at', null).order('name');
+        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', wsFilter).is('deleted_at', null).order('name');
         setCompanies(companiesData || []);
 
-        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').eq('workspace_id', currentUserRecord?.workspace_id || '00000000-0000-0000-0000-000000000000').order('name');
+        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').eq('workspace_id', wsFilter).order('name');
         setContacts(contactsData || []);
 
-        // 3. Fetch Pipelines and Stages
-        let { data: pipelinesData, error: pError } = await supabase.from('m4_pipelines').select('*').order('position');
-        let { data: stagesData, error: sError } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-
-        console.log('pipelines do banco:', pipelinesData, 'erro:', pError);
-        console.log('Stages do banco:', stagesData);
-
-        const defaultPipelines: Pipeline[] = [
-          { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i, status: s.status || FunnelStatus.INTERMEDIATE })) },
-          { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
-            { id: 's1', name: 'Agendadas', color: 'blue', position: 0, status: FunnelStatus.INITIAL },
-            { id: 's2', name: 'Confirmadas', color: 'blue', position: 1, status: FunnelStatus.INTERMEDIATE },
-            { id: 's3', name: 'Realizadas', color: 'blue', position: 2, status: FunnelStatus.WON }
-          ]}
-        ];
-
-        if (!pipelinesData || pipelinesData.length === 0) {
-          // Seed default pipelines if empty
-          const toInsert = [
-            { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', workspace_id: currentUserRecord?.workspace_id || null, position: 0 },
-            { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', workspace_id: currentUserRecord?.workspace_id || null, position: 1 }
-          ];
-          const { data: seededPipelines, error: insertError } = await supabase.from('m4_pipelines').insert(toInsert).select();
-          
-          if (seededPipelines && seededPipelines.length > 0) {
-            pipelinesData = seededPipelines;
-            // Seed default stages
-            const p1 = seededPipelines.find(p => p.name === 'Vendas Comercial');
-            if (p1) {
-              const p1Stages = AGENCY_PIPELINE_STAGES.map((s, i) => ({
-                pipeline_id: p1.id,
-                name: s.name,
-                position: i,
-                color: 'blue',
-                status: s.status
-              }));
-              await supabase.from('m4_pipeline_stages').insert(p1Stages);
-            }
-            const p2 = seededPipelines.find(p => p.name === 'Gestão de Reuniões');
-            if (p2) {
-              const p2Stages = [
-                { pipeline_id: p2.id, name: 'Agendadas', position: 0, color: 'blue', status: FunnelStatus.INITIAL },
-                { pipeline_id: p2.id, name: 'Confirmadas', position: 1, color: 'blue', status: FunnelStatus.INTERMEDIATE },
-                { pipeline_id: p2.id, name: 'Realizadas', position: 2, color: 'blue', status: FunnelStatus.WON }
-              ];
-              await supabase.from('m4_pipeline_stages').insert(p2Stages);
-            }
-            // Re-fetch stages to get UUIDs
-            const { data: newStagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-            stagesData = newStagesData;
-          } else {
-            console.error("Erro ao semear pipelines:", insertError);
-            // Fallback if seeding fails
-            setPipelines(defaultPipelines);
-            setActivePipelineId('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
-          }
-        }
+        // Fetch Pipelines and Stages
+        let { data: pipelinesData } = await supabase.from('m4_pipelines').select('*').order('position');
+        let { data: stagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
 
         if (pipelinesData && pipelinesData.length > 0) {
           const fullPipelines = pipelinesData.map(p => ({
             ...p,
             stages: (stagesData || []).filter(s => s.pipeline_id === p.id).sort((a, b) => (a.position || 0) - (b.position || 0))
           }));
-          
-          // If a pipeline has NO stages, give it defaults
-          const sanitizedPipelines = fullPipelines.map(p => {
-            if (p.stages.length === 0) {
-              if (p.name === 'Vendas Comercial') {
-                return { ...p, stages: AGENCY_PIPELINE_STAGES.map((s, i) => ({ ...s, color: 'blue', position: i, status: s.status || FunnelStatus.INTERMEDIATE })) };
-              }
-              if (p.name === 'Gestão de Reuniões') {
-                return { ...p, stages: [
-                  { id: 's1', name: 'Agendadas', color: 'blue', position: 0, status: FunnelStatus.INITIAL },
-                  { id: 's2', name: 'Confirmadas', color: 'blue', position: 1, status: FunnelStatus.INTERMEDIATE },
-                  { id: 's3', name: 'Realizadas', color: 'blue', position: 2, status: FunnelStatus.WON }
-                ]};
-              }
-            }
-            return p;
-          });
-
-          setPipelines(sanitizedPipelines);
-          if (sanitizedPipelines.length > 0) {
-            setActivePipelineId(sanitizedPipelines[0].id);
-          }
-        } else if (!pipelinesData || pipelinesData.length === 0) {
-          // Final fallback if everything fails
-          setPipelines(defaultPipelines);
-          setActivePipelineId('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
+          setPipelines(fullPipelines);
+          if (fullPipelines.length > 0) setActivePipelineId(fullPipelines[0].id);
         }
-
       } catch (err: any) {
         console.error("Erro na conexão Supabase:", err);
       } finally {
-        setTimeout(() => setLoading(false), 500);
+        setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [resolvedWorkspaceId, workspaceLoading]);
 
   // Listen for automation execution events to refresh data
   useEffect(() => {

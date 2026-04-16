@@ -1,17 +1,22 @@
 import { supabase } from '../lib/supabase';
-import { mappers } from '../lib/mappers';
+import { mappers, isUUID } from '../lib/mappers';
 import { Lead } from '../types';
 import { automationService } from './automationService';
 
 export const leadService = {
-  async getAll() {
-    console.log('leadService.getAll() called');
+  async getAll(workspaceId?: string) {
+    console.log('leadService.getAll() called', workspaceId ? `for workspace ${workspaceId}` : 'using RLS');
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('m4_leads')
       .select('*')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+      .is('deleted_at', null);
+
+    if (workspaceId && isUUID(workspaceId)) {
+      query = query.eq('workspace_id', workspaceId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.error('leadService.getAll() error:', error);

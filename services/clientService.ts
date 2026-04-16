@@ -1,14 +1,19 @@
 
 import { supabase } from '../lib/supabase';
-import { mappers } from '../lib/mappers';
+import { mappers, isUUID } from '../lib/mappers';
 import { M4Client } from '../types';
 
 export const clientService = {
-  async getAll() {
-    const { data, error } = await supabase
+  async getAll(workspaceId?: string) {
+    let query = supabase
       .from('m4_clients')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    if (workspaceId && isUUID(workspaceId)) {
+      query = query.eq('workspace_id', workspaceId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
     return data as M4Client[];
   },
