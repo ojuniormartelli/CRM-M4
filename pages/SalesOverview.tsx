@@ -265,10 +265,18 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       {lead.contact_name ? lead.contact_name.charAt(0) : '?'}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{lead.contact_name || 'Sem Nome'}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-black">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.value || 0)}
-                      </p>
+                      <p className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{lead.company_name || lead.contact_name || 'Sem Nome'}</p>
+                      <div className="flex items-center gap-2">
+                        {lead.company_name && lead.contact_name && (
+                          <>
+                            <p className="text-[10px] text-slate-500 font-bold">{lead.contact_name}</p>
+                            <span className="text-[8px] text-slate-300 font-black">•</span>
+                          </>
+                        )}
+                        <p className="text-[10px] text-slate-400 uppercase font-black">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.value || 0)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

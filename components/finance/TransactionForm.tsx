@@ -93,7 +93,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-none">
           {/* Type Selector */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
               onClick={() => setFormData({ ...formData, type: FinanceTransactionType.INCOME })}
@@ -117,18 +117,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             >
               <TrendingDown size={24} />
               <span className="text-[10px] font-black uppercase tracking-widest">Despesa</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, type: FinanceTransactionType.TRANSFER })}
-              className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                formData.type === FinanceTransactionType.TRANSFER 
-                ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
-              }`}
-            >
-              <RefreshCcw size={24} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Transferência</span>
             </button>
           </div>
 
@@ -207,7 +195,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">
-                  {formData.type === FinanceTransactionType.TRANSFER ? 'Conta de Origem' : 'Conta Bancária'}
+                  Conta Bancária
                 </label>
                 <select
                   required
@@ -221,39 +209,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   ))}
                 </select>
               </div>
-              {formData.type === FinanceTransactionType.TRANSFER ? (
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Conta de Destino</label>
-                  <select
-                    required
-                    value={formData.destination_bank_account_id}
-                    onChange={(e) => setFormData({ ...formData, destination_bank_account_id: e.target.value })}
-                    className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  >
-                    <option value="">Selecionar Conta</option>
-                    {bankAccounts
-                      .filter(acc => acc.id !== formData.bank_account_id)
-                      .map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name}</option>
-                      ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Categoria</label>
-                  <select
-                    required
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  >
-                    <option value="">Selecionar Categoria</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Categoria</label>
+                <select
+                  required
+                  value={formData.category_id}
+                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                >
+                  <option value="">Selecionar Categoria</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

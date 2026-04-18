@@ -666,10 +666,26 @@ DO $$
 DECLARE
     v_workspace_id UUID := '00000000-0000-0000-0000-000000000000'; -- Substitua pelo seu Workspace ID se necessário
 BEGIN
+    -- Tentar resolver o Workspace ID real se estiver usando o padrão de zeros
+    IF v_workspace_id = '00000000-0000-0000-0000-000000000000'::uuid THEN
+        -- Tenta primeiro a tabela 'workspaces' (real)
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'workspaces') THEN
+            SELECT id INTO v_workspace_id FROM public.workspaces LIMIT 1;
+        END IF;
+        
+        -- Fallback para m4_workspaces se necessário
+        IF (v_workspace_id IS NULL OR v_workspace_id = '00000000-0000-0000-0000-000000000000'::uuid) 
+           AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_workspaces') THEN
+            SELECT workspace_id INTO v_workspace_id FROM public.m4_workspaces LIMIT 1;
+        END IF;
+    END IF;
+
     -- 1. Categorias (de m4_finance_categories se existir)
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_finance_categories') THEN
         INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, impacts_dre, dre_group, created_at)
-        SELECT id, COALESCE(workspace_id, v_workspace_id), name, 'both', true, 'Geral', created_at
+        SELECT id, 
+               COALESCE(CASE WHEN workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN workspace_id::uuid ELSE NULL END, v_workspace_id), 
+               name, 'both', true, 'Geral', created_at
         FROM public.m4_finance_categories
         ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -677,7 +693,9 @@ BEGIN
     -- Adicionar categorias únicas de m4_transactions que não estão em m4_fin_categories
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_transactions') THEN
         INSERT INTO public.m4_fin_categories (workspace_id, name, type)
-        SELECT DISTINCT COALESCE(workspace_id, v_workspace_id), category, 'both'
+        SELECT DISTINCT 
+               COALESCE(CASE WHEN workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN workspace_id::uuid ELSE NULL END, v_workspace_id), 
+               category, 'both'
         FROM public.m4_transactions
         WHERE category IS NOT NULL 
         AND category NOT IN (SELECT name FROM public.m4_fin_categories)
@@ -687,7 +705,9 @@ BEGIN
     -- 2. Métodos de Pagamento
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_payment_methods') THEN
         INSERT INTO public.m4_fin_payment_methods (id, workspace_id, name, is_active, created_at)
-        SELECT id, COALESCE(workspace_id, v_workspace_id), name, true, created_at
+        SELECT id, 
+               COALESCE(CASE WHEN workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN workspace_id::uuid ELSE NULL END, v_workspace_id), 
+               name, true, created_at
         FROM public.m4_payment_methods
         ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -695,7 +715,9 @@ BEGIN
     -- 3. Contas Bancárias
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_bank_accounts') THEN
         INSERT INTO public.m4_fin_bank_accounts (id, workspace_id, name, bank, type, initial_balance, current_balance, created_at)
-        SELECT id, COALESCE(workspace_id, v_workspace_id), name, 'Banco Importado', 'checking', current_balance, current_balance, created_at
+        SELECT id, 
+               COALESCE(CASE WHEN workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN workspace_id::uuid ELSE NULL END, v_workspace_id), 
+               name, 'Banco Importado', 'checking', current_balance, current_balance, created_at
         FROM public.m4_bank_accounts
         ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -709,7 +731,8 @@ BEGIN
             client_account_id, lead_id, company_id, deal_id, created_at
         )
         SELECT 
-            t.id, COALESCE(t.workspace_id, v_workspace_id), 
+            t.id, 
+            COALESCE(CASE WHEN t.workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN t.workspace_id::uuid ELSE NULL END, v_workspace_id), 
             CASE WHEN t.type = 'Receita' THEN 'income'::fin_transaction_type ELSE 'expense'::fin_transaction_type END,
             CASE WHEN t.status IN ('Recebido', 'Pago') THEN 'paid'::fin_transaction_status ELSE 'pending'::fin_transaction_status END,
             t.description, t.amount,
@@ -719,7 +742,7 @@ BEGIN
             t.bank_account_id, c.id, t.payment_method, t.notes, t.is_recurring,
             t.client_account_id, t.lead_id, t.company_id, t.deal_id, t.created_at
         FROM public.m4_transactions t
-        LEFT JOIN public.m4_fin_categories c ON c.name = t.category AND c.workspace_id = COALESCE(t.workspace_id, v_workspace_id)
+        LEFT JOIN public.m4_fin_categories c ON c.name = t.category AND c.workspace_id = COALESCE(CASE WHEN t.workspace_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN t.workspace_id::uuid ELSE NULL END, v_workspace_id)
         ON CONFLICT (id) DO NOTHING;
     END IF;
 END $$;

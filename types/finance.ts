@@ -1,38 +1,38 @@
 
 export enum FinanceTransactionType {
-  INCOME = 'Receita',
-  EXPENSE = 'Despesa',
-  TRANSFER = 'Transferência',
-  REVENUE = 'Receita',
-  DESPESA = 'Despesa',
-  TRANSFERENCIA = 'Transferência'
+  INCOME = 'income',
+  EXPENSE = 'expense',
+  TRANSFER = 'transfer',
+  REVENUE = 'income',
+  DESPESA = 'expense',
+  TRANSFERENCIA = 'transfer'
 }
 
 export enum FinanceTransactionStatus {
-  PENDING = 'Pendente',
-  PAID = 'Pago',
-  RECEIVED = 'Recebido',
-  OVERDUE = 'Atrasado',
-  TO_RECEIVE = 'A Receber',
-  TO_PAY = 'A Pagar',
-  CONFIRMED = 'Confirmado',
-  DRAFT = 'Rascunho',
-  CANCELED = 'Cancelado'
+  PENDING = 'pending',
+  PAID = 'paid',
+  RECEIVED = 'paid',
+  OVERDUE = 'overdue',
+  TO_RECEIVE = 'pending',
+  TO_PAY = 'pending',
+  CONFIRMED = 'paid',
+  DRAFT = 'draft',
+  CANCELED = 'canceled'
 }
 
 export enum FinanceBankAccountType {
-  CHECKING = 'Corrente',
-  SAVINGS = 'Poupança',
-  INVESTMENT = 'Investimento',
-  CASH = 'Caixa',
-  CREDIT = 'Cartão de Crédito',
+  CHECKING = 'checking',
+  SAVINGS = 'savings',
+  INVESTMENT = 'investment',
+  CASH = 'cash',
+  CREDIT = 'credit',
   CREDIT_ACCOUNT = 'credit_account'
 }
 
 export enum FinanceCategoryType {
-  INCOME = 'Receita',
-  EXPENSE = 'Despesa',
-  BOTH = 'Ambos'
+  INCOME = 'income',
+  EXPENSE = 'expense',
+  BOTH = 'both'
 }
 
 export enum FinanceCounterpartyType {

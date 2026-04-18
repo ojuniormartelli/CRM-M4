@@ -52,6 +52,7 @@ import BankAccountForm from '../components/finance/BankAccountForm';
 import ConfirmModal from '../components/ConfirmModal';
 import CategoryList from '../components/finance/CategoryList';
 import CategoryForm from '../components/finance/CategoryForm';
+import TransferForm from '../components/finance/TransferForm';
 import CostCenterList from '../components/finance/CostCenterList';
 import CostCenterForm from '../components/finance/CostCenterForm';
 import CounterpartyList from '../components/finance/CounterpartyList';
@@ -84,6 +85,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   
   // Modal States
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
+  const [isTransferFormOpen, setIsTransferFormOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Partial<FinanceTransaction> | undefined>();
   
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -484,9 +486,14 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
           <p className="text-slate-500 font-medium">Gestão inteligente de fluxo de caixa e DRE empresarial.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all">
-            <Download size={18} />
-            Exportar
+          <button 
+            onClick={() => {
+              setIsTransferFormOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all"
+          >
+            <RefreshCcw size={18} />
+            Transferir
           </button>
           <button 
             onClick={() => {
@@ -806,6 +813,14 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       </div>
 
       {/* Modals */}
+      {/* Modals */}
+      <TransferForm 
+        isOpen={isTransferFormOpen}
+        onClose={() => setIsTransferFormOpen(false)}
+        onSave={handleSaveTransaction}
+        bankAccounts={bankAccounts}
+      />
+      
       <TransactionForm 
         isOpen={isTransactionFormOpen}
         onClose={() => setIsTransactionFormOpen(false)}
