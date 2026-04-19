@@ -43,7 +43,8 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEdit,
                         transaction.type === FinanceTransactionType.EXPENSE ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'
                       }`}>
                         {transaction.type === FinanceTransactionType.INCOME ? <ArrowDownLeft size={18} /> : 
-                         transaction.type === FinanceTransactionType.EXPENSE ? <ArrowUpRight size={18} /> : <Repeat size={18} />}
+                         transaction.type === FinanceTransactionType.EXPENSE ? <ArrowUpRight size={18} /> : 
+                         (transaction.parent_transaction_id ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -70,8 +71,14 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEdit,
                     </div>
                   </td>
                   <td className="p-6">
-                    <p className={`text-sm font-black ${financeUtils.getTypeColor(transaction.type)}`}>
-                      {transaction.type === FinanceTransactionType.INCOME ? '+' : '-'} {financeUtils.formatCurrency(Number(transaction.amount))}
+                    <p className={`text-sm font-black ${
+                      transaction.type === FinanceTransactionType.INCOME ? 'text-emerald-600' : 
+                      transaction.type === FinanceTransactionType.EXPENSE ? 'text-rose-600' :
+                      (transaction.parent_transaction_id ? 'text-emerald-600' : 'text-rose-600')
+                    }`}>
+                      {transaction.type === FinanceTransactionType.INCOME ? '+' : 
+                       transaction.type === FinanceTransactionType.EXPENSE ? '-' :
+                       (transaction.parent_transaction_id ? '+' : '-')} {financeUtils.formatCurrency(Number(transaction.amount))}
                     </p>
                   </td>
                   <td className="p-6">

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FinanceTransaction, 
   FinanceTransactionType, 
@@ -32,6 +32,22 @@ const TransferForm: React.FC<TransferFormProps> = ({
     bank_account_id: '',
     destination_bank_account_id: ''
   });
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData({
+        type: FinanceTransactionType.TRANSFER,
+        status: FinanceTransactionStatus.PAID,
+        description: '',
+        amount: 0,
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: new Date().toISOString().split('T')[0],
+        bank_account_id: '',
+        destination_bank_account_id: ''
+      });
+      setIsSaving(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

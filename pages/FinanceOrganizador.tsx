@@ -5,7 +5,6 @@ import {
   FinanceBankAccount, 
   FinanceCategory, 
   FinanceCostCenter,
-  FinanceCounterparty,
   FinanceTransactionType, 
   FinanceTransactionStatus,
   FinancePaymentMethod,
@@ -13,6 +12,8 @@ import {
   FinanceCategoryType,
   FinanceClassificationType
 } from '../types/finance';
+import { leadService } from '../services/leadService';
+import { clientService } from '../services/clientService';
 import { supabase } from '../lib/supabase';
 import { isUUID } from '../lib/mappers';
 import { financeService } from '../services/financeService';
@@ -55,8 +56,6 @@ import CategoryForm from '../components/finance/CategoryForm';
 import TransferForm from '../components/finance/TransferForm';
 import CostCenterList from '../components/finance/CostCenterList';
 import CostCenterForm from '../components/finance/CostCenterForm';
-import CounterpartyList from '../components/finance/CounterpartyList';
-import CounterpartyForm from '../components/finance/CounterpartyForm';
 import PaymentMethodList from '../components/finance/PaymentMethodList';
 import PaymentMethodForm from '../components/finance/PaymentMethodForm';
 
@@ -66,14 +65,13 @@ interface FinanceOrganizadorProps {
 }
 
 type FinanceTab = 'dashboard' | 'dre' | 'performance' | 'transactions' | 'accounts' | 'settings';
-type FinanceSettingsTab = 'categories' | 'cost_centers' | 'counterparties' | 'payment_methods';
+type FinanceSettingsTab = 'categories' | 'cost_centers' | 'payment_methods';
 
 const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, activeTab: externalActiveTab }) => {
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [bankAccounts, setBankAccounts] = useState<FinanceBankAccount[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [costCenters, setCostCenters] = useState<FinanceCostCenter[]>([]);
-  const [counterparties, setCounterparties] = useState<FinanceCounterparty[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<FinancePaymentMethod[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -100,11 +98,8 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [isCostCenterFormOpen, setIsCostCenterFormOpen] = useState(false);
   const [selectedCostCenter, setSelectedCostCenter] = useState<Partial<FinanceCostCenter> | undefined>();
 
-  const [isCounterpartyFormOpen, setIsCounterpartyFormOpen] = useState(false);
-  const [selectedCounterparty, setSelectedCounterparty] = useState<Partial<FinanceCounterparty> | undefined>();
-
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'account' | 'transaction' | 'category' | 'cost_center' | 'payment_method' | 'counterparty' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'account' | 'transaction' | 'category' | 'cost_center' | 'payment_method' } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -118,7 +113,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       const tab = externalActiveTab.replace('finance_', '') as any;
       
       const mainTabs: FinanceTab[] = ['dashboard', 'dre', 'performance', 'transactions', 'accounts', 'settings'];
-      const settingsTabs: FinanceSettingsTab[] = ['categories', 'cost_centers', 'counterparties', 'payment_methods'];
+      const settingsTabs: FinanceSettingsTab[] = ['categories', 'cost_centers', 'payment_methods'];
 
       if (mainTabs.includes(tab)) {
         setActiveTab(tab);
@@ -154,38 +149,45 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         return;
       }
 
-      const [
-        transData, 
-        accountsData, 
-        catsData, 
-        ccData, 
-        cpData, 
-        pmData,
-        leadsData,
-        clientsData
-      ] = await Promise.all([
+      // Load data with individual error handling to prevent one failure from blocking everything
+      console.log('Finance: loadData starting for workspace:', workspaceId);
+      const results = await Promise.allSettled([
         financeService.getTransactions(workspaceId),
         financeService.getBankAccounts(workspaceId),
         financeService.getCategories(workspaceId),
         financeService.getCostCenters(workspaceId),
-        financeService.getCounterparties(workspaceId),
         financeService.getPaymentMethods(workspaceId),
-        supabase.from('m4_leads').select('id, name, company').eq('workspace_id', workspaceId).is('deleted_at', null),
-        supabase.from('m4_clients').select('id, name, company_name').eq('workspace_id', workspaceId)
+        leadService.getAll(workspaceId),
+        financeService.getCompanies(workspaceId)
       ]);
       
-      setTransactions(transData);
-      setBankAccounts(accountsData);
-      setCategories(catsData);
-      setCostCenters(ccData);
-      setCounterparties(cpData);
-      setPaymentMethods(pmData);
-      setLeads(leadsData.data || []);
-      setClients(clientsData.data || []);
+      console.log('Finance: loadData fetches complete. Processing results...');
+      
+      const labels = ['Transactions', 'BankAccounts', 'Categories', 'CostCenters', 'PaymentMethods', 'Leads', 'Companies'];
+      results.forEach((res, i) => {
+        const label = labels[i];
+        if (res.status === 'rejected') {
+          console.error(`Finance: ${label} fetch REJECTED:`, res.reason);
+        } else {
+          console.log(`Finance: ${label} fetch FULFILLED, items:`, Array.isArray(res.value) ? res.value.length : 'not an array');
+          if (Array.isArray(res.value) && res.value.length === 0) {
+            console.warn(`Finance: ${label} returned an empty array. Check if table 'm4_fin_${label.toLowerCase()}' has data.`);
+          }
+        }
+      });
+
+      if (results[0].status === 'fulfilled') setTransactions(results[0].value || []);
+      if (results[1].status === 'fulfilled') setBankAccounts(results[1].value || []);
+      if (results[2].status === 'fulfilled') setCategories(results[2].value || []);
+      if (results[3].status === 'fulfilled') setCostCenters(results[3].value || []);
+      if (results[4].status === 'fulfilled') setPaymentMethods(results[4].value || []);
+      if (results[5].status === 'fulfilled') setLeads(results[5].value || []);
+      if (results[6].status === 'fulfilled') setClients(results[6].value || []);
     } catch (error) {
-      console.error('Error loading finance data:', error);
+      console.error('Finance: Error in loadData catch block:', error);
     } finally {
       setIsLoading(false);
+      console.log('Finance: loadData finally block executed');
     }
   };
 
@@ -211,9 +213,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
           break;
         case 'payment_method':
           await financeService.deletePaymentMethod(itemToDelete.id);
-          break;
-        case 'counterparty':
-          await financeService.deleteCounterparty(itemToDelete.id);
           break;
       }
       
@@ -290,6 +289,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         });
       }
       setIsTransactionFormOpen(false);
+      setIsTransferFormOpen(false);
       await loadData();
     } catch (error: any) {
       console.error('Error saving transaction:', error);
@@ -406,30 +406,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       console.error('Error saving cost center:', error);
       const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
       alert('Erro ao salvar centro de custo: ' + msg);
-      throw error;
-    }
-  };
-
-  const handleSaveCounterparty = async (data: Partial<FinanceCounterparty>) => {
-    try {
-      const workspaceId = currentUser?.workspace_id;
-      
-      if (!workspaceId || !isUUID(workspaceId)) {
-        alert('Sessão inválida: Workspace ID não encontrado. Por favor, faça login novamente.');
-        return;
-      }
-
-      if (data.id) {
-        await financeService.updateCounterparty(data.id, data);
-      } else {
-        await financeService.createCounterparty({ ...data, workspace_id: workspaceId });
-      }
-      setIsCounterpartyFormOpen(false);
-      await loadData();
-    } catch (error: any) {
-      console.error('Error saving counterparty:', error);
-      const msg = error?.errorMessage || error?.message || 'Erro desconhecido';
-      alert('Erro ao salvar contraparte: ' + msg);
       throw error;
     }
   };
@@ -720,13 +696,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                     <CreditCard size={14} />
                     Métodos
                   </button>
-                  <button 
-                    onClick={() => setActiveSettingsTab('counterparties')}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeSettingsTab === 'counterparties' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    <Users size={14} />
-                    Contrapartes
-                  </button>
                 </div>
               </div>
 
@@ -787,25 +756,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
                   }}
                 />
               )}
-
-              {activeSettingsTab === 'counterparties' && (
-                <CounterpartyList 
-                  counterparties={counterparties} 
-                  onEdit={(cp) => {
-                    setSelectedCounterparty(cp);
-                    setIsCounterpartyFormOpen(true);
-                  }}
-                  onDelete={(id) => {
-                    setItemToDelete({ id, type: 'counterparty' });
-                    setIsDeleteConfirmOpen(true);
-                    setDeleteError(null);
-                  }}
-                  onNew={() => {
-                    setSelectedCounterparty(undefined);
-                    setIsCounterpartyFormOpen(true);
-                  }}
-                />
-              )}
               </div>
             </div>
           </div>
@@ -825,13 +775,19 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         isOpen={isTransactionFormOpen}
         onClose={() => setIsTransactionFormOpen(false)}
         onSave={handleSaveTransaction}
+        onDelete={(id) => {
+          setIsTransactionFormOpen(false);
+          setItemToDelete({ id, type: 'transaction' });
+          setIsDeleteConfirmOpen(true);
+          setDeleteError(null);
+        }}
         initialData={selectedTransaction}
         categories={categories}
         bankAccounts={bankAccounts}
-        counterparties={counterparties}
         costCenters={costCenters}
         leads={leads}
         clients={clients}
+        paymentMethods={paymentMethods}
       />
 
       {transactionToConfirm && (
@@ -864,13 +820,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         onClose={() => setIsCostCenterFormOpen(false)}
         onSave={handleSaveCostCenter}
         initialData={selectedCostCenter}
-      />
-
-      <CounterpartyForm 
-        isOpen={isCounterpartyFormOpen}
-        onClose={() => setIsCounterpartyFormOpen(false)}
-        onSave={handleSaveCounterparty}
-        initialData={selectedCounterparty}
       />
 
       <PaymentMethodForm 

@@ -5,7 +5,6 @@ import {
   FinanceTransaction, 
   FinanceCategory, 
   FinanceBankAccount, 
-  FinanceCounterparty, 
   FinanceCostCenter,
   FinanceTransactionType,
   FinanceTransactionStatus
@@ -244,9 +243,20 @@ export const financeService = {
         .from('m4_fin_categories')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .order('order');
+        .order('order', { ascending: true })
+        .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Fallback if 'order' column doesn't exist
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('m4_fin_categories')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .order('name', { ascending: true });
+        
+        if (fallbackError) throw fallbackError;
+        return fallbackData || [];
+      }
       return data || [];
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_fin_categories');
@@ -312,12 +322,45 @@ export const financeService = {
         .from('m4_fin_cost_centers')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .order('order');
+        .order('order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        // Fallback if 'order' column doesn't exist
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('m4_fin_cost_centers')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .order('name', { ascending: true });
+        
+        if (fallbackError) throw fallbackError;
+        return fallbackData || [];
+      }
+      return data || [];
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'm4_fin_cost_centers');
+      return [];
+    }
+  },
+
+  async getCompanies(workspaceId: string): Promise<any[]> {
+    if (!workspaceId || !isUUID(workspaceId)) {
+      console.error('financeService.getCompanies: Missing or invalid workspaceId', workspaceId);
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('m4_companies')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .order('name', { ascending: true });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'm4_fin_cost_centers');
+      handleFirestoreError(error, OperationType.LIST, 'm4_companies');
       return [];
     }
   },
@@ -365,74 +408,6 @@ export const financeService = {
       if (error) throw error;
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'm4_fin_cost_centers');
-    }
-  },
-
-  // --- Counterparties ---
-  async getCounterparties(workspaceId: string): Promise<FinanceCounterparty[]> {
-    if (!workspaceId || !isUUID(workspaceId)) {
-      console.error('financeService.getCounterparties: Missing or invalid workspaceId', workspaceId);
-      return [];
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('m4_fin_counterparties')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .order('name');
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'm4_fin_counterparties');
-      return [];
-    }
-  },
-
-  async createCounterparty(counterparty: Partial<FinanceCounterparty>): Promise<FinanceCounterparty> {
-    try {
-      const { data, error } = await supabase
-        .from('m4_fin_counterparties')
-        .insert([counterparty])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'm4_fin_counterparties');
-      throw error;
-    }
-  },
-
-  async updateCounterparty(id: string, counterparty: Partial<FinanceCounterparty>): Promise<FinanceCounterparty> {
-    try {
-      const { data, error } = await supabase
-        .from('m4_fin_counterparties')
-        .update(counterparty)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'm4_fin_counterparties');
-      throw error;
-    }
-  },
-
-  async deleteCounterparty(id: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('m4_fin_counterparties')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'm4_fin_counterparties');
     }
   },
 
@@ -568,10 +543,10 @@ export const financeService = {
     created_by: string;
   }): Promise<void> {
     try {
-      // 1. Create Outflow (Expense)
+      // 1. Create Outflow (Transfer Exit)
       const outflow: Partial<FinanceTransaction> = {
         workspace_id: data.workspace_id,
-        type: FinanceTransactionType.EXPENSE,
+        type: FinanceTransactionType.TRANSFER,
         status: data.status,
         description: `[TRANSFERÊNCIA] ${data.description}`,
         amount: data.amount,
@@ -593,10 +568,10 @@ export const financeService = {
 
       if (outflowError) throw outflowError;
 
-      // 2. Create Inflow (Income)
+      // 2. Create Inflow (Transfer Entry)
       const inflow: Partial<FinanceTransaction> = {
         workspace_id: data.workspace_id,
-        type: FinanceTransactionType.INCOME,
+        type: FinanceTransactionType.TRANSFER,
         status: data.status,
         description: `[TRANSFERÊNCIA] ${data.description}`,
         amount: data.amount,

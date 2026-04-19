@@ -12,19 +12,25 @@ interface CounterpartyFormProps {
 
 const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<FinanceCounterparty>>({
+  const defaultValues: Partial<FinanceCounterparty> = {
     name: '',
     type: FinanceCounterpartyType.SUPPLIER,
     document: '',
     email: '',
     phone: '',
-    notes: '',
-    ...initialData
-  });
+    notes: ''
+  };
+
+  const [formData, setFormData] = useState<Partial<FinanceCounterparty>>(defaultValues);
 
   useEffect(() => {
-    if (initialData) setFormData({ ...formData, ...initialData });
-  }, [initialData]);
+    if (isOpen) {
+      setFormData({ ...defaultValues, ...initialData });
+    } else {
+      setFormData(defaultValues);
+      setIsSaving(false);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 

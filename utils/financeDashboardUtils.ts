@@ -38,6 +38,7 @@ export const calculateDashboardStats = (
     const paidDate = t.paid_at ? parseISO(t.paid_at) : null;
     const isIncome = t.type === FinanceTransactionType.INCOME;
     const isExpense = t.type === FinanceTransactionType.EXPENSE;
+    const isTransfer = t.type === FinanceTransactionType.TRANSFER;
 
     // Filter by bank account if specified
     if (filters.bankAccountId && t.bank_account_id !== filters.bankAccountId) return;
@@ -64,12 +65,13 @@ export const calculateDashboardStats = (
       // Overdue
       if (isBefore(dueDate, today)) {
         overdueCount++;
-        overdueAmount += amount;
+        // Don't count transfers as overdue amount in the dashboard cards
+        if (!isTransfer) overdueAmount += amount;
       }
 
       // Next 7 days
       if (isWithinInterval(dueDate, { start: today, end: next7Days })) {
-        next7DaysAmount += amount;
+        if (!isTransfer) next7DaysAmount += amount;
       }
     }
 
@@ -138,6 +140,7 @@ export const calculateCashFlow = (
     const amount = Number(t.amount);
     const isIncome = t.type === FinanceTransactionType.INCOME;
     const isExpense = t.type === FinanceTransactionType.EXPENSE;
+    const isTransfer = t.type === FinanceTransactionType.TRANSFER;
     
     if (filters.bankAccountId && t.bank_account_id !== filters.bankAccountId) return;
 

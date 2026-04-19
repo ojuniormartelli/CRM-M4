@@ -13,7 +13,7 @@ interface CategoryFormProps {
 
 const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, initialData, categories }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<FinanceCategory>>({
+  const defaultValues: Partial<FinanceCategory> = {
     name: '',
     type: FinanceCategoryType.EXPENSE,
     classification_type: FinanceClassificationType.OPERATIONAL,
@@ -22,12 +22,19 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
     is_active: true,
     level: 1,
     order: 0,
-    ...initialData
-  });
+    parent_id: undefined
+  };
+
+  const [formData, setFormData] = useState<Partial<FinanceCategory>>(defaultValues);
 
   useEffect(() => {
-    if (initialData) setFormData({ ...formData, ...initialData });
-  }, [initialData]);
+    if (isOpen) {
+      setFormData({ ...defaultValues, ...initialData });
+    } else {
+      setFormData(defaultValues);
+      setIsSaving(false);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 

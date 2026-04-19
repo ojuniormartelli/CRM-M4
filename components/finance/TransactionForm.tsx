@@ -7,7 +7,8 @@ import {
   FinanceCategory,
   FinanceBankAccount,
   FinanceCounterparty,
-  FinanceCostCenter
+  FinanceCostCenter,
+  FinancePaymentMethod
 } from '../../types/finance';
 import { X, Calendar, Tag, Building2, Users, Info, Repeat, TrendingUp, TrendingDown, Briefcase, UserCheck, RefreshCcw } from 'lucide-react';
 
@@ -15,31 +16,32 @@ interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (transaction: Partial<FinanceTransaction>) => void;
+  onDelete?: (id: string) => void;
   initialData?: Partial<FinanceTransaction>;
   categories: FinanceCategory[];
   bankAccounts: FinanceBankAccount[];
-  counterparties: FinanceCounterparty[];
   costCenters: FinanceCostCenter[];
   leads?: any[];
   clients?: any[];
-  companies?: any[];
+  paymentMethods?: FinancePaymentMethod[];
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
+  onDelete,
   initialData,
   categories,
   bankAccounts,
-  counterparties,
   costCenters,
   leads = [],
   clients = [],
-  companies = []
+  paymentMethods = []
 }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<FinanceTransaction>>({
+  
+  const defaultValues: Partial<FinanceTransaction> = {
     type: FinanceTransactionType.EXPENSE,
     status: FinanceTransactionStatus.PENDING,
     description: '',
@@ -50,14 +52,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     is_recurring: false,
     recurrence_frequency: 'monthly',
     recurrence_interval: 1,
-    ...initialData
-  });
+    bank_account_id: '',
+    category_id: '',
+    counterparty_id: '',
+    cost_center_id: '',
+    client_account_id: '',
+    lead_id: ''
+  };
+
+  const [formData, setFormData] = useState<Partial<FinanceTransaction>>(defaultValues);
+
+  const filteredCategories = React.useMemo(() => {
+    return categories.filter(cat => {
+      if (!formData.type) return true;
+      // Also account for 'both' if it exists in the future, 
+      // but for now strictly income/expense based on user request
+      return cat.type === formData.type;
+    });
+  }, [categories, formData.type]);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({ ...formData, ...initialData });
+    if (isOpen) {
+      console.log('Finance: TransactionForm opened with props size:', {
+        categories: categories.length,
+        costCenters: costCenters.length,
+        leads: leads.length,
+        clients: clients.length
+      });
+      setFormData({ ...defaultValues, ...initialData });
+    } else {
+      setFormData(defaultValues);
+      setIsSaving(false);
     }
-  }, [initialData]);
+  }, [isOpen, initialData, categories, costCenters, leads, clients]);
 
   if (!isOpen) return null;
 
@@ -96,7 +123,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => setFormData({ ...formData, type: FinanceTransactionType.INCOME })}
+              onClick={() => setFormData({ 
+                ...formData, 
+                type: FinanceTransactionType.INCOME,
+                category_id: formData.type === FinanceTransactionType.INCOME ? formData.category_id : ''
+              })}
               className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
                 formData.type === FinanceTransactionType.INCOME 
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
@@ -108,7 +139,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setFormData({ ...formData, type: FinanceTransactionType.EXPENSE })}
+              onClick={() => setFormData({ 
+                ...formData, 
+                type: FinanceTransactionType.EXPENSE,
+                category_id: formData.type === FinanceTransactionType.EXPENSE ? formData.category_id : ''
+              })}
               className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
                 formData.type === FinanceTransactionType.EXPENSE 
                 ? 'border-rose-500 bg-rose-50 text-rose-600' 
@@ -218,7 +253,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
                   <option value="">Selecionar Categoria</option>
-                  {categories.map(cat => (
+                  {filteredCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
@@ -226,19 +261,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Contraparte</label>
-                <select
-                  value={formData.counterparty_id}
-                  onChange={(e) => setFormData({ ...formData, counterparty_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                >
-                  <option value="">Selecionar Favorecido</option>
-                  {counterparties.map(cp => (
-                    <option key={cp.id} value={cp.id}>{cp.name}</option>
-                  ))}
-                </select>
-              </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Centro de Custo</label>
                 <select
@@ -252,10 +274,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Método de Pagamento</label>
+                <select
+                  value={formData.payment_method}
+                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                >
+                  <option value="">Selecionar Método</option>
+                  {paymentMethods.map(pm => (
+                    <option key={pm.id} value={pm.id}>{pm.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* CRM Links */}
-            <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Briefcase size={16} className="text-slate-400" />
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vínculos com CRM</span>
@@ -263,15 +298,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Cliente / Conta</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Empresa / Cliente</label>
                   <select
                     value={formData.client_account_id}
-                    onChange={(e) => setFormData({ ...formData, client_account_id: e.target.value })}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      client_account_id: e.target.value,
+                      lead_id: e.target.value ? '' : formData.lead_id 
+                    })}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   >
                     <option value="">Nenhum</option>
                     {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.company_name || c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name || 'Empresa sem nome'}</option>
                     ))}
                   </select>
                 </div>
@@ -279,16 +318,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Lead / Negócio</label>
                   <select
                     value={formData.lead_id}
-                    onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      lead_id: e.target.value,
+                      client_account_id: e.target.value ? '' : formData.client_account_id 
+                    })}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   >
                     <option value="">Nenhum</option>
                     {leads.map(l => (
-                      <option key={l.id} value={l.id}>{l.company || l.name}</option>
+                      <option key={l.id} value={l.id}>
+                        {l.company_name || l.contact_name || l.company || l.name || 'Empresa sem nome'}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
+              <p className="text-[8px] text-slate-400 italic text-center">Nota: Escolha uma Empresa OU um Lead por lançamento.</p>
             </div>
 
             {/* Recurrence */}
@@ -337,24 +383,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         </form>
 
-        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={isSaving}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                SALVANDO...
-              </>
-            ) : (
-              'Salvar Lançamento'
+        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            {initialData?.id && onDelete && (
+              <button 
+                type="button"
+                onClick={() => {
+                  onDelete(initialData.id!);
+                }}
+                className="px-6 py-3 text-sm font-bold text-rose-500 hover:text-rose-700 transition-all"
+              >
+                Excluir Lançamento
+              </button>
             )}
-          </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
+              Cancelar
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={isSaving}
+              className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  SALVANDO...
+                </>
+              ) : (
+                'Salvar Lançamento'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -12,20 +12,26 @@ interface BankAccountFormProps {
 
 const BankAccountForm: React.FC<BankAccountFormProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<FinanceBankAccount>>({
+  const defaultValues: Partial<FinanceBankAccount> = {
     name: '',
     bank: '',
     type: FinanceBankAccountType.CHECKING,
     initial_balance: 0,
     initial_balance_date: new Date().toISOString().split('T')[0],
     is_active: true,
-    currency: 'BRL',
-    ...initialData
-  });
+    currency: 'BRL'
+  };
+
+  const [formData, setFormData] = useState<Partial<FinanceBankAccount>>(defaultValues);
 
   useEffect(() => {
-    if (initialData) setFormData({ ...formData, ...initialData });
-  }, [initialData]);
+    if (isOpen) {
+      setFormData({ ...defaultValues, ...initialData });
+    } else {
+      setFormData(defaultValues);
+      setIsSaving(false);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
