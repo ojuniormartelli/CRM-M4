@@ -86,7 +86,7 @@ const App: React.FC = () => {
 
   // --- GLOBAL STATE ---
   const [pipelines, setPipelines] = useState<Pipeline[]>([
-    { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
+    { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
     { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
       { id: 'm1', name: 'Agendadas', status: FunnelStatus.INITIAL, position: 0, color: 'blue' }, 
       { id: 'm2', name: 'Confirmadas', status: FunnelStatus.INTERMEDIATE, position: 1, color: 'amber' }, 
@@ -109,7 +109,7 @@ const App: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [activePipelineId, setActivePipelineId] = useState<string>('e167f4e8-4a19-4ab7-b655-f104004f8bf4');
+  const [activePipelineId, setActivePipelineId] = useState<string>('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
   const [settings, setSettings] = useState<any>({
     crm_name: 'M4 CRM',
     company_name: 'Agency Cloud',
@@ -191,104 +191,86 @@ const App: React.FC = () => {
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Wait for workspace resolution
       if (workspaceLoading) return;
-
-      // 2. Identify User
       const localUserId = localStorage.getItem('m4_crm_user_id');
-      
-      if (!localUserId) {
+      if (!localUserId || !resolvedWorkspaceId) {
         setLoading(false);
         return;
       }
-
-      // 3. Ensure we have a workspaceId
-      if (!resolvedWorkspaceId) {
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
         console.log('App: Fetching data for workspace:', resolvedWorkspaceId);
         
-        // Fetch current User record to sync state
         const { data: user } = await supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle();
+        const { data: authUserResult } = await supabase.auth.getUser();
+        const authUser = authUserResult?.user;
+
         if (user) {
           setCurrentUser({ ...user, workspace_id: resolvedWorkspaceId });
+        } else if (authUser) {
+          setCurrentUser({
+            id: authUser.id,
+            name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
+            email: authUser.email || '',
+            role: 'owner' as any,
+            workspace_id: resolvedWorkspaceId,
+            status: 'active',
+            created_at: authUser.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
         }
+        const wsId = resolvedWorkspaceId;
 
-        const wsFilter = resolvedWorkspaceId;
+        // Optimized safeFetch for M4 Schema v2
+        const safeFetch = async (tableName: string, setter: (data: any[]) => void, options: { select?: string, order?: string, isDeleted?: boolean } = {}) => {
+            try {
+                let query = supabase.from(tableName).select(options.select || '*').eq('workspace_id', wsId);
+                if (options.isDeleted) query = query.is('deleted_at', null);
+                if (options.order) query = query.order(options.order, { ascending: options.order === 'created_at' ? false : true });
+                const { data, error } = await query;
+                if (!error) setter(data || []);
+                else setter([]);
+            } catch (err) { setter([]); }
+        };
 
-        // Fetch all data using the resolved workspaceId
-        await fetchLeads(wsFilter);
+        // All Data
+        await Promise.all([
+          fetchLeads(wsId),
+          safeFetch('m4_tasks', setTasks),
+          safeFetch('m4_fin_transactions', setTransactions),
+          safeFetch('m4_emails', setEmails, { order: 'created_at' }),
+          safeFetch('m4_clients', setClients),
+          safeFetch('m4_projects', setProjects),
+          safeFetch('m4_posts', setPosts, { order: 'created_at' }),
+          safeFetch('m4_campaigns', setCampaigns, { order: 'created_at' }),
+          safeFetch('m4_fin_bank_accounts', setBankAccounts),
+          safeFetch('m4_credit_cards', setCreditCards),
+          safeFetch('m4_fin_categories', setFinanceCategories, { order: 'name' }),
+          safeFetch('m4_fin_payment_methods', setPaymentMethods, { order: 'name' }),
+          safeFetch('m4_companies', setCompanies, { isDeleted: true, order: 'name' }),
+          safeFetch('m4_contacts', setContacts, { select: '*, company:m4_companies(id, name)', order: 'name' }),
+          fetchServices(),
+        ]);
 
-        const { data: tasksData } = await supabase.from('m4_tasks').select('*').eq('workspace_id', wsFilter);
-        setTasks(tasksData || []);
+        const { data: caData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsId);
+        setClientAccounts(caData || []);
 
-        const { data: transactionsData } = await supabase.from('m4_fin_transactions').select('*').eq('workspace_id', wsFilter);
-        setTransactions(transactionsData || []);
+        const { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', wsId).maybeSingle();
+        if (settingsData) setSettings(settingsData);
 
-        const { data: emailsData } = await supabase.from('m4_emails').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
-        setEmails(emailsData || []);
-
-        const { data: clientsData } = await supabase.from('m4_clients').select('*').eq('workspace_id', wsFilter);
-        setClients(clientsData || []);
-
-        const { data: projectsData } = await supabase.from('m4_projects').select('*').eq('workspace_id', wsFilter);
-        setProjects(projectsData || []);
-
-        let { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', wsFilter).maybeSingle();
+        const { data: pData } = await supabase.from('m4_pipelines').select('*').eq('workspace_id', wsId).order('position');
+        const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
         
-        if (!settingsData) {
-          const { data: anySettings } = await supabase.from('m4_settings').select('*').maybeSingle();
-          if (anySettings) settingsData = anySettings;
-        }
-        setSettings(settingsData);
-
-        const { data: postsData } = await supabase.from('m4_posts').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
-        setPosts(postsData || []);
-
-        const { data: campaignsData } = await supabase.from('m4_campaigns').select('*').eq('workspace_id', wsFilter).order('created_at', { ascending: false });
-        setCampaigns(campaignsData || []);
-
-        const { data: clientAccountsData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsFilter);
-        setClientAccounts(clientAccountsData || []);
-
-        await fetchServices();
-
-        const { data: bankAccountsData } = await supabase.from('m4_fin_bank_accounts').select('*').eq('workspace_id', wsFilter);
-        setBankAccounts(bankAccountsData || []);
-
-        const { data: creditCardsData } = await supabase.from('m4_credit_cards').select('*').eq('workspace_id', wsFilter);
-        setCreditCards(creditCardsData || []);
-
-        const { data: financeCategoriesData } = await supabase.from('m4_fin_categories').select('*').eq('workspace_id', wsFilter).order('name');
-        setFinanceCategories(financeCategoriesData || []);
-
-        const { data: paymentMethodsData } = await supabase.from('m4_fin_payment_methods').select('*').eq('workspace_id', wsFilter).order('name');
-        setPaymentMethods(paymentMethodsData || []);
-
-        const { data: companiesData } = await supabase.from('m4_companies').select('*').eq('workspace_id', wsFilter).is('deleted_at', null).order('name');
-        setCompanies(companiesData || []);
-
-        const { data: contactsData } = await supabase.from('m4_contacts').select('*, company:m4_companies(id, name)').eq('workspace_id', wsFilter).order('name');
-        setContacts(contactsData || []);
-
-        // Fetch Pipelines and Stages
-        let { data: pipelinesData } = await supabase.from('m4_pipelines').select('*').order('position');
-        let { data: stagesData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-
-        if (pipelinesData && pipelinesData.length > 0) {
-          const fullPipelines = pipelinesData.map(p => ({
+        if (pData && pData.length > 0) {
+          const fullPipelines = pData.map(p => ({
             ...p,
-            stages: (stagesData || []).filter(s => s.pipeline_id === p.id).sort((a, b) => (a.position || 0) - (b.position || 0))
+            stages: (sData || []).filter(s => s.pipeline_id === p.id)
           }));
           setPipelines(fullPipelines);
           if (fullPipelines.length > 0) setActivePipelineId(fullPipelines[0].id);
         }
-      } catch (err: any) {
-        console.error("Erro na conexão Supabase:", err);
+      } catch (err) {
+        console.error("App: Fatal fetch error", err);
       } finally {
         setLoading(false);
       }
@@ -318,6 +300,8 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     localStorage.removeItem('m4_crm_user_id');
+    localStorage.removeItem('m4_crm_workspace_id');
+    await supabase.auth.signOut();
     setCurrentUser(null);
   };
 
@@ -690,7 +674,16 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
-          {activeTab === 'dashboard' && <Dashboard leads={leads} transactions={transactions} tasks={tasks} pipelines={pipelines} currentUser={currentUser} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              leads={leads} 
+              transactions={transactions} 
+              tasks={tasks} 
+              pipelines={pipelines} 
+              currentUser={currentUser} 
+              setActiveTab={setActiveTab}
+            />
+          )}
           {activeTab === 'my_day' && (
             <MyDay 
               tasks={tasks} 
@@ -746,6 +739,7 @@ const App: React.FC = () => {
               renderOnlyModal={activeTab !== 'sales'}
               services={services}
               bankAccounts={bankAccounts}
+              setActiveTab={setActiveTab}
             />
           )}
           {(activeTab === 'companies' || showNewCompanyModal) && (
@@ -778,7 +772,7 @@ const App: React.FC = () => {
           {activeTab === 'collaboration' && <Collaboration posts={posts} setPosts={setPosts} currentUser={currentUser} />}
           {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} />}
           {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
-          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} />}
+          {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId} />}
           {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
           {(activeTab === 'finance' || activeTab.startsWith('finance_')) && <Finance currentUser={currentUser} activeTab={activeTab} />}
           {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns} />}

@@ -15,9 +15,10 @@ interface ClientAccountsProps {
   setClientAccounts: React.Dispatch<React.SetStateAction<ClientAccount[]>>;
   companies: Company[];
   services: Service[];
+  workspaceId?: string | null;
 }
 
-export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts, companies, services }: ClientAccountsProps) {
+export default function ClientAccounts({ leads, tasks, transactions, clientAccounts, setClientAccounts, companies, services, workspaceId }: ClientAccountsProps) {
   const [selectedAccount, setSelectedAccount] = useState<ClientAccount | null>(null);
   const [view, setView] = useState<'list' | 'details'>('list');
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
         .from('m4_client_accounts')
         .insert([{
           ...newAccountData,
+          workspace_id: workspaceId || localStorage.getItem('m4_crm_workspace_id'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])

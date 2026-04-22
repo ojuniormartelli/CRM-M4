@@ -75,6 +75,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [paymentMethods, setPaymentMethods] = useState<FinancePaymentMethod[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [clientAccounts, setClientAccounts] = useState<any[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
@@ -158,12 +159,13 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         financeService.getCostCenters(workspaceId),
         financeService.getPaymentMethods(workspaceId),
         leadService.getAll(workspaceId),
-        financeService.getCompanies(workspaceId)
+        financeService.getCompanies(workspaceId),
+        financeService.getClientAccounts(workspaceId)
       ]);
       
       console.log('Finance: loadData fetches complete. Processing results...');
       
-      const labels = ['Transactions', 'BankAccounts', 'Categories', 'CostCenters', 'PaymentMethods', 'Leads', 'Companies'];
+      const labels = ['Transactions', 'BankAccounts', 'Categories', 'CostCenters', 'PaymentMethods', 'Leads', 'Companies', 'ClientAccounts'];
       results.forEach((res, i) => {
         const label = labels[i];
         if (res.status === 'rejected') {
@@ -171,7 +173,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         } else {
           console.log(`Finance: ${label} fetch FULFILLED, items:`, Array.isArray(res.value) ? res.value.length : 'not an array');
           if (Array.isArray(res.value) && res.value.length === 0) {
-            console.warn(`Finance: ${label} returned an empty array. Check if table 'm4_fin_${label.toLowerCase()}' has data.`);
+            console.warn(`Finance: ${label} returned an empty array. Check if table has data for specialized workspace ${workspaceId}.`);
           }
         }
       });
@@ -183,6 +185,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       if (results[4].status === 'fulfilled') setPaymentMethods(results[4].value || []);
       if (results[5].status === 'fulfilled') setLeads(results[5].value || []);
       if (results[6].status === 'fulfilled') setClients(results[6].value || []);
+      if (results[7].status === 'fulfilled') setClientAccounts(results[7].value || []);
     } catch (error) {
       console.error('Finance: Error in loadData catch block:', error);
     } finally {
@@ -434,15 +437,21 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (!currentUser?.workspace_id && !localStorage.getItem('m4_crm_workspace_id'))) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="space-y-2">
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">Carregando Finanças...</p>
+          <p className="text-xs text-slate-500 font-medium tracking-tight">Estamos preparando seus dados financeiros.</p>
+        </div>
       </div>
     );
   }
 
-  if (!currentUser?.workspace_id || !isUUID(currentUser.workspace_id)) {
+  const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+
+  if (!workspaceId || !isUUID(workspaceId)) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3">

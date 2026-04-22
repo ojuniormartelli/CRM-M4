@@ -59,10 +59,10 @@ const CounterpartyList: React.FC<CounterpartyListProps> = ({ counterparties, onE
                   <span className="font-medium">{cp.email}</span>
                 </div>
               )}
-              {cp.phone && (
+              {cp.whatsapp && (
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Phone size={14} className="text-slate-400" />
-                  <span className="font-medium">{cp.phone}</span>
+                  <span className="font-medium">{cp.whatsapp}</span>
                 </div>
               )}
             </div>

@@ -22,13 +22,10 @@ export const FUNNEL_STAGES_LIST = [
 ];
 
 export const AGENCY_PIPELINE_STAGES = [
-  { id: 'new', name: 'Novo Lead', status: FunnelStatus.INITIAL },
-  { id: 'qualified', name: 'Qualificado', status: FunnelStatus.INTERMEDIATE },
-  { id: 'meeting', name: 'Reunião Agendada', status: FunnelStatus.INTERMEDIATE },
-  { id: 'proposal', name: 'Proposta Enviada', status: FunnelStatus.INTERMEDIATE },
-  { id: 'decision', name: 'Aguardando Decisão', status: FunnelStatus.INTERMEDIATE },
-  { id: 'won', name: 'Fechado – Ganho', status: FunnelStatus.WON },
-  { id: 'lost', name: 'Fechado – Perdido', status: FunnelStatus.LOST }
+  { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: 'Lead', status: FunnelStatus.INITIAL, color: 'blue', position: 0 },
+  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', name: 'Qualificação', status: FunnelStatus.INTERMEDIATE, color: 'amber', position: 1 },
+  { id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', name: 'Proposta', status: FunnelStatus.INTERMEDIATE, color: 'indigo', position: 2 },
+  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', name: 'Fechamento', status: FunnelStatus.WON, color: 'emerald', position: 3 }
 ];
 
 export const ICONS = {

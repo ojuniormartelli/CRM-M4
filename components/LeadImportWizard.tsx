@@ -36,7 +36,7 @@ const CRM_FIELDS = [
   { id: 'company_email', label: 'E-mail da Empresa', aliases: ['email empresa', 'email corporativo', 'company_email'] },
   { id: 'company_instagram', label: 'Instagram da Empresa', aliases: ['instagram empresa', 'insta empresa', 'company_instagram'] },
   { id: 'company_linkedin', label: 'LinkedIn da Empresa', aliases: ['linkedin empresa', 'company_linkedin'] },
-  { id: 'company_phone', label: 'Telefone da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
+  { id: 'company_whatsapp', label: 'Telefone / WhatsApp da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
 
   // SEÇÃO 2 - CONTATO / DECISOR
   { id: 'contact_name', label: 'Nome do Contato', aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name', 'name'] },
@@ -44,7 +44,7 @@ const CRM_FIELDS = [
   { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
   { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['instagram contato', 'insta contato', 'contact_instagram'] },
   { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin', 'linkedin'] },
-  { id: 'contact_phone', label: 'Telefone do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
+  { id: 'contact_whatsapp', label: 'Telefone / WhatsApp do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
   { id: 'contact_notes', label: 'Notas do Contato', aliases: ['notas contato', 'obs contato', 'contact_notes'] },
 
   // SEÇÃO 3 - DADOS DO NEGÓCIO
@@ -206,7 +206,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     // Fetch existing leads for deduplication check
     const { data: existingLeads } = await supabase
       .from('m4_leads')
-      .select('id, company, email, phone, name')
+      .select('id, company_name, contact_email, contact_whatsapp, contact_name')
       .eq('workspace_id', currentUser?.workspace_id);
 
     rawData.forEach((rawRow, index) => {
@@ -245,7 +245,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
             }
           }
           
-          if (fieldId === 'company_cnpj' || fieldId === 'company_phone' || fieldId === 'contact_phone') {
+          if (fieldId === 'company_cnpj' || fieldId === 'company_whatsapp' || fieldId === 'contact_whatsapp') {
             if (val) val = String(val).replace(/\D/g, '');
           }
 
@@ -295,11 +295,11 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
 
       // Deduplication Check
       const duplicate = existingLeads?.find(l => {
-        const emailMatch = mapped.contact_email && l.email && normalize(mapped.contact_email) === normalize(l.email);
-        const phoneMatch = mapped.contact_phone && l.phone && mapped.contact_phone === l.phone;
-        const companyContactMatch = mapped.company_name && mapped.contact_name && l.company && l.name && 
-                                   normalize(mapped.company_name) === normalize(l.company) && 
-                                   normalize(mapped.contact_name) === normalize(l.name);
+        const emailMatch = mapped.contact_email && l.contact_email && normalize(mapped.contact_email) === normalize(l.contact_email);
+        const phoneMatch = mapped.contact_whatsapp && l.contact_whatsapp && mapped.contact_whatsapp === l.contact_whatsapp;
+        const companyContactMatch = mapped.company_name && mapped.contact_name && l.company_name && l.contact_name && 
+                                   normalize(mapped.company_name) === normalize(l.company_name) && 
+                                   normalize(mapped.contact_name) === normalize(l.contact_name);
         
         return emailMatch || phoneMatch || companyContactMatch;
       });
@@ -360,7 +360,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         }
         if (deduplicationStrategy === 'update' && row.existingLeadId) {
           // 🛡️ Use isUpdate: true for deduplication updates to avoid overwriting with defaults
-          const updatePayload = mappers.lead(finalData, currentUser?.workspace_id, true);
+          const updatePayload = mappers.lead(finalData, currentUser?.workspace_id);
           const { created_at, workspace_id, ...updateData } = updatePayload;
           toUpdate.push({ id: row.existingLeadId, data: updateData, rowIndex: index });
           return;
@@ -435,7 +435,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
     const exampleRow = templateFields.reduce((acc, f) => {
       if (f.id === 'value') acc[f.label] = 5000;
       else if (f.id === 'contact_email' || f.id === 'company_email') acc[f.label] = 'exemplo@empresa.com';
-      else if (f.id === 'company_phone' || f.id === 'contact_phone') acc[f.label] = '(11) 99999-8888';
+      else if (f.id === 'company_whatsapp' || f.id === 'contact_whatsapp') acc[f.label] = '(11) 99999-8888';
       else if (f.id === 'company_cnpj') acc[f.label] = '00.000.000/0001-00';
       else if (f.id === 'company_state') acc[f.label] = 'SP';
       else acc[f.label] = `Exemplo ${f.label.replace(' (*)', '')}`;
@@ -467,8 +467,8 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
         f.id === 'company_name' ? "Nome da empresa ou organização" :
         f.id === 'contact_name' ? "Nome da pessoa de contato principal" :
         f.id === 'value' ? "Valor monetário estimado do negócio" :
-        f.id === 'company_phone' ? "Telefone/WhatsApp da empresa (apenas números)" :
-        f.id === 'contact_phone' ? "Telefone/WhatsApp do contato (apenas números)" :
+        f.id === 'company_whatsapp' ? "Telefone/WhatsApp da empresa (apenas números)" :
+        f.id === 'contact_whatsapp' ? "Telefone/WhatsApp do contato (apenas números)" :
         `Dados de ${f.label.toLowerCase().replace(' (*)', '')}`,
         exampleRow[f.label]
       ])
@@ -674,7 +674,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                           <td className="p-5">
                             <div className="flex flex-col gap-1">
                               {row.mapped.contact_email && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Mail size={10} /> {row.mapped.contact_email}</div>}
-                              {row.mapped.contact_phone && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Phone size={10} /> {row.mapped.contact_phone}</div>}
+                              {row.mapped.contact_whatsapp && <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><Phone size={10} /> {row.mapped.contact_whatsapp}</div>}
                             </div>
                           </td>
                           <td className="p-5">

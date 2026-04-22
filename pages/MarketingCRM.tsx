@@ -10,8 +10,8 @@ interface MarketingCRMProps {
 
 const MarketingCRM: React.FC<MarketingCRMProps> = ({ leads, campaigns }) => {
   const totalAudience = leads.length;
-  const emailAudience = leads.filter(l => l.email).length;
-  const whatsappAudience = leads.filter(l => l.phone).length;
+  const emailAudience = leads.filter(l => l.email || l.contact_email || l.company_email).length;
+  const whatsappAudience = leads.filter(l => l.whatsapp || l.contact_whatsapp || l.company_whatsapp).length;
 
   return (
     <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8 animate-in fade-in duration-500">

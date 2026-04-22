@@ -1,22 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getSupabaseConfig } from '../lib/supabase';
 
 const SupabaseStatus: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const checkConnection = async () => {
+    // Check if configuration exists first
+    const config = getSupabaseConfig();
+    if (!config.url || !config.key || config.url.includes('placeholder')) {
+      setStatus('error');
+      setErrorMessage("Configuração do Supabase ausente ou inválida.");
+      return;
+    }
+
     setStatus('loading');
     try {
-      // Simple heartbeat check on m4_settings
-      const { error } = await supabase.from('m4_settings').select('id').limit(1).maybeSingle();
+      // Use m4_workspaces instead of m4_settings as a heartbeat check
+      // Also, include a small timeout or just check for the client existence
+      if (!supabase) throw new Error("Cliente Supabase não inicializado");
+      
+      const { error } = await supabase.from('m4_workspaces').select('id').limit(1).maybeSingle();
+      
+      // If we get an error but it's not a connection error (e.g. 404 table not found),
+      // we might still be "online" in a sense, but for this app we expect m4_workspaces.
       if (error) throw error;
+      
       setStatus('ok');
       setErrorMessage(null);
     } catch (err: any) {
-      console.error("Supabase Connection Error:", err);
+      // More descriptive error handling
+      const isOffline = err.message?.includes('failed to fetch') || err.message?.includes('network');
+      console.error("Supabase Connection Check:", err);
+      
       setStatus('error');
-      setErrorMessage(err.message || "Erro desconhecido");
+      setErrorMessage(isOffline ? "Falha na rede (Servidor Inalcançável)" : (err.message || "Erro de Conexão"));
     }
   };
 

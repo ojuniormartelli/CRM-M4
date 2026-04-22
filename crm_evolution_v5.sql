@@ -1,43 +1,46 @@
 
 -- 🔄 SCRIPT DE ATUALIZAÇÃO v5 (M4 CRM)
--- Alinhamento total com o Modal "Novo Negócio"
--- Remove campos redundantes e unifica telefones
+-- Alinhamento total com a solicitação do usuário: Priorizar WhatsApp e Remover Telefone
+-- Esta migração unifica os campos de telefone no campo WhatsApp
 
--- 1. Garantimos que os campos novos existam antes de qualquer coisa
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_phone text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_phone text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_instagram text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_linkedin text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_instagram text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_linkedin text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_email text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_notes text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS business_notes text;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS proposed_ticket numeric DEFAULT 0;
-ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS service_type text;
+-- 1. Garantimos que os campos base de WhatsApp existam
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS company_whatsapp text;
+ALTER TABLE public.m4_leads ADD COLUMN IF NOT EXISTS contact_whatsapp text;
+ALTER TABLE public.m4_companies ADD COLUMN IF NOT EXISTS whatsapp text;
+ALTER TABLE public.m4_contacts ADD COLUMN IF NOT EXISTS whatsapp text;
 
--- 2. Migração de dados legados (SEGURO: antes de dar DROP)
--- Se houver dados em whatsapp, movemos para o campo de telefone se este estiver vazio
+-- 2. Migração de dados legados
+-- Movemos dados de phone para whatsapp se o whatsapp estiver vazio
 DO $$ 
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='company_whatsapp') THEN
-        UPDATE public.m4_leads SET company_phone = company_whatsapp WHERE company_phone IS NULL AND company_whatsapp IS NOT NULL;
+    -- M4_LEADS
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='company_phone') THEN
+        UPDATE public.m4_leads SET company_whatsapp = company_phone WHERE company_whatsapp IS NULL AND company_phone IS NOT NULL;
     END IF;
     
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='contact_whatsapp') THEN
-        UPDATE public.m4_leads SET contact_phone = contact_whatsapp WHERE contact_phone IS NULL AND contact_whatsapp IS NOT NULL;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='contact_phone') THEN
+        UPDATE public.m4_leads SET contact_whatsapp = contact_phone WHERE contact_whatsapp IS NULL AND contact_phone IS NOT NULL;
     END IF;
 
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='whatsapp') THEN
-        UPDATE public.m4_leads SET contact_phone = whatsapp WHERE contact_phone IS NULL AND whatsapp IS NOT NULL;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_leads' AND column_name='phone') THEN
+        UPDATE public.m4_leads SET contact_whatsapp = phone WHERE contact_whatsapp IS NULL AND phone IS NOT NULL;
+    END IF;
+
+    -- M4_COMPANIES
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_companies' AND column_name='phone') THEN
+        UPDATE public.m4_companies SET whatsapp = phone WHERE whatsapp IS NULL AND phone IS NOT NULL;
+    END IF;
+
+    -- M4_CONTACTS
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='m4_contacts' AND column_name='phone') THEN
+        UPDATE public.m4_contacts SET whatsapp = phone WHERE whatsapp IS NULL AND phone IS NOT NULL;
     END IF;
 END $$;
 
--- 3. Limpeza da tabela m4_leads (Agora sim, após a migração)
-ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS company_whatsapp;
-ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS contact_whatsapp;
-ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS whatsapp;
+-- 3. Limpeza Final: Remove as colunas 'phone' de todas as tabelas
+ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS company_phone;
+ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS contact_phone;
+ALTER TABLE public.m4_leads DROP COLUMN IF EXISTS phone;
 
--- 4. Limpeza de outras tabelas relacionadas
-ALTER TABLE public.m4_companies DROP COLUMN IF EXISTS whatsapp;
-ALTER TABLE public.m4_contacts DROP COLUMN IF EXISTS whatsapp;
+ALTER TABLE public.m4_companies DROP COLUMN IF EXISTS phone;
+ALTER TABLE public.m4_contacts DROP COLUMN IF EXISTS phone;

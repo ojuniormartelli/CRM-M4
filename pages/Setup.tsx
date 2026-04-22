@@ -1,499 +1,558 @@
-
-import React, { useState } from 'react';
-import { ICONS } from '../constants';
-import { updateSupabaseClient } from '../lib/supabase';
-import { motion } from 'motion/react';
+import React, { useState } from "react";
+import { ICONS } from "../constants";
+import { updateSupabaseClient } from "../lib/supabase";
+import { motion } from "motion/react";
 
 const Setup: React.FC = () => {
-  const [url, setUrl] = useState('');
-  const [anonKey, setAnonKey] = useState('');
-  const [step, setStep] = useState<'config' | 'installing' | 'success'>('config');
-  const [progress, setProgress] = useState('');
+  const [url, setUrl] = useState("");
+  const [anonKey, setAnonKey] = useState("");
+  const [step, setStep] = useState<"config" | "installing" | "success">(
+    "config",
+  );
+  const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
 -- ⚠️ AVISO: Este script apaga todas as tabelas existentes para uma instalação limpa.
 
-DROP TABLE IF EXISTS public.m4_transactions CASCADE;
-DROP TABLE IF EXISTS public.m4_bank_accounts CASCADE;
-DROP TABLE IF EXISTS public.m4_credit_cards CASCADE;
-DROP TABLE IF EXISTS public.m4_client_accounts CASCADE;
-DROP TABLE IF EXISTS public.m4_tasks CASCADE;
-DROP TABLE IF EXISTS public.m4_emails CASCADE;
-DROP TABLE IF EXISTS public.m4_interactions CASCADE;
-DROP TABLE IF EXISTS public.m4_automations CASCADE;
-DROP TABLE IF EXISTS public.m4_form_responses CASCADE;
-DROP TABLE IF EXISTS public.m4_form_templates CASCADE;
-DROP TABLE IF EXISTS public.m4_leads CASCADE;
-DROP TABLE IF EXISTS public.m4_contacts CASCADE;
-DROP TABLE IF EXISTS public.m4_companies CASCADE;
-DROP TABLE IF EXISTS public.m4_settings CASCADE;
-DROP TABLE IF EXISTS public.m4_users CASCADE;
-DROP TABLE IF EXISTS public.m4_job_roles CASCADE;
-DROP TABLE IF EXISTS public.m4_pipelines CASCADE;
-DROP TABLE IF EXISTS public.m4_pipeline_stages CASCADE;
-DROP TABLE IF EXISTS public.m4_posts CASCADE;
-DROP TABLE IF EXISTS public.m4_campaigns CASCADE;
+-- 1. LIMPEZA TOTAL (Tabelas com prefixo m4_)
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END $$;
 
--- 1. Tabela de Configurações
-CREATE TABLE public.m4_settings (
+-- 2. ENUMS FINANCEIROS
+DO $$ 
+BEGIN
+    DROP TYPE IF EXISTS fin_transaction_type CASCADE;
+    CREATE TYPE fin_transaction_type AS ENUM ('income', 'expense', 'transfer', 'adjustment');
+    
+    DROP TYPE IF EXISTS fin_transaction_status CASCADE;
+    CREATE TYPE fin_transaction_status AS ENUM ('draft', 'pending', 'paid', 'overdue', 'canceled');
+    
+    DROP TYPE IF EXISTS fin_category_type CASCADE;
+    CREATE TYPE fin_category_type AS ENUM ('income', 'expense', 'both');
+    
+    DROP TYPE IF EXISTS fin_classification_type CASCADE;
+    CREATE TYPE fin_classification_type AS ENUM ('operacional', 'nao_operacional', 'financeiro', 'tributario');
+    
+    DROP TYPE IF EXISTS fin_counterparty_type CASCADE;
+    CREATE TYPE fin_counterparty_type AS ENUM ('cliente', 'fornecedor', 'colaborador', 'parceiro', 'outro');
+    
+    DROP TYPE IF EXISTS fin_bank_account_type CASCADE;
+    CREATE TYPE fin_bank_account_type AS ENUM ('checking', 'savings', 'cash', 'credit_account', 'investment');
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'Erro ao criar Enums: %', SQLERRM;
+END $$;
+
+-- 3. NÚCLEO TENANT (Workspaces & Usuários)
+CREATE TABLE public.m4_workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID UNIQUE,
-    crm_name TEXT DEFAULT 'M4 CRM',
-    logo_url TEXT,
-    theme TEXT DEFAULT 'light',
-    primary_color TEXT DEFAULT '#2563eb',
-    company_name TEXT DEFAULT 'Agency Cloud',
-    city TEXT,
-    state TEXT,
-    website_url TEXT,
-    whatsapp_number TEXT,
-    language TEXT DEFAULT 'pt-BR',
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 2. Tabela de Empresas
-CREATE TABLE public.m4_companies (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id uuid,
-  name text NOT NULL,
-  cnpj text,
-  city text,
-  state text,
-  segment text,
-  website text,
-  phone text,
-  notes text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now()
-);
-
--- 3. Tabela de Contatos
-CREATE TABLE public.m4_contacts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id uuid,
-  company_id uuid REFERENCES public.m4_companies(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  role text,
-  email text,
-  phone text,
-  notes text,
-  is_primary boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now()
-);
-
--- 4. Tabela de Leads (Negócios/Deals)
-CREATE TABLE public.m4_leads (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
-    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
-    company_name TEXT NOT NULL,
-    company_cnpj TEXT,
-    company_city TEXT,
-    company_state TEXT,
-    company_niche TEXT,
-    company_website TEXT,
-    company_email TEXT,
-    company_instagram TEXT,
-    company_linkedin TEXT,
-    company_phone TEXT,
-    contact_name TEXT NOT NULL,
-    contact_role TEXT,
-    contact_email TEXT,
-    contact_instagram TEXT,
-    contact_linkedin TEXT,
-    contact_phone TEXT,
-    contact_notes TEXT,
-    business_notes TEXT,
-    pipeline_id UUID DEFAULT 'e167f4e8-4a19-4ab7-b655-f104004f8bf4',
-    stage UUID,
-    value NUMERIC DEFAULT 0,
-    service_type TEXT,
-    source TEXT,
-    campaign TEXT,
-    closing_forecast DATE,
-    temperature TEXT DEFAULT 'Frio',
-    probability INTEGER DEFAULT 0,
-    ai_score INTEGER DEFAULT 0,
-    ai_reasoning TEXT,
-    responsible_id UUID,
-    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    status TEXT DEFAULT 'active',
-    interactions JSONB DEFAULT '[]',
-    custom_fields JSONB DEFAULT '{}',
-    workspace_id UUID,
+    name TEXT NOT NULL,
+    branding_config JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 5. Tabela de Tarefas
+CREATE TABLE public.m4_job_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    level INTEGER DEFAULT 10,
+    permissions JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT DEFAULT 'admin123',
+    role TEXT DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
+    job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL,
+    avatar_url TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    must_change_password BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_workspace_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(workspace_id, user_id)
+);
+
+CREATE TABLE public.m4_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE UNIQUE,
+    crm_name TEXT DEFAULT 'M4 CRM',
+    company_name TEXT DEFAULT 'Agency Cloud',
+    logo_url TEXT,
+    primary_color TEXT DEFAULT '#2563eb',
+    theme TEXT DEFAULT 'light',
+    language TEXT DEFAULT 'pt-BR',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 4. CRM E OPERAÇÕES
+CREATE TABLE public.m4_pipelines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_pipeline_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT 'blue',
+    position INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'intermediario',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_companies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    cnpj TEXT,
+    website TEXT,
+    niche TEXT,
+    email TEXT,
+    whatsapp TEXT,
+    city TEXT,
+    state TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    role TEXT,
+    email TEXT,
+    whatsapp TEXT,
+    linkedin TEXT,
+    notes TEXT,
+    is_primary BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_leads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE SET NULL,
+    stage_id UUID REFERENCES public.m4_pipeline_stages(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
+    status TEXT DEFAULT 'active',
+    company_name TEXT,
+    contact_name TEXT,
+    value DECIMAL(12, 2) DEFAULT 0,
+    business_notes TEXT,
+    service_type TEXT,
+    proposed_ticket DECIMAL(12, 2) DEFAULT 0,
+    temperature TEXT DEFAULT 'Frio',
+    probability INTEGER DEFAULT 0,
+    source TEXT,
+    campaign TEXT,
+    closing_forecast DATE,
+    next_action TEXT,
+    next_action_date DATE,
+    qualification TEXT,
+    ai_score INTEGER DEFAULT 0,
+    ai_reasoning TEXT,
+    responsible_id UUID,
+    last_activity_at TIMESTAMPTZ DEFAULT now(),
+    custom_fields JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    company_name TEXT NOT NULL,
+    manager_id UUID,
+    status TEXT DEFAULT 'active',
+    contract_start_date DATE,
+    monthly_value DECIMAL(12, 2) DEFAULT 0,
+    services JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE public.m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    client_id UUID REFERENCES public.m4_clients(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     description TEXT,
     status TEXT DEFAULT 'Pendente',
     priority TEXT DEFAULT 'Média',
+    due_date TIMESTAMPTZ,
+    assigned_to UUID,
     type TEXT DEFAULT 'task',
-    due_date TIMESTAMP WITH TIME ZONE,
-    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
-    company_id UUID REFERENCES m4_companies(id),
-    contact_id UUID REFERENCES m4_contacts(id),
-    deal_id UUID REFERENCES m4_leads(id),
-    client_account_id UUID,
-    is_recurring BOOLEAN DEFAULT FALSE,
-    recurrence_period TEXT,
-    task_type TEXT DEFAULT 'internal',
-    interaction_success BOOLEAN DEFAULT TRUE,
-    interaction_note TEXT,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    is_recurring BOOLEAN DEFAULT false,
+    checklist JSONB DEFAULT '[]'::jsonb,
+    actual_hours DECIMAL(10, 2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 6. Tabela de Contas de Clientes
-CREATE TABLE public.m4_client_accounts (
+CREATE TABLE public.m4_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES m4_leads(id) ON DELETE CASCADE,
-    company_id UUID REFERENCES m4_companies(id),
-    status TEXT DEFAULT 'ativo',
-    service_type TEXT,
-    start_date DATE DEFAULT CURRENT_DATE,
-    end_date DATE,
-    billing_model TEXT DEFAULT 'recorrente',
-    monthly_value NUMERIC DEFAULT 0,
-    notes TEXT,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 7. Módulo Financeiro
-CREATE TABLE public.m4_bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    bank_type TEXT,
-    current_balance NUMERIC DEFAULT 0,
-    currency TEXT DEFAULT 'BRL',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_credit_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    limit_amount NUMERIC DEFAULT 0,
-    closing_day INTEGER,
-    due_day INTEGER,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    description TEXT NOT NULL,
-    amount NUMERIC NOT NULL,
-    type TEXT NOT NULL,
+    description TEXT,
+    default_price DECIMAL(12, 2) DEFAULT 0,
     category TEXT,
-    date DATE DEFAULT CURRENT_DATE,
-    status TEXT DEFAULT 'Pendente',
-    bank_account_id UUID REFERENCES m4_bank_accounts(id),
-    client_account_id UUID REFERENCES m4_client_accounts(id),
-    lead_id UUID REFERENCES m4_leads(id),
-    company_id UUID REFERENCES m4_companies(id),
-    deal_id UUID REFERENCES m4_leads(id),
-    credit_card_id UUID REFERENCES m4_credit_cards(id),
-    payment_method TEXT,
-    due_date DATE,
-    paid_date DATE,
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 8. Comunicação e Social
 CREATE TABLE public.m4_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     sender_name TEXT,
     sender_email TEXT,
     recipient_email TEXT,
     subject TEXT,
     body TEXT,
     folder TEXT DEFAULT 'inbox',
-    is_read BOOLEAN DEFAULT FALSE,
-    company_id UUID REFERENCES m4_companies(id),
-    contact_id UUID REFERENCES m4_contacts(id),
-    lead_id UUID REFERENCES m4_leads(id),
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_posts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_name TEXT,
-    user_role TEXT,
-    content TEXT,
-    likes INTEGER DEFAULT 0,
-    comments INTEGER DEFAULT 0,
-    type TEXT DEFAULT 'update',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     type TEXT,
     status TEXT DEFAULT 'Agendada',
     sent_count INTEGER DEFAULT 0,
     open_rate TEXT DEFAULT '-',
     click_rate TEXT DEFAULT '-',
-    workspace_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 9. Cargos
-CREATE TABLE public.m4_job_roles (
+CREATE TABLE public.m4_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID,
-    name TEXT NOT NULL,
-    level INTEGER DEFAULT 10,
-    permissions JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 10. Usuários
-CREATE TABLE public.m4_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT DEFAULT 'admin123',
-    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
-    job_role_id UUID REFERENCES public.m4_job_roles(id),
-    workspace_id UUID,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    must_change_password BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 11. Pipelines
-CREATE TABLE public.m4_pipelines (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    workspace_id UUID,
-    position INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_pipeline_stages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id UUID REFERENCES m4_pipelines(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    position INTEGER NOT NULL,
-    color TEXT DEFAULT 'blue',
-    status TEXT DEFAULT 'intermediario',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 12. Formulários e Interações
-CREATE TABLE public.m4_form_templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
-    description TEXT,
-    questions JSONB DEFAULT '[]',
-    workspace_id UUID,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_form_responses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
-    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
-    answers JSONB DEFAULT '[]',
-    workspace_id UUID,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE public.m4_interactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
-    type TEXT,
-    title TEXT,
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    user_name TEXT,
+    user_role TEXT,
     content TEXT,
-    workspace_id UUID,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    type TEXT DEFAULT 'update',
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 13. Automações
-CREATE TABLE public.m4_automations (
+-- 5. FINANCEIRO NOVO (m4_fin_*)
+CREATE TABLE public.m4_fin_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    trigger_type TEXT NOT NULL,
-    trigger_conditions JSONB DEFAULT '[]',
-    actions JSONB DEFAULT '[]',
+    type fin_category_type NOT NULL DEFAULT 'both',
+    parent_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    level INTEGER DEFAULT 1,
+    "order" INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
-    workspace_id UUID,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    impacts_dre BOOLEAN DEFAULT true,
+    dre_group TEXT,
+    classification_type fin_classification_type DEFAULT 'operacional',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 14. RLS
-ALTER TABLE m4_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_contacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_client_accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_bank_accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_credit_cards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_emails ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_campaigns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_job_roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_pipelines ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_pipeline_stages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_form_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_form_responses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_interactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE m4_automations ENABLE ROW LEVEL SECURITY;
+CREATE TABLE public.m4_fin_cost_centers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    code TEXT,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    "order" INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Simple policies
-CREATE POLICY "Allow all for authenticated" ON m4_settings FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_companies FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_contacts FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_leads FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_tasks FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_client_accounts FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_bank_accounts FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_credit_cards FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_transactions FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_emails FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_posts FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_campaigns FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_users FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_job_roles FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_pipelines FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_pipeline_stages FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_form_templates FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_form_responses FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_interactions FOR ALL USING (true);
-CREATE POLICY "Allow all for authenticated" ON m4_automations FOR ALL USING (true);
+CREATE TABLE public.m4_fin_counterparties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type fin_counterparty_type DEFAULT 'outro',
+    document TEXT,
+    email TEXT,
+    phone TEXT,
+    whatsapp TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- 14. Dados Iniciais
-INSERT INTO public.m4_job_roles (id, name, level, permissions) VALUES
-('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'Owner', 100, '{"all": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf2', 'Administrador', 50, '{"settings": true, "users": true, "leads": true, "finance": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf5', 'Coordenador', 40, '{"leads": true, "tasks": true, "clients": true, "users": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf6', 'Supervisor', 30, '{"leads": true, "tasks": true, "clients": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf3', 'Vendedor', 20, '{"leads": true, "tasks": true, "clients": true}'),
-('d167f4e8-4a19-4ab7-b655-f104004f8bf4', 'Usuário Básico', 10, '{"tasks": true, "view_only": true}')
+CREATE TABLE public.m4_fin_payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    bank TEXT,
+    type fin_bank_account_type DEFAULT 'checking',
+    initial_balance NUMERIC DEFAULT 0,
+    initial_balance_date DATE DEFAULT CURRENT_DATE,
+    color TEXT,
+    icon TEXT,
+    is_active BOOLEAN DEFAULT true,
+    currency TEXT DEFAULT 'BRL',
+    balance NUMERIC DEFAULT 0,
+    current_balance NUMERIC DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    type fin_transaction_type NOT NULL,
+    status fin_transaction_status DEFAULT 'pending',
+    description TEXT NOT NULL,
+    amount NUMERIC NOT NULL,
+    issue_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE NOT NULL,
+    paid_at TIMESTAMPTZ,
+    competence_date DATE NOT NULL,
+    bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
+    destination_bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
+    counterparty_id UUID REFERENCES public.m4_fin_counterparties(id) ON DELETE SET NULL,
+    category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE SET NULL,
+    cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id) ON DELETE SET NULL,
+    payment_method TEXT,
+    reference_code TEXT,
+    notes TEXT,
+    attachment_url TEXT,
+    is_recurring BOOLEAN DEFAULT false,
+    recurrence_group_id UUID,
+    recurrence_frequency TEXT,
+    recurrence_interval INTEGER DEFAULT 1,
+    recurrence_end_date DATE,
+    parent_transaction_id UUID REFERENCES public.m4_fin_transactions(id) ON DELETE SET NULL,
+    generation_mode TEXT DEFAULT 'manual',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_budgets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id) ON DELETE CASCADE,
+    period TEXT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    scenario TEXT NOT NULL DEFAULT 'realistic',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 6. SEEDS INICIAIS
+INSERT INTO public.m4_workspaces (id, name)
+VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.m4_users (name, username, email, password, role, job_role_id, status, must_change_password)
-VALUES ('Administrador', 'admin', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'active', true)
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO public.m4_job_roles (id, workspace_id, name, level, permissions)
+VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'Owner', 100, '{"all": true}')
+ON CONFLICT (id) DO NOTHING;
+
+-- Admin Padrão
+INSERT INTO public.m4_users (id, name, email, password, role, job_role_id, workspace_id, status, must_change_password)
+VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Pipelines e Stages
+INSERT INTO public.m4_pipelines (id, workspace_id, name, position)
+VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Vendas Comercial', 0)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.m4_pipeline_stages (id, pipeline_id, workspace_id, name, position, status)
+VALUES 
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Lead', 0, 'inicial'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Qualificação', 1, 'intermediario'),
+  ('dddddddd-dddd-dddd-dddd-ddddbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Proposta', 2, 'intermediario'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Fechamento', 3, 'ganho')
+ON CONFLICT (id) DO NOTHING;
+
+-- 7. PERMISSÕES E RLS
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Ativar RLS em todas
+DO $$ 
+DECLARE
+    t text;
+BEGIN
+    FOR t IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
+        EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
+    END LOOP;
+END $$;
 `;
 
   const handleInstall = async () => {
     if (!url || !anonKey) {
-      setError('Por favor, preencha todos os campos.');
+      setError("Por favor, preencha todos os campos.");
       return;
     }
 
-    setStep('installing');
+    setStep("installing");
     setError(null);
 
     try {
       // 1. Salvar no localStorage
-      localStorage.setItem('supabase_url', url);
-      localStorage.setItem('supabase_anon_key', anonKey);
+      localStorage.setItem("supabase_url", url);
+      localStorage.setItem("supabase_anon_key", anonKey);
 
       // 2. Atualizar cliente
       const supabase = updateSupabaseClient(url, anonKey);
 
-      // 3. Simular progresso e tentar criar dados iniciais
-      // Nota: Como não podemos criar tabelas via Anon Key, assumimos que o usuário rodou o SQL
-      // Se falhar, mostramos o SQL para ele rodar manualmente.
-      
-      setProgress('Verificando conexão...');
-      await new Promise(r => setTimeout(r, 1000));
+      // 3. Simular progresso
+      setProgress("Verificando conexão...");
+      await new Promise((r) => setTimeout(r, 1000));
 
-      setProgress('Criando tabelas e estruturas...');
-      
-      const defaultWorkspaceId = 'e167f4e8-4a19-4ab7-b655-f104004f8bf0';
+      setProgress("Criando tabelas e estruturas...");
 
-      // Tentamos inserir o usuário admin. Se falhar, é porque as tabelas não existem.
-      const { error: userError } = await supabase.from('m4_users').upsert({
-        name: 'Administrador',
-        username: 'admin',
-        email: 'admin@crm.com',
-        password: 'admin123',
-        role: 'owner',
-        status: 'active',
-        workspace_id: defaultWorkspaceId,
-        must_change_password: true
-      }, { onConflict: 'email' });
+      const defaultWorkspaceId = "fb786658-1234-4321-8888-999988887777";
 
-      if (userError) {
-        if (userError.code === '42P01') { // Relation does not exist
-          throw new Error('As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL abaixo no seu painel do Supabase antes de continuar.');
+      // Verificar se a tabela de workspaces existe
+      const { error: wsCheckError } = await supabase
+        .from("m4_workspaces")
+        .select("id")
+        .limit(1);
+
+      if (wsCheckError) {
+        if (wsCheckError.code === "42P01") {
+          throw new Error(
+            "As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL abaixo no seu painel do Supabase antes de continuar.",
+          );
         }
-        throw userError;
+        throw wsCheckError;
       }
 
-      setProgress('Configurando workspace padrão...');
-      await supabase.from('m4_settings').upsert({
-        workspace_id: defaultWorkspaceId,
-        crm_name: 'M4 CRM',
-        company_name: 'Minha Agência'
-      }, { onConflict: 'workspace_id' });
+      setProgress("Configurando workspace principal...");
+      await supabase.from("m4_workspaces").upsert({
+        id: defaultWorkspaceId,
+        name: "Workspace Principal",
+      });
 
-      setProgress('Configurando pipelines padrão...');
+      setProgress("Configurando configurações do CRM...");
+      await supabase.from("m4_settings").upsert(
+        {
+          workspace_id: defaultWorkspaceId,
+          crm_name: "M4 CRM",
+          company_name: "Agency Cloud",
+        },
+        { onConflict: "workspace_id" },
+      );
+
+      setProgress("Configurando pipelines de demonstração...");
       const pipelines = [
-        { id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Vendas Comercial', position: 0, workspace_id: defaultWorkspaceId },
-        { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', position: 1, workspace_id: defaultWorkspaceId }
+        {
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          name: "Vendas Comercial",
+          position: 0,
+          workspace_id: defaultWorkspaceId,
+        },
       ];
-      await supabase.from('m4_pipelines').upsert(pipelines);
+      await supabase.from("m4_pipelines").upsert(pipelines);
 
-      setProgress('Configurando etapas...');
-      const p1Stages = [
-        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Lead', position: 0, color: 'blue' },
-        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Qualificação', position: 1, color: 'blue' },
-        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Proposta', position: 2, color: 'blue' },
-        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Negociação', position: 3, color: 'blue' },
-        { pipeline_id: 'e167f4e8-4a19-4ab7-b655-f104004f8bf4', name: 'Fechamento', position: 4, color: 'blue' }
+      setProgress("Configurando etapas do funil...");
+      const stages = [
+        {
+          id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          workspace_id: defaultWorkspaceId,
+          name: "Lead",
+          position: 0,
+          color: "blue",
+          status: "inicial",
+        },
+        {
+          id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          workspace_id: defaultWorkspaceId,
+          name: "Qualificação",
+          position: 1,
+          color: "amber",
+          status: "intermediario",
+        },
+        {
+          id: "dddddddd-dddd-dddd-dddd-ddddbbbbbbbb",
+          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          workspace_id: defaultWorkspaceId,
+          name: "Proposta",
+          position: 2,
+          color: "indigo",
+          status: "intermediario",
+        },
+        {
+          id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          workspace_id: defaultWorkspaceId,
+          name: "Fechamento",
+          position: 3,
+          color: "emerald",
+          status: "ganho",
+        },
       ];
-      const p2Stages = [
-        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Agendadas', position: 0, color: 'blue' },
-        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Confirmadas', position: 1, color: 'blue' },
-        { pipeline_id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Realizadas', position: 2, color: 'blue' }
-      ];
-      await supabase.from('m4_pipeline_stages').upsert([...p1Stages, ...p2Stages]);
+      await supabase.from("m4_pipeline_stages").upsert(stages);
 
-      setProgress('Finalizando configuração...');
-      await new Promise(r => setTimeout(r, 1000));
+      setProgress("Finalizando configuração...");
+      await new Promise((r) => setTimeout(r, 1000));
 
-      setStep('success');
+      setStep("success");
     } catch (err: any) {
       setError(err.message);
-      setStep('config');
+      setStep("config");
     }
   };
 
   const copySQL = () => {
     navigator.clipboard.writeText(fullSetupSQL);
-    alert('SQL copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.');
+    alert("SQL copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
   };
 
-  if (step === 'success') {
+  if (step === "success") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white p-12 rounded-[3rem] shadow-2xl shadow-blue-100 max-w-md w-full text-center space-y-8"
@@ -502,20 +561,32 @@ ON CONFLICT (email) DO NOTHING;
             <ICONS.Check size={48} />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Tudo pronto!</h2>
-            <p className="text-slate-500 font-medium">Seu CRM foi configurado com sucesso.</p>
-          </div>
-          
-          <div className="bg-slate-50 p-6 rounded-3xl text-left space-y-4 border border-slate-100">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Credenciais de Acesso:</p>
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-700">Usuário: <span className="text-blue-600">admin</span></p>
-              <p className="text-sm font-bold text-slate-700">Senha: <span className="text-blue-600">admin123</span></p>
-            </div>
-            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight">⚠️ Troca de senha obrigatória no primeiro acesso.</p>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              Tudo pronto!
+            </h2>
+            <p className="text-slate-500 font-medium">
+              Seu CRM foi configurado com sucesso.
+            </p>
           </div>
 
-          <button 
+          <div className="bg-slate-50 p-6 rounded-3xl text-left space-y-4 border border-slate-100">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+              Credenciais de Acesso:
+            </p>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-700">
+                Usuário: <span className="text-blue-600">admin</span>
+              </p>
+              <p className="text-sm font-bold text-slate-700">
+                Senha: <span className="text-blue-600">admin123</span>
+              </p>
+            </div>
+            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight">
+              ⚠️ Troca de senha obrigatória no primeiro acesso.
+            </p>
+          </div>
+
+          <button
             onClick={() => window.location.reload()}
             className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all transform hover:-translate-y-1"
           >
@@ -528,7 +599,7 @@ ON CONFLICT (email) DO NOTHING;
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-12 rounded-[3rem] shadow-2xl shadow-blue-100 max-w-xl w-full space-y-10"
@@ -538,15 +609,30 @@ ON CONFLICT (email) DO NOTHING;
             <ICONS.Automation size={32} />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">M4 CRM</h1>
-            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Setup Inicial</p>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              M4 CRM
+            </h1>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">
+              Setup Inicial
+            </p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Bem-vindo! Vamos configurar seu CRM</h2>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            Bem-vindo! Vamos configurar seu CRM
+          </h2>
           <p className="text-slate-500 font-medium">
-            Você precisará de uma conta gratuita no <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline">Supabase</a> para armazenar seus dados.
+            Você precisará de uma conta gratuita no{" "}
+            <a
+              href="https://supabase.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-600 font-bold hover:underline"
+            >
+              Supabase
+            </a>{" "}
+            para armazenar seus dados.
           </p>
         </div>
 
@@ -556,8 +642,8 @@ ON CONFLICT (email) DO NOTHING;
               <ICONS.AlertTriangle size={20} />
               <p className="text-sm font-bold leading-relaxed">{error}</p>
             </div>
-            {error.includes('tabelas') && (
-              <button 
+            {error.includes("tabelas") && (
+              <button
                 onClick={copySQL}
                 className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all"
               >
@@ -567,17 +653,21 @@ ON CONFLICT (email) DO NOTHING;
           </div>
         )}
 
-        {step === 'installing' ? (
+        {step === "installing" ? (
           <div className="py-12 text-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-            <p className="text-slate-600 font-black uppercase text-xs tracking-widest animate-pulse">{progress}</p>
+            <p className="text-slate-600 font-black uppercase text-xs tracking-widest animate-pulse">
+              {progress}
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">URL do Supabase</label>
-              <input 
-                type="text" 
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                URL do Supabase
+              </label>
+              <input
+                type="text"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://xxx.supabase.co"
@@ -585,9 +675,11 @@ ON CONFLICT (email) DO NOTHING;
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Anon Key</label>
-              <input 
-                type="password" 
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                Anon Key
+              </label>
+              <input
+                type="password"
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
                 placeholder="Sua chave pública (anon key)"
@@ -595,7 +687,7 @@ ON CONFLICT (email) DO NOTHING;
               />
             </div>
 
-            <button 
+            <button
               onClick={handleInstall}
               className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3"
             >
@@ -607,7 +699,8 @@ ON CONFLICT (email) DO NOTHING;
 
         <div className="pt-6 border-t border-slate-100 text-center">
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-            Ao clicar em instalar, criaremos a estrutura necessária no seu banco.
+            Ao clicar em instalar, criaremos a estrutura necessária no seu
+            banco.
           </p>
         </div>
       </motion.div>

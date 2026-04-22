@@ -165,9 +165,35 @@ export const financeService = {
         .order('name');
 
       if (error) throw error;
-      return data || [];
+      
+      return (data || []).map(acc => ({
+        ...acc,
+        balance: Number(acc.balance) || 0,
+        current_balance: Number(acc.balance) || 0
+      }));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_fin_bank_accounts');
+      return [];
+    }
+  },
+
+  // --- Client Accounts (Recurring Charges) ---
+  async getClientAccounts(workspaceId: string): Promise<any[]> {
+    if (!workspaceId || !isUUID(workspaceId)) {
+      console.error('financeService.getClientAccounts: Missing or invalid workspaceId', workspaceId);
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('m4_client_accounts')
+        .select('*, company:m4_companies(name)')
+        .eq('workspace_id', workspaceId);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'm4_client_accounts');
       return [];
     }
   },
@@ -507,19 +533,19 @@ export const financeService = {
       const amount = Number(transaction.amount);
       const { data: account, error: accError } = await supabase
         .from('m4_fin_bank_accounts')
-        .select('current_balance')
+        .select('balance')
         .eq('id', data.bank_account_id)
         .single();
 
       if (accError) throw accError;
 
       const newBalance = transaction.type === 'income' 
-        ? Number(account.current_balance) + amount 
-        : Number(account.current_balance) - amount;
+        ? Number(account.balance) + amount 
+        : Number(account.balance) - amount;
 
       const { error: balanceError } = await supabase
         .from('m4_fin_bank_accounts')
-        .update({ current_balance: newBalance })
+        .update({ balance: newBalance })
         .eq('id', data.bank_account_id);
 
       if (balanceError) throw balanceError;
@@ -596,7 +622,7 @@ export const financeService = {
         // Source Account
         const { data: sourceAcc, error: sourceAccError } = await supabase
           .from('m4_fin_bank_accounts')
-          .select('current_balance')
+          .select('balance')
           .eq('id', data.source_bank_account_id)
           .single();
         
@@ -604,13 +630,13 @@ export const financeService = {
 
         await supabase
           .from('m4_fin_bank_accounts')
-          .update({ current_balance: Number(sourceAcc.current_balance) - data.amount })
+          .update({ balance: Number(sourceAcc.balance) - data.amount })
           .eq('id', data.source_bank_account_id);
 
         // Destination Account
         const { data: destAcc, error: destAccError } = await supabase
           .from('m4_fin_bank_accounts')
-          .select('current_balance')
+          .select('balance')
           .eq('id', data.destination_bank_account_id)
           .single();
         
@@ -618,7 +644,7 @@ export const financeService = {
 
         await supabase
           .from('m4_fin_bank_accounts')
-          .update({ current_balance: Number(destAcc.current_balance) + data.amount })
+          .update({ balance: Number(destAcc.balance) + data.amount })
           .eq('id', data.destination_bank_account_id);
       }
 

@@ -48,7 +48,6 @@ export interface Company {
   segment?: string;
   website?: string;
   email?: string;
-  phone?: string;
   whatsapp?: string;
   notes?: string;
   deleted_at?: string | null;
@@ -63,8 +62,8 @@ export interface Contact {
   name: string;
   role?: string;
   email?: string;
-  phone?: string;
   whatsapp?: string;
+  linkedin?: string;
   notes?: string;
   is_primary: boolean;
   created_at: string;
@@ -89,13 +88,13 @@ export interface Lead {
   company_email?: string;
   company_instagram?: string;
   company_linkedin?: string;
-  company_phone?: string;
+  company_whatsapp?: string;
   contact_name: string;
   contact_role?: string;
   contact_email?: string;
   contact_instagram?: string;
   contact_linkedin?: string;
-  contact_phone?: string;
+  contact_whatsapp?: string;
   contact_notes?: string;
   pipeline_id?: string;
   stage_id?: string;
@@ -129,7 +128,7 @@ export interface Lead {
   name?: string;
   company?: string;
   email?: string;
-  phone?: string;
+  whatsapp?: string;
   notes?: string;
   cnpj?: string;
   website?: string;
@@ -137,9 +136,6 @@ export interface Lead {
   city?: string;
   state?: string;
   instagram?: string;
-  whatsapp?: string;
-  contact_whatsapp?: string;
-  company_whatsapp?: string;
   linkedin?: string;
 }
 

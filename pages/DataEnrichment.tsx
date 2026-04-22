@@ -531,7 +531,7 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-slate-600 dark:text-slate-400 font-medium">{lead.contact_email}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{lead.contact_phone ? formatPhoneBR(lead.contact_phone) : ''}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{lead.contact_whatsapp ? formatPhoneBR(lead.contact_whatsapp) : ''}</p>
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-blue-500 dark:text-blue-400 font-black text-[10px] uppercase">{lead.company_niche || 'Pendente'}</p>
@@ -653,7 +653,7 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone do Contato</label>
-                    <input type="text" value={editingLead.contact_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.contact_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Instagram do Contato</label>
@@ -791,7 +791,7 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone / WhatsApp Corporativo</label>
-                    <input type="text" value={editingLead.company_phone || ''} onChange={(e) => setEditingLead({ ...editingLead, company_phone: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Instagram da Empresa</label>

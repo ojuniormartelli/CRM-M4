@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Lead, Pipeline, User, PipelineStage, FunnelStatus } from '../types';
+import { Lead, Pipeline, User, PipelineStage, FunnelStatus, UserRole } from '../types';
 import { funnelUtils } from '../utils/funnel';
 import { ICONS } from '../constants';
 import { leadService } from '../services/leadService';
@@ -133,6 +133,13 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
               <ICONS.Upload width="20" height="20" /> IMPORTAR
             </button>
             <button 
+              onClick={() => setActiveTab('settings_pipelines')}
+              className="flex items-center justify-center w-14 h-14 bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800 rounded-2xl hover:text-indigo-600 hover:border-indigo-600/50 transition-all shadow-sm group"
+              title="Gerenciar Funis"
+            >
+              <ICONS.Settings width="24" height="24" className="group-hover:rotate-90 transition-transform duration-500" />
+            </button>
+            <button 
               onClick={onNewLead}
               className="flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-1"
             >
@@ -222,6 +229,18 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                   </button>
                 );
               })
+            )}
+
+            {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
+              <button 
+                onClick={() => setActiveTab('settings_pipelines')}
+                className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition-all text-center group flex flex-col items-center justify-center gap-3 min-h-[160px]"
+              >
+                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors shadow-sm">
+                  <ICONS.Plus width="24" height="24" />
+                </div>
+                <h4 className="text-sm font-black text-slate-500 group-hover:text-indigo-600 uppercase tracking-widest">Novo Pipeline</h4>
+              </button>
             )}
           </div>
         </div>
@@ -492,12 +511,12 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, company_email: val })}
                       />
                       <EditableInfoItem 
-                        label="Telefone da Empresa" 
-                        value={editedLead.company_phone} 
-                        originalValue={selectedLead.company_phone}
+                        label="Telefone / WhatsApp da Empresa" 
+                        value={editedLead.company_whatsapp} 
+                        originalValue={selectedLead.company_whatsapp}
                         isEditing={isEditingLead}
                         isWhatsApp
-                        onChange={(val) => setEditedLead({ ...editedLead, company_phone: formatPhoneBR(val) })}
+                        onChange={(val) => setEditedLead({ ...editedLead, company_whatsapp: formatPhoneBR(val) })}
                       />
                     </div>
                   </div>
@@ -531,12 +550,12 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                         onChange={(val) => setEditedLead({ ...editedLead, contact_email: val })}
                       />
                       <EditableInfoItem 
-                        label="Telefone" 
-                        value={editedLead.contact_phone} 
-                        originalValue={selectedLead.contact_phone}
+                        label="Telefone / WhatsApp" 
+                        value={editedLead.contact_whatsapp} 
+                        originalValue={selectedLead.contact_whatsapp}
                         isEditing={isEditingLead}
                         isWhatsApp
-                        onChange={(val) => setEditedLead({ ...editedLead, contact_phone: formatPhoneBR(val) })}
+                        onChange={(val) => setEditedLead({ ...editedLead, contact_whatsapp: formatPhoneBR(val) })}
                       />
                       <EditableInfoItem 
                         label="Instagram" 

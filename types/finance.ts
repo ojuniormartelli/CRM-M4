@@ -161,7 +161,7 @@ export interface FinanceCounterparty {
   type: FinanceCounterpartyType | string;
   document?: string;
   email?: string;
-  phone?: string;
+  whatsapp?: string;
   notes?: string;
   is_active: boolean;
   created_at: string;

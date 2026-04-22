@@ -61,7 +61,7 @@ export const automationService = {
    * Update an existing automation
    */
   async update(id: string, data: Partial<Automation>) {
-    const payload = mappers.automation(data, undefined, true);
+    const payload = mappers.automation(data);
     
     // Remove workspace_id from update if it exists to prevent accidental changes
     delete payload.workspace_id;
@@ -192,7 +192,7 @@ export const automationService = {
     const newLeadPayload: any = {
       ...leadData,
       pipeline_id: pipelineId,
-      stage: isUUID(stageId) ? stageId : (leadData.stage || 'new'),
+      stage_id: isUUID(stageId) ? stageId : (leadData.stage_id || null),
       origin_lead_id: leadId, // Link to original
       created_at: new Date().toISOString()
     };

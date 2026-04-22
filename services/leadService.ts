@@ -5,26 +5,36 @@ import { automationService } from './automationService';
 
 export const leadService = {
   async getAll(workspaceId?: string) {
-    console.log('leadService.getAll() called', workspaceId ? `for workspace ${workspaceId}` : 'using RLS');
+    const wsId = workspaceId || localStorage.getItem('m4_crm_workspace_id');
+    console.log('leadService.getAll() starting...', wsId);
 
-    let query = supabase
-      .from('m4_leads')
-      .select('*')
-      .is('deleted_at', null);
+    try {
+      if (!wsId || !isUUID(wsId)) {
+        console.warn('leadService.getAll(): No valid workspaceId provided');
+        return [];
+      }
 
-    if (workspaceId && isUUID(workspaceId)) {
-      query = query.eq('workspace_id', workspaceId);
+      let query = supabase
+        .from('m4_leads')
+        .select('*')
+        .eq('workspace_id', wsId);
+
+      // Try to order by created_at if possible
+      query = query.order('created_at', { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('leadService.getAll() db error:', error.message);
+        return [];
+      }
+
+      console.log('leadService.getAll() success, raw count:', data?.length || 0);
+      return (data || []).map(mappers.leadFromDb);
+    } catch (error) {
+      console.error('leadService.getAll() fatal error:', error);
+      return [];
     }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('leadService.getAll() error:', error);
-      throw error;
-    }
-
-    console.log('leadService.getAll() success, leads count:', data?.length);
-    return (data || []).map(mappers.leadFromDb);
   },
 
   async create(lead: Partial<Lead>, workspaceId: string) {
@@ -55,7 +65,7 @@ export const leadService = {
     // 1. Fetch current state for comparison (for triggers like status_change, stage_change)
     const { data: currentLead } = await supabase.from('m4_leads').select('*').eq('id', id).single();
     
-    const payload = mappers.lead(lead, undefined, true);
+    const payload = mappers.lead(lead);
 
     const { data, error } = await supabase
       .from('m4_leads')
@@ -76,11 +86,11 @@ export const leadService = {
       const workspaceId = updatedLead.workspace_id;
 
       // Trigger: stage_change
-      if (lead.pipeline_id || lead.stage_id || lead.stage) {
+      if (lead.pipeline_id || lead.stage_id) {
         automationService.processEvent(workspaceId, 'lead', 'stage_change', {
           pipeline_id: updatedLead.pipeline_id,
-          from_stage_id: currentLead.stage_id || currentLead.stage,
-          to_stage_id: updatedLead.stage_id || updatedLead.stage
+          from_stage_id: currentLead.stage_id,
+          to_stage_id: updatedLead.stage_id
         }, updatedLead);
       }
 

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FinanceCounterparty, FinanceCounterpartyType } from '../../types/finance';
 import { X, Users, Mail, Phone, FileText, Info } from 'lucide-react';
+import { formatPhoneBR, formatCNPJ } from '../../utils/formatters';
 
 interface CounterpartyFormProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, on
     type: FinanceCounterpartyType.SUPPLIER,
     document: '',
     email: '',
-    phone: '',
+    whatsapp: '',
     notes: ''
   };
 
@@ -97,7 +98,7 @@ const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, on
                 <input
                   type="text"
                   value={formData.document}
-                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, document: formatCNPJ(e.target.value) })}
                   placeholder="00.000.000/0000-00"
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
@@ -116,11 +117,11 @@ const CounterpartyForm: React.FC<CounterpartyFormProps> = ({ isOpen, onClose, on
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Telefone</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Telefone / WhatsApp</label>
                 <input
                   type="text"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: formatPhoneBR(e.target.value) })}
                   placeholder="(00) 00000-0000"
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />

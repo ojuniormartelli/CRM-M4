@@ -1,7 +1,8 @@
--- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
--- ⚠️ AVISO: Este script apaga todas as tabelas existentes para uma instalação limpa.
+-- 🚀 MASTER_RESET_FINAL.sql
+-- Script DEFINITIVO para reset total do banco CRMM4 (Nível Multi-Tenant Oficial)
+-- ⚠️ ATENÇÃO: Este script APAGA todas as tabelas m4_ existentes para garantir integridade.
 
--- 1. LIMPEZA TOTAL (Tabelas com prefixo m4_)
+-- 1. LIMPEZA TOTAL
 DO $$ 
 DECLARE
     r RECORD;
@@ -34,7 +35,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'Erro ao criar Enums: %', SQLERRM;
 END $$;
 
--- 3. NÚCLEO TENANT (Workspaces)
+-- 3. NÚCLEO TENANT (Workspaces & Usuários)
 CREATE TABLE public.m4_workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -52,7 +53,7 @@ CREATE TABLE public.m4_job_roles (
 );
 
 CREATE TABLE public.m4_users (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
@@ -132,7 +133,7 @@ CREATE TABLE public.m4_contacts (
     name TEXT NOT NULL,
     role TEXT,
     email TEXT,
-    whatsapp TEXT, 
+    whatsapp TEXT,
     linkedin TEXT,
     notes TEXT,
     is_primary BOOLEAN DEFAULT false,
@@ -204,6 +205,57 @@ CREATE TABLE public.m4_tasks (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE public.m4_services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    default_price DECIMAL(12, 2) DEFAULT 0,
+    category TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_emails (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    sender_name TEXT,
+    sender_email TEXT,
+    recipient_email TEXT,
+    subject TEXT,
+    body TEXT,
+    folder TEXT DEFAULT 'inbox',
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT,
+    status TEXT DEFAULT 'Agendada',
+    sent_count INTEGER DEFAULT 0,
+    open_rate TEXT DEFAULT '-',
+    click_rate TEXT DEFAULT '-',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    user_name TEXT,
+    user_role TEXT,
+    content TEXT,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    type TEXT DEFAULT 'update',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 5. FINANCEIRO NOVO (m4_fin_*)
 CREATE TABLE public.m4_fin_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -217,6 +269,41 @@ CREATE TABLE public.m4_fin_categories (
     impacts_dre BOOLEAN DEFAULT true,
     dre_group TEXT,
     classification_type fin_classification_type DEFAULT 'operacional',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_cost_centers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    code TEXT,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    "order" INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_counterparties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type fin_counterparty_type DEFAULT 'outro',
+    document TEXT,
+    email TEXT,
+    phone TEXT,
+    whatsapp TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -252,9 +339,9 @@ CREATE TABLE public.m4_fin_transactions (
     competence_date DATE NOT NULL,
     bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
     destination_bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
-    counterparty_id UUID,
+    counterparty_id UUID REFERENCES public.m4_fin_counterparties(id) ON DELETE SET NULL,
     category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE SET NULL,
-    cost_center_id UUID,
+    cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id) ON DELETE SET NULL,
     payment_method TEXT,
     reference_code TEXT,
     notes TEXT,
@@ -269,6 +356,18 @@ CREATE TABLE public.m4_fin_transactions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE public.m4_fin_budgets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id) ON DELETE CASCADE,
+    period TEXT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    scenario TEXT NOT NULL DEFAULT 'realistic',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 6. SEEDS INICIAIS
 INSERT INTO public.m4_workspaces (id, name)
 VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')
@@ -278,10 +377,12 @@ INSERT INTO public.m4_job_roles (id, workspace_id, name, level, permissions)
 VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'Owner', 100, '{"all": true}')
 ON CONFLICT (id) DO NOTHING;
 
+-- Admin Padrão
 INSERT INTO public.m4_users (id, name, email, password, role, job_role_id, workspace_id, status, must_change_password)
 VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Pipelines e Stages
 INSERT INTO public.m4_pipelines (id, workspace_id, name, position)
 VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Vendas Comercial', 0)
 ON CONFLICT (id) DO NOTHING;
@@ -294,7 +395,19 @@ VALUES
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Fechamento', 3, 'ganho')
 ON CONFLICT (id) DO NOTHING;
 
--- 7. PERMISSÕES
+-- 7. PERMISSÕES E RLS
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Ativar RLS em todas
+DO $$ 
+DECLARE
+    t text;
+BEGIN
+    FOR t IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
+        EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
+    END LOOP;
+END $$;

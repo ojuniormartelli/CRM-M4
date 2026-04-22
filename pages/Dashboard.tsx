@@ -24,6 +24,7 @@ interface DashboardProps {
   tasks: Task[];
   pipelines: Pipeline[];
   currentUser: User | null;
+  setActiveTab: (tab: string) => void;
 }
 
 const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
@@ -55,7 +56,7 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipelines, currentUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipelines, currentUser, setActiveTab }) => {
   const [forecast, setForecast] = useState<{ predictedRevenue: number; confidence: number } | null>(null);
   const [isForecasting, setIsForecasting] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
@@ -166,6 +167,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
             pipelines={pipelines} 
             selectedPipelineId={selectedPipelineId} 
             onSelect={handlePipelineSelect} 
+            setActiveTab={setActiveTab}
+            currentUser={currentUser}
           />
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-[10px] font-black uppercase border border-emerald-100 dark:border-emerald-900/30">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
