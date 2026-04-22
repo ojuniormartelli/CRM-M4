@@ -174,6 +174,23 @@ CREATE TABLE public.m4_settings (
 );
 
 -- 4. CRM E OPERAÇÕES
+CREATE TABLE public.m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    service_name TEXT,
+    service_type TEXT,
+    monthly_value DECIMAL(12, 2) DEFAULT 0,
+    due_day INTEGER,
+    status TEXT DEFAULT 'ativo',
+    start_date DATE,
+    billing_model TEXT DEFAULT 'recorrente',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE public.m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,

@@ -998,7 +998,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Agência / Empresa</label>
                 <input 
                   type="text" 
-                  value={settings?.company_name || ''} 
+                  value={settings?.company_name ?? ''} 
                   onChange={e => setSettings({...settings, company_name: e.target.value})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
                 />
@@ -1008,7 +1008,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
                   <input 
                     type="text" 
-                    value={settings?.city || ''} 
+                    value={settings?.city ?? ''} 
                     onChange={e => setSettings({...settings, city: e.target.value})}
                     className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   />
@@ -1017,7 +1017,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
                   <input 
                     type="text" 
-                    value={settings?.state || ''} 
+                    value={settings?.state ?? ''} 
                     onChange={e => setSettings({...settings, state: e.target.value})}
                     className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   />
@@ -1027,7 +1027,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website URL</label>
                 <input 
                   type="url" 
-                  value={settings?.website_url || ''} 
+                  value={settings?.website_url ?? ''} 
                   onChange={e => setSettings({...settings, website_url: e.target.value})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="https://suaagencia.com"
@@ -1037,7 +1037,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Principal</label>
                 <input 
                   type="text" 
-                  value={settings?.whatsapp_number || ''} 
+                  value={settings?.whatsapp_number ?? ''} 
                   onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="(00) 00000-0000"

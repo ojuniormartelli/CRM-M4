@@ -109,8 +109,11 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
         fetchServices(wsId),
       ]);
 
-      const { data: caData } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsId);
-      setClientAccounts(caData || []);
+      try {
+        const { data: caData, error: caError } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsId);
+        if (!caError) setClientAccounts(caData || []);
+        else setClientAccounts([]);
+      } catch (err) { setClientAccounts([]); }
 
       const { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', wsId).maybeSingle();
       if (settingsData) setSettings(settingsData);

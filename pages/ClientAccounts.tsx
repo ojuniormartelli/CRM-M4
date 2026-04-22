@@ -420,7 +420,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Selecionar Empresa</label>
                   <select 
                     required
-                    value={newAccountData.company_id}
+                    value={newAccountData.company_id ?? ''}
                     onChange={e => setNewAccountData({...newAccountData, company_id: e.target.value})}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
                   >
@@ -435,7 +435,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Serviço Contratado</label>
                   <select 
                     required
-                    value={newAccountData.service_name}
+                    value={newAccountData.service_name ?? ''}
                     onChange={e => {
                       const selectedService = services.find(s => s.name === e.target.value);
                       setNewAccountData({
@@ -510,7 +510,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                   <input 
                     type="date"
                     required
-                    value={newAccountData.start_date}
+                    value={newAccountData.start_date ?? ''}
                     onChange={e => setNewAccountData({...newAccountData, start_date: e.target.value})}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
                   />
