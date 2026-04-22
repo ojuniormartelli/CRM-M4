@@ -2,14 +2,23 @@
 -- Script DEFINITIVO para reset total do banco CRMM4 (Nível Multi-Tenant Oficial)
 -- ⚠️ ATENÇÃO: Este script APAGA todas as tabelas m4_ existentes para garantir integridade.
 
--- 1. LIMPEZA TOTAL
+-- 1. LIMPEZA TOTAL (ATENÇÃO: APAGA TUDO!)
 DO $$ 
 DECLARE
     r RECORD;
 BEGIN
+    -- Apaga Tabelas
     FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
         EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
     END LOOP;
+
+    -- Apaga Tipos/Enums (Opcional, mas recomendado para reset limpo)
+    DROP TYPE IF EXISTS fin_transaction_type CASCADE;
+    DROP TYPE IF EXISTS fin_transaction_status CASCADE;
+    DROP TYPE IF EXISTS fin_category_type CASCADE;
+    DROP TYPE IF EXISTS fin_classification_type CASCADE;
+    DROP TYPE IF EXISTS fin_counterparty_type CASCADE;
+    DROP TYPE IF EXISTS fin_bank_account_type CASCADE;
 END $$;
 
 -- 2. ENUMS FINANCEIROS
@@ -150,7 +159,22 @@ CREATE TABLE public.m4_leads (
     contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'active',
     company_name TEXT,
+    company_cnpj TEXT,
+    company_city TEXT,
+    company_state TEXT,
+    company_niche TEXT,
+    company_website TEXT,
+    company_email TEXT,
+    company_instagram TEXT,
+    company_linkedin TEXT,
+    company_whatsapp TEXT,
     contact_name TEXT,
+    contact_role TEXT,
+    contact_email TEXT,
+    contact_instagram TEXT,
+    contact_linkedin TEXT,
+    contact_whatsapp TEXT,
+    contact_notes TEXT,
     value DECIMAL(12, 2) DEFAULT 0,
     business_notes TEXT,
     service_type TEXT,
@@ -172,6 +196,13 @@ CREATE TABLE public.m4_leads (
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );
+
+-- Índices para melhor performance
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_workspace_id ON public.m4_leads(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_pipeline_id ON public.m4_leads(pipeline_id);
 
 CREATE TABLE public.m4_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

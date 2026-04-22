@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { mappers, isUUID } from '../lib/mappers';
 import { Lead } from '../types';
 import { automationService } from './automationService';
+import { handleServiceError } from '../lib/errorUtils';
 
 export const leadService = {
   async getAll(workspaceId?: string) {
@@ -25,8 +26,7 @@ export const leadService = {
       const { data, error } = await query;
 
       if (error) {
-        console.error('leadService.getAll() db error:', error.message);
-        return [];
+        return handleServiceError(error, 'Busca de Leads');
       }
 
       console.log('leadService.getAll() success, raw count:', data?.length || 0);
@@ -40,46 +40,49 @@ export const leadService = {
   async create(lead: Partial<Lead>, workspaceId: string) {
     const payload = mappers.lead(lead, workspaceId);
 
-    const { data, error } = await supabase
-      .from('m4_leads')
-      .insert([payload])
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('m4_leads')
+        .insert([payload])
+        .select()
+        .single();
 
-    if (error) {
-      console.error('leadService.create() error:', error, payload);
+      if (error) {
+        return handleServiceError(error, 'Criação de Lead');
+      }
+
+      const createdLead = mappers.leadFromDb(data);
+
+      // Trigger automation: lead_created
+      automationService.processEvent(workspaceId, 'lead', 'lead_created', {
+        pipeline_id: createdLead.pipeline_id
+      }, createdLead);
+
+      return createdLead;
+    } catch (error) {
       throw error;
     }
-
-    const createdLead = mappers.leadFromDb(data);
-
-    // Trigger automation: lead_created
-    automationService.processEvent(workspaceId, 'lead', 'lead_created', {
-      pipeline_id: createdLead.pipeline_id
-    }, createdLead);
-
-    return createdLead;
   },
 
   async update(id: string, lead: Partial<Lead>) {
-    // 1. Fetch current state for comparison (for triggers like status_change, stage_change)
-    const { data: currentLead } = await supabase.from('m4_leads').select('*').eq('id', id).single();
-    
-    const payload = mappers.lead(lead);
+    try {
+      // 1. Fetch current state for comparison (for triggers like status_change, stage_change)
+      const { data: currentLead } = await supabase.from('m4_leads').select('*').eq('id', id).single();
+      
+      const payload = mappers.lead(lead);
 
-    const { data, error } = await supabase
-      .from('m4_leads')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('m4_leads')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
-      console.error('leadService.update() error:', error, { id, payload });
-      throw error;
-    }
+      if (error) {
+        return handleServiceError(error, 'Atualização de Lead');
+      }
 
-    const updatedLead = mappers.leadFromDb(data);
+      const updatedLead = mappers.leadFromDb(data);
 
     // 2. Trigger automations based on changes
     if (currentLead) {
@@ -124,25 +127,28 @@ export const leadService = {
     }
 
     return updatedLead;
+    } catch (error) {
+      throw error;
+    }
   },
 
   async updateStatus(id: string, status: string) {
-    // Fetch current status for trigger
-    const { data: currentLead } = await supabase.from('m4_leads').select('status, workspace_id').eq('id', id).single();
+    try {
+      // Fetch current status for trigger
+      const { data: currentLead } = await supabase.from('m4_leads').select('status, workspace_id').eq('id', id).single();
 
-    const { data, error } = await supabase
-      .from('m4_leads')
-      .update({ status })
-      .eq('id', id)
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('m4_leads')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
-      console.error('leadService.updateStatus() error:', error, { id, status });
-      throw error;
-    }
+      if (error) {
+        return handleServiceError(error, 'Atualização de Status');
+      }
 
-    const updatedLead = mappers.leadFromDb(data);
+      const updatedLead = mappers.leadFromDb(data);
 
     if (currentLead && status !== currentLead.status) {
       automationService.processEvent(currentLead.workspace_id, 'lead', 'status_change', {
@@ -153,17 +159,23 @@ export const leadService = {
     }
 
     return updatedLead;
+    } catch (error) {
+      throw error;
+    }
   },
 
   async delete(id: string) {
-    // 🛡️ SOFT DELETE: Instead of deleting, we set deleted_at
-    const { error } = await supabase
-      .from('m4_leads')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id);
+    try {
+      // 🛡️ SOFT DELETE: Instead of deleting, we set deleted_at
+      const { error } = await supabase
+        .from('m4_leads')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
 
-    if (error) {
-      console.error('leadService.delete() error:', error, { id });
+      if (error) {
+        return handleServiceError(error, 'Exclusão de Lead');
+      }
+    } catch (error) {
       throw error;
     }
   },

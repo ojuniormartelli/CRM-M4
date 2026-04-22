@@ -17,17 +17,83 @@ const TechnicalPanel: React.FC = () => {
     }
   };
 
-  const fullSetupSQL = `SCRIPT DE INSTALACAO COMPLETA (M4 CRM & Agency Suite)
+  const seedSQL = `-- 🚀 SCRIPT DE SEED DE DADOS DE TESTE (M4 CRM)
+-- Este script insere dados de exemplo para demonstração das funcionalidades.
+
+DO $$ 
+DECLARE
+    v_workspace_id UUID := 'fb786658-1234-4321-8888-999988887777'; -- Workspace Principal
+    v_admin_id UUID;
+    v_pipeline_vendas_id UUID := 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    v_stage_lead_id UUID := 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    v_company_id UUID;
+BEGIN
+    -- 1. Verificar se o Workspace existe
+    IF NOT EXISTS (SELECT 1 FROM m4_workspaces WHERE id = v_workspace_id) THEN
+        INSERT INTO m4_workspaces (id, name) VALUES (v_workspace_id, 'Workspace Principal');
+    END IF;
+
+    -- 2. Garantir usuário admin
+    SELECT id INTO v_admin_id FROM m4_users WHERE email = 'admin@m4.com' LIMIT 1;
+    IF v_admin_id IS NULL THEN
+        v_admin_id := gen_random_uuid();
+        INSERT INTO m4_users (id, name, email, role, workspace_id, status)
+        VALUES (v_admin_id, 'Administrador M4', 'admin@m4.com', 'owner', v_workspace_id, 'active');
+    END IF;
+
+    -- 3. Inserir Empresas de Exemplo
+    INSERT INTO m4_companies (name, niche, city, state, workspace_id)
+    VALUES 
+    ('Tech Soluções LTDA', 'Tecnologia', 'São Paulo', 'SP', v_workspace_id),
+    ('Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
+    ('Moda Fashion Brasil', 'Varejo', 'Rio de Janeiro', 'RJ', v_workspace_id)
+    ON CONFLICT DO NOTHING;
+
+    SELECT id INTO v_company_id FROM m4_companies WHERE name = 'Tech Soluções LTDA' LIMIT 1;
+
+    -- 4. Inserir Leads de Exemplo
+    INSERT INTO m4_leads (contact_name, company_name, contact_email, value, status, pipeline_id, stage_id, workspace_id, company_id, responsible_id)
+    VALUES 
+    ('Implantação ERP', 'Tech Soluções LTDA', 'contato@techsolucoes.com', 55000.00, 'active', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_id, v_admin_id),
+    ('Renovação de Contrato', 'Tech Soluções LTDA', 'diretoria@techsolucoes.com', 12000.00, 'active', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_id, v_admin_id)
+    ON CONFLICT DO NOTHING;
+
+    -- 5. Inserir Categorias Financeiras
+    INSERT INTO m4_fin_categories (name, type, workspace_id)
+    VALUES 
+    ('Vendas de Serviços', 'income', v_workspace_id),
+    ('Aluguel', 'expense', v_workspace_id),
+    ('Salários', 'expense', v_workspace_id)
+    ON CONFLICT DO NOTHING;
+
+    -- 6. Inserir Conta Bancária
+    INSERT INTO m4_fin_bank_accounts (name, bank, type, balance, workspace_id)
+    VALUES ('Conta Principal PJ', 'Banco do Brasil', 'checking', 10000.00, v_workspace_id)
+    ON CONFLICT DO NOTHING;
+
+END $$;
+`;
+
+  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALACAO COMPLETA (M4 CRM & Agency Suite)
 -- AVISO: Este script apaga todas as tabelas existentes para uma instalacao limpa.
 
--- 1. LIMPEZA TOTAL (Tabelas com prefixo m4_)
+-- 1. LIMPEZA TOTAL (ATENÇÃO: APAGA TUDO!)
 DO $$ 
 DECLARE
     r RECORD;
 BEGIN
+    -- Apaga Tabelas
     FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
         EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
     END LOOP;
+
+    -- Apaga Tipos/Enums (Opcional, mas recomendado para reset limpo)
+    DROP TYPE IF EXISTS fin_transaction_type CASCADE;
+    DROP TYPE IF EXISTS fin_transaction_status CASCADE;
+    DROP TYPE IF EXISTS fin_category_type CASCADE;
+    DROP TYPE IF EXISTS fin_classification_type CASCADE;
+    DROP TYPE IF EXISTS fin_counterparty_type CASCADE;
+    DROP TYPE IF EXISTS fin_bank_account_type CASCADE;
 END $$;
 
 -- 2. ENUMS FINANCEIROS
@@ -168,7 +234,22 @@ CREATE TABLE public.m4_leads (
     contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'active',
     company_name TEXT,
+    company_cnpj TEXT,
+    company_city TEXT,
+    company_state TEXT,
+    company_niche TEXT,
+    company_website TEXT,
+    company_email TEXT,
+    company_instagram TEXT,
+    company_linkedin TEXT,
+    company_whatsapp TEXT,
     contact_name TEXT,
+    contact_role TEXT,
+    contact_email TEXT,
+    contact_instagram TEXT,
+    contact_linkedin TEXT,
+    contact_whatsapp TEXT,
+    contact_notes TEXT,
     value DECIMAL(12, 2) DEFAULT 0,
     business_notes TEXT,
     service_type TEXT,
@@ -190,6 +271,13 @@ CREATE TABLE public.m4_leads (
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );
+
+-- Índices para melhor performance
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_workspace_id ON public.m4_leads(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_pipeline_id ON public.m4_leads(pipeline_id);
 
 CREATE TABLE public.m4_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -431,7 +519,7 @@ BEGIN
 END $$;
 `;
 
-  const updateSQL = `SCRIPT DE ATUALIZACAO SEGURA (Nucleo Multi-Tenant)
+  const updateSQL = `-- 🚀 SCRIPT DE ATUALIZACAO SEGURA (Nucleo Multi-Tenant)
 -- Use este script para migrar um banco legado para o novo padrao sem perda de dados primarios.
 
 DO $$ 
@@ -457,10 +545,32 @@ BEGIN
 
     -- 3. Cria novo Financeiro se não existir
     -- (O script full ja cobre isso, use-o para uma instalacao limpa ou execute as queries de m4_fin_ individuais)
+
+    -- 4. Correção Schema Leads (Colunas Ausentes)
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_cnpj TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_city TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_state TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_niche TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_website TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_email TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_instagram TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_linkedin TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_whatsapp TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_role TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_email TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_instagram TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_linkedin TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_whatsapp TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_notes TEXT;
+
+    -- 5. Índices de Performance
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
 END $$;
 `;
 
-  const migrationSQL = `MIGRACAO DE DADOS: LEGADO -> M4_FIN
+  const migrationSQL = `-- 🚀 MIGRACAO DE DADOS: LEGADO -> M4_FIN
 -- Este script move seus dados financeiros das tabelas m4_transactions para m4_fin_transactions.
 
 DO $$
@@ -514,10 +624,10 @@ END $$;
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                1. Instalação Geral
+                1. Reset & Instalação Total
               </h3>
-              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
-                Setup Completo do Zero
+              <p className="text-xs font-bold text-red-500 mt-1 uppercase tracking-widest">
+                ⚠️ APAGA TUDO E RECOMEÇA DO ZERO
               </p>
             </div>
             <button
@@ -538,8 +648,8 @@ END $$;
               <ICONS.Plus className="rotate-45" />
             </div>
             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">
-              Use este script apenas se estiver começando um banco novo. Ele
-              cria todas as tabelas necessárias.
+              CUIDADO: Este script apaga permanentemente todos os dados das tabelas 'm4_' 
+              e reinstala o sistema do zero.
             </p>
           </div>
         </div>
@@ -575,6 +685,41 @@ END $$;
             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">
               Use este script para atualizar um banco existente. Ele adiciona
               novas colunas e tabelas sem afetar seus dados.
+            </p>
+          </div>
+        </div>
+
+        {/* Opção 3: Dados de Teste (Seed) */}
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-xl transition-all group bg-emerald-50/10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-tight">
+                3. Dados de Teste (Seed)
+              </h3>
+              <p className="text-xs font-bold text-emerald-400 mt-1 uppercase tracking-widest">
+                Popular para demonstração
+              </p>
+            </div>
+            <button
+              onClick={() => handleCopy(seedSQL, "seed")}
+              className={`p-4 rounded-2xl transition-all ${copied === "seed" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-400 hover:bg-blue-600 hover:text-white"}`}
+            >
+              {copied === "seed" ? "Copiado!" : "Copiar SQL"}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-emerald-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {seedSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
+          </div>
+          <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
+            <div className="text-blue-500">
+              <ICONS.Database />
+            </div>
+            <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">
+              Use este script para popular o banco com leads, empresas e 
+              lançamentos financeiros de exemplo.
             </p>
           </div>
         </div>

@@ -66,8 +66,8 @@ export const mappers = {
     }
     if (data.company_instagram !== undefined) payload.company_instagram = cleanText(data.company_instagram);
     if (data.company_linkedin !== undefined) payload.company_linkedin = cleanText(data.company_linkedin);
-    if (data.company_whatsapp !== undefined || (data as any).whatsapp !== undefined || (data as any).phone !== undefined) {
-      payload.company_whatsapp = cleanDigits(data.company_whatsapp || (data as any).whatsapp || (data as any).phone);
+    if (data.company_whatsapp !== undefined || (data as any).company_phone !== undefined || (data as any).whatsapp !== undefined || (data as any).phone !== undefined) {
+      payload.company_whatsapp = cleanDigits(data.company_whatsapp || (data as any).company_phone || (data as any).whatsapp || (data as any).phone);
     }
     
     if (data.contact_name !== undefined || (data as any).name !== undefined) {
@@ -77,7 +77,9 @@ export const mappers = {
     if (data.contact_email !== undefined) payload.contact_email = cleanText(data.contact_email);
     if (data.contact_instagram !== undefined) payload.contact_instagram = cleanText(data.contact_instagram);
     if (data.contact_linkedin !== undefined) payload.contact_linkedin = cleanText(data.contact_linkedin);
-    if (data.contact_whatsapp !== undefined) payload.contact_whatsapp = cleanDigits(data.contact_whatsapp);
+    if (data.contact_whatsapp !== undefined || (data as any).contact_phone !== undefined) {
+      payload.contact_whatsapp = cleanDigits(data.contact_whatsapp || (data as any).contact_phone);
+    }
     if (data.contact_notes !== undefined) payload.contact_notes = cleanText(data.contact_notes);
 
     if (data.pipeline_id !== undefined) payload.pipeline_id = data.pipeline_id || null;

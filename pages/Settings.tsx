@@ -731,7 +731,7 @@ const Settings: React.FC<SettingsProps> = ({
       
       // Apply theme immediately via context
       // We pass skipPersistence=true because we already saved the theme in the upsert above
-      await setTheme(settings.theme as any, true);
+      await setTheme((settings?.theme || 'light') as any, true);
       
       alert('Configurações salvas com sucesso!');
     } catch (error: any) {
@@ -998,7 +998,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Agência / Empresa</label>
                 <input 
                   type="text" 
-                  value={settings.company_name} 
+                  value={settings?.company_name || ''} 
                   onChange={e => setSettings({...settings, company_name: e.target.value})}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
                 />
@@ -1008,7 +1008,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
                   <input 
                     type="text" 
-                    value={settings.city} 
+                    value={settings?.city || ''} 
                     onChange={e => setSettings({...settings, city: e.target.value})}
                     className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   />
@@ -1017,7 +1017,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
                   <input 
                     type="text" 
-                    value={settings.state} 
+                    value={settings?.state || ''} 
                     onChange={e => setSettings({...settings, state: e.target.value})}
                     className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   />
@@ -1027,7 +1027,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website URL</label>
                 <input 
                   type="url" 
-                  value={settings.website_url} 
+                  value={settings?.website_url || ''} 
                   onChange={e => setSettings({...settings, website_url: e.target.value})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="https://suaagencia.com"
@@ -1037,7 +1037,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Principal</label>
                 <input 
                   type="text" 
-                  value={settings.whatsapp_number} 
+                  value={settings?.whatsapp_number || ''} 
                   onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="(00) 00000-0000"
@@ -1054,7 +1054,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <div className="grid grid-cols-3 gap-4">
                   <button 
                     onClick={() => setSettings({...settings, theme: 'light'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
                   >
                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
                       <ICONS.Dashboard />
@@ -1063,7 +1063,7 @@ const Settings: React.FC<SettingsProps> = ({
                   </button>
                   <button 
                     onClick={() => setSettings({...settings, theme: 'dark'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
                   >
                     <div className="w-10 h-10 bg-slate-900 rounded-xl shadow-sm border border-slate-800 flex items-center justify-center text-blue-400">
                       <ICONS.Automation />
@@ -1072,7 +1072,7 @@ const Settings: React.FC<SettingsProps> = ({
                   </button>
                   <button 
                     onClick={() => setSettings({...settings, theme: 'system'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings.theme === 'system' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'system' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
                   >
                     <div className="w-10 h-10 bg-slate-500 rounded-xl shadow-sm border border-slate-400 flex items-center justify-center text-white">
                       <ICONS.Settings />
@@ -1084,7 +1084,7 @@ const Settings: React.FC<SettingsProps> = ({
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Idioma Padrão</label>
                 <select 
-                  value={settings.language} 
+                  value={settings?.language || 'pt-BR'} 
                   onChange={e => setSettings({...settings, language: e.target.value})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
@@ -1107,7 +1107,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do CRM</label>
                 <input 
                   type="text" 
-                  value={settings.crm_name} 
+                  value={settings?.crm_name || ''} 
                   onChange={e => setSettings({...settings, crm_name: e.target.value})}
                   className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   placeholder="Ex: Agency X CRM"
@@ -1117,7 +1117,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Logo da Agência</label>
                 <div className="flex items-center gap-8">
                   <div className="w-24 h-24 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
-                    {settings.logo_url ? (
+                    {settings?.logo_url ? (
                       <img src={settings.logo_url} alt="Logo Preview" className="w-full h-full object-cover" />
                     ) : (
                       <ICONS.Plus className="text-slate-300" />
@@ -1146,13 +1146,13 @@ const Settings: React.FC<SettingsProps> = ({
                 <div className="flex items-center gap-4">
                   <input 
                     type="color" 
-                    value={settings.primary_color} 
+                    value={settings?.primary_color || '#2563eb'} 
                     onChange={e => setSettings({...settings, primary_color: e.target.value})}
                     className="w-12 h-12 rounded-xl border-none cursor-pointer" 
                   />
                   <input 
                     type="text" 
-                    value={settings.primary_color} 
+                    value={settings?.primary_color || '#2563eb'} 
                     onChange={e => setSettings({...settings, primary_color: e.target.value})}
                     className="flex-1 p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
                   />
