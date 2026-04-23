@@ -784,8 +784,70 @@ const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      <div className="h-full space-y-10">
-        {/* Render sections based on activeTab */}
+      <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+        <button 
+          onClick={() => setActiveTab('general')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Geral
+        </button>
+        <button 
+          onClick={() => setActiveTab('profile')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Meu Perfil
+        </button>
+        <button 
+          onClick={() => setActiveTab('users')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Equipe (Usuários e Cargos)
+        </button>
+        <button 
+          onClick={() => setActiveTab('workspaces')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'workspaces' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Workspaces
+        </button>
+        <button 
+          onClick={() => setActiveTab('visual')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Sistema (Branding)
+        </button>
+        <button 
+          onClick={() => setActiveTab('services')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Serviços
+        </button>
+        <button 
+          onClick={() => setActiveTab('pipelines')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pipelines' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Funil de Vendas
+        </button>
+        <button 
+          onClick={() => setActiveTab('automation')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'automation' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Automações
+        </button>
+        <button 
+          onClick={() => setActiveTab('technical')}
+          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          Painel Técnico
+        </button>
+        {currentUser?.role === UserRole.OWNER && (
+          <button 
+            onClick={() => setActiveTab('backup')}
+            className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'backup' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            Backup
+          </button>
+        )}
+      </div>
 
       {activeTab === 'services' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1190,6 +1252,20 @@ const Settings: React.FC<SettingsProps> = ({
 
       {(activeTab === 'users' || activeTab === 'roles') && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              Usuários
+            </button>
+            <button 
+              onClick={() => setActiveTab('roles')}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              Cargos e Permissões
+            </button>
+          </div>
           {activeTab === 'users' ? (
             <div className="flex justify-between items-center">
               <div>

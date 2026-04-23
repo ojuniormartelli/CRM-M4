@@ -890,11 +890,22 @@ const Companies: React.FC<CompaniesProps> = ({
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
                   {isEditing ? `EDITANDO: ${editingCompany?.name}` : editingCompany?.name}
                 </h3>
-                {activeTab === 'tasks' && (
-                  <div className="ml-4">
-                    <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                {!isEditing && (
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button 
+                      type="button"
+                      onClick={() => setActiveTab('details')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      Detalhes
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setActiveTab('tasks')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'tasks' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
                       Tarefas ({companyTasks.length})
-                    </span>
+                    </button>
                   </div>
                 )}
               </div>
