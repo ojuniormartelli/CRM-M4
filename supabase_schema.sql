@@ -167,6 +167,23 @@ CREATE TABLE public.m4_leads (
     responsible_id UUID,
     last_activity_at TIMESTAMPTZ DEFAULT now(),
     custom_fields JSONB DEFAULT '{}'::jsonb,
+    -- Colunas de Empresa (Vinculadas ao Lead)
+    company_cnpj TEXT,
+    company_city TEXT,
+    company_state TEXT,
+    company_niche TEXT,
+    company_website TEXT,
+    company_email TEXT,
+    company_instagram TEXT,
+    company_linkedin TEXT,
+    company_whatsapp TEXT,
+    -- Colunas de Contato (Vinculadas ao Lead)
+    contact_role TEXT,
+    contact_email TEXT,
+    contact_instagram TEXT,
+    contact_linkedin TEXT,
+    contact_whatsapp TEXT,
+    contact_notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
@@ -266,6 +283,12 @@ CREATE TABLE public.m4_fin_transactions (
     recurrence_end_date DATE,
     parent_transaction_id UUID REFERENCES public.m4_fin_transactions(id) ON DELETE SET NULL,
     generation_mode TEXT DEFAULT 'manual',
+    client_account_id UUID,
+    lead_id UUID,
+    company_id UUID,
+    credit_card_id UUID,
+    created_by UUID,
+    updated_by UUID,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -298,3 +321,8 @@ ON CONFLICT (id) DO NOTHING;
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- 8. ÍNDICES DE PERFORMANCE
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
+CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);

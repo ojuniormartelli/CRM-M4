@@ -26,7 +26,16 @@ export const funnelUtils = {
       'lost': FunnelStatus.LOST,
       'ganho': FunnelStatus.WON,
       'perdido': FunnelStatus.LOST,
-      'active': FunnelStatus.INITIAL
+      'active': FunnelStatus.INITIAL,
+      'lead': FunnelStatus.INITIAL,
+      'novo lead': FunnelStatus.INITIAL,
+      'qualificação': FunnelStatus.INTERMEDIATE,
+      'qualificado': FunnelStatus.INTERMEDIATE,
+      'reunião': FunnelStatus.INTERMEDIATE,
+      'proposta': FunnelStatus.INTERMEDIATE,
+      'negociação': FunnelStatus.INTERMEDIATE,
+      'fechado': FunnelStatus.WON,
+      'cliente': FunnelStatus.WON
     };
 
     const normalizedStageId = String(lead.stage || '').toLowerCase();

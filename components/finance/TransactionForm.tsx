@@ -183,7 +183,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Status</label>
                 <select
-                  value={formData.status}
+                  value={formData.status || FinanceTransactionStatus.PENDING}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as FinanceTransactionStatus })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -234,7 +234,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </label>
                 <select
                   required
-                  value={formData.bank_account_id}
+                  value={formData.bank_account_id || ''}
                   onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -248,7 +248,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Categoria</label>
                 <select
                   required
-                  value={formData.category_id}
+                  value={formData.category_id || ''}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -264,7 +264,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Centro de Custo</label>
                 <select
-                  value={formData.cost_center_id}
+                  value={formData.cost_center_id || ''}
                   onChange={(e) => setFormData({ ...formData, cost_center_id: e.target.value })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -277,7 +277,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Método de Pagamento</label>
                 <select
-                  value={formData.payment_method}
+                  value={formData.payment_method || ''}
                   onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -287,6 +287,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Manual Notes */}
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Observações (Interno)</label>
+              <textarea
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Adicione notas internas sobre este lançamento..."
+                rows={3}
+                className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+              />
             </div>
 
             {/* CRM Links */}
@@ -300,7 +312,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Empresa / Cliente</label>
                   <select
-                    value={formData.client_account_id}
+                    value={formData.client_account_id || ''}
                     onChange={(e) => setFormData({ 
                       ...formData, 
                       client_account_id: e.target.value,
@@ -317,7 +329,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Lead / Negócio</label>
                   <select
-                    value={formData.lead_id}
+                    value={formData.lead_id || ''}
                     onChange={(e) => setFormData({ 
                       ...formData, 
                       lead_id: e.target.value,
@@ -358,7 +370,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   <div>
                     <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 block">Frequência</label>
                     <select
-                      value={formData.recurrence_frequency}
+                      value={formData.recurrence_frequency || 'monthly'}
                       onChange={(e) => setFormData({ ...formData, recurrence_frequency: e.target.value as any })}
                       className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     >

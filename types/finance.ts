@@ -108,7 +108,7 @@ export interface FinanceTransaction {
   date?: string;
   notes?: string;
   attachments?: string[];
-  created_by: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   updated_by?: string;
@@ -141,6 +141,7 @@ export interface FinanceTransaction {
   company_id?: string;
   payment_method?: string;
   counterparty?: any;
+  edit_history?: string;
 }
 
 export interface FinanceCostCenter {

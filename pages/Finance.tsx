@@ -324,6 +324,7 @@ const Finance: React.FC<FinanceProps> = ({
         recurrence_unit: isRecurring ? selectedTransaction.recurrence_unit : null,
         recurrence_end_date: isRecurring ? selectedTransaction.recurrence_end_date : null,
         recurring_id: isRecurring ? selectedTransaction.recurring_id : null,
+        edit_history: (selectedTransaction.edit_history || '') + (selectedTransaction.edit_history ? '\n' : '') + `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}: Marcado como ${newStatus}`,
         updated_at: new Date().toISOString()
       };
 
@@ -392,8 +393,85 @@ const Finance: React.FC<FinanceProps> = ({
 
     setIsSyncing(true);
     try {
+      // 🛡️ RECALCULAR SALDOS (Se alterou valor ou conta em transação PAGA)
+      const isPaid = selectedTransaction.status === 'Pago' || selectedTransaction.status === 'Recebido' || selectedTransaction.status === 'Confirmado';
+      const newStatus = editTransaction.status || selectedTransaction.status;
+      const isStillPaid = newStatus === 'Pago' || newStatus === 'Recebido' || newStatus === 'Confirmado';
+
+      // Gerar Histórico de Edição
+      const changes: string[] = [];
+      if (selectedTransaction.description !== editTransaction.description && editTransaction.description !== undefined) 
+        changes.push(`Descrição: "${selectedTransaction.description}" para "${editTransaction.description}"`);
+      if (Number(selectedTransaction.amount) !== Number(editTransaction.amount) && editTransaction.amount !== undefined) 
+        changes.push(`Valor: R$ ${selectedTransaction.amount} para R$ ${editTransaction.amount}`);
+      if (selectedTransaction.due_date !== editTransaction.due_date && editTransaction.due_date !== undefined) 
+        changes.push(`Vencimento: ${selectedTransaction.due_date} para ${editTransaction.due_date}`);
+      if (selectedTransaction.bank_account_id !== editTransaction.bank_account_id && editTransaction.bank_account_id !== undefined) 
+        changes.push(`Conta trocada`);
+      
+      let newHistory = selectedTransaction.edit_history || '';
+      if (changes.length > 0) {
+        const logEntry = `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}: ${changes.join(' | ')}`;
+        newHistory = newHistory ? `${newHistory}\n${logEntry}` : logEntry;
+      }
+
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-      const updateData = mappers.transaction(editTransaction, currentUser?.workspace_id);
+      const updateData = {
+        ...mappers.transaction(editTransaction, currentUser?.workspace_id),
+        edit_history: newHistory,
+        updated_at: new Date().toISOString(),
+        updated_by: currentUser?.id
+      };
+
+      // Se a transação antiga estava paga, vamos reverter o saldo antigo
+      if (isPaid) {
+        const oldAccId = selectedTransaction.bank_account_id;
+        const oldAcc = bankAccounts.find(a => a.id === oldAccId);
+        if (oldAcc) {
+          const oldAmount = Number(selectedTransaction.amount);
+          const revertedBalance = selectedTransaction.type === 'Receita' 
+            ? Number(oldAcc.balance) - oldAmount 
+            : Number(oldAcc.balance) + oldAmount;
+          
+          await supabase.from('m4_bank_accounts').update({ balance: revertedBalance }).eq('id', oldAcc.id);
+          // Atualiza estado local temporariamente (será sobrescrito se aplicarmos o novo saldo logo abaixo)
+          setBankAccounts(prev => prev.map(a => a.id === oldAcc.id ? { ...a, balance: revertedBalance } : a));
+          
+          // Se a nova também está paga (que é o caso comum ao editar um valor), aplicamos o novo saldo
+          if (isStillPaid) {
+            const newAccId = updateData.bank_account_id || selectedTransaction.bank_account_id;
+            // Pegamos o status atualizado do banco de contas para garantir consistência se a conta for a mesma
+            const currentAccs = [...bankAccounts];
+            const accIndex = currentAccs.findIndex(a => a.id === newAccId);
+            if (accIndex !== -1) {
+              const targetAcc = { ...currentAccs[accIndex] };
+              // Se a conta for a mesma, o balance já foi revertido no passo anterior
+              const baseBalance = newAccId === oldAccId ? revertedBalance : Number(targetAcc.balance);
+              const newAmount = Number(updateData.amount !== undefined ? updateData.amount : selectedTransaction.amount);
+              
+              const finalBalance = (updateData.type || selectedTransaction.type) === 'Receita'
+                ? baseBalance + newAmount
+                : baseBalance - newAmount;
+
+              await supabase.from('m4_bank_accounts').update({ balance: finalBalance }).eq('id', targetAcc.id);
+              setBankAccounts(prev => prev.map(a => a.id === targetAcc.id ? { ...a, balance: finalBalance } : a));
+            }
+          }
+        }
+      } else if (isStillPaid) {
+        // Se NÃO estava paga, mas AGORA está (ex: editou status para "Pago" no modal de edição)
+        const newAccId = updateData.bank_account_id || selectedTransaction.bank_account_id;
+        const targetAcc = bankAccounts.find(a => a.id === newAccId);
+        if (targetAcc) {
+          const newAmount = Number(updateData.amount !== undefined ? updateData.amount : selectedTransaction.amount);
+          const finalBalance = (updateData.type || selectedTransaction.type) === 'Receita'
+            ? Number(targetAcc.balance) + newAmount
+            : Number(targetAcc.balance) - newAmount;
+
+          await supabase.from('m4_bank_accounts').update({ balance: finalBalance }).eq('id', targetAcc.id);
+          setBankAccounts(prev => prev.map(a => a.id === targetAcc.id ? { ...a, balance: finalBalance } : a));
+        }
+      }
 
       let query;
       if (selectedTransaction?.is_projected) {
@@ -1062,7 +1140,10 @@ const Finance: React.FC<FinanceProps> = ({
                 </div>
               </div>
             </div>
-            <button className="w-full mt-6 py-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-[10px] font-black uppercase tracking-widest">
+            <button 
+              onClick={() => setActiveTab('receivables')}
+              className="w-full mt-6 py-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-[10px] font-black uppercase tracking-widest"
+            >
               Análise Detalhada
             </button>
           </div>
@@ -1325,6 +1406,22 @@ const Finance: React.FC<FinanceProps> = ({
                   <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Este é um lançamento projetado automaticamente.</p>
                 </div>
               )}
+
+              {selectedTransaction.edit_history && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ICONS.History size={14} className="text-slate-400" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico de Edições</p>
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2 scrollbar-none">
+                    {selectedTransaction.edit_history.split('\n').map((entry, idx) => (
+                      <div key={idx} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 text-[9px] text-slate-600 dark:text-slate-400 font-medium">
+                        {entry}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 grid grid-cols-3 gap-3">
@@ -1472,7 +1569,7 @@ const Finance: React.FC<FinanceProps> = ({
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Conta de Destino/Origem</label>
                 {bankAccounts.length > 0 ? (
                   <select 
-                    value={confirmData.accountId}
+                    value={confirmData.accountId || ''}
                     onChange={e => setConfirmData({...confirmData, accountId: e.target.value})}
                     className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white"
                   >
@@ -1626,7 +1723,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
                     <select 
-                      value={editTransaction.type} 
+                      value={editTransaction.type || ''} 
                       onChange={e => setEditTransaction({...editTransaction, type: e.target.value as any})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
@@ -1660,7 +1757,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
                     <select 
-                      value={editTransaction.category} 
+                      value={editTransaction.category || ''} 
                       onChange={e => setEditTransaction({...editTransaction, category: e.target.value})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
@@ -1884,7 +1981,14 @@ const Finance: React.FC<FinanceProps> = ({
               </div>
 
               <div className="p-10 pt-6 flex gap-4 border-t border-slate-50 dark:border-slate-800 shrink-0">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">CANCELAR</button>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">FECHAR</button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsDeleteModalOpen(true)} 
+                  className="px-6 py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl font-black uppercase text-xs hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all border border-rose-100 dark:border-rose-800/50"
+                >
+                  <ICONS.Trash2 className="w-4 h-4" />
+                </button>
                 <button 
                   type="submit"
                   disabled={isSyncing}
@@ -1914,7 +2018,7 @@ const Finance: React.FC<FinanceProps> = ({
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo</label>
                     <select 
-                      value={newTransaction.type} 
+                      value={newTransaction.type || ''} 
                       onChange={e => setNewTransaction({...newTransaction, type: e.target.value as any})}
                       className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                     >
@@ -1952,7 +2056,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Categoria</label>
                       <select 
-                        value={newTransaction.category} 
+                        value={newTransaction.category || ''} 
                         onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}
                         className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                       >
@@ -1978,7 +2082,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Status</label>
                       <select 
-                        value={newTransaction.status} 
+                        value={newTransaction.status || ''} 
                         onChange={e => setNewTransaction({...newTransaction, status: e.target.value as any})}
                         className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-white"
                       >

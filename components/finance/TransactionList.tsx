@@ -6,12 +6,12 @@ import { MoreVertical, ArrowUpRight, ArrowDownLeft, Tag, Building2, Calendar, Re
 
 interface TransactionListProps {
   transactions: FinanceTransaction[];
-  onEdit: (t: FinanceTransaction) => void;
+  onView: (t: FinanceTransaction) => void;
   onDelete: (id: string) => void;
   onConfirm: (t: FinanceTransaction) => void;
 }
 
-const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEdit, onDelete, onConfirm }) => {
+const TransactionList: React.FC<TransactionListProps> = ({ transactions, onView, onDelete, onConfirm }) => {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
@@ -97,7 +97,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEdit,
                         </button>
                       )}
                       <button 
-                        onClick={() => onEdit(transaction)}
+                        onClick={() => onView(transaction)}
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                       >
                         <MoreVertical size={18} />

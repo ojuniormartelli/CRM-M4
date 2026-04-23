@@ -257,10 +257,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_payment_methods' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                       Métodos de Pagto
                     </button>
-                    <button onClick={() => setActiveTab('finance_counterparties')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_counterparties' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_counterparties' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Contrapartes
-                    </button>
                     <button onClick={() => setActiveTab('finance_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                       Configurações

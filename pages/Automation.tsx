@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { Lead, Automation, User } from '../types';

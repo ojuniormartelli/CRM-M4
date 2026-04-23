@@ -21,19 +21,9 @@ CREATE INDEX IF NOT EXISTS idx_m4_automations_entity_type ON m4_automations(enti
 -- RLS (Row Level Security)
 ALTER TABLE m4_automations ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only see/edit automations from their workspace
--- We allow access if workspace_id matches the user's workspace or if it's null (for default state)
-CREATE POLICY "Users can manage automations in their workspace" 
-ON m4_automations
-FOR ALL
-USING (
-    workspace_id IS NULL OR 
-    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-)
-WITH CHECK (
-    workspace_id IS NULL OR 
-    workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-);
+-- Policy: Permissive for demo/current environment
+DROP POLICY IF EXISTS "Users can manage automations in their workspace" ON m4_automations;
+CREATE POLICY "Allow all access" ON m4_automations FOR ALL USING (true) WITH CHECK (true);
 
 -- Trigger for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

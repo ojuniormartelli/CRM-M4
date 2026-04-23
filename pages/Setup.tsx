@@ -112,23 +112,6 @@ CREATE TABLE public.m4_settings (
 );
 
 -- 4. CRM E OPERAÇÕES
-CREATE TABLE public.m4_client_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
-    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
-    service_name TEXT,
-    service_type TEXT,
-    monthly_value DECIMAL(12, 2) DEFAULT 0,
-    due_day INTEGER,
-    status TEXT DEFAULT 'ativo',
-    start_date DATE,
-    billing_model TEXT DEFAULT 'recorrente',
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE public.m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -246,6 +229,23 @@ CREATE TABLE public.m4_clients (
     monthly_value DECIMAL(12, 2) DEFAULT 0,
     services JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    service_name TEXT,
+    service_type TEXT,
+    monthly_value DECIMAL(12, 2) DEFAULT 0,
+    due_day INTEGER,
+    status TEXT DEFAULT 'ativo',
+    start_date DATE,
+    billing_model TEXT DEFAULT 'recorrente',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_tasks (
@@ -427,6 +427,33 @@ CREATE TABLE public.m4_fin_budgets (
     scenario TEXT NOT NULL DEFAULT 'realistic',
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    trigger_conditions JSONB DEFAULT '{}'::jsonb,
+    actions JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    last_triggered_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
+    entity_id UUID NOT NULL,
+    entity_type TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    status TEXT DEFAULT 'success',
+    error_message TEXT,
+    execution_details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 6. SEEDS INICIAIS

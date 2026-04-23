@@ -1,8 +1,9 @@
-
 import { supabase } from '../lib/supabase';
 import { mappers } from '../lib/mappers';
 import { Lead, TaskTemplate, M4Client, Automation } from '../types';
 import { addDays } from 'date-fns';
+
+const isUUID = (uuid: any) => typeof uuid === 'string' && (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid));
 
 export const automationService = {
   /**
@@ -106,6 +107,18 @@ export const automationService = {
   },
 
   /**
+   * Normalize status values for comparison
+   */
+  normalizeStatus(status: string | undefined | null): string {
+    if (!status) return '';
+    const s = String(status).toLowerCase();
+    if (s === 'ganho' || s === 'won') return 'won';
+    if (s === 'perdido' || s === 'lost') return 'lost';
+    if (s === 'ativo' || s === 'active' || s === 'inicial' || s === 'intermediario') return 'active';
+    return s;
+  },
+
+  /**
    * Move a lead to a different pipeline and stage
    */
   async moveLeadToPipeline(leadId: string, pipelineId: string, stageId: string, automationId?: string) {
@@ -187,12 +200,10 @@ export const automationService = {
     // We remove ID and timestamps to let Supabase generate new ones
     const { id, created_at, updated_at, ...leadData } = originalLead;
     
-    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-
     const newLeadPayload: any = {
       ...leadData,
       pipeline_id: pipelineId,
-      stage_id: isUUID(stageId) ? stageId : (leadData.stage_id || null),
+      stage_id: isUUID(stageId) ? stageId : (pipelineId === originalLead.pipeline_id ? leadData.stage_id : null),
       origin_lead_id: leadId, // Link to original
       created_at: new Date().toISOString()
     };
@@ -243,8 +254,6 @@ export const automationService = {
     execution_details?: any;
   }) {
     // Sanitize workspace_id for logs
-    const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-    
     // If workspace_id is missing or invalid, try to use a default or omit it if the DB allows
     // However, since it's NOT NULL in some schemas, we use a fallback if possible
     const sanitizedWorkspaceId = isUUID(logData.workspace_id) 
@@ -301,8 +310,15 @@ export const automationService = {
       const { pipeline_id: e_pipeline, from_status: e_from, to_status: e_to } = eventData;
 
       if (pipeline_id && pipeline_id !== e_pipeline) return false;
-      if (from_status && from_status !== e_from) return false;
-      if (to_status && to_status !== e_to) return false;
+      
+      // Normalize statuses for comparison to handle 'ganho' vs 'won', etc.
+      const nFrom = this.normalizeStatus(from_status);
+      const nEFrom = this.normalizeStatus(e_from);
+      const nTo = this.normalizeStatus(to_status);
+      const nETo = this.normalizeStatus(e_to);
+
+      if (nFrom && nFrom !== nEFrom) return false;
+      if (nTo && nTo !== nETo) return false;
 
       return true;
     }
@@ -346,8 +362,6 @@ export const automationService = {
   async processEvent(workspaceId: string, entityType: string, triggerType: string, eventData: any, entity: any) {
     try {
       // 1. Sanitize workspaceId (ensure it's a valid UUID or null)
-      const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-      
       let validWorkspaceId: string | null = isUUID(workspaceId) ? workspaceId : null;
       
       // Fallback to entity's workspace if provided workspaceId is invalid

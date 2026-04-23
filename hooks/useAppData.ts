@@ -17,12 +17,23 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     queryKey: ['leads', resolvedWorkspaceId],
     queryFn: () => leadService.getAll(resolvedWorkspaceId || ''),
     enabled: !!resolvedWorkspaceId && !workspaceLoading,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, 
+  });
+
+  // React Query for Tasks
+  const { data: tasks = [], isLoading: tasksLoading, refetch: fetchTasks } = useQuery({
+    queryKey: ['tasks', resolvedWorkspaceId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('m4_tasks').select('*').eq('workspace_id', resolvedWorkspaceId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!resolvedWorkspaceId && !workspaceLoading,
+    staleTime: 5 * 60 * 1000,
   });
 
   const [companies, setCompanies] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -61,6 +72,29 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     setIsLoadingLeads(leadsLoading);
   }, [leadsLoading]);
 
+  // Listen for automation events to refetch data automatically
+  useEffect(() => {
+    const handleAutomationExecuted = (e: any) => {
+      console.log('[useAppData] Automation executed event received:', e.detail);
+      
+      // Always refetch leads as they are the most common entity for automations
+      queryClient.invalidateQueries({ queryKey: ['leads', resolvedWorkspaceId] });
+      
+      // Also potentially refetch other things based on entityType
+      if (e.detail?.entityType === 'task') {
+        // Since tasks are not using React Query yet (they use local state), 
+        // we might need a way to refetch them or just refetch everything
+        queryClient.invalidateQueries({ queryKey: ['tasks', resolvedWorkspaceId] });
+      }
+      
+      // If we used safeFetch for everything, we'd need to re-run the whole fetchData
+      // But for now, invalidating leads will solve the most common case (duplication)
+    };
+
+    window.addEventListener('m4_automation_executed', handleAutomationExecuted);
+    return () => window.removeEventListener('m4_automation_executed', handleAutomationExecuted);
+  }, [queryClient, resolvedWorkspaceId]);
+
   const fetchServices = async (wsId: string) => {
     try {
       const { data: servicesData, error } = await supabase.from('m4_services').select('*').eq('workspace_id', wsId).order('name');
@@ -93,7 +127,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
       await Promise.all([
         // fetchLeads(wsId), // Handled by React Query
-        safeFetch('m4_tasks', setTasks),
+        // safeFetch('m4_tasks', setTasks), // Handled by React Query
         safeFetch('m4_fin_transactions', setTransactions),
         safeFetch('m4_emails', setEmails, { order: 'created_at', ascending: false }),
         safeFetch('m4_clients', setClients),
@@ -136,16 +170,19 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
   }, [resolvedWorkspaceId, workspaceLoading]);
 
   const setLeadsLocally = (newData: any[]) => {
-    // Manually update cache if needed, or queryClient.setQueryData
     queryClient.setQueryData(['leads', resolvedWorkspaceId], newData);
   };
 
+  const setTasksLocally = (newData: any[]) => {
+    queryClient.setQueryData(['tasks', resolvedWorkspaceId], newData);
+  };
+
   return {
-    loading: loading || leadsLoading,
+    loading: loading || leadsLoading || tasksLoading,
     leads, setLeads: setLeadsLocally,
     companies, setCompanies,
     contacts, setContacts,
-    tasks, setTasks,
+    tasks, setTasks: setTasksLocally,
     transactions,
     emails, setEmails,
     clients, setClients,

@@ -92,7 +92,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ isOpen, onClose, onSa
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Tipo</label>
                 <select
-                  value={formData.type}
+                  value={formData.type || FinanceBankAccountType.CHECKING}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as FinanceBankAccountType })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >

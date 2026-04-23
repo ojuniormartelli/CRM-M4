@@ -85,7 +85,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Tipo</label>
                 <select
-                  value={formData.type}
+                  value={formData.type || FinanceCategoryType.EXPENSE}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as FinanceCategoryType })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -97,7 +97,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Classificação</label>
                 <select
-                  value={formData.classification_type}
+                  value={formData.classification_type || FinanceClassificationType.OPERATIONAL}
                   onChange={(e) => setFormData({ ...formData, classification_type: e.target.value as FinanceClassificationType })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >
@@ -112,7 +112,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Categoria Pai (Opcional)</label>
               <select
-                value={formData.parent_id}
+                value={formData.parent_id || ''}
                 onChange={(e) => {
                   const parent = categories.find(c => c.id === e.target.value);
                   setFormData({ 
@@ -145,7 +145,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Grupo DRE</label>
                 <select
-                  value={formData.dre_group}
+                  value={formData.dre_group || ''}
                   onChange={(e) => setFormData({ ...formData, dre_group: e.target.value })}
                   className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 >

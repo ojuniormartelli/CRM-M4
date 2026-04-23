@@ -784,70 +784,8 @@ const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-        <button 
-          onClick={() => setActiveTab('general')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Geral
-        </button>
-        <button 
-          onClick={() => setActiveTab('profile')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Meu Perfil
-        </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Equipe (Usuários e Cargos)
-        </button>
-        <button 
-          onClick={() => setActiveTab('workspaces')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'workspaces' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Workspaces
-        </button>
-        <button 
-          onClick={() => setActiveTab('visual')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Sistema (Branding)
-        </button>
-        <button 
-          onClick={() => setActiveTab('services')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Serviços
-        </button>
-        <button 
-          onClick={() => setActiveTab('pipelines')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pipelines' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Funil de Vendas
-        </button>
-        <button 
-          onClick={() => setActiveTab('automation')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'automation' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Automações
-        </button>
-        <button 
-          onClick={() => setActiveTab('technical')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Painel Técnico
-        </button>
-        {currentUser?.role === UserRole.OWNER && (
-          <button 
-            onClick={() => setActiveTab('backup')}
-            className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'backup' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            Backup
-          </button>
-        )}
-      </div>
+      <div className="h-full space-y-10">
+        {/* Render sections based on activeTab */}
 
       {activeTab === 'services' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -959,7 +897,7 @@ const Settings: React.FC<SettingsProps> = ({
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
                       <input
                         type="number"
-                        value={editingService?.default_price === 0 ? '' : editingService?.default_price}
+                        value={editingService?.default_price === 0 ? '' : (editingService?.default_price ?? '')}
                         onChange={(e) => setEditingService({ ...editingService, default_price: parseFloat(e.target.value) || 0 })}
                         className="w-full p-4 pl-12 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
                         placeholder="0,00"
@@ -1252,20 +1190,6 @@ const Settings: React.FC<SettingsProps> = ({
 
       {(activeTab === 'users' || activeTab === 'roles') && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER) && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <button 
-              onClick={() => setActiveTab('users')}
-              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-            >
-              Usuários
-            </button>
-            <button 
-              onClick={() => setActiveTab('roles')}
-              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roles' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-            >
-              Cargos e Permissões
-            </button>
-          </div>
           {activeTab === 'users' ? (
             <div className="flex justify-between items-center">
               <div>
@@ -1501,7 +1425,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome Completo</label>
                   <input 
                     type="text" 
-                    value={currentUser.name}
+                    value={currentUser.name ?? ''}
                     onChange={e => onUserUpdate({ ...currentUser, name: e.target.value })}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200" 
                   />
@@ -1758,7 +1682,7 @@ const Settings: React.FC<SettingsProps> = ({
                 <div className={editingUser.id ? "col-span-2" : ""}>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
                   <select 
-                    value={editingUser.status}
+                    value={editingUser.status ?? 'active'}
                     onChange={e => setEditingUser({ ...editingUser, status: e.target.value as 'active' | 'inactive' })}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
                   >

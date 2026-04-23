@@ -416,6 +416,33 @@ CREATE TABLE public.m4_fin_budgets (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.m4_automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    trigger_conditions JSONB DEFAULT '{}'::jsonb,
+    actions JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    last_triggered_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
+    entity_id UUID NOT NULL,
+    entity_type TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    status TEXT DEFAULT 'success',
+    error_message TEXT,
+    execution_details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 6. SEEDS INICIAIS
 INSERT INTO public.m4_workspaces (id, name)
 VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')

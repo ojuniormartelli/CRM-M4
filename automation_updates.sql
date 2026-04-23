@@ -19,12 +19,8 @@ CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
 -- RLS for logs
 ALTER TABLE public.m4_automation_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view logs from their workspace"
-    ON public.m4_automation_logs FOR SELECT
-    USING (
-        workspace_id IS NULL OR 
-        workspace_id::text IN (SELECT workspace_id::text FROM m4_users WHERE id::text = auth.uid()::text)
-    );
+DROP POLICY IF EXISTS "Users can view logs from their workspace" ON public.m4_automation_logs;
+CREATE POLICY "Allow all access" ON public.m4_automation_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- Index for performance
 CREATE INDEX IF NOT EXISTS idx_automation_logs_workspace ON public.m4_automation_logs(workspace_id);

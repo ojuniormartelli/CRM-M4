@@ -47,6 +47,7 @@ import FinanceDreView from '../components/finance/FinanceDreView';
 import FinancePerformanceView from '../components/finance/FinancePerformanceView';
 import TransactionList from '../components/finance/TransactionList';
 import TransactionForm from '../components/finance/TransactionForm';
+import TransactionDetails from '../components/finance/TransactionDetails';
 import PaymentModal from '../components/finance/PaymentModal';
 import BankAccountList from '../components/finance/BankAccountList';
 import BankAccountForm from '../components/finance/BankAccountForm';
@@ -84,6 +85,7 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   
   // Modal States
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
+  const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   const [isTransferFormOpen, setIsTransferFormOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Partial<FinanceTransaction> | undefined>();
   
@@ -282,7 +284,10 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
           created_by: currentUser?.id || ''
         });
       } else if (data.id) {
-        await financeService.updateTransaction(data.id, data);
+        await financeService.updateTransaction(data.id, {
+          ...data,
+          updated_by: currentUser?.id
+        });
       } else {
         await financeService.createTransaction({
           ...data,
@@ -548,52 +553,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         </div>
       )}
 
-      {/* Tabs Navigation */}
-      <div className="flex flex-wrap items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 w-fit rounded-2xl">
-        <button 
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'dashboard' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <LayoutDashboard size={16} />
-          Dashboard
-        </button>
-        <button 
-          onClick={() => setActiveTab('dre')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'dre' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <BarChart3 size={16} />
-          DRE
-        </button>
-        <button 
-          onClick={() => setActiveTab('performance')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'performance' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <LineChart size={16} />
-          Performance
-        </button>
-        <button 
-          onClick={() => setActiveTab('transactions')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'transactions' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <ListIcon size={16} />
-          Lançamentos
-        </button>
-        <button 
-          onClick={() => setActiveTab('accounts')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'accounts' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <Building2 size={16} />
-          Contas
-        </button>
-        <button 
-          onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <Plus size={16} />
-          Configurações
-        </button>
-      </div>
-
       {/* Tab Content */}
       <div className="animate-in fade-in duration-500">
         {isMigrating && (
@@ -643,9 +602,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
             </div>
             <TransactionList 
               transactions={filteredTransactions} 
-              onEdit={(t) => {
+              onView={(t) => {
                 setSelectedTransaction(t);
-                setIsTransactionFormOpen(true);
+                setIsTransactionDetailsOpen(true);
               }}
               onDelete={(id) => {
                 setItemToDelete({ id, type: 'transaction' });
@@ -682,32 +641,6 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         {activeTab === 'settings' && (
           <div className="space-y-8">
             <div className="animate-in fade-in duration-500">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 w-fit rounded-2xl">
-                  <button 
-                    onClick={() => setActiveSettingsTab('categories')}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeSettingsTab === 'categories' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    <Tag size={14} />
-                    Categorias
-                  </button>
-                  <button 
-                    onClick={() => setActiveSettingsTab('cost_centers')}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeSettingsTab === 'cost_centers' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    <Target size={14} />
-                    Centros de Custo
-                  </button>
-                  <button 
-                    onClick={() => setActiveSettingsTab('payment_methods')}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeSettingsTab === 'payment_methods' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    <CreditCard size={14} />
-                    Métodos
-                  </button>
-                </div>
-              </div>
-
               <div className="animate-in fade-in duration-500">
               {activeSettingsTab === 'categories' && (
                 <CategoryList 
@@ -780,6 +713,23 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         bankAccounts={bankAccounts}
       />
       
+      <TransactionDetails 
+        isOpen={isTransactionDetailsOpen}
+        onClose={() => setIsTransactionDetailsOpen(false)}
+        transaction={selectedTransaction as FinanceTransaction}
+        onEdit={(t) => {
+          setIsTransactionDetailsOpen(false);
+          setSelectedTransaction(t);
+          setIsTransactionFormOpen(true);
+        }}
+        onDelete={(id) => {
+          setIsTransactionDetailsOpen(false);
+          setItemToDelete({ id, type: 'transaction' });
+          setIsDeleteConfirmOpen(true);
+          setDeleteError(null);
+        }}
+      />
+
       <TransactionForm 
         isOpen={isTransactionFormOpen}
         onClose={() => setIsTransactionFormOpen(false)}

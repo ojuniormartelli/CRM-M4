@@ -711,7 +711,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pipeline de Destino</label>
                     <select 
-                      value={selectedPipelineId}
+                      value={selectedPipelineId || ''}
                       onChange={(e) => setSelectedPipelineId(e.target.value)}
                       className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     >
@@ -722,7 +722,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Etapa Inicial</label>
                     <select 
-                      value={selectedStageId}
+                      value={selectedStageId || ''}
                       onChange={(e) => setSelectedStageId(e.target.value)}
                       className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     >
@@ -736,7 +736,7 @@ export const LeadImportWizard: React.FC<LeadImportWizardProps> = ({ isOpen, onCl
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsável Padrão</label>
                   <select 
-                    value={selectedResponsibleId}
+                    value={selectedResponsibleId || ''}
                     onChange={(e) => setSelectedResponsibleId(e.target.value)}
                     className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   >

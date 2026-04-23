@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { isUUID } from '../lib/mappers';
+import { mappers, isUUID } from '../lib/mappers';
 import { 
   FinanceTransaction, 
   FinanceCategory, 
@@ -104,33 +104,144 @@ export const financeService = {
     }
   },
 
-  async createTransaction(transaction: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
+  async createTransaction(data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
     try {
-      const { data, error } = await supabase
+      const payload = mappers.transaction(data);
+      
+      const { data: result, error } = await supabase
         .from('m4_fin_transactions')
-        .insert([transaction])
+        .insert([payload])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+
+      // Update balance if created as PAID
+      if (result.status === 'paid' && result.bank_account_id) {
+        const { data: account, error: accError } = await supabase
+          .from('m4_fin_bank_accounts')
+          .select('balance')
+          .eq('id', result.bank_account_id)
+          .single();
+        
+        if (!accError && account) {
+          const amount = Number(result.amount);
+          const newBalance = result.type === 'income' 
+            ? Number(account.balance) + amount
+            : Number(account.balance) - amount;
+          
+          await supabase
+            .from('m4_fin_bank_accounts')
+            .update({ balance: newBalance })
+            .eq('id', result.bank_account_id);
+        }
+      }
+
+      return result;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'm4_fin_transactions');
       throw error;
     }
   },
 
-  async updateTransaction(id: string, transaction: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
+  async updateTransaction(id: string, data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
     try {
-      const { data, error } = await supabase
+      // 1. Get existing transaction to check status and values BEFORE update
+      const { data: existing, error: fetchError } = await supabase
         .from('m4_fin_transactions')
-        .update(transaction)
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Transação não encontrada');
+
+      const payload = mappers.transaction(data);
+
+      // 2. Track changes for history
+      const changes: string[] = [];
+      const now = new Date().toLocaleString('pt-BR');
+      
+      if (data.description && data.description !== existing.description) 
+        changes.push(`Descrição: "${existing.description}" -> "${data.description}"`);
+      if (data.amount !== undefined && Number(data.amount) !== Number(existing.amount)) 
+        changes.push(`Valor: ${existing.amount} -> ${data.amount}`);
+      if (data.status && data.status !== existing.status) 
+        changes.push(`Status: ${existing.status} -> ${data.status}`);
+      if (data.bank_account_id && data.bank_account_id !== existing.bank_account_id) 
+        changes.push(`Conta Bancária alterada`);
+      if (data.due_date && data.due_date !== existing.due_date) 
+        changes.push(`Vencimento: ${existing.due_date} -> ${data.due_date}`);
+      
+      if (changes.length > 0) {
+        const historyEntry = `\n[${now}] Alterações:\n- ${changes.join('\n- ')}`;
+        payload.edit_history = (existing.edit_history || '') + historyEntry;
+      }
+
+      // 3. Perform the update
+      const { data: result, error: updateError } = await supabase
+        .from('m4_fin_transactions')
+        .update(payload)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (updateError) throw updateError;
+
+      // 3. Handle Balance updates if needed
+      // Logic: If status changed to PAID or if it was PAID and values (amount/bank/type) changed
+      const wasPaid = existing.status === 'paid';
+      const isPaid = result.status === 'paid';
+      
+      const amountChanged = Number(existing.amount) !== Number(result.amount);
+      const accountChanged = existing.bank_account_id !== result.bank_account_id;
+      const typeChanged = existing.type !== result.type;
+
+      if (wasPaid || isPaid) {
+        // Revert old effect if it was paid
+        if (wasPaid && existing.bank_account_id) {
+          const { data: oldAcc, error: oldAccError } = await supabase
+            .from('m4_fin_bank_accounts')
+            .select('balance')
+            .eq('id', existing.bank_account_id)
+            .single();
+          
+          if (!oldAccError && oldAcc) {
+            const oldAmount = Number(existing.amount);
+            const revertedBalance = existing.type === 'income' 
+              ? Number(oldAcc.balance) - oldAmount
+              : Number(oldAcc.balance) + oldAmount;
+            
+            await supabase
+              .from('m4_fin_bank_accounts')
+              .update({ balance: revertedBalance })
+              .eq('id', existing.bank_account_id);
+          }
+        }
+
+        // Apply new effect if it is now paid
+        if (isPaid && result.bank_account_id) {
+          const { data: newAcc, error: newAccError } = await supabase
+            .from('m4_fin_bank_accounts')
+            .select('balance')
+            .eq('id', result.bank_account_id)
+            .single();
+          
+          if (!newAccError && newAcc) {
+            const newAmount = Number(result.amount);
+            const appliedBalance = result.type === 'income'
+              ? Number(newAcc.balance) + newAmount
+              : Number(newAcc.balance) - newAmount;
+            
+            await supabase
+              .from('m4_fin_bank_accounts')
+              .update({ balance: appliedBalance })
+              .eq('id', result.bank_account_id);
+          }
+        }
+      }
+
+      return result;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'm4_fin_transactions');
       throw error;
@@ -139,6 +250,34 @@ export const financeService = {
 
   async deleteTransaction(id: string): Promise<void> {
     try {
+      // 1. Get the transaction before deleting to check if it's paid
+      const { data: transaction, error: fetchError } = await supabase
+        .from('m4_fin_transactions')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (!fetchError && transaction && transaction.status === 'paid' && transaction.bank_account_id) {
+        // Revert balance effect
+        const { data: account, error: accError } = await supabase
+          .from('m4_fin_bank_accounts')
+          .select('balance')
+          .eq('id', transaction.bank_account_id)
+          .single();
+        
+        if (!accError && account) {
+          const amount = Number(transaction.amount);
+          const revertedBalance = transaction.type === 'income' 
+            ? Number(account.balance) - amount
+            : Number(account.balance) + amount;
+          
+          await supabase
+            .from('m4_fin_bank_accounts')
+            .update({ balance: revertedBalance })
+            .eq('id', transaction.bank_account_id);
+        }
+      }
+
       const { error } = await supabase
         .from('m4_fin_transactions')
         .delete()
@@ -190,10 +329,19 @@ export const financeService = {
         .select('*, company:m4_companies(name)')
         .eq('workspace_id', workspaceId);
 
-      if (error) throw error;
+      if (error) {
+        // Silent fail if table missing (waiting for setup)
+        if (error.message?.includes('schema cache')) {
+          return [];
+        }
+        throw error;
+      }
       return data || [];
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'm4_client_accounts');
+      // Only log if it's not a schema cache error
+      if (!(error as any)?.message?.includes('schema cache')) {
+        handleFirestoreError(error, OperationType.LIST, 'm4_client_accounts');
+      }
       return [];
     }
   },
@@ -570,7 +718,7 @@ export const financeService = {
   }): Promise<void> {
     try {
       // 1. Create Outflow (Transfer Exit)
-      const outflow: Partial<FinanceTransaction> = {
+      const outflowPayload = mappers.transaction({
         workspace_id: data.workspace_id,
         type: FinanceTransactionType.TRANSFER,
         status: data.status,
@@ -584,18 +732,18 @@ export const financeService = {
         destination_bank_account_id: data.destination_bank_account_id,
         created_by: data.created_by,
         updated_by: data.created_by
-      };
+      } as any);
 
       const { data: outflowResult, error: outflowError } = await supabase
         .from('m4_fin_transactions')
-        .insert([outflow])
+        .insert([outflowPayload])
         .select()
         .single();
 
       if (outflowError) throw outflowError;
 
       // 2. Create Inflow (Transfer Entry)
-      const inflow: Partial<FinanceTransaction> = {
+      const inflowPayload = mappers.transaction({
         workspace_id: data.workspace_id,
         type: FinanceTransactionType.TRANSFER,
         status: data.status,
@@ -609,11 +757,11 @@ export const financeService = {
         parent_transaction_id: outflowResult.id, // Link to the outflow
         created_by: data.created_by,
         updated_by: data.created_by
-      };
+      } as any);
 
       const { error: inflowError } = await supabase
         .from('m4_fin_transactions')
-        .insert([inflow]);
+        .insert([inflowPayload]);
 
       if (inflowError) throw inflowError;
 

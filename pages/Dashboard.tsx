@@ -8,6 +8,7 @@ import { aiService } from '../services/aiService';
 import { metricsUtils } from '../utils/metrics';
 import { alertsUtils } from '../utils/alerts';
 import { goalsUtils } from '../utils/goals';
+import { useCRMStore } from '../lib/store';
 
 // New Components
 import { AlertsPanel } from '../components/Dashboard/AlertsPanel';
@@ -188,7 +189,12 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <AlertsPanel leads={filteredLeads} pipelines={filteredPipelines} />
+          <AlertsPanel 
+            leads={filteredLeads} 
+            pipelines={filteredPipelines} 
+            setActiveTab={setActiveTab}
+            onFilterChange={(mode) => useCRMStore.getState().setFilterMode(mode)}
+          />
         </div>
         <div>
           <GoalTracker leads={filteredLeads} pipelines={filteredPipelines} goal={currentGoal} />

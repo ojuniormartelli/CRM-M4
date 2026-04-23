@@ -207,12 +207,29 @@ export const mappers = {
     if (data.description !== undefined) payload.description = cleanText(data.description) || 'Sem descrição';
     if (data.amount !== undefined) payload.amount = toNumber(data.amount);
     if (data.type !== undefined) payload.type = data.type;
-    if (data.category_id !== undefined) payload.category_id = data.category_id;
-    if (data.bank_account_id !== undefined) payload.bank_account_id = data.bank_account_id;
+    
+    // UUID Fields - Convert empty string to null
+    if (data.category_id !== undefined) payload.category_id = isUUID(data.category_id) ? data.category_id : null;
+    if (data.bank_account_id !== undefined) payload.bank_account_id = isUUID(data.bank_account_id) ? data.bank_account_id : null;
+    if ((data as any).destination_bank_account_id !== undefined) payload.destination_bank_account_id = isUUID((data as any).destination_bank_account_id) ? (data as any).destination_bank_account_id : null;
+    if ((data as any).parent_transaction_id !== undefined) payload.parent_transaction_id = isUUID((data as any).parent_transaction_id) ? (data as any).parent_transaction_id : null;
+    if ((data as any).client_account_id !== undefined) payload.client_account_id = isUUID((data as any).client_account_id) ? (data as any).client_account_id : null;
+    if ((data as any).lead_id !== undefined) payload.lead_id = isUUID((data as any).lead_id) ? (data as any).lead_id : null;
+    if ((data as any).company_id !== undefined) payload.company_id = isUUID((data as any).company_id) ? (data as any).company_id : null;
+    if ((data as any).cost_center_id !== undefined) payload.cost_center_id = isUUID((data as any).cost_center_id) ? (data as any).cost_center_id : null;
+    if ((data as any).created_by !== undefined) payload.created_by = isUUID((data as any).created_by) ? (data as any).created_by : null;
+    if ((data as any).updated_by !== undefined) payload.updated_by = isUUID((data as any).updated_by) ? (data as any).updated_by : null;
+
     if (data.status !== undefined) payload.status = data.status || 'pending';
     if (data.issue_date !== undefined) payload.issue_date = data.issue_date;
     if (data.due_date !== undefined) payload.due_date = data.due_date;
     if (data.paid_at !== undefined) payload.paid_at = data.paid_at;
+    if (data.notes !== undefined) payload.notes = cleanText(data.notes);
+    if ((data as any).edit_history !== undefined) payload.edit_history = (data as any).edit_history;
+    if ((data as any).updated_at !== undefined) payload.updated_at = (data as any).updated_at || new Date().toISOString();
+    if ((data as any).paid_date !== undefined) payload.paid_date = (data as any).paid_date;
+    if ((data as any).competence_date !== undefined) payload.competence_date = (data as any).competence_date;
+    if ((data as any).payment_method !== undefined) payload.payment_method = cleanText((data as any).payment_method);
 
     const ws = getValidWorkspaceId(workspaceId, data.workspace_id);
     if (ws) payload.workspace_id = ws;

@@ -1230,7 +1230,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Prioridade</label>
                     {isEditing ? (
-                      <select value={selectedTask ? editTask.priority : newTask.priority} onChange={e => selectedTask ? setEditTask({...editTask, priority: e.target.value as any}) : setNewTask({...newTask, priority: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
+                      <select value={selectedTask ? (editTask.priority || Priority.MEDIUM) : (newTask.priority || Priority.MEDIUM)} onChange={e => selectedTask ? setEditTask({...editTask, priority: e.target.value as any}) : setNewTask({...newTask, priority: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
                         {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
                       </select>
                     ) : (
@@ -1240,7 +1240,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Tipo de Atividade (Domínio)</label>
                     {isEditing ? (
-                      <select value={selectedTask ? editTask.task_type : newTask.task_type} onChange={e => selectedTask ? setEditTask({...editTask, task_type: e.target.value as any}) : setNewTask({...newTask, task_type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
+                      <select value={selectedTask ? (editTask.task_type || 'internal') : (newTask.task_type || 'internal')} onChange={e => selectedTask ? setEditTask({...editTask, task_type: e.target.value as any}) : setNewTask({...newTask, task_type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
                         <option value="internal">Interno / Operacional</option>
                         <option value="commercial">Comercial (Lead)</option>
                         <option value="operational">Cliente (Projeto)</option>
@@ -1252,7 +1252,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Ação</label>
                     {isEditing ? (
-                      <select value={selectedTask ? editTask.type : newTask.type} onChange={e => selectedTask ? setEditTask({...editTask, type: e.target.value as any}) : setNewTask({...newTask, type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
+                      <select value={selectedTask ? (editTask.type || 'task') : (newTask.type || 'task')} onChange={e => selectedTask ? setEditTask({...editTask, type: e.target.value as any}) : setNewTask({...newTask, type: e.target.value as any})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white">
                         <option value="task">Tarefa</option>
                         <option value="call">Ligação</option>
                         <option value="meeting">Reunião</option>
@@ -1449,7 +1449,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
                           <label className="block text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Frequência</label>
                           {isEditing ? (
                             <select 
-                              value={selectedTask ? editTask.recurrence_type : newTask.recurrence_type} 
+                              value={selectedTask ? (editTask.recurrence_type || 'monthly') : (newTask.recurrence_type || 'monthly')} 
                               onChange={e => selectedTask ? setEditTask({...editTask, recurrence_type: e.target.value as any}) : setNewTask({...newTask, recurrence_type: e.target.value as any})}
                               className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-[56px] text-slate-900 dark:text-white"
                             >

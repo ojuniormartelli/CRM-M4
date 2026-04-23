@@ -7,9 +7,11 @@ import { ICONS } from '../../constants';
 interface AlertsPanelProps {
   leads: Lead[];
   pipelines: Pipeline[];
+  setActiveTab: (tab: string) => void;
+  onFilterChange?: (mode: 'all' | 'my_day') => void;
 }
 
-export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines }) => {
+export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines, setActiveTab, onFilterChange }) => {
   const hotLeads = alertsUtils.getHotLeadsWithoutAction(leads, pipelines);
   const closingSoon = alertsUtils.getDealsClosingSoon(leads, pipelines);
   const overdueFollowups = alertsUtils.getOverdueFollowups(leads, pipelines);
@@ -44,7 +46,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines }) =>
               <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{hotLeads.length}</span>
             </div>
             <p className="text-orange-700 dark:text-orange-300 text-xs mb-3">Leads quentes que não possuem ação agendada para hoje.</p>
-            <button className="w-full py-2 bg-orange-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-700 transition-all">Agendar Follow-up</button>
+            <button 
+              onClick={() => {
+                onFilterChange?.('all');
+                setActiveTab('sales');
+              }}
+              className="w-full py-2 bg-orange-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-700 transition-all"
+            >
+              Agendar Follow-up
+            </button>
           </div>
         )}
 
@@ -55,7 +65,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines }) =>
               <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{overdueFollowups.length}</span>
             </div>
             <p className="text-red-700 dark:text-red-300 text-xs mb-3">Ações que deveriam ter sido realizadas e estão pendentes.</p>
-            <button className="w-full py-2 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all">Ver Atrasados</button>
+            <button 
+              onClick={() => {
+                onFilterChange?.('my_day');
+                setActiveTab('sales');
+              }}
+              className="w-full py-2 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all"
+            >
+              Ver Atrasados
+            </button>
           </div>
         )}
 
@@ -66,7 +84,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines }) =>
               <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{closingSoon.length}</span>
             </div>
             <p className="text-emerald-700 dark:text-emerald-300 text-xs mb-3">Negócios com alta probabilidade e previsão para os próximos 7 dias.</p>
-            <button className="w-full py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all">Priorizar Agora</button>
+            <button 
+              onClick={() => {
+                onFilterChange?.('all');
+                setActiveTab('sales');
+              }}
+              className="w-full py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+            >
+              Priorizar Agora
+            </button>
           </div>
         )}
 
@@ -77,7 +103,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ leads, pipelines }) =>
               <span className="bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{inactiveLeads.length}</span>
             </div>
             <p className="text-slate-700 dark:text-slate-300 text-xs mb-3">Leads sem nenhuma interação há mais de 30 dias.</p>
-            <button className="w-full py-2 bg-slate-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all">Reativar Leads</button>
+            <button 
+              onClick={() => {
+                onFilterChange?.('all');
+                setActiveTab('sales');
+              }}
+              className="w-full py-2 bg-slate-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all"
+            >
+              Reativar Leads
+            </button>
           </div>
         )}
       </div>

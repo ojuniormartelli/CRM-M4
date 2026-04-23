@@ -977,6 +977,21 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     return getLeadsByStage(stageId).reduce((acc, lead) => acc + (Number(lead.value) || 0), 0);
   };
 
+  const totalLeadsInPipeline = React.useMemo(() => {
+    return (leads || []).filter(l => {
+      // Mesma lógica do funnelUtils.groupLeadsByStage
+      const matchesPipeline = !l.pipeline_id || l.pipeline_id === activePipeline.id;
+      const isActive = funnelUtils.isLeadActive(l, pipelines);
+      return matchesPipeline && isActive;
+    }).length;
+  }, [leads, activePipeline, pipelines]);
+
+  const totalFilteredLeads = React.useMemo(() => {
+    return Object.values(leadsByStage).reduce((acc, current) => acc + current.length, 0);
+  }, [leadsByStage]);
+
+  const leadsHiddenByFilter = totalLeadsInPipeline > 0 && totalFilteredLeads === 0 && filterMode === 'my_day';
+
   const isStale = (lead: Lead) => {
     const activityDate = lead.last_activity_at ? new Date(lead.last_activity_at) : new Date(lead.created_at);
     const fiveDaysAgo = new Date();
@@ -1526,7 +1541,27 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
 
       {viewMode === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none">
+        <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none relative">
+          {leadsHiddenByFilter && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center p-10 bg-background/50 backdrop-blur-[2px]">
+              <div className="bg-card p-10 rounded-[3rem] border-2 border-primary shadow-2xl max-w-md text-center animate-in zoom-in duration-500">
+                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-6">
+                  <ICONS.Clock width="40" height="40" />
+                </div>
+                <h3 className="text-2xl font-black text-foreground uppercase mb-4">Filtro Ativo!</h3>
+                <p className="text-muted-foreground font-bold leading-relaxed mb-8">
+                  Você possui <span className="text-primary">{totalLeadsInPipeline} leads ativos</span> neste pipeline, mas nenhum aparece porque o filtro <span className="bg-primary/10 px-2 py-1 rounded-lg text-primary italic">"Meu Dia"</span> está selecionado e eles não possuem ações para hoje.
+                </p>
+                <button 
+                  onClick={() => setFilterMode('all')}
+                  className="w-full py-5 bg-primary text-primary-foreground rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-primary/20"
+                >
+                  Ver Todos os Leads
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex gap-8 h-full min-w-max">
             {activePipeline.stages.map((stage) => (
               <div 

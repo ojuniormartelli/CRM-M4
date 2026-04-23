@@ -105,7 +105,7 @@ const TransferForm: React.FC<TransferFormProps> = ({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Origem</label>
               <select
                 required
-                value={formData.bank_account_id}
+                value={formData.bank_account_id || ''}
                 onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
                 className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
               >
@@ -119,7 +119,7 @@ const TransferForm: React.FC<TransferFormProps> = ({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Destino</label>
               <select
                 required
-                value={formData.destination_bank_account_id}
+                value={formData.destination_bank_account_id || ''}
                 onChange={(e) => setFormData({ ...formData, destination_bank_account_id: e.target.value })}
                 className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
               >
