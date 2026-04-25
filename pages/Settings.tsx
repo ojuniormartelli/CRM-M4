@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -45,7 +44,6 @@ const BackupTab = () => {
     // New Finance Tables (m4_fin)
     'm4_fin_categories',
     'm4_fin_cost_centers',
-    'm4_fin_counterparties',
     'm4_fin_bank_accounts',
     'm4_fin_transactions',
     'm4_fin_budgets',
@@ -217,7 +215,7 @@ const Settings: React.FC<SettingsProps> = ({
   leads
 }) => {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'visual' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'backup' | 'pipelines' | 'workspaces' | 'automation'>('general');
+  const [activeTab, setActiveTab] = useState<'branding' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'backup' | 'pipelines' | 'workspaces' | 'automation'>('branding');
   const [isSaving, setIsSaving] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
@@ -238,13 +236,13 @@ const Settings: React.FC<SettingsProps> = ({
     if (parentActiveTab === 'settings_profile') setActiveTab('profile');
     else if (parentActiveTab === 'settings_users') setActiveTab('users');
     else if (parentActiveTab === 'settings_workspaces') setActiveTab('workspaces');
-    else if (parentActiveTab === 'settings_branding') setActiveTab('visual');
+    else if (parentActiveTab === 'settings_branding') setActiveTab('branding');
     else if (parentActiveTab === 'settings_services') setActiveTab('services');
     else if (parentActiveTab === 'settings_pipelines') setActiveTab('pipelines');
     else if (parentActiveTab === 'settings_automation') setActiveTab('automation');
     else if (parentActiveTab === 'settings_backup') setActiveTab('backup');
     else if (parentActiveTab === 'settings_technical') setActiveTab('technical');
-    else if (parentActiveTab === 'settings') setActiveTab('general');
+    else if (parentActiveTab === 'settings') setActiveTab('branding');
   }, [parentActiveTab]);
 
   useEffect(() => {
@@ -784,70 +782,6 @@ const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-        <button 
-          onClick={() => setActiveTab('general')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Geral
-        </button>
-        <button 
-          onClick={() => setActiveTab('profile')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Meu Perfil
-        </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Equipe (Usuários e Cargos)
-        </button>
-        <button 
-          onClick={() => setActiveTab('workspaces')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'workspaces' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Workspaces
-        </button>
-        <button 
-          onClick={() => setActiveTab('visual')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Sistema (Branding)
-        </button>
-        <button 
-          onClick={() => setActiveTab('services')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'services' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Serviços
-        </button>
-        <button 
-          onClick={() => setActiveTab('pipelines')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pipelines' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Funil de Vendas
-        </button>
-        <button 
-          onClick={() => setActiveTab('automation')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'automation' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Automações
-        </button>
-        <button 
-          onClick={() => setActiveTab('technical')}
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'technical' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          Painel Técnico
-        </button>
-        {currentUser?.role === UserRole.OWNER && (
-          <button 
-            onClick={() => setActiveTab('backup')}
-            className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'backup' ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            Backup
-          </button>
-        )}
-      </div>
 
       {activeTab === 'services' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -989,205 +923,205 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {activeTab === 'general' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Informações da Agência</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome da Agência / Empresa</label>
-                <input 
-                  type="text" 
-                  value={settings?.company_name ?? ''} 
-                  onChange={e => setSettings({...settings, company_name: e.target.value})}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+      {activeTab === 'branding' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Identidade do Sistema (Branding)</h3>
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do CRM / Sistema</label>
                   <input 
                     type="text" 
-                    value={settings?.city ?? ''} 
-                    onChange={e => setSettings({...settings, city: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                    value={settings?.crm_name || ''} 
+                    onChange={e => setSettings({...settings, crm_name: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                    placeholder="Ex: Agency X CRM"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
-                  <input 
-                    type="text" 
-                    value={settings?.state ?? ''} 
-                    onChange={e => setSettings({...settings, state: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website URL</label>
-                <input 
-                  type="url" 
-                  value={settings?.website_url ?? ''} 
-                  onChange={e => setSettings({...settings, website_url: e.target.value})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  placeholder="https://suaagencia.com"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp Principal</label>
-                <input 
-                  type="text" 
-                  value={settings?.whatsapp_number ?? ''} 
-                  onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Preferências do Sistema</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tema do Workspace</label>
-                <div className="grid grid-cols-3 gap-4">
-                  <button 
-                    onClick={() => setSettings({...settings, theme: 'light'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
-                  >
-                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
-                      <ICONS.Dashboard />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Logo do Workspace</label>
+                  <div className="flex items-center gap-8">
+                    <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden">
+                      {settings?.logo_url ? (
+                        <img src={settings.logo_url} alt="Logo Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <ICONS.Plus className="text-slate-300 dark:text-slate-600" />
+                      )}
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">Light</span>
-                  </button>
-                  <button 
-                    onClick={() => setSettings({...settings, theme: 'dark'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
-                  >
-                    <div className="w-10 h-10 bg-slate-900 rounded-xl shadow-sm border border-slate-800 flex items-center justify-center text-blue-400">
-                      <ICONS.Automation />
+                    <div className="flex-1 space-y-3">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload}
+                        className="hidden" 
+                        id="logo-upload" 
+                      />
+                      <label 
+                        htmlFor="logo-upload"
+                        className="inline-block px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-700 transition-all border border-transparent dark:border-slate-700"
+                      >
+                        Upload Novo Logo
+                      </label>
+                      <p className="text-[10px] text-slate-400 font-medium">Recomendado: PNG ou SVG transparente, 512x512px.</p>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">Dark</span>
-                  </button>
-                  <button 
-                    onClick={() => setSettings({...settings, theme: 'system'})}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'system' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
-                  >
-                    <div className="w-10 h-10 bg-slate-500 rounded-xl shadow-sm border border-slate-400 flex items-center justify-center text-white">
-                      <ICONS.Settings />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest dark:text-slate-300">System</span>
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Idioma Padrão</label>
-                <select 
-                  value={settings?.language || 'pt-BR'} 
-                  onChange={e => setSettings({...settings, language: e.target.value})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="pt-BR">Português (Brasil)</option>
-                  <option value="en-US">English (US)</option>
-                  <option value="es-ES">Español</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'visual' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Branding</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do CRM</label>
-                <input 
-                  type="text" 
-                  value={settings?.crm_name || ''} 
-                  onChange={e => setSettings({...settings, crm_name: e.target.value})}
-                  className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  placeholder="Ex: Agency X CRM"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Logo da Agência</label>
-                <div className="flex items-center gap-8">
-                  <div className="w-24 h-24 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
-                    {settings?.logo_url ? (
-                      <img src={settings.logo_url} alt="Logo Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <ICONS.Plus className="text-slate-300" />
-                    )}
                   </div>
-                  <div className="flex-1 space-y-3">
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Cor de Destaque (Primária)</label>
+                  <div className="flex items-center gap-4">
                     <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleLogoUpload}
-                      className="hidden" 
-                      id="logo-upload" 
+                      type="color" 
+                      value={settings?.primary_color || '#2563eb'} 
+                      onChange={e => setSettings({...settings, primary_color: e.target.value})}
+                      className="w-12 h-12 rounded-xl border-none cursor-pointer bg-transparent" 
                     />
-                    <label 
-                      htmlFor="logo-upload"
-                      className="inline-block px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-slate-800 transition-all"
-                    >
-                      Upload Novo Logo
-                    </label>
-                    <p className="text-[10px] text-slate-400 font-medium">Recomendado: PNG ou SVG transparente, 512x512px.</p>
+                    <input 
+                      type="text" 
+                      value={settings?.primary_color || '#2563eb'} 
+                      onChange={e => setSettings({...settings, primary_color: e.target.value})}
+                      className="flex-1 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200 uppercase" 
+                    />
                   </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Cor Primária</label>
-                <div className="flex items-center gap-4">
-                  <input 
-                    type="color" 
-                    value={settings?.primary_color || '#2563eb'} 
-                    onChange={e => setSettings({...settings, primary_color: e.target.value})}
-                    className="w-12 h-12 rounded-xl border-none cursor-pointer" 
-                  />
-                  <input 
-                    type="text" 
-                    value={settings?.primary_color || '#2563eb'} 
-                    onChange={e => setSettings({...settings, primary_color: e.target.value})}
-                    className="flex-1 p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                  />
+            </div>
+
+            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 relative overflow-hidden flex flex-col justify-center">
+              <div className="absolute right-0 top-0 w-64 h-64 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+              <h3 className="text-lg font-black text-white/40 uppercase tracking-widest relative z-10">Preview Visual</h3>
+              <div className="space-y-6 relative z-10">
+                <div className="p-6 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center overflow-hidden">
+                      {settings?.logo_url ? (
+                        <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="font-black text-lg">M4</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-black text-sm leading-none">{settings?.crm_name || 'Sistema'}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase mt-1">{settings?.company_name || 'Agência'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-400 font-medium italic text-center">Aplicação da cor primária:</p>
+                  <button 
+                    style={{ backgroundColor: settings?.primary_color || '#2563eb' }}
+                    className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900/20 text-white"
+                  >
+                    Botão de Ação
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-64 h-64 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest relative z-10">Preview da Marca</h3>
-            <div className="space-y-6 relative z-10">
-              <div className="p-6 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center overflow-hidden">
-                    {settings.logo_url ? (
-                      <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="font-black text-lg">M4</span>
-                    )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Informações de Contato</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Razão Social / Nome Fantasia</label>
+                  <input 
+                    type="text" 
+                    value={settings?.company_name ?? ''} 
+                    onChange={e => setSettings({...settings, company_name: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
+                    <input 
+                      type="text" 
+                      value={settings?.city ?? ''} 
+                      onChange={e => setSettings({...settings, city: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                    />
                   </div>
                   <div>
-                    <p className="font-black text-sm leading-none">{settings.crm_name}</p>
-                    <p className="text-[9px] font-black text-slate-400 uppercase mt-1">{settings.company_name}</p>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                    <input 
+                      type="text" 
+                      value={settings?.state ?? ''} 
+                      onChange={e => setSettings({...settings, state: e.target.value})}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                    />
                   </div>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website</label>
+                  <input 
+                    type="url" 
+                    value={settings?.website_url ?? ''} 
+                    onChange={e => setSettings({...settings, website_url: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                    placeholder="https://suaempresa.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp de Contato</label>
+                  <input 
+                    type="text" 
+                    value={settings?.whatsapp_number ?? ''} 
+                    onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
               </div>
-              <div className="space-y-4">
-                <p className="text-xs text-slate-400 font-medium italic">Como seus botões e elementos ativos aparecerão:</p>
-                <button 
-                  style={{ backgroundColor: settings.primary_color }}
-                  className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900/20"
-                >
-                  Botão de Exemplo
-                </button>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Painel de Preferências</h3>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Tema de Interface</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <button 
+                      onClick={() => setSettings({...settings, theme: 'light'})}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    >
+                      <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
+                        <ICONS.Dashboard size={18} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">CLARO</span>
+                    </button>
+                    <button 
+                      onClick={() => setSettings({...settings, theme: 'dark'})}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    >
+                      <div className="w-10 h-10 bg-slate-900 rounded-xl shadow-sm border border-slate-800 flex items-center justify-center text-blue-400">
+                        <ICONS.Automation size={18} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">ESCURO</span>
+                    </button>
+                    <button 
+                      onClick={() => setSettings({...settings, theme: 'system'})}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${settings?.theme === 'system' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}
+                    >
+                      <div className="w-10 h-10 bg-slate-500 rounded-xl shadow-sm border border-slate-400 flex items-center justify-center text-white">
+                        <ICONS.Settings size={18} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">SISTEMA</span>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Idioma Localização</label>
+                  <select 
+                    value={settings?.language || 'pt-BR'} 
+                    onChange={e => setSettings({...settings, language: e.target.value})}
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="pt-BR">Português (Brasil)</option>
+                    <option value="en-US">English (US)</option>
+                    <option value="es-ES">Español</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>

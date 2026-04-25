@@ -28,7 +28,7 @@ export const SourceAnalytics: React.FC<SourceAnalyticsProps> = ({ leads, pipelin
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={256} minWidth={0}>
             <PieChart>
               <Pie
                 data={pieData}

@@ -98,6 +98,29 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Partial<FinanceCategory> | undefined>();
 
+  // Sync activeTab from props
+  useEffect(() => {
+    if (externalActiveTab) {
+      if (externalActiveTab === 'finance_dashboard') setActiveTab('dashboard');
+      else if (externalActiveTab === 'finance_transactions') setActiveTab('transactions');
+      else if (externalActiveTab === 'finance_dre') setActiveTab('dre');
+      else if (externalActiveTab === 'finance_performance') setActiveTab('performance');
+      else if (externalActiveTab === 'finance_accounts') setActiveTab('accounts');
+      else if (externalActiveTab === 'finance_categories') {
+        setActiveTab('settings' as any);
+        setActiveSettingsTab('categories');
+      }
+      else if (externalActiveTab === 'finance_cost_centers') {
+        setActiveTab('settings' as any);
+        setActiveSettingsTab('cost_centers');
+      }
+      else if (externalActiveTab === 'finance_payment_methods') {
+        setActiveTab('settings' as any);
+        setActiveSettingsTab('payment_methods');
+      }
+    }
+  }, [externalActiveTab]);
+
   const [isCostCenterFormOpen, setIsCostCenterFormOpen] = useState(false);
   const [selectedCostCenter, setSelectedCostCenter] = useState<Partial<FinanceCostCenter> | undefined>();
 
@@ -256,12 +279,11 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => 
       (t.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (t.category?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (t.counterparty?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+      (t.category?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
   }, [transactions, searchQuery]);
 
-  const handleSaveTransaction = async (data: Partial<FinanceTransaction>) => {
+  const handleSaveTransaction = async (data: Partial<FinanceTransaction> & { change_reason?: string }) => {
     try {
       const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
       
@@ -270,27 +292,38 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         return;
       }
 
-      if (data.type === FinanceTransactionType.TRANSFER) {
+      // Handle audit history if it's an update
+      let updatedData = { ...data };
+      if (data.id && data.change_reason) {
+        const timestamp = new Date().toLocaleString('pt-BR');
+        const userEmail = currentUser?.email || 'Usuário';
+        const newLog = `[${timestamp}] ${userEmail}: ${data.change_reason}\n`;
+        const existingHistory = selectedTransaction?.edit_history || '';
+        updatedData.edit_history = newLog + existingHistory;
+      }
+      delete (updatedData as any).change_reason;
+
+      if (updatedData.type === FinanceTransactionType.TRANSFER) {
         await financeService.createTransfer({
           workspace_id: workspaceId,
-          description: data.description || '',
-          amount: data.amount || 0,
-          issue_date: data.issue_date || new Date().toISOString().split('T')[0],
-          due_date: data.due_date || new Date().toISOString().split('T')[0],
-          paid_at: data.status === FinanceTransactionStatus.PAID ? (data.paid_at || new Date().toISOString()) : undefined,
-          source_bank_account_id: data.bank_account_id || '',
-          destination_bank_account_id: data.destination_bank_account_id || '',
-          status: data.status || FinanceTransactionStatus.PENDING,
+          description: updatedData.description || '',
+          amount: updatedData.amount || 0,
+          issue_date: updatedData.issue_date || new Date().toISOString().split('T')[0],
+          due_date: updatedData.due_date || new Date().toISOString().split('T')[0],
+          paid_at: updatedData.status === FinanceTransactionStatus.PAID ? (updatedData.paid_at || new Date().toISOString()) : undefined,
+          source_bank_account_id: updatedData.bank_account_id || '',
+          destination_bank_account_id: updatedData.destination_bank_account_id || '',
+          status: updatedData.status || FinanceTransactionStatus.PENDING,
           created_by: currentUser?.id || ''
         });
-      } else if (data.id) {
-        await financeService.updateTransaction(data.id, {
-          ...data,
+      } else if (updatedData.id) {
+        await financeService.updateTransaction(updatedData.id, {
+          ...updatedData,
           updated_by: currentUser?.id
         });
       } else {
         await financeService.createTransaction({
-          ...data,
+          ...updatedData,
           workspace_id: workspaceId,
           created_by: currentUser?.id,
           updated_by: currentUser?.id

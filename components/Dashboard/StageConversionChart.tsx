@@ -26,7 +26,7 @@ export const StageConversionChart: React.FC<StageConversionChartProps> = ({ lead
       </h3>
       
       <div className="h-80 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320} minWidth={0}>
           <BarChart data={data} layout="vertical" margin={{ left: 40 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" opacity={0.1} />
             <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill: 'currentColor', fontSize: 10, fontWeight: 800}} className="text-muted-foreground" />

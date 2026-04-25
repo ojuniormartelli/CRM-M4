@@ -257,17 +257,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_payment_methods' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                       Métodos de Pagto
                     </button>
-                    <button onClick={() => setActiveTab('finance_settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Configurações
-                    </button>
                   </div>
                 )}
                 {item.id === 'settings_group' && expandedMenus.admin && isSidebarOpen && (
                   <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                    <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Geral
+                    <button onClick={() => setActiveTab('settings_branding')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                      Geral e Branding
                     </button>
                     <button onClick={() => setActiveTab('settings_profile')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_profile' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_profile' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -280,10 +276,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button onClick={() => setActiveTab('settings_workspaces')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
                       Workspaces
-                    </button>
-                    <button onClick={() => setActiveTab('settings_branding')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_branding' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_branding' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Sistema (Branding)
                     </button>
                     <button onClick={() => setActiveTab('settings_services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_services' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_services' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>

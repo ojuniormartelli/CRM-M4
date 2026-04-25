@@ -346,20 +346,6 @@ CREATE TABLE public.m4_fin_cost_centers (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_counterparties (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    type fin_counterparty_type DEFAULT 'outro',
-    document TEXT,
-    email TEXT,
-    phone TEXT,
-    whatsapp TEXT,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE public.m4_fin_payment_methods (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -400,7 +386,6 @@ CREATE TABLE public.m4_fin_transactions (
     competence_date DATE NOT NULL,
     bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
     destination_bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id) ON DELETE SET NULL,
-    counterparty_id UUID REFERENCES public.m4_fin_counterparties(id) ON DELETE SET NULL,
     category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE SET NULL,
     cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id) ON DELETE SET NULL,
     payment_method TEXT,
@@ -414,7 +399,9 @@ CREATE TABLE public.m4_fin_transactions (
     recurrence_end_date DATE,
     parent_transaction_id UUID REFERENCES public.m4_fin_transactions(id) ON DELETE SET NULL,
     generation_mode TEXT DEFAULT 'manual',
-    created_at TIMESTAMPTZ DEFAULT now()
+    edit_history TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_budgets (

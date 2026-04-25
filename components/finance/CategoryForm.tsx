@@ -81,32 +81,60 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Tipo</label>
-                <select
-                  value={formData.type || FinanceCategoryType.EXPENSE}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as FinanceCategoryType })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Tipo de Categoria</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, type: FinanceCategoryType.INCOME })}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                    formData.type === FinanceCategoryType.INCOME 
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
+                    : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                  }`}
                 >
-                  <option value={FinanceCategoryType.INCOME}>Receita</option>
-                  <option value={FinanceCategoryType.EXPENSE}>Despesa</option>
-                  <option value={FinanceCategoryType.BOTH}>Ambos</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Classificação</label>
-                <select
-                  value={formData.classification_type || FinanceClassificationType.OPERATIONAL}
-                  onChange={(e) => setFormData({ ...formData, classification_type: e.target.value as FinanceClassificationType })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  <TrendingUp size={18} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Receita</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, type: FinanceCategoryType.EXPENSE })}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                    formData.type === FinanceCategoryType.EXPENSE 
+                    ? 'border-rose-500 bg-rose-50 text-rose-600' 
+                    : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                  }`}
                 >
-                  <option value={FinanceClassificationType.OPERATIONAL}>Operacional</option>
-                  <option value={FinanceClassificationType.NON_OPERATIONAL}>Não Operacional</option>
-                  <option value={FinanceClassificationType.FINANCIAL}>Financeiro</option>
-                  <option value={FinanceClassificationType.TAX}>Tributário</option>
-                </select>
+                  <TrendingDown size={18} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Despesa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, type: FinanceCategoryType.BOTH })}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                    formData.type === FinanceCategoryType.BOTH 
+                    ? 'border-blue-500 bg-blue-50 text-blue-600' 
+                    : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                  }`}
+                >
+                  <Layers size={18} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Ambos</span>
+                </button>
               </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Classificação DRE</label>
+              <select
+                value={formData.classification_type || FinanceClassificationType.OPERATIONAL}
+                onChange={(e) => setFormData({ ...formData, classification_type: e.target.value as FinanceClassificationType })}
+                className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                <option value={FinanceClassificationType.OPERATIONAL}>Operacional</option>
+                <option value={FinanceClassificationType.NON_OPERATIONAL}>Não Operacional</option>
+                <option value={FinanceClassificationType.FINANCIAL}>Financeiro</option>
+                <option value={FinanceClassificationType.TAX}>Tributário</option>
+              </select>
             </div>
 
             <div>

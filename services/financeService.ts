@@ -84,7 +84,6 @@ export const financeService = {
           *,
           category:category_id(*),
           bank_account:bank_account_id(*),
-          counterparty:counterparty_id(*),
           cost_center:cost_center_id(*)
         `)
         .eq('workspace_id', workspaceId)

@@ -1,4 +1,101 @@
--- 🚀 SCRIPT DE INSTALACAO COMPLETA (M4 CRM & Agency Suite)
+export const SEED_SQL = `-- 🚀 SCRIPT DE SEED DE DADOS DE TESTE ENRIQUECIDO (M4 CRM)
+-- Este script insere dados de exemplo realistas para demonstração completa das funcionalidades.
+
+DO $$ 
+DECLARE
+    v_workspace_id UUID := 'fb786658-1234-4321-8888-999988887777'; -- Workspace Principal
+    v_admin_id UUID;
+    v_pipeline_vendas_id UUID := 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    v_stage_lead_id UUID := 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    v_stage_contact_id UUID;
+    v_stage_proposal_id UUID;
+    v_stage_negotiation_id UUID;
+    v_company_tech_id UUID;
+    v_company_food_id UUID;
+    v_company_fashion_id UUID;
+    v_cat_vendas_id UUID;
+    v_cat_aluguel_id UUID;
+    v_cat_salarios_id UUID;
+    v_bank_pj_id UUID;
+BEGIN
+    -- 1. Verificar se o Workspace existe
+    IF NOT EXISTS (SELECT 1 FROM m4_workspaces WHERE id = v_workspace_id) THEN
+        INSERT INTO m4_workspaces (id, name) VALUES (v_workspace_id, 'Workspace Principal');
+    END IF;
+
+    -- 2. Garantir etapas extras do funil para dados realistas
+    SELECT id INTO v_stage_contact_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Primeiro Contato' LIMIT 1;
+    SELECT id INTO v_stage_proposal_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Proposta Enviada' LIMIT 1;
+    SELECT id INTO v_stage_negotiation_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Negociação' LIMIT 1;
+
+    -- 3. Garantir usuário admin
+    SELECT id INTO v_admin_id FROM m4_users WHERE email = 'admin@m4.com' LIMIT 1;
+    IF v_admin_id IS NULL THEN
+        v_admin_id := gen_random_uuid();
+        INSERT INTO m4_users (id, name, email, role, workspace_id, status)
+        VALUES (v_admin_id, 'Administrador M4', 'admin@m4.com', 'owner', v_workspace_id, 'active');
+    END IF;
+
+    -- 4. Inserir Empresas de Exemplo com Nichos
+    INSERT INTO m4_companies (id, name, niche, city, state, workspace_id)
+    VALUES 
+    (gen_random_uuid(), 'Tech Soluções LTDA', 'Tecnologia SaaS', 'São Paulo', 'SP', v_workspace_id),
+    (gen_random_uuid(), 'Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
+    (gen_random_uuid(), 'Moda Fashion Brasil', 'Varejo / Moda', 'Rio de Janeiro', 'RJ', v_workspace_id)
+    ON CONFLICT DO NOTHING;
+
+    SELECT id INTO v_company_tech_id FROM m4_companies WHERE name = 'Tech Soluções LTDA' LIMIT 1;
+    SELECT id INTO v_company_food_id FROM m4_companies WHERE name = 'Alimentos Brasil S.A.' LIMIT 1;
+    SELECT id INTO v_company_fashion_id FROM m4_companies WHERE name = 'Moda Fashion Brasil' LIMIT 1;
+
+    -- 5. Inserir Leads com Valores e Probabilidades Reais
+    INSERT INTO m4_leads (contact_name, company_name, contact_email, value, status, pipeline_id, stage_id, workspace_id, company_id, responsible_id, probability, temperature, company_niche, source)
+    VALUES 
+    ('Consultoria Digital TECH', 'Tech Soluções LTDA', 'diretoria@tech.com', 45000.00, 'active', v_pipeline_vendas_id, v_stage_negotiation_id, v_workspace_id, v_company_tech_id, v_admin_id, 80, 'Quente', 'Tecnologia', 'Instagram'),
+    ('Expansão E-commerce FASHION', 'Moda Fashion Brasil', 'marketing@moda.com', 28000.00, 'active', v_pipeline_vendas_id, v_stage_proposal_id, v_workspace_id, v_company_fashion_id, v_admin_id, 60, 'Morno', 'Varejo', 'Indicação'),
+    ('Contrato Fechado SAAS', 'Tech Soluções LTDA', 'fechado@tech.com', 15000.00, 'won', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 100, 'Quente', 'Software', 'Google'),
+    ('Lead Perdido Exemplo', 'Alimentos Brasil S.A.', 'perda@alimentos.com', 5000.00, 'lost', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_food_id, v_admin_id, 0, 'Frio', 'Alimentos', 'Outros'),
+    ('Novo APP Mobile', 'Tech Soluções LTDA', 'app@tech.com', 120000.00, 'active', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 10, 'Frio', 'Software', 'YouTube')
+    ON CONFLICT DO NOTHING;
+
+    -- 6. Categorias Financeiras
+    INSERT INTO m4_fin_categories (id, name, type, workspace_id)
+    VALUES 
+    (gen_random_uuid(), 'Vendas de CRM', 'income', v_workspace_id),
+    (gen_random_uuid(), 'Aluguel Escritório', 'expense', v_workspace_id),
+    (gen_random_uuid(), 'Folha de Pagamento', 'expense', v_workspace_id)
+    ON CONFLICT DO NOTHING;
+
+    SELECT id INTO v_cat_vendas_id FROM m4_fin_categories WHERE name = 'Vendas de CRM' LIMIT 1;
+    SELECT id INTO v_cat_aluguel_id FROM m4_fin_categories WHERE name = 'Aluguel Escritório' LIMIT 1;
+    SELECT id INTO v_cat_salarios_id FROM m4_fin_categories WHERE name = 'Folha de Pagamento' LIMIT 1;
+
+    -- 7. Conta Bancária
+    INSERT INTO m4_fin_bank_accounts (id, name, bank, type, balance, workspace_id, current_balance)
+    VALUES (gen_random_uuid(), 'Banco Digital PJ', 'Nubank', 'checking', 25000.00, v_workspace_id, 25000.00)
+    ON CONFLICT DO NOTHING;
+
+    SELECT id INTO v_bank_pj_id FROM m4_fin_bank_accounts WHERE name = 'Banco Digital PJ' LIMIT 1;
+
+    -- 8. Transações Financeiras (Lançamentos)
+    INSERT INTO m4_fin_transactions (workspace_id, type, description, amount, status, due_date, competence_date, bank_account_id, category_id)
+    VALUES 
+    (v_workspace_id, 'income', 'Mensalidade Tech Soluções', 5000.00, 'paid', CURRENT_DATE - 5, CURRENT_DATE - 5, v_bank_pj_id, v_cat_vendas_id),
+    (v_workspace_id, 'expense', 'Aluguel mensal', 3200.00, 'paid', CURRENT_DATE - 2, CURRENT_DATE - 2, v_bank_pj_id, v_cat_aluguel_id),
+    (v_workspace_id, 'income', 'Projeto E-commerce Moda', 12000.00, 'pending', CURRENT_DATE + 10, CURRENT_DATE + 10, v_bank_pj_id, v_cat_vendas_id)
+    ON CONFLICT DO NOTHING;
+
+    -- 9. Tarefas de Exemplo
+    INSERT INTO m4_tasks (workspace_id, title, description, status, priority, type, client_id, company_id)
+    VALUES 
+    (v_workspace_id, 'Setup de Automações TECH', 'Configurar filtros de leads no CRM', 'Em Execução', 'Alta', 'Operacional', NULL, v_company_tech_id),
+    (v_workspace_id, 'Reunião de Alinhamento MODA', 'Follow-up da proposta de e-commerce', 'Pendente', 'Média', 'Comercial', NULL, v_company_fashion_id)
+    ON CONFLICT DO NOTHING;
+
+END $$;
+`;
+
+export const FULL_SETUP_SQL = `-- 🚀 SCRIPT DE INSTALACAO COMPLETA (M4 CRM & Agency Suite)
 -- AVISO: Este script apaga todas as tabelas existentes para uma instalacao limpa.
 
 -- 1. LIMPEZA TOTAL (ATENÇÃO: APAGA TUDO!)
@@ -442,7 +539,20 @@ CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 6. SEEDS INICIAIS
+-- 6. METAS E OBJETIVOS
+CREATE TABLE IF NOT EXISTS public.m4_goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    month TEXT NOT NULL, -- Formato YYYY-MM
+    target_value DECIMAL(15,2) DEFAULT 0,
+    current_value DECIMAL(15,2) DEFAULT 0,
+    type TEXT DEFAULT 'sales',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(workspace_id, month, type)
+);
+
+-- 7. SEEDS INICIAIS
 INSERT INTO public.m4_workspaces (id, name)
 VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')
 ON CONFLICT (id) DO NOTHING;
@@ -561,16 +671,81 @@ VALUES
 ('44444444-4444-4444-4444-444444444409', 'fb786658-1234-4321-8888-999988887777', 'Crediário', true, NOW(), NOW()),
 ('44444444-4444-4444-4444-444444444410', 'fb786658-1234-4321-8888-999988887777', 'Outros', true, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
--- ============================================
--- 5. VERIFICAÇÃO - CONTAR REGISTROS INSERIDOS
--- ============================================
--- Execute estas queries para verificar se os dados foram inseridos corretamente:
--- SELECT COUNT(*) as "Total de Categorias" FROM public.m4_fin_categories WHERE workspace_id = 'fb786658-1234-4321-8888-999988887777';
--- SELECT COUNT(*) as "Total de Centros de Custos" FROM public.m4_fin_cost_centers WHERE workspace_id = 'fb786658-1234-4321-8888-999988887777';
--- SELECT COUNT(*) as "Total de Formas de Pagamento" FROM public.m4_fin_payment_methods WHERE workspace_id = 'fb786658-1234-4321-8888-999988887777';
--- ============================================
--- 6. RESULTADO ESPERADO
--- ============================================
--- ✅ 25 Categorias inseridas (10 receitas + 15 despesas)
--- ✅ 10 Centros de Custos inseridos
--- ✅ 10 Formas de Pagamento inseridas
+`;
+
+export const UPDATE_SQL = `-- 🚀 SCRIPT DE ATUALIZACAO SEGURA (Nucleo Multi-Tenant)
+-- Use este script para migrar um banco legado para o novo padrao sem perda de dados primarios.
+
+DO $$ 
+BEGIN
+    -- 1. Garante Tabelas de Workspace
+    CREATE TABLE IF NOT EXISTS public.m4_workspaces (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        branding_config JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    IF NOT EXISTS (SELECT 1 FROM public.m4_workspaces WHERE id = 'fb786658-1234-4321-8888-999988887777') THEN
+        INSERT INTO public.m4_workspaces (id, name) VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal');
+    END IF;
+
+    -- 2. Atualiza tabelas existentes com workspace_id
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+
+    -- 3. Cria novo Financeiro se não existir
+    -- (O script full ja cobre isso, use-o para uma instalacao limpa ou execute as queries de m4_fin_ individuais)
+
+    -- 4. Correção Schema Leads (Colunas Ausentes)
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_cnpj TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_city TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_state TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_niche TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_website TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_email TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_instagram TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_linkedin TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_whatsapp TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_role TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_email TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_instagram TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_linkedin TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_whatsapp TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_notes TEXT;
+
+    -- 5. Índices de Performance
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
+END $$;
+`;
+
+export const MIGRATION_SQL = `-- 🚀 MIGRACAO DE DADOS: LEGADO -> M4_FIN
+-- Este script move seus dados financeiros das tabelas m4_transactions para m4_fin_transactions.
+
+DO $$
+DECLARE
+    v_workspace_id UUID := 'fb786658-1234-4321-8888-999988887777';
+BEGIN
+    -- 1. Transfere Transações se a tabela legada existir
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_transactions') THEN
+        INSERT INTO public.m4_fin_transactions (
+            description, amount, type, status, due_date, competence_date, workspace_id, created_at
+        )
+        SELECT 
+            description, amount, 
+            lower(type)::fin_transaction_type, 
+            'paid'::fin_transaction_status,
+            COALESCE(date, now()::date),
+            COALESCE(date, now()::date),
+            v_workspace_id,
+            created_at
+        FROM public.m4_transactions
+        ON CONFLICT DO NOTHING;
+    END IF;
+END $$;
+`;

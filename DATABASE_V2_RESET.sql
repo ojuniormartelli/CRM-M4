@@ -285,7 +285,6 @@ CREATE TABLE IF NOT EXISTS public.m4_fin_transactions (
     competence_date DATE NOT NULL,
     bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id),
     destination_bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id),
-    counterparty_id UUID REFERENCES public.m4_fin_counterparties(id),
     category_id UUID REFERENCES public.m4_fin_categories(id),
     cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id),
     payment_method TEXT,
@@ -299,7 +298,9 @@ CREATE TABLE IF NOT EXISTS public.m4_fin_transactions (
     recurrence_end_date DATE,
     parent_transaction_id UUID REFERENCES public.m4_fin_transactions(id),
     generation_mode TEXT DEFAULT 'manual',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    edit_history TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.m4_fin_budgets (

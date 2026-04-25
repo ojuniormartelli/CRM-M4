@@ -78,14 +78,14 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-10 scrollbar-none">
           {/* Main Info Card */}
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Descrição</p>
                 <h4 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">{transaction.description}</h4>
               </div>
-              <div className="bg-white dark:bg-slate-900 p-2 rounded-xl shadow-sm">
-                {getStatusIcon(transaction.status)}
+              <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                {getStatusIcon(transaction.status as FinanceTransactionStatus)}
               </div>
             </div>
 
@@ -171,50 +171,61 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Centro de Custo</span>
                   </div>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-6">
-                    {transaction.cost_center?.name || 'Não informado'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* CRM Link if any */}
-          {(transaction.client_account_id || transaction.lead_id) && (
-            <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <div className="flex items-center gap-2 mb-2">
-                <User size={16} className="text-blue-600" />
-                <span className="text-[10px] font-black text-blue-900 dark:text-blue-400 uppercase tracking-widest">Vínculo com CRM</span>
+                  {transaction.cost_center?.name || 'Não informado'}
+                </p>
               </div>
-              <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                Lançamento vinculado ao cliente ou lead para acompanhamento comercial.
-              </p>
-            </div>
-          )}
-
-          {/* Observations / Edit History */}
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2 mb-4">
-              <History size={16} className="text-slate-400" />
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observações e Histórico</h5>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl min-h-[100px]">
-              {transaction.notes && (
-                <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">{transaction.notes}</p>
-                </div>
-              )}
-              {(transaction as any).edit_history ? (
-                <pre className="text-[11px] font-bold text-slate-500 leading-relaxed whitespace-pre-wrap font-sans">
-                  {(transaction as any).edit_history}
-                </pre>
-              ) : (
-                <p className="text-[10px] font-bold text-slate-400 italic">Nenhuma alteração registrada até o momento.</p>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Observations / Edit History - PROMINENT POSITION */}
+        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-500">
+          <div className="flex items-center gap-2 mb-4">
+            <History size={16} className="text-blue-600" />
+            <h5 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Observações e Histórico de Alterações</h5>
+          </div>
+          <div className="bg-blue-50/30 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-100/50 dark:border-blue-900/30 min-h-[100px] shadow-inner">
+            {transaction.notes && (
+              <div className="mb-6 pb-6 border-b border-blue-100 dark:border-blue-900/30">
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">
+                  <span className="text-[9px] uppercase tracking-widest text-blue-500 block mb-2 font-black">Observações Recentes:</span>
+                  {transaction.notes}
+                </p>
+              </div>
+            )}
+            {transaction.edit_history ? (
+              <div className="space-y-3">
+                <span className="text-[9px] uppercase tracking-widest text-slate-400 block font-black">Logs de Alteração:</span>
+                <div className="bg-white/50 dark:bg-slate-900/50 p-4 rounded-xl border border-blue-50 dark:border-blue-900/20">
+                  <pre className="text-[11px] font-bold text-slate-500 leading-relaxed whitespace-pre-wrap font-sans italic">
+                    {transaction.edit_history}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6">
+                <FileText size={24} className="text-slate-200 dark:text-slate-800 mb-2" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem histórico de alteração</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CRM Link if any */}
+        {(transaction.client_account_id || transaction.lead_id) && (
+          <div className="p-6 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <User size={16} className="text-slate-400" />
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vínculo com CRM</span>
+            </div>
+            <p className="text-xs font-bold text-slate-500">
+              Lançamento vinculado ao cliente ou lead para acompanhamento comercial.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
         <div className="p-8 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-4">
           <button 
             onClick={onClose}

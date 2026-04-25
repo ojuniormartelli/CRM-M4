@@ -35,15 +35,6 @@ export enum FinanceCategoryType {
   BOTH = 'both'
 }
 
-export enum FinanceCounterpartyType {
-  CUSTOMER = 'customer',
-  VENDOR = 'vendor',
-  EMPLOYEE = 'employee',
-  OTHER = 'other',
-  SUPPLIER = 'supplier',
-  PARTNER = 'partner'
-}
-
 export enum FinanceClassificationType {
   VARIABLE_COST = 'variable_cost',
   FIXED_COST = 'fixed_cost',
@@ -135,12 +126,11 @@ export interface FinanceTransaction {
   bank_account?: any;
   client_account_id?: string;
   credit_card_id?: string;
-  counterparty_id?: string;
   cost_center_id?: string;
+  cost_center?: any;
   lead_id?: string;
   company_id?: string;
   payment_method?: string;
-  counterparty?: any;
   edit_history?: string;
 }
 
@@ -151,19 +141,6 @@ export interface FinanceCostCenter {
   code?: string;
   description?: string;
   order?: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface FinanceCounterparty {
-  id: string;
-  workspace_id: string;
-  name: string;
-  type: FinanceCounterpartyType | string;
-  document?: string;
-  email?: string;
-  whatsapp?: string;
-  notes?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -320,4 +297,3 @@ export type FinancePaymentMethod = any;
 export type FinanceDreData = any;
 export type FinanceClassificationTypeAlias = any;
 export type FinanceCategoryTypeAlias = any;
-export type FinanceCounterpartyTypeAlias = any;

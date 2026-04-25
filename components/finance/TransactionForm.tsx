@@ -5,12 +5,12 @@ import {
   FinanceTransactionType, 
   FinanceTransactionStatus,
   FinanceCategory,
+  FinanceCategoryType,
   FinanceBankAccount,
-  FinanceCounterparty,
   FinanceCostCenter,
   FinancePaymentMethod
 } from '../../types/finance';
-import { X, Calendar, Tag, Building2, Users, Info, Repeat, TrendingUp, TrendingDown, Briefcase, UserCheck, RefreshCcw } from 'lucide-react';
+import { X, Calendar, Tag, Building2, Info, Repeat, TrendingUp, TrendingDown, Briefcase, RefreshCcw } from 'lucide-react';
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -54,20 +54,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     recurrence_interval: 1,
     bank_account_id: '',
     category_id: '',
-    counterparty_id: '',
     cost_center_id: '',
     client_account_id: '',
     lead_id: ''
   };
 
-  const [formData, setFormData] = useState<Partial<FinanceTransaction>>(defaultValues);
+  const [formData, setFormData] = useState<Partial<FinanceTransaction> & { change_reason?: string }>({
+    ...defaultValues,
+    change_reason: ''
+  });
 
   const filteredCategories = React.useMemo(() => {
     return categories.filter(cat => {
       if (!formData.type) return true;
-      // Also account for 'both' if it exists in the future, 
-      // but for now strictly income/expense based on user request
-      return cat.type === formData.type;
+      // Filter categories based on transaction type
+      // A category is valid if its type matches the transaction type OR if its type is 'both'
+      return cat.type === formData.type || cat.type === FinanceCategoryType.BOTH;
     });
   }, [categories, formData.type]);
 
@@ -79,9 +81,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         leads: leads.length,
         clients: clients.length
       });
-      setFormData({ ...defaultValues, ...initialData });
+      setFormData({ ...defaultValues, ...initialData, change_reason: '' });
     } else {
-      setFormData(defaultValues);
+      setFormData({ ...defaultValues, change_reason: '' });
       setIsSaving(false);
     }
   }, [isOpen, initialData, categories, costCenters, leads, clients]);
@@ -123,11 +125,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => setFormData({ 
-                ...formData, 
-                type: FinanceTransactionType.INCOME,
-                category_id: formData.type === FinanceTransactionType.INCOME ? formData.category_id : ''
-              })}
+              onClick={() => {
+                const newType = FinanceTransactionType.INCOME;
+                const currentCategory = categories.find(c => c.id === formData.category_id);
+                const shouldClearCategory = currentCategory && currentCategory.type !== newType && currentCategory.type !== FinanceCategoryType.BOTH;
+                
+                setFormData({ 
+                  ...formData, 
+                  type: newType,
+                  category_id: shouldClearCategory ? '' : formData.category_id
+                });
+              }}
               className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
                 formData.type === FinanceTransactionType.INCOME 
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
@@ -139,11 +147,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setFormData({ 
-                ...formData, 
-                type: FinanceTransactionType.EXPENSE,
-                category_id: formData.type === FinanceTransactionType.EXPENSE ? formData.category_id : ''
-              })}
+              onClick={() => {
+                const newType = FinanceTransactionType.EXPENSE;
+                const currentCategory = categories.find(c => c.id === formData.category_id);
+                const shouldClearCategory = currentCategory && currentCategory.type !== newType && currentCategory.type !== FinanceCategoryType.BOTH;
+
+                setFormData({ 
+                  ...formData, 
+                  type: newType,
+                  category_id: shouldClearCategory ? '' : formData.category_id
+                });
+              }}
               className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
                 formData.type === FinanceTransactionType.EXPENSE 
                 ? 'border-rose-500 bg-rose-50 text-rose-600' 
@@ -289,18 +303,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </div>
             </div>
 
-            {/* Manual Notes */}
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Observações (Interno)</label>
-              <textarea
-                value={formData.notes || ''}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Adicione notas internas sobre este lançamento..."
-                rows={3}
-                className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
-              />
-            </div>
-
             {/* CRM Links */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
@@ -349,6 +351,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <p className="text-[8px] text-slate-400 italic text-center">Nota: Escolha uma Empresa OU um Lead por lançamento.</p>
             </div>
 
+            {/* Notes */}
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Observações / Notas</label>
+              <textarea
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Adicione observações adicionais sobre este lançamento..."
+                className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[100px] resize-none"
+              />
+            </div>
+
+            {/* Change Reason for History - Only if editing */}
+            {initialData?.id && (
+              <div className="p-6 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 block">O que foi alterado? (Log de Auditoria)</label>
+                <textarea
+                  value={formData.change_reason || ''}
+                  onChange={(e) => setFormData({ ...formData, change_reason: e.target.value })}
+                  placeholder="Ex: Valor corrigido conforme extrato bancário..."
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all min-h-[60px] resize-none"
+                />
+                <p className="text-[9px] text-amber-500 mt-2 italic font-medium">Esta observação será registrada permanentemente no histórico deste lançamento.</p>
+              </div>
+            )}
+
             {/* Recurrence */}
             <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
               <div className="flex items-center justify-between mb-4">
@@ -393,42 +420,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               )}
             </div>
           </div>
-        </form>
 
-        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div>
-            {initialData?.id && onDelete && (
-              <button 
-                type="button"
-                onClick={() => {
-                  onDelete(initialData.id!);
-                }}
-                className="px-6 py-3 text-sm font-bold text-rose-500 hover:text-rose-700 transition-all"
-              >
-                Excluir Lançamento
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
-              Cancelar
-            </button>
-            <button 
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  SALVANDO...
-                </>
-              ) : (
-                'Salvar Lançamento'
+          <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-8 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+            <div>
+              {initialData?.id && onDelete && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    onDelete(initialData.id!);
+                  }}
+                  className="px-6 py-3 text-sm font-bold text-rose-500 hover:text-rose-700 transition-all"
+                >
+                  Excluir Lançamento
+                </button>
               )}
-            </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
+                Cancelar
+              </button>
+              <button 
+                type="submit"
+                disabled={isSaving}
+                className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    SALVANDO...
+                  </>
+                ) : (
+                  'Salvar Lançamento'
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
