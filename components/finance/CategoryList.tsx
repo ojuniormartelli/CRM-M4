@@ -95,18 +95,18 @@ const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit, onDelet
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Coluna de Receitas */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 px-4 mb-6">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
-              <TrendingUp size={20} />
+      {/* Duas colunas lado a lado */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Coluna de Receitas (Lado Esquerdo) */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 p-4 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/30">
+            <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-emerald-600 shadow-sm">
+              <TrendingUp size={24} />
             </div>
             <div>
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] block">Entradas</span>
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">Entradas</span>
               <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Receitas</h4>
             </div>
-            <div className="h-px flex-1 bg-emerald-100 dark:bg-emerald-900/30 ml-4" />
           </div>
           
           <div className="space-y-3">
@@ -120,17 +120,16 @@ const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit, onDelet
           </div>
         </div>
 
-        {/* Coluna de Despesas */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 px-4 mb-6">
-            <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600">
-              <TrendingDown size={20} />
+        {/* Coluna de Despesas (Lado Direito) */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 p-4 bg-rose-50/50 dark:bg-rose-900/10 rounded-2xl border border-rose-100 dark:border-rose-800/30">
+            <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-rose-600 shadow-sm">
+              <TrendingDown size={24} />
             </div>
             <div>
-              <span className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em] block">Saídas</span>
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest block">Saídas</span>
               <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Despesas</h4>
             </div>
-            <div className="h-px flex-1 bg-rose-100 dark:bg-rose-900/30 ml-4" />
           </div>
 
           <div className="space-y-3">

@@ -1782,33 +1782,33 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-                      <input required value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: M4 Marketing" />
+                      <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: M4 Marketing" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">CNPJ</label>
-                      <input value={newLead.cnpj} onChange={e => setNewLead({...newLead, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="00.000.000/0000-00" />
+                      <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="00.000.000/0000-00" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cidade</label>
-                      <input value={newLead.city} onChange={e => setNewLead({...newLead, city: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: São Paulo" />
+                      <input value={newLead.company_city} onChange={e => setNewLead({...newLead, company_city: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: São Paulo" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado</label>
-                      <input value={newLead.state} onChange={e => setNewLead({...newLead, state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: SP" />
+                      <input value={newLead.company_state} onChange={e => setNewLead({...newLead, company_state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: SP" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                      <input value={newLead.niche} onChange={e => setNewLead({...newLead, niche: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Energia Solar" />
+                      <input value={newLead.company_niche} onChange={e => setNewLead({...newLead, company_niche: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Energia Solar" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website</label>
-                      <input value={newLead.website} onChange={e => setNewLead({...newLead, website: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="https://..." />
+                      <input value={newLead.company_website} onChange={e => setNewLead({...newLead, company_website: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="https://..." />
                     </div>
                   </div>
 
@@ -1839,7 +1839,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Contato</label>
-                      <input required value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Nome do contato" />
+                      <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Nome do contato" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>

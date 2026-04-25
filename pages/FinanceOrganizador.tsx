@@ -371,10 +371,11 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
         await financeService.updateBankAccount(data.id, data);
       } else {
         console.log('Creating new bank account with workspaceId:', workspaceId);
-        // Ensure current_balance is set to initial_balance for new accounts
+        // Ensure balance and current_balance are set to initial_balance for new accounts
         await financeService.createBankAccount({ 
           ...data, 
           workspace_id: workspaceId,
+          balance: data.initial_balance || 0,
           current_balance: data.initial_balance || 0
         });
       }

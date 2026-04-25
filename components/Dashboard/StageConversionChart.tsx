@@ -25,7 +25,7 @@ export const StageConversionChart: React.FC<StageConversionChartProps> = ({ lead
         Conversão por Estágio
       </h3>
       
-      <div className="h-80 w-full">
+      <div style={{ height: 320 }} className="w-full">
         <ResponsiveContainer width="100%" height={320} minWidth={0}>
           <BarChart data={data} layout="vertical" margin={{ left: 40 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" opacity={0.1} />

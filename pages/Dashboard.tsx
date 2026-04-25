@@ -205,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         <div className="lg:col-span-2">
           <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
             <h3 className="text-lg font-black text-foreground mb-8 uppercase tracking-widest">Performance de Vendas</h3>
-            <div className="h-80 w-full">
+            <div style={{ height: 320 }} className="w-full">
               <ResponsiveContainer width="100%" height={320} minWidth={0}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" opacity={0.1} className="text-muted-foreground" />

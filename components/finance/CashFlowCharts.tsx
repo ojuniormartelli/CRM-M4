@@ -58,7 +58,7 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = ({ cashFlow, stats }) => {
           <h4 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">Saldo Acumulado</h4>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Evolução do caixa no período</p>
         </div>
-        <div className="h-[300px] w-full">
+        <div style={{ height: 300 }} className="w-full">
           <ResponsiveContainer width="100%" height={300} minWidth={0}>
             <AreaChart data={chartData}>
               <defs>
@@ -101,7 +101,7 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = ({ cashFlow, stats }) => {
           <h4 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">Entradas vs Saídas</h4>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Movimentação diária</p>
         </div>
-        <div className="h-[300px] w-full">
+        <div style={{ height: 300 }} className="w-full">
           <ResponsiveContainer width="100%" height={300} minWidth={0}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

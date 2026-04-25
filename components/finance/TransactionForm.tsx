@@ -65,13 +65,37 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   });
 
   const filteredCategories = React.useMemo(() => {
-    return categories.filter(cat => {
+    const topLevel = categories.filter(cat => {
       if (!formData.type) return true;
-      // Filter categories based on transaction type
-      // A category is valid if its type matches the transaction type OR if its type is 'both'
       return cat.type === formData.type || cat.type === FinanceCategoryType.BOTH;
     });
+
+    // Sort to show hierarchy: parent followed by its children
+    const result: FinanceCategory[] = [];
+    const parents = topLevel.filter(c => !c.parent_id);
+    
+    parents.forEach(parent => {
+      result.push(parent);
+      const children = topLevel.filter(c => c.parent_id === parent.id);
+      children.forEach(child => {
+        result.push({
+          ...child,
+          name: `— ${child.name}`
+        } as FinanceCategory);
+      });
+    });
+
+    return result;
   }, [categories, formData.type]);
+
+  useEffect(() => {
+    if (formData.category_id && formData.type) {
+      const selectedCat = categories.find(c => c.id === formData.category_id);
+      if (selectedCat && selectedCat.type !== formData.type && selectedCat.type !== FinanceCategoryType.BOTH) {
+        setFormData(prev => ({ ...prev, category_id: '' }));
+      }
+    }
+  }, [formData.type]);
 
   useEffect(() => {
     if (isOpen) {
