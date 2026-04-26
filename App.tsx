@@ -106,10 +106,9 @@ const App: React.FC = () => {
     if (!lead) return;
 
     try {
-      await leadService.updateStatus(leadId, status);
-      appData.setLeads(appData.leads.map(l => l.id === leadId ? { ...l, status } : l));
-      
       const workspaceId = currentUser?.workspace_id || resolvedWorkspaceId || '';
+      await leadService.updateStatus(leadId, status, workspaceId);
+      appData.setLeads(appData.leads.map(l => l.id === leadId ? { ...l, status } : l));
 
       if (status === 'won') {
         await automationService.convertLeadToClient(lead, workspaceId);

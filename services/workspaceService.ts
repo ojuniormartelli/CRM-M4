@@ -20,10 +20,12 @@ export const workspaceService = {
   },
 
   async resolveWorkspaceForUser(userId: string): Promise<string> {
-    if (!userId || userId === 'unknown') throw new Error('User ID is required');
+    if (!userId || userId === 'unknown') {
+      throw new Error('Identificação do usuário não encontrada. Por favor, faça login novamente.');
+    }
 
     try {
-      // 1. Try m4_users table directly (standard profile)
+      // 1. Tenta tabela m4_users diretamente (perfil padrão do usuário)
       const { data: m4UserData, error: userError } = await supabase
         .from('m4_users')
         .select('workspace_id')
@@ -36,7 +38,7 @@ export const workspaceService = {
         return m4UserData.workspace_id;
       }
 
-      // 2. Try m4_workspace_users (mapping table for multiple workspaces)
+      // 2. Tenta m4_workspace_users (tabela de mapeamento para múltiplos workspaces/convites)
       const { data: m4LinkData, error: linkError } = await supabase
         .from('m4_workspace_users')
         .select('workspace_id')
@@ -50,11 +52,11 @@ export const workspaceService = {
         return m4LinkData.workspace_id;
       }
 
-      // No fallback. Access should be denied.
-      throw new Error('No workspace assigned to this user. Please contact your administrator.');
-    } catch (error) {
-      console.error('workspaceService: Resolve fatal error:', error);
-      throw error; // Propagate error so UI can handle it
+      // Se chegar aqui, o usuário existe mas não tem workspace vinculado
+      throw new Error('Nenhum workspace vinculado a este usuário. Entre em contato com o administrador para receber um convite.');
+    } catch (error: any) {
+      console.error('workspaceService: Erro fatal ao resolver workspace:', error);
+      throw new Error(error.message || 'Erro interno ao identificar seu espaço de trabalho.');
     }
   },
 

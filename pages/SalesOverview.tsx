@@ -23,6 +23,7 @@ interface SalesOverviewProps {
   onNewLead: () => void;
   currentUser: User | null;
   fetchLeads?: () => Promise<void>;
+  workspaceId: string;
 }
 
 const PIPELINE_OPTIONS = [
@@ -30,7 +31,7 @@ const PIPELINE_OPTIONS = [
   { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões' }
 ];
 
-const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser, fetchLeads }) => {
+const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipelines, setActiveTab, setActivePipelineId, onNewLead, currentUser, fetchLeads, workspaceId }) => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState(() => {
     return pipelines[0]?.id || '';
@@ -45,11 +46,17 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
   const [selectedPipelineForEdit, setSelectedPipelineForEdit] = React.useState<string>('');
 
   React.useEffect(() => {
-    supabase.from('m4_pipelines').select('id, name').order('name').then(({ data, error }) => {
-      console.log('dbPipelines carregados:', data, error);
-      if (data?.length) setDbPipelines(data);
-    });
-  }, []);
+    if (!workspaceId) return;
+    supabase
+      .from('m4_pipelines')
+      .select('id, name')
+      .eq('workspace_id', workspaceId)
+      .order('name')
+      .then(({ data, error }) => {
+        console.log('dbPipelines carregados:', data, error);
+        if (data?.length) setDbPipelines(data);
+      });
+  }, [workspaceId]);
 
   const pipelineOptions = dbPipelines;
 
@@ -90,7 +97,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
     console.log('Iniciando exclusão do lead:', selectedLead.id);
     
     try {
-      await leadService.delete(selectedLead.id);
+      await leadService.delete(selectedLead.id, workspaceId);
       console.log('Lead excluído com sucesso do banco');
       setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
       setSelectedLead(null);
@@ -652,7 +659,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                           const updated = await leadService.update(selectedLead.id, { 
                             ...editedLead,
                             pipeline_id: selectedPipelineForEdit || null 
-                          });
+                          }, workspaceId);
                           
                           setSelectedLead(updated)
                           setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l))

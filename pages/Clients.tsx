@@ -9,9 +9,10 @@ interface ClientsProps {
   clients: M4Client[];
   setClients: React.Dispatch<React.SetStateAction<M4Client[]>>;
   currentUser: User | null;
+  workspaceId: string;
 }
 
-const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) => {
+const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, workspaceId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showExClients, setShowExClients] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -29,7 +30,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) =
 
     setIsProcessing(client.id);
     try {
-      await clientService.archive(client.id);
+      await clientService.archive(client.id, workspaceId);
       setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'churned' } : c));
       alert('Cliente movido para Ex-Clientes com sucesso.');
     } catch (error: any) {
@@ -46,7 +47,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser }) =
 
     setIsProcessing(client.id);
     try {
-      await clientService.delete(client.id);
+      await clientService.delete(client.id, workspaceId);
       setClients(prev => prev.filter(c => c.id !== client.id));
       alert('Cliente excluído com sucesso.');
     } catch (error: any) {

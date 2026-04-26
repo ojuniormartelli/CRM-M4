@@ -22,6 +22,7 @@ import MarketingCRM from '../../pages/MarketingCRM';
 import GoalSettings from '../../pages/GoalSettings';
 import ContactCenter from '../../pages/ContactCenter';
 import Settings from '../../pages/Settings';
+import { taskService } from '../../services/taskService';
 
 interface MainContentProps {
   activeTab: string;
@@ -122,6 +123,7 @@ const MainContent: React.FC<MainContentProps> = ({
           pipelines={pipelines} 
           currentUser={currentUser} 
           setActiveTab={setActiveTab}
+          workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
         />
       )}
       {activeTab === 'my_day' && (
@@ -131,8 +133,13 @@ const MainContent: React.FC<MainContentProps> = ({
           companies={companies}
           currentUser={currentUser} 
           onUpdateTask={async (task) => {
-            const { error } = await supabase.from('m4_tasks').update(mappers.task(task)).eq('id', task.id);
-            if (!error) setTasks(tasks.map(t => t.id === task.id ? task : t));
+            try {
+              const wsId = currentUser?.workspace_id || resolvedWorkspaceId || '';
+              await taskService.update(task.id, task, wsId);
+              setTasks(tasks.map(t => t.id === task.id ? task : t));
+            } catch (err) {
+              console.error('Failed to update task in MyDay:', err);
+            }
           }}
         />
       )}
@@ -155,6 +162,7 @@ const MainContent: React.FC<MainContentProps> = ({
           onNewLead={() => setShowNewLeadModal(true)}
           currentUser={currentUser}
           fetchLeads={fetchLeads}
+          workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
         />
       )}
       {activeTab === 'emails' && <EmailModule emails={emails} setEmails={setEmails} currentUser={currentUser} />}
@@ -180,6 +188,7 @@ const MainContent: React.FC<MainContentProps> = ({
           services={services}
           bankAccounts={bankAccounts}
           setActiveTab={setActiveTab}
+          workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
         />
       )}
       {(activeTab === 'companies' || showNewCompanyModal) && (
@@ -210,10 +219,10 @@ const MainContent: React.FC<MainContentProps> = ({
       {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
       {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
       {activeTab === 'collaboration' && <Collaboration posts={posts as any} setPosts={posts as any} currentUser={currentUser} />}
-      {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} />}
-      {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
+      {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
+      {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId} />}
-      {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} />}
+      {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {(activeTab === 'finance' || activeTab.startsWith('finance_')) && <Finance currentUser={currentUser} activeTab={activeTab} />}
       {activeTab === 'marketing' && <MarketingCRM leads={leads} campaigns={campaigns as any} />}
       {activeTab === 'goal_settings' && <GoalSettings currentUser={currentUser} />}

@@ -7,6 +7,28 @@ import { clientService } from '../services/clientService';
 import { useCRMStore } from '../lib/store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+export const queryKeys = {
+  all: (wsId: string) => [wsId],
+  leads: (wsId: string) => ['leads', wsId],
+  tasks: (wsId: string) => ['tasks', wsId],
+  transactions: (wsId: string) => ['transactions', wsId],
+  companies: (wsId: string) => ['companies', wsId],
+  contacts: (wsId: string) => ['contacts', wsId],
+  emails: (wsId: string) => ['emails', wsId],
+  projects: (wsId: string) => ['projects', wsId],
+  clients: (wsId: string) => ['clients', wsId],
+  clientAccounts: (wsId: string) => ['clientAccounts', wsId],
+  services: (wsId: string) => ['services', wsId],
+  bankAccounts: (wsId: string) => ['bankAccounts', wsId],
+  creditCards: (wsId: string) => ['creditCards', wsId],
+  financeCategories: (wsId: string) => ['financeCategories', wsId],
+  paymentMethods: (wsId: string) => ['paymentMethods', wsId],
+  posts: (wsId: string) => ['posts', wsId],
+  campaigns: (wsId: string) => ['campaigns', wsId],
+  pipelines: (wsId: string) => ['pipelines', wsId],
+  settings: (wsId: string) => ['settings', wsId],
+};
+
 export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading: boolean) => {
   const { setIsLoadingLeads } = useCRMStore();
   const queryClient = useQueryClient();
@@ -16,7 +38,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 1. Leads
   const { data: leads = [], isLoading: leadsLoading, refetch: fetchLeads } = useQuery({
-    queryKey: ['leads', resolvedWorkspaceId],
+    queryKey: queryKeys.leads(wsId),
     queryFn: () => leadService.getAll(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -24,7 +46,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 2. Tasks
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ['tasks', resolvedWorkspaceId],
+    queryKey: queryKeys.tasks(wsId),
     queryFn: () => taskService.getAll(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -32,7 +54,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 3. Transactions
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions', resolvedWorkspaceId],
+    queryKey: queryKeys.transactions(wsId),
     queryFn: () => financeService.getTransactions(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -40,7 +62,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 4. Companies
   const { data: companies = [] } = useQuery({
-    queryKey: ['companies', resolvedWorkspaceId],
+    queryKey: queryKeys.companies(wsId),
     queryFn: () => financeService.getCompanies(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -48,7 +70,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 5. Contacts
   const { data: contacts = [] } = useQuery({
-    queryKey: ['contacts', resolvedWorkspaceId],
+    queryKey: queryKeys.contacts(wsId),
     queryFn: () => crmService.getContacts(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -56,7 +78,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 6. Emails
   const { data: emails = [] } = useQuery({
-    queryKey: ['emails', resolvedWorkspaceId],
+    queryKey: queryKeys.emails(wsId),
     queryFn: () => crmService.getEmails(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -64,7 +86,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 7. Projects
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects', resolvedWorkspaceId],
+    queryKey: queryKeys.projects(wsId),
     queryFn: () => crmService.getProjects(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -72,7 +94,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 8. Clients
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients', resolvedWorkspaceId],
+    queryKey: queryKeys.clients(wsId),
     queryFn: () => clientService.getAll(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -80,7 +102,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 9. Client Accounts
   const { data: clientAccounts = [] } = useQuery({
-    queryKey: ['clientAccounts', resolvedWorkspaceId],
+    queryKey: queryKeys.clientAccounts(wsId),
     queryFn: () => financeService.getClientAccounts(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -88,7 +110,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 10. Services
   const { data: services = [] } = useQuery({
-    queryKey: ['services', resolvedWorkspaceId],
+    queryKey: queryKeys.services(wsId),
     queryFn: () => crmService.getServices(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -96,7 +118,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 11. Bank Accounts
   const { data: bankAccounts = [] } = useQuery({
-    queryKey: ['bankAccounts', resolvedWorkspaceId],
+    queryKey: queryKeys.bankAccounts(wsId),
     queryFn: () => financeService.getBankAccounts(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -104,7 +126,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 12. Credit Cards
   const { data: creditCards = [] } = useQuery({
-    queryKey: ['creditCards', resolvedWorkspaceId],
+    queryKey: queryKeys.creditCards(wsId),
     queryFn: () => financeService.getCreditCards(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -112,7 +134,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 13. Finance Categories
   const { data: financeCategories = [] } = useQuery({
-    queryKey: ['financeCategories', resolvedWorkspaceId],
+    queryKey: queryKeys.financeCategories(wsId),
     queryFn: () => financeService.getCategories(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -120,7 +142,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 14. Payment Methods
   const { data: paymentMethods = [] } = useQuery({
-    queryKey: ['paymentMethods', resolvedWorkspaceId],
+    queryKey: queryKeys.paymentMethods(wsId),
     queryFn: () => financeService.getPaymentMethods(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -128,7 +150,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 15. Posts
   const { data: posts = [] } = useQuery({
-    queryKey: ['posts', resolvedWorkspaceId],
+    queryKey: queryKeys.posts(wsId),
     queryFn: () => crmService.getPosts(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -136,7 +158,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 16. Campaigns
   const { data: campaigns = [] } = useQuery({
-    queryKey: ['campaigns', resolvedWorkspaceId],
+    queryKey: queryKeys.campaigns(wsId),
     queryFn: () => crmService.getCampaigns(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -144,7 +166,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
 
   // 17. Pipelines
   const { data: pipelines = [] } = useQuery({
-    queryKey: ['pipelines', resolvedWorkspaceId],
+    queryKey: queryKeys.pipelines(wsId),
     queryFn: () => crmService.getPipelines(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -163,7 +185,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     whatsapp_number: '',
     language: 'pt-BR'
   } } = useQuery({
-    queryKey: ['settings', resolvedWorkspaceId],
+    queryKey: queryKeys.settings(wsId),
     queryFn: () => crmService.getSettings(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -180,72 +202,77 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
       console.log('[useAppData] Automation executed event received:', e.detail);
       
       // Invalidate all workspace data to ensure consistency on automation changes
-      queryClient.invalidateQueries({ queryKey: [resolvedWorkspaceId] });
+      if (wsId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.all(wsId) });
+      }
       
       // Specifically invalidate by entity if possible
-      if (e.detail?.entityType) {
-        queryClient.invalidateQueries({ queryKey: [e.detail.entityType + 's', resolvedWorkspaceId] });
+      if (e.detail?.entityType && wsId) {
+        const entityKey = e.detail.entityType + 's';
+        if (queryKeys[entityKey as keyof typeof queryKeys]) {
+          queryClient.invalidateQueries({ queryKey: (queryKeys[entityKey as keyof typeof queryKeys] as Function)(wsId) });
+        }
       }
     };
 
     window.addEventListener('m4_automation_executed', handleAutomationExecuted);
     return () => window.removeEventListener('m4_automation_executed', handleAutomationExecuted);
-  }, [queryClient, resolvedWorkspaceId]);
+  }, [queryClient, wsId]);
 
   const setLeadsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['leads', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.leads(wsId), newData);
   };
 
   const setTasksLocally = (newData: any[]) => {
-    queryClient.setQueryData(['tasks', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.tasks(wsId), newData);
   };
 
   const setCompaniesLocally = (newData: any[]) => {
-    queryClient.setQueryData(['companies', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.companies(wsId), newData);
   };
 
   const setContactsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['contacts', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.contacts(wsId), newData);
   };
 
   const setTransactionsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['transactions', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.transactions(wsId), newData);
   };
 
   const setBankAccountsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['bankAccounts', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.bankAccounts(wsId), newData);
   };
 
   const setCreditCardsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['creditCards', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.creditCards(wsId), newData);
   };
 
   const setEmailsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['emails', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.emails(wsId), newData);
   };
 
   const setClientsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['clients', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.clients(wsId), newData);
   };
 
   const setProjectsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['projects', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.projects(wsId), newData);
   };
 
   const setClientAccountsLocally = (newData: any[]) => {
-    queryClient.setQueryData(['clientAccounts', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.clientAccounts(wsId), newData);
   };
 
   const setServicesLocally = (newData: any[]) => {
-    queryClient.setQueryData(['services', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.services(wsId), newData);
   };
 
   const setPipelinesLocally = (newData: any[]) => {
-    queryClient.setQueryData(['pipelines', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.pipelines(wsId), newData);
   };
 
   const setSettingsLocally = (newData: any) => {
-    queryClient.setQueryData(['settings', resolvedWorkspaceId], newData);
+    queryClient.setQueryData(queryKeys.settings(wsId), newData);
   };
 
   const allQueriesLoading = leadsLoading || tasksLoading; // Simplification, could be more exhaustive
@@ -271,6 +298,6 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     pipelines, setPipelines: setPipelinesLocally,
     settings, setSettings: setSettingsLocally,
     fetchLeads,
-    fetchServices: () => queryClient.invalidateQueries({ queryKey: ['services', resolvedWorkspaceId] })
+    fetchServices: () => queryClient.invalidateQueries({ queryKey: queryKeys.services(wsId) })
   };
 };

@@ -15,9 +15,10 @@ interface TasksProps {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   currentUser?: User | null;
+  workspaceId: string;
 }
 
-const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId }) => {
   const [view, setView] = useState<'list' | 'board' | 'calendar' | 'gantt'>('list');
   const [filter, setFilter] = useState<TaskStatus | 'All'>('All');
   const [taskTypeFilter, setTaskTypeFilter] = useState<'All' | 'commercial' | 'operational' | 'internal'>('All');
@@ -89,11 +90,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   }, [selectedTask]);
 
   const fetchTaskDetails = async (taskId: string) => {
+    if (!workspaceId) return;
+    
     // Fetch Comments
     const { data: commentsData } = await supabase
       .from('m4_task_comments')
       .select('*, user:m4_users(*)')
       .eq('task_id', taskId)
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: true });
     if (commentsData) setComments(commentsData);
 
@@ -102,6 +106,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       .from('m4_task_attachments')
       .select('*, user:m4_users(*)')
       .eq('task_id', taskId)
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     if (attachmentsData) setAttachments(attachmentsData);
 
@@ -110,6 +115,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       .from('m4_task_time_entries')
       .select('*')
       .eq('task_id', taskId)
+      .eq('workspace_id', workspaceId)
       .order('start_time', { ascending: false });
     if (timeData) {
       setTimeEntries(timeData);
@@ -132,13 +138,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   };
 
   const handleStartTimer = async () => {
-    if (!selectedTask || !currentUser) return;
+    if (!selectedTask || !currentUser || !workspaceId) return;
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('m4_task_time_entries')
       .insert([{
         task_id: selectedTask.id,
         user_id: currentUser.id,
+        workspace_id: workspaceId,
         start_time: now
       }])
       .select()
@@ -167,14 +174,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         end_time: now.toISOString(),
         duration_minutes: durationMinutes
       })
-      .eq('id', activeEntry.id);
+      .eq('id', activeEntry.id)
+      .eq('workspace_id', workspaceId);
 
     if (!error) {
       // Update task total actual_hours
       const totalMinutes = timeEntries.reduce((acc, curr) => acc + (curr.duration_minutes || 0), 0) + durationMinutes;
       const totalHours = Number((totalMinutes / 60).toFixed(2));
       
-      await supabase.from('m4_tasks').update({ actual_hours: totalHours }).eq('id', selectedTask.id);
+      await supabase.from('m4_tasks').update({ actual_hours: totalHours }).eq('id', selectedTask.id).eq('workspace_id', workspaceId);
       
       setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, actual_hours: totalHours } : t));
       setSelectedTask({ ...selectedTask, actual_hours: totalHours });
@@ -188,12 +196,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !selectedTask || !currentUser) return;
+    if (!newComment.trim() || !selectedTask || !currentUser || !workspaceId) return;
     const { data, error } = await supabase
       .from('m4_task_comments')
       .insert([{
         task_id: selectedTask.id,
         user_id: currentUser.id,
+        workspace_id: workspaceId,
         comment: newComment.trim()
       }])
       .select('*, user:m4_users(*)')
@@ -233,6 +242,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
       .from('m4_task_attachments')
       .insert([{
         task_id: selectedTask.id,
+        workspace_id: workspaceId,
         file_name: file.name,
         file_size: file.size,
         file_type: file.type,
@@ -274,13 +284,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   const [editTask, setEditTask] = useState<Partial<Task>>({});
 
-  // Fetch companies for autocomplete
   useEffect(() => {
     const fetchCompanies = async () => {
-      // Base query - No workspace filter for single-tenant mode
+      if (!workspaceId) return;
+      // Base query
       const { data, error } = await supabase
         .from('m4_companies')
         .select('*')
+        .eq('workspace_id', workspaceId)
         .is('deleted_at', null)
         .order('name');
 
@@ -296,17 +307,20 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
     };
 
     const fetchUsers = async () => {
-      const { data } = await supabase.from('m4_users').select('*').order('name');
+      if (!workspaceId) return;
+      const { data } = await supabase.from('m4_users').select('*').eq('workspace_id', workspaceId).order('name');
       if (data) setUsers(data);
     };
 
     const fetchLeads = async () => {
-      const { data } = await supabase.from('m4_leads').select('*').is('deleted_at', null).order('contact_name');
+      if (!workspaceId) return;
+      const { data } = await supabase.from('m4_leads').select('*').eq('workspace_id', workspaceId).is('deleted_at', null).order('contact_name');
       if (data) setLeads(data);
     };
 
     const fetchClients = async () => {
-      const { data } = await supabase.from('m4_clients').select('*').order('company_name');
+      if (!workspaceId) return;
+      const { data } = await supabase.from('m4_clients').select('*').eq('workspace_id', workspaceId).order('company_name');
       if (data) setClients(data);
     };
 
@@ -319,6 +333,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   // Fetch contacts when company changes
   useEffect(() => {
     const fetchContacts = async () => {
+      if (!workspaceId) return;
       const companyId = isEditing ? editTask.company_id : newTask.company_id;
       if (!companyId) {
         setContacts([]);
@@ -328,6 +343,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         .from('m4_contacts')
         .select('*')
         .eq('company_id', companyId)
+        .eq('workspace_id', workspaceId)
         .order('name');
       if (data) setContacts(data);
     };
@@ -343,10 +359,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!workspaceId) return;
     setIsSaving(true);
     try {
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-      const taskData = mappers.task(newTask, currentUser?.workspace_id);
+      const taskData = mappers.task(newTask, workspaceId);
       console.log('CREATING TASK PAYLOAD:', taskData);
 
       const { data, error } = await supabase
@@ -376,18 +393,19 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
 
   const handleUpdateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
+    if (!selectedTask || !workspaceId) return;
     setIsSaving(true);
 
     try {
       // 🛡️ WHITELIST PAYLOAD (BLINDAGEM)
-      const taskData = mappers.task(editTask);
+      const taskData = mappers.task(editTask, workspaceId);
       console.log('UPDATING TASK PAYLOAD:', selectedTask.id, taskData);
 
       const { data, error } = await supabase
         .from('m4_tasks')
         .update(taskData)
         .eq('id', selectedTask.id)
+        .eq('workspace_id', workspaceId)
         .select();
 
       if (error) {
@@ -411,12 +429,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   };
 
   const handleDeleteTask = async () => {
-    if (!taskToDelete) return;
+    if (!taskToDelete || !workspaceId) return;
 
     const { error } = await supabase
       .from('m4_tasks')
-      .delete()
-      .eq('id', taskToDelete);
+      .update({ deleted_at: new Date().toISOString() }) // Use soft delete as per taskService pattern
+      .eq('id', taskToDelete)
+      .eq('workspace_id', workspaceId);
 
     if (!error) {
       setTasks(tasks.filter(t => t.id !== taskToDelete));
@@ -520,13 +539,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
   };
 
   const handleToggleStatus = async (task: Task) => {
+    if (!workspaceId) return;
     const isNowDone = task.status !== TaskStatus.DONE;
     const newStatus = isNowDone ? TaskStatus.DONE : TaskStatus.TODO;
     
     const { error } = await supabase
       .from('m4_tasks')
       .update({ status: newStatus })
-      .eq('id', task.id);
+      .eq('id', task.id)
+      .eq('workspace_id', workspaceId);
 
     if (!error) {
       setTasks(tasks.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
@@ -537,9 +558,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
         
         // Check end conditions
         if (task.recurrence_end_date && nextDueDate > task.recurrence_end_date) return;
-        
-        // Count occurrences if needed (would require a query to count previous tasks with same recurrence group)
-        // For now, simple next occurrence creation
         
         const nextTask = {
           title: task.title,
@@ -559,7 +577,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser }) => {
           contact_id: task.contact_id,
           client_account_id: task.client_account_id,
           project_id: task.project_id,
-          workspace_id: currentUser?.workspace_id,
+          workspace_id: workspaceId,
           created_at: new Date().toISOString()
         };
 

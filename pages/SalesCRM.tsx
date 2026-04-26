@@ -36,6 +36,7 @@ interface SalesCRMProps {
   setIsModalOpen?: (isOpen: boolean) => void;
   renderOnlyModal?: boolean;
   setActiveTab: (tab: string) => void;
+  workspaceId: string;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -152,7 +153,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   isModalOpen: externalIsModalOpen,
   setIsModalOpen: setExternalIsModalOpen,
   renderOnlyModal = false,
-  setActiveTab
+  setActiveTab,
+  workspaceId
 }) => {
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
@@ -213,6 +215,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const response: Partial<FormResponse> = {
       form_id: selectedTemplate.id,
       lead_id: selectedLead.id,
+      workspace_id: workspaceId,
       answers: Object.entries(formAnswers).map(([question_id, value]) => ({ question_id, value })),
       created_at: new Date().toISOString()
     };
@@ -225,6 +228,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       // Also add an interaction to the lead
       await supabase.from('m4_interactions').insert([{
         lead_id: selectedLead.id,
+        workspace_id: workspaceId,
         type: 'ai_insight',
         title: `Sondagem Realizada: ${selectedTemplate.title}`,
         content: `Formulário preenchido durante reunião. ${Object.keys(formAnswers).length} perguntas respondidas.`,
@@ -241,36 +245,36 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   // Fetch form templates and responses
   useEffect(() => {
     const fetchFormTemplates = async () => {
-      const { data, error } = await supabase.from('m4_form_templates').select('*');
+      const { data } = await supabase.from('m4_form_templates').select('*').eq('workspace_id', workspaceId);
       if (data) setFormTemplates(data);
     };
 
-    fetchFormTemplates();
-  }, []);
+    if (workspaceId) fetchFormTemplates();
+  }, [workspaceId]);
 
   useEffect(() => {
-    if (selectedLead) {
+    if (selectedLead && workspaceId) {
       const fetchFormResponses = async () => {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('m4_form_responses')
           .select('*')
-          .eq('lead_id', selectedLead.id);
+          .eq('lead_id', selectedLead.id)
+          .eq('workspace_id', workspaceId);
         if (data) setFormResponses(data);
       };
 
       fetchFormResponses();
     }
-  }, [selectedLead]);
+  }, [selectedLead, workspaceId]);
 
   useEffect(() => {
-    if (selectedLead) {
+    if (selectedLead && workspaceId) {
       const fetchInteractions = async () => {
-        // Agora buscamos da tabela m4_tasks filtrando pelo lead
-        // Incluímos tanto interações concluídas quanto tarefas comerciais vinculadas
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('m4_tasks')
           .select('*')
           .eq('lead_id', selectedLead.id)
+          .eq('workspace_id', workspaceId)
           .order('created_at', { ascending: false });
         
         if (data) {
@@ -279,7 +283,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       };
       fetchInteractions();
     }
-  }, [selectedLead]);
+  }, [selectedLead, workspaceId]);
 
   const handleRegisterInteraction = async () => {
     if (!selectedLead || !interactionNote.trim() || !currentUser) return;
@@ -302,7 +306,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
       const payload = mappers.task(interactionTask, currentUser.workspace_id);
 
-      const { data, error } = await supabase
+      const { data: interactionResultData, error } = await supabase
         .from('m4_tasks')
         .insert([payload])
         .select()
@@ -310,9 +314,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
       if (error) throw error;
 
-      if (data) {
-        setInteractions([data as Task, ...interactions]);
-        setTasks([data as Task, ...tasks]); // Também atualiza a lista global de tarefas
+      if (interactionResultData) {
+        setInteractions([interactionResultData as Task, ...interactions]);
+        setTasks([interactionResultData as Task, ...tasks]); // Também atualiza a lista global de tarefas
         setInteractionNote('');
         setInteractionResult('Sucesso');
         setShowInteractionForm(false);
@@ -401,11 +405,15 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data } = await supabase.from('m4_users').select('*').eq('status', 'active');
+      const { data } = await supabase
+        .from('m4_users')
+        .select('*')
+        .eq('status', 'active')
+        .eq('workspace_id', workspaceId);
       if (data) setUsers(data);
     };
-    fetchUsers();
-  }, []);
+    if (workspaceId) fetchUsers();
+  }, [workspaceId]);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
@@ -432,7 +440,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       .from('m4_companies')
       .insert([{
         ...newCompany,
-        workspace_id: currentUser?.workspace_id
+        workspace_id: workspaceId
       }])
       .select();
 
@@ -451,7 +459,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           ...primaryContact,
           company_id: companyId,
           is_primary: true
-        }, currentUser?.workspace_id);
+        }, workspaceId);
 
         const { data: contactData } = await supabase
           .from('m4_contacts')
@@ -466,6 +474,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           .from('m4_contacts')
           .update({ company_id: companyId, is_primary: true })
           .eq('id', selectedContactId)
+          .eq('workspace_id', workspaceId)
           .select();
         
         if (contactData) {
@@ -492,7 +501,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const contactPayload = mappers.contact({
       ...newContact,
       company_id: newLead.company_id
-    }, currentUser?.workspace_id);
+    }, workspaceId);
 
     const { data, error } = await supabase
       .from('m4_contacts')
@@ -527,7 +536,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     };
 
     try {
-      const updatedLead = await leadService.update(selectedLead.id, updateData);
+      const updatedLead = await leadService.update(selectedLead.id, updateData, workspaceId);
       setLeads(leads.map(l => l.id === selectedLead.id ? updatedLead : l));
       setSelectedLead(updatedLead);
       setIsEditing(false);
@@ -573,13 +582,13 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     try {
       const pipelineData = {
         name: editingPipeline.name,
-        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
+        workspace_id: workspaceId,
         position: editingPipeline.position ?? pipelines.length
       };
 
       let pipelineId = editingPipeline.id;
       if (pipelineId) {
-        const { error } = await supabase.from('m4_pipelines').update(pipelineData).eq('id', pipelineId);
+        const { error } = await supabase.from('m4_pipelines').update(pipelineData).eq('id', pipelineId).eq('workspace_id', workspaceId);
         if (error) throw error;
       } else {
         const { data, error } = await supabase.from('m4_pipelines').insert(pipelineData).select().single();
@@ -592,13 +601,13 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         const allStages = editingPipeline.stages.map((s, idx) => {
           const stage: any = {
             pipeline_id: pipelineId,
+            workspace_id: workspaceId,
             name: s.name,
             position: idx,
             color: s.color || 'blue',
             status: s.status || FunnelStatus.INTERMEDIATE
           };
           
-          // Only include ID if it looks like a real UUID (not a temp ID from Math.random)
           if (s.id && !s.id.includes('.')) {
             stage.id = s.id;
           }
@@ -606,36 +615,26 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           return stage;
         });
 
-        // 1. Identify stages to delete (those in DB but not in currentStages)
+        // 1. Identify stages to delete
         if (editingPipeline.id) {
-          const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId);
+          const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId).eq('workspace_id', workspaceId);
           if (dbStages) {
             const currentIds = allStages.map(s => s.id).filter(Boolean);
             const toDelete = dbStages.filter(s => !currentIds.includes(s.id)).map(s => s.id);
             if (toDelete.length > 0) {
-              await supabase.from('m4_pipeline_stages').delete().in('id', toDelete);
+              await supabase.from('m4_pipeline_stages').delete().in('id', toDelete).eq('workspace_id', workspaceId);
             }
           }
         }
 
-        // 2. Separate updates and inserts
-        const stagesToUpsert = allStages.filter(s => s.id);
-        const stagesToInsert = allStages.filter(s => !s.id);
-
-        if (stagesToUpsert.length > 0) {
-          const { error: uError } = await supabase.from('m4_pipeline_stages').upsert(stagesToUpsert);
-          if (uError) throw uError;
-        }
-
-        if (stagesToInsert.length > 0) {
-          const { error: iError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
-          if (iError) throw iError;
-        }
+        // 2. Upsert stages
+        const { error: upsertError } = await supabase.from('m4_pipeline_stages').upsert(allStages);
+        if (upsertError) throw upsertError;
       }
 
       // Refresh pipelines
-      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('position');
-      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+      const { data: pData } = await supabase.from('m4_pipelines').select('*').eq('workspace_id', workspaceId).order('position');
+      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').eq('workspace_id', workspaceId).order('position');
       
       if (pData) {
         const fullPipelines = pData.map(p => ({
@@ -842,7 +841,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
   const handleDeleteLead = async (id: string) => {
     try {
-      await leadService.delete(id);
+      if (!workspaceId) throw new Error("Workspace ID is required");
+      await leadService.delete(id, workspaceId);
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
       setIsDeleting(false);
@@ -885,7 +885,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       const { error } = await supabase
         .from('m4_leads')
         .update(enriched)
-        .eq('id', lead.id);
+        .eq('id', lead.id)
+        .eq('workspace_id', workspaceId);
 
       if (!error) {
         const updatedLead = { ...lead, ...enriched };
@@ -907,7 +908,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       const { error } = await supabase
         .from('m4_leads')
         .update({ ai_score: result.score, ai_reasoning: result.reasoning })
-        .eq('id', lead.id);
+        .eq('id', lead.id)
+        .eq('workspace_id', workspaceId);
 
       if (!error) {
         const updatedLead = { ...lead, ai_score: result.score, ai_reasoning: result.reasoning };
@@ -1046,7 +1048,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         lead_id: selectedLead.id,
         company_id: selectedLead.company_id,
         status: 'Pendente'
-      }, currentUser.workspace_id);
+      }, workspaceId);
 
       const { data, error } = await supabase
         .from('m4_tasks')
