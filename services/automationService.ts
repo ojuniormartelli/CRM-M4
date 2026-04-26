@@ -254,11 +254,7 @@ export const automationService = {
     execution_details?: any;
   }) {
     // Sanitize workspace_id for logs
-    // If workspace_id is missing or invalid, try to use a default or omit it if the DB allows
-    // However, since it's NOT NULL in some schemas, we use a fallback if possible
-    const sanitizedWorkspaceId = isUUID(logData.workspace_id) 
-      ? logData.workspace_id 
-      : (isUUID(localStorage.getItem('m4_crm_workspace_id')) ? localStorage.getItem('m4_crm_workspace_id') : null);
+    const sanitizedWorkspaceId = isUUID(logData.workspace_id) ? logData.workspace_id : null;
 
     const sanitizedLogData = {
       ...logData,

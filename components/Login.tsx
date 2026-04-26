@@ -215,7 +215,6 @@ const ForcePasswordChange: React.FC<{ user: User; onSuccess: (user: User) => voi
       const { data, error: updateError } = await supabase
         .from('m4_users')
         .update({ 
-          password: newPassword, // Keeping for backward compatibility if needed, though redundant with Auth
           must_change_password: false,
           updated_at: new Date().toISOString()
         })

@@ -113,7 +113,7 @@ const App: React.FC = () => {
 
       if (status === 'won') {
         await automationService.convertLeadToClient(lead, workspaceId);
-        const clientsData = await clientService.getAll();
+        const clientsData = await clientService.getAll(workspaceId);
         appData.setClients(clientsData);
       } else if (status === 'lost') {
         const followUpTask = {

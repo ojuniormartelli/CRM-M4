@@ -231,6 +231,7 @@ const MainContent: React.FC<MainContentProps> = ({
           setPipelines={setPipelines}
           activeTab={activeTab}
           leads={leads}
+          workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
         />
       )}
     </div>

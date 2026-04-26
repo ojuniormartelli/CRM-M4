@@ -328,6 +328,30 @@ export const financeService = {
     }
   },
 
+  async getCreditCards(workspaceId: string): Promise<FinanceBankAccount[]> {
+    if (!workspaceId || !isUUID(workspaceId)) return [];
+    try {
+      const { data, error } = await supabase
+        .from('m4_fin_bank_accounts')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('is_active', true)
+        .eq('type', 'credit_account')
+        .order('name');
+
+      if (error) throw error;
+      
+      return (data || []).map(acc => ({
+        ...acc,
+        balance: Number(acc.balance) || 0,
+        current_balance: Number(acc.current_balance ?? acc.balance) || 0
+      }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'm4_fin_bank_accounts');
+      return [];
+    }
+  },
+
   // --- Client Accounts (Recurring Charges) ---
   async getClientAccounts(workspaceId: string): Promise<any[]> {
     if (!workspaceId || !isUUID(workspaceId)) {

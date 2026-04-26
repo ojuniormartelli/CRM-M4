@@ -128,17 +128,67 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
--- Ativar RLS em todas
+-- Ativar RLS e Aplicar Políticas de Isolamento por Workspace e Soft Delete
+CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
+RETURNS UUID AS $$
+BEGIN
+    RETURN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
 DO $$ 
 DECLARE
     t text;
+    has_deleted_at boolean;
 BEGIN
-    FOR t IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
+    FOR t IN (
+        SELECT tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public' 
+        AND tablename LIKE 'm4_%' 
+    ) LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
-        EXECUTE format('CREATE POLICY "Allow all access" ON %I FOR ALL USING (true)', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Workspace Access" ON %I', t);
+
+        IF t IN ('m4_workspaces', 'm4_users', 'm4_workspace_users') THEN
+            CONTINUE;
+        END IF;
+
+        -- Verificar se a tabela tem a coluna deleted_at
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = t AND column_name = 'deleted_at'
+        ) INTO has_deleted_at;
+
+        IF has_deleted_at THEN
+            EXECUTE format('
+                CREATE POLICY "Workspace Access" ON %I 
+                FOR ALL 
+                TO authenticated 
+                USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)
+                WITH CHECK (workspace_id = public.get_current_workspace_id())
+            ', t);
+        ELSE
+            EXECUTE format('
+                CREATE POLICY "Workspace Access" ON %I 
+                FOR ALL 
+                TO authenticated 
+                USING (workspace_id = public.get_current_workspace_id())
+                WITH CHECK (workspace_id = public.get_current_workspace_id())
+            ', t);
+        END IF;
     END LOOP;
 END $$;
+
+-- Políticas Especiais para Tabelas de Core
+CREATE POLICY "Workspace Member Visibility" ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
+CREATE POLICY "User Profile Visibility" ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+CREATE POLICY "User Self Update" ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT SELECT ON public.m4_users TO anon;
 `;
 
   const handleInstall = async () => {

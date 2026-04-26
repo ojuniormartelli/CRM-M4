@@ -105,7 +105,7 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
   // 12. Credit Cards
   const { data: creditCards = [] } = useQuery({
     queryKey: ['creditCards', resolvedWorkspaceId],
-    queryFn: async () => [],
+    queryFn: () => financeService.getCreditCards(wsId),
     enabled,
     staleTime: 5 * 60 * 1000,
   });

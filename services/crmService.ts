@@ -85,6 +85,7 @@ export const crmService = {
     const { data: sData, error: sError } = await supabase
       .from('m4_pipeline_stages')
       .select('*')
+      .eq('workspace_id', workspaceId)
       .order('position');
 
     if (sError) throw sError;

@@ -34,8 +34,8 @@ BEGIN
 
     -- 2.1 Garantir Admin Principal
     IF NOT EXISTS (SELECT 1 FROM m4_users WHERE email = 'admin@crm.com') THEN
-        INSERT INTO m4_users (id, name, email, password, role, workspace_id, status, must_change_password)
-        VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'admin123', 'owner', v_workspace_id, 'active', true);
+        INSERT INTO m4_users (id, name, email, role, workspace_id, status, must_change_password)
+        VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'owner', v_workspace_id, 'active', true);
     END IF;
 
     -- 3. Garantir Workspace Principal
@@ -156,7 +156,6 @@ CREATE TABLE IF NOT EXISTS public.m4_users (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    password TEXT DEFAULT 'admin123',
     role TEXT DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
     job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL,
     avatar_url TEXT,
@@ -574,8 +573,8 @@ VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-9999888
 ON CONFLICT (id) DO NOTHING;
 
 -- Admin Padrão
-INSERT INTO public.m4_users (id, name, email, password, role, job_role_id, workspace_id, status, must_change_password)
-VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'admin123', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active', true)
+INSERT INTO public.m4_users (id, name, email, role, job_role_id, workspace_id, status, must_change_password)
+VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Pipelines e Stages

@@ -11,9 +11,10 @@ import { ptBR } from 'date-fns/locale';
 interface AutomationProps {
   leads: Lead[];
   currentUser: User | null;
+  workspaceId: string;
 }
 
-const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
+const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser, workspaceId }) => {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,37 +24,8 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
   const [automationToDelete, setAutomationToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
-  const [workspaceId, setWorkspaceId] = useState<string>(() => {
-    const initial = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id') || '';
-    return isUUID(initial) ? initial : '';
-  });
-
-  const [isWorkspaceChecked, setIsWorkspaceChecked] = useState(false);
-
-  useEffect(() => {
-    const checkWorkspace = async () => {
-      if (!isUUID(workspaceId)) {
-        // Try to find any workspace in the database
-        const { data: settings } = await supabase.from('m4_settings').select('workspace_id').maybeSingle();
-        if (settings?.workspace_id && isUUID(settings.workspace_id)) {
-          setWorkspaceId(settings.workspace_id);
-          localStorage.setItem('m4_crm_workspace_id', settings.workspace_id);
-        } else {
-          // If still no workspace, try to find one from pipelines
-          const { data: pipelines } = await supabase.from('m4_pipelines').select('workspace_id').not('workspace_id', 'is', null).limit(1);
-          if (pipelines && pipelines.length > 0 && pipelines[0].workspace_id && isUUID(pipelines[0].workspace_id)) {
-            setWorkspaceId(pipelines[0].workspace_id);
-            localStorage.setItem('m4_crm_workspace_id', pipelines[0].workspace_id);
-          }
-        }
-      }
-      setIsWorkspaceChecked(true);
-    };
-    checkWorkspace();
-  }, [currentUser, workspaceId]);
-
   const fetchAutomations = async () => {
+    if (!workspaceId) return;
     setLoading(true);
     setError(null);
     try {
@@ -68,10 +40,8 @@ const AutomationPage: React.FC<AutomationProps> = ({ leads, currentUser }) => {
   };
 
   useEffect(() => {
-    if (isWorkspaceChecked) {
-      fetchAutomations();
-    }
-  }, [workspaceId, isWorkspaceChecked]);
+    fetchAutomations();
+  }, [workspaceId]);
 
   const handleCreate = () => {
     setEditingAutomation(null);

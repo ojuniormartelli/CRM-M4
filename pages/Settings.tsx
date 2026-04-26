@@ -22,6 +22,7 @@ interface SettingsProps {
   setPipelines: React.Dispatch<React.SetStateAction<Pipeline[]>>;
   activeTab: string;
   leads: any[];
+  workspaceId: string;
 }
 
 const BackupTab = () => {
@@ -212,7 +213,8 @@ const Settings: React.FC<SettingsProps> = ({
   pipelines,
   setPipelines,
   activeTab: parentActiveTab,
-  leads
+  leads,
+  workspaceId
 }) => {
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'branding' | 'technical' | 'users' | 'roles' | 'profile' | 'services' | 'backup' | 'pipelines' | 'workspaces' | 'automation'>('branding');
@@ -1107,7 +1109,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {activeTab === 'technical' && <TechnicalPanel />}
 
-      {activeTab === 'automation' && <AutomationPage leads={leads} currentUser={currentUser} />}
+      {activeTab === 'automation' && <AutomationPage leads={leads} currentUser={currentUser} workspaceId={workspaceId} />}
 
       {activeTab === 'workspaces' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
