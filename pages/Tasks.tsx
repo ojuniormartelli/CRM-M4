@@ -3,6 +3,7 @@ import { ICONS } from '../constants';
 import { Task, TaskStatus, Priority, User, Company, Contact, TaskComment, TaskAttachment, TaskTimeEntry, Lead, M4Client } from '../types';
 import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
+import { taskService } from '../services/taskService';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/pt-br';
@@ -430,18 +431,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   const handleDeleteTask = async () => {
     if (!taskToDelete || !workspaceId) return;
 
-    const { error } = await supabase
-      .from('m4_tasks')
-      .delete()
-      .eq('id', taskToDelete)
-      .eq('workspace_id', workspaceId);
-
-    if (!error) {
+    try {
+      await taskService.delete(taskToDelete, workspaceId);
       setTasks(tasks.filter(t => t.id !== taskToDelete));
       if (selectedTask?.id === taskToDelete) {
         setSelectedTask(null);
         setIsEditing(false);
       }
+    } catch (err) {
+      console.error('Erro ao excluir tarefa:', err);
     }
     setIsDeleting(false);
     setTaskToDelete(null);

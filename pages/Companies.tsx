@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Company, Contact, User, Task, TaskStatus, Priority, ClientAccount } from '../types';
 import { ICONS } from '../constants';
 import { mappers } from '../lib/mappers';
+import { crmService } from '../services/crmService';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 
@@ -73,17 +74,9 @@ const Companies: React.FC<CompaniesProps> = ({
   }, []);
 
   const fetchCompanies = async () => {
+    if (!currentUser?.workspace_id) return;
     try {
-      const { data, error } = await supabase
-        .from('m4_companies')
-        .select('*')
-        .order('name');
-
-      if (error) {
-        console.error('Erro ao carregar empresas:', error);
-        return;
-      }
-
+      const data = await crmService.getCompanies(currentUser.workspace_id);
       if (data) {
         setCompanies(data);
       }
@@ -93,15 +86,10 @@ const Companies: React.FC<CompaniesProps> = ({
   };
 
   const handleDeleteCompany = async (id: string) => {
+    if (!currentUser?.workspace_id) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('m4_companies')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await crmService.deleteCompany(id, currentUser.workspace_id);
       setCompanies(prev => prev.filter(c => c.id !== id));
       setIsEditModalOpen(false);
       setShowDeleteConfirm(false);
@@ -339,6 +327,7 @@ const Companies: React.FC<CompaniesProps> = ({
       .from('m4_tasks')
       .select('*')
       .eq('company_id', company.id)
+      .is('deleted_at', null)
       .order('due_date', { ascending: true });
     
     if (tasksData) setCompanyTasks(tasksData);

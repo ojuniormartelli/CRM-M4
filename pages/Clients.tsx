@@ -41,7 +41,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
   };
 
   const handleDelete = async (client: M4Client) => {
-    if (!window.confirm(`Tem certeza que deseja excluir DEFINITIVAMENTE o cliente ${client.company_name}? Esta ação não pode ser desfeita.`)) {
+    if (!window.confirm(`Tem certeza que deseja remover o cliente ${client.company_name}?`)) {
       return;
     }
 

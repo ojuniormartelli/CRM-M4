@@ -66,7 +66,7 @@ export const crmService = {
   },
 
   async deleteProject(id: string, workspaceId: string) {
-    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório');
+    if (!workspaceId || !isUUID(workspaceId) || !id) throw new Error('Dados obrigatórios ausentes');
     try {
       const { error } = await supabase
         .from('m4_projects')
@@ -78,6 +78,52 @@ export const crmService = {
       handleFirestoreError(error, OperationType.DELETE, 'm4_projects');
     }
   },
+
+  async deleteCompany(id: string, workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId) || !id) throw new Error('Dados obrigatórios ausentes');
+    try {
+      const { error } = await supabase
+        .from('m4_companies')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
+      if (error) throw error;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'm4_companies');
+    }
+  },
+
+  async deleteContact(id: string, workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId) || !id) throw new Error('Dados obrigatórios ausentes');
+    try {
+      const { error } = await supabase
+        .from('m4_contacts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
+      if (error) throw error;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'm4_contacts');
+    }
+  },
+
+  async getCompanies(workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId)) return [];
+    try {
+      const { data, error } = await supabase
+        .from('m4_companies')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'm4_companies');
+      return [];
+    }
+  },
+
   async getContacts(workspaceId: string) {
     if (!workspaceId || !isUUID(workspaceId)) return [];
     try {
@@ -85,6 +131,7 @@ export const crmService = {
         .from('m4_contacts')
         .select('*, company:m4_companies(id, name)')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('name');
       if (error) throw error;
       return data || [];
@@ -102,6 +149,7 @@ export const crmService = {
         .from('m4_projects')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       
       if (error) {
