@@ -18,7 +18,8 @@ export const leadService = {
       let query = supabase
         .from('m4_leads')
         .select('*')
-        .eq('workspace_id', wsId);
+        .eq('workspace_id', wsId)
+        .is('deleted_at', null);
 
       // Try to order by created_at if possible
       query = query.order('created_at', { ascending: false });

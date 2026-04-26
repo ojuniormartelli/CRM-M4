@@ -22,41 +22,39 @@ export const workspaceService = {
   async resolveWorkspaceForUser(userId: string): Promise<string> {
     if (!userId || userId === 'unknown') throw new Error('User ID is required');
 
-    const DEFAULT_WS_ID = 'fb786658-1234-4321-8888-999988887777';
-
     try {
-      // 1. Try m4_workspace_users
-      const { data: m4LinkData } = await supabase
-        .from('m4_workspace_users')
-        .select('workspace_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (m4LinkData?.workspace_id && isUUID(m4LinkData.workspace_id)) {
-        console.log('workspaceService: Resolved via m4_workspace_users:', m4LinkData.workspace_id);
-        return m4LinkData.workspace_id;
-      }
-
-      // 2. Try m4_users table
-      const { data: m4UserData } = await supabase
+      // 1. Try m4_users table directly (standard profile)
+      const { data: m4UserData, error: userError } = await supabase
         .from('m4_users')
         .select('workspace_id')
         .eq('id', userId)
         .maybeSingle();
 
+      if (userError) throw userError;
+
       if (m4UserData?.workspace_id && isUUID(m4UserData.workspace_id)) {
-        console.log('workspaceService: Resolved via m4_users:', m4UserData.workspace_id);
         return m4UserData.workspace_id;
       }
 
-      // 3. Fallback: Get First Available Workspace
-      const { data: firstWs } = await supabase.from('m4_workspaces').select('id').limit(1).maybeSingle();
-      if (firstWs?.id) return firstWs.id;
+      // 2. Try m4_workspace_users (mapping table for multiple workspaces)
+      const { data: m4LinkData, error: linkError } = await supabase
+        .from('m4_workspace_users')
+        .select('workspace_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
 
-      return DEFAULT_WS_ID;
+      if (linkError) throw linkError;
+
+      if (m4LinkData?.workspace_id && isUUID(m4LinkData.workspace_id)) {
+        return m4LinkData.workspace_id;
+      }
+
+      // No fallback. Access should be denied.
+      throw new Error('No workspace assigned to this user. Please contact your administrator.');
     } catch (error) {
       console.error('workspaceService: Resolve fatal error:', error);
-      return DEFAULT_WS_ID;
+      throw error; // Propagate error so UI can handle it
     }
   },
 

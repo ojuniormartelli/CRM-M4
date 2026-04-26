@@ -312,6 +312,7 @@ export const financeService = {
         .from('m4_fin_bank_accounts')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .eq('is_active', true) // Added active filter
         .order('name');
 
       if (error) throw error;
@@ -429,6 +430,7 @@ export const financeService = {
         .from('m4_fin_categories')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .eq('is_active', true) // Added active filter
         .order('order', { ascending: true })
         .order('name', { ascending: true });
 
@@ -508,6 +510,7 @@ export const financeService = {
         .from('m4_fin_cost_centers')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .eq('is_active', true) // Added active filter
         .order('order', { ascending: true })
         .order('name', { ascending: true });
 
@@ -609,6 +612,7 @@ export const financeService = {
         .from('m4_fin_payment_methods')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .eq('is_active', true) // Added active filter
         .order('name');
 
       if (error) throw error;

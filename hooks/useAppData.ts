@@ -1,60 +1,157 @@
-
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
 import { leadService } from '../services/leadService';
+import { taskService } from '../services/taskService';
+import { financeService } from '../services/financeService';
+import { crmService } from '../services/crmService';
+import { clientService } from '../services/clientService';
 import { useCRMStore } from '../lib/store';
-import { Pipeline, FunnelStatus } from '../types';
-import { AGENCY_PIPELINE_STAGES } from '../constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading: boolean) => {
   const { setIsLoadingLeads } = useCRMStore();
   const queryClient = useQueryClient();
-  const [loading, setLoading] = useState(true);
   
-  // React Query for Leads
+  const enabled = !!resolvedWorkspaceId && !workspaceLoading;
+  const wsId = resolvedWorkspaceId || '';
+
+  // 1. Leads
   const { data: leads = [], isLoading: leadsLoading, refetch: fetchLeads } = useQuery({
     queryKey: ['leads', resolvedWorkspaceId],
-    queryFn: () => leadService.getAll(resolvedWorkspaceId || ''),
-    enabled: !!resolvedWorkspaceId && !workspaceLoading,
-    staleTime: 5 * 60 * 1000, 
-  });
-
-  // React Query for Tasks
-  const { data: tasks = [], isLoading: tasksLoading, refetch: fetchTasks } = useQuery({
-    queryKey: ['tasks', resolvedWorkspaceId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('m4_tasks').select('*').eq('workspace_id', resolvedWorkspaceId);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!resolvedWorkspaceId && !workspaceLoading,
+    queryFn: () => leadService.getAll(wsId),
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [contacts, setContacts] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [emails, setEmails] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [clientAccounts, setClientAccounts] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [creditCards, setCreditCards] = useState<any[]>([]);
-  const [financeCategories, setFinanceCategories] = useState<any[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
-  const [posts, setPosts] = useState<any[]>([]);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>([
-    { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: 'Vendas Comercial', stages: AGENCY_PIPELINE_STAGES },
-    { id: '6262f0d6-8e20-496b-8076-f24e31e67fab', name: 'Gestão de Reuniões', stages: [
-      { id: 'm1', name: 'Agendadas', status: FunnelStatus.INITIAL, position: 0, color: 'blue' }, 
-      { id: 'm2', name: 'Confirmadas', status: FunnelStatus.INTERMEDIATE, position: 1, color: 'amber' }, 
-      { id: 'm3', name: 'Realizadas', status: FunnelStatus.WON, position: 2, color: 'emerald' }
-    ] }
-  ]);
-  const [settings, setSettings] = useState<any>({
+  // 2. Tasks
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ['tasks', resolvedWorkspaceId],
+    queryFn: () => taskService.getAll(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 3. Transactions
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['transactions', resolvedWorkspaceId],
+    queryFn: () => financeService.getTransactions(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 4. Companies
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies', resolvedWorkspaceId],
+    queryFn: () => financeService.getCompanies(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 5. Contacts
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts', resolvedWorkspaceId],
+    queryFn: () => crmService.getContacts(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 6. Emails
+  const { data: emails = [] } = useQuery({
+    queryKey: ['emails', resolvedWorkspaceId],
+    queryFn: () => crmService.getEmails(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 7. Projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects', resolvedWorkspaceId],
+    queryFn: () => crmService.getProjects(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 8. Clients
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients', resolvedWorkspaceId],
+    queryFn: () => clientService.getAll(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 9. Client Accounts
+  const { data: clientAccounts = [] } = useQuery({
+    queryKey: ['clientAccounts', resolvedWorkspaceId],
+    queryFn: () => financeService.getClientAccounts(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 10. Services
+  const { data: services = [] } = useQuery({
+    queryKey: ['services', resolvedWorkspaceId],
+    queryFn: () => crmService.getServices(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 11. Bank Accounts
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['bankAccounts', resolvedWorkspaceId],
+    queryFn: () => financeService.getBankAccounts(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 12. Credit Cards
+  const { data: creditCards = [] } = useQuery({
+    queryKey: ['creditCards', resolvedWorkspaceId],
+    queryFn: async () => [],
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 13. Finance Categories
+  const { data: financeCategories = [] } = useQuery({
+    queryKey: ['financeCategories', resolvedWorkspaceId],
+    queryFn: () => financeService.getCategories(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 14. Payment Methods
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ['paymentMethods', resolvedWorkspaceId],
+    queryFn: () => financeService.getPaymentMethods(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 15. Posts
+  const { data: posts = [] } = useQuery({
+    queryKey: ['posts', resolvedWorkspaceId],
+    queryFn: () => crmService.getPosts(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 16. Campaigns
+  const { data: campaigns = [] } = useQuery({
+    queryKey: ['campaigns', resolvedWorkspaceId],
+    queryFn: () => crmService.getCampaigns(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 17. Pipelines
+  const { data: pipelines = [] } = useQuery({
+    queryKey: ['pipelines', resolvedWorkspaceId],
+    queryFn: () => crmService.getPipelines(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 18. Settings
+  const { data: settings = {
     crm_name: 'M4 CRM',
     company_name: '',
     theme: 'light',
@@ -65,109 +162,35 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     website_url: '',
     whatsapp_number: '',
     language: 'pt-BR'
+  } } = useQuery({
+    queryKey: ['settings', resolvedWorkspaceId],
+    queryFn: () => crmService.getSettings(wsId),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Sync isLoadingLeads from store with React Query status
   useEffect(() => {
     setIsLoadingLeads(leadsLoading);
-  }, [leadsLoading]);
+  }, [leadsLoading, setIsLoadingLeads]);
 
   // Listen for automation events to refetch data automatically
   useEffect(() => {
     const handleAutomationExecuted = (e: any) => {
       console.log('[useAppData] Automation executed event received:', e.detail);
       
-      // Always refetch leads as they are the most common entity for automations
-      queryClient.invalidateQueries({ queryKey: ['leads', resolvedWorkspaceId] });
+      // Invalidate all workspace data to ensure consistency on automation changes
+      queryClient.invalidateQueries({ queryKey: [resolvedWorkspaceId] });
       
-      // Also potentially refetch other things based on entityType
-      if (e.detail?.entityType === 'task') {
-        // Since tasks are not using React Query yet (they use local state), 
-        // we might need a way to refetch them or just refetch everything
-        queryClient.invalidateQueries({ queryKey: ['tasks', resolvedWorkspaceId] });
+      // Specifically invalidate by entity if possible
+      if (e.detail?.entityType) {
+        queryClient.invalidateQueries({ queryKey: [e.detail.entityType + 's', resolvedWorkspaceId] });
       }
-      
-      // If we used safeFetch for everything, we'd need to re-run the whole fetchData
-      // But for now, invalidating leads will solve the most common case (duplication)
     };
 
     window.addEventListener('m4_automation_executed', handleAutomationExecuted);
     return () => window.removeEventListener('m4_automation_executed', handleAutomationExecuted);
   }, [queryClient, resolvedWorkspaceId]);
-
-  const fetchServices = async (wsId: string) => {
-    try {
-      const { data: servicesData, error } = await supabase.from('m4_services').select('*').eq('workspace_id', wsId).order('name');
-      if (!error) setServices(servicesData || []);
-    } catch (error) {
-      console.error('Erro ao buscar serviços:', error);
-    }
-  };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (workspaceLoading || !resolvedWorkspaceId) {
-        if (!workspaceLoading) setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      const wsId = resolvedWorkspaceId;
-
-      const safeFetch = async (tableName: string, setter: (data: any[]) => void, options: any = {}) => {
-        try {
-          let query = supabase.from(tableName).select(options.select || '*').eq('workspace_id', wsId);
-          if (options.isDeleted) query = query.is('deleted_at', null);
-          if (options.order) query = query.order(options.order, { ascending: options.ascending ?? true });
-          const { data, error } = await query;
-          if (!error) setter(data || []);
-          else setter([]);
-        } catch (err) { setter([]); }
-      };
-
-      await Promise.all([
-        // fetchLeads(wsId), // Handled by React Query
-        // safeFetch('m4_tasks', setTasks), // Handled by React Query
-        safeFetch('m4_fin_transactions', setTransactions),
-        safeFetch('m4_emails', setEmails, { order: 'created_at', ascending: false }),
-        safeFetch('m4_clients', setClients),
-        safeFetch('m4_projects', setProjects),
-        safeFetch('m4_posts', setPosts, { order: 'created_at', ascending: false }),
-        safeFetch('m4_campaigns', setCampaigns, { order: 'created_at', ascending: false }),
-        safeFetch('m4_fin_bank_accounts', setBankAccounts),
-        safeFetch('m4_credit_cards', setCreditCards),
-        safeFetch('m4_fin_categories', setFinanceCategories, { order: 'name' }),
-        safeFetch('m4_fin_payment_methods', setPaymentMethods, { order: 'name' }),
-        safeFetch('m4_companies', setCompanies, { isDeleted: true, order: 'name' }),
-        safeFetch('m4_contacts', setContacts, { select: '*, company:m4_companies(id, name)', order: 'name' }),
-        fetchServices(wsId),
-      ]);
-
-      try {
-        const { data: caData, error: caError } = await supabase.from('m4_client_accounts').select('*, company:m4_companies(name)').eq('workspace_id', wsId);
-        if (!caError) setClientAccounts(caData || []);
-        else setClientAccounts([]);
-      } catch (err) { setClientAccounts([]); }
-
-      const { data: settingsData } = await supabase.from('m4_settings').select('*').eq('workspace_id', wsId).maybeSingle();
-      if (settingsData) setSettings(settingsData);
-
-      const { data: pData } = await supabase.from('m4_pipelines').select('*').eq('workspace_id', wsId).order('position');
-      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
-      
-      if (pData && pData.length > 0) {
-        const fullPipelines = pData.map(p => ({
-          ...p,
-          stages: (sData || []).filter(s => s.pipeline_id === p.id)
-        }));
-        setPipelines(fullPipelines);
-      }
-      
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [resolvedWorkspaceId, workspaceLoading]);
 
   const setLeadsLocally = (newData: any[]) => {
     queryClient.setQueryData(['leads', resolvedWorkspaceId], newData);
@@ -177,27 +200,77 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     queryClient.setQueryData(['tasks', resolvedWorkspaceId], newData);
   };
 
+  const setCompaniesLocally = (newData: any[]) => {
+    queryClient.setQueryData(['companies', resolvedWorkspaceId], newData);
+  };
+
+  const setContactsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['contacts', resolvedWorkspaceId], newData);
+  };
+
+  const setTransactionsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['transactions', resolvedWorkspaceId], newData);
+  };
+
+  const setBankAccountsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['bankAccounts', resolvedWorkspaceId], newData);
+  };
+
+  const setCreditCardsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['creditCards', resolvedWorkspaceId], newData);
+  };
+
+  const setEmailsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['emails', resolvedWorkspaceId], newData);
+  };
+
+  const setClientsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['clients', resolvedWorkspaceId], newData);
+  };
+
+  const setProjectsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['projects', resolvedWorkspaceId], newData);
+  };
+
+  const setClientAccountsLocally = (newData: any[]) => {
+    queryClient.setQueryData(['clientAccounts', resolvedWorkspaceId], newData);
+  };
+
+  const setServicesLocally = (newData: any[]) => {
+    queryClient.setQueryData(['services', resolvedWorkspaceId], newData);
+  };
+
+  const setPipelinesLocally = (newData: any[]) => {
+    queryClient.setQueryData(['pipelines', resolvedWorkspaceId], newData);
+  };
+
+  const setSettingsLocally = (newData: any) => {
+    queryClient.setQueryData(['settings', resolvedWorkspaceId], newData);
+  };
+
+  const allQueriesLoading = leadsLoading || tasksLoading; // Simplification, could be more exhaustive
+
   return {
-    loading: loading || leadsLoading || tasksLoading,
+    loading: allQueriesLoading,
     leads, setLeads: setLeadsLocally,
-    companies, setCompanies,
-    contacts, setContacts,
+    companies, setCompanies: setCompaniesLocally,
+    contacts, setContacts: setContactsLocally,
     tasks, setTasks: setTasksLocally,
-    transactions,
-    emails, setEmails,
-    clients, setClients,
-    projects, setProjects,
-    clientAccounts, setClientAccounts,
-    services, setServices,
-    bankAccounts,
-    creditCards,
+    transactions, setTransactions: setTransactionsLocally,
+    emails, setEmails: setEmailsLocally,
+    clients, setClients: setClientsLocally,
+    projects, setProjects: setProjectsLocally,
+    clientAccounts, setClientAccounts: setClientAccountsLocally,
+    services, setServices: setServicesLocally,
+    bankAccounts, setBankAccounts: setBankAccountsLocally,
+    creditCards, setCreditCards: setCreditCardsLocally,
     financeCategories,
     paymentMethods,
     posts,
     campaigns,
-    pipelines, setPipelines,
-    settings, setSettings,
+    pipelines, setPipelines: setPipelinesLocally,
+    settings, setSettings: setSettingsLocally,
     fetchLeads,
-    fetchServices
+    fetchServices: () => queryClient.invalidateQueries({ queryKey: ['services', resolvedWorkspaceId] })
   };
 };

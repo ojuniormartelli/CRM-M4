@@ -58,31 +58,25 @@ const App: React.FC = () => {
   // Auth & User Handling
   useEffect(() => {
     const checkUser = async () => {
-      if (workspaceLoading) return;
       const localUserId = localStorage.getItem('m4_crm_user_id');
-      if (!localUserId || !resolvedWorkspaceId) return;
+      const localWorkspaceId = localStorage.getItem('m4_crm_workspace_id');
+      
+      if (!localUserId) return;
 
-      const { data: user } = await supabase.from('m4_users').select('*').eq('id', localUserId).maybeSingle();
-      const { data: authUserResult } = await supabase.auth.getUser();
-      const authUser = authUserResult?.user;
+      const { data: user } = await supabase
+        .from('m4_users')
+        .select('*, job_role:m4_job_roles(*)')
+        .eq('id', localUserId)
+        .maybeSingle();
 
       if (user) {
-        setCurrentUser({ ...user, workspace_id: resolvedWorkspaceId });
-      } else if (authUser) {
-        setCurrentUser({
-          id: authUser.id,
-          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
-          email: authUser.email || '',
-          role: 'owner' as any,
-          workspace_id: resolvedWorkspaceId,
-          status: 'active',
-          created_at: authUser.created_at || new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+        setCurrentUser({ ...user, workspace_id: user.workspace_id || resolvedWorkspaceId || localWorkspaceId || '' });
+      } else {
+        localStorage.removeItem('m4_crm_user_id');
       }
     };
     checkUser();
-  }, [resolvedWorkspaceId, workspaceLoading]);
+  }, [resolvedWorkspaceId]);
 
   // UI Updates (Title/Favicon)
   useEffect(() => {
@@ -206,7 +200,7 @@ const App: React.FC = () => {
           setServices={appData.setServices}
           bankAccounts={appData.bankAccounts}
           fetchLeads={() => appData.fetchLeads()}
-          fetchServices={(wsId) => appData.fetchServices(wsId)}
+          fetchServices={() => appData.fetchServices()}
           handleStatusChange={handleStatusChange}
           activePipelineId={activePipelineId}
           setActivePipelineId={setActivePipelineId}

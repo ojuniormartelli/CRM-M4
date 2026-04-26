@@ -22,7 +22,7 @@
       // Dynamic Favicon for PWA
       const customLogo = localStorage.getItem('m4_crm_logo_url');
       if (customLogo) {
-        const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        const favicon = document.querySelector("link[rel~='icon']");
         if (favicon) favicon.href = customLogo;
       }
 

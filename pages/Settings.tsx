@@ -231,18 +231,18 @@ const Settings: React.FC<SettingsProps> = ({
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
 
-  // Sync with parent active tab
-  useEffect(() => {
-    if (parentActiveTab === 'settings_profile') setActiveTab('profile');
-    else if (parentActiveTab === 'settings_users') setActiveTab('users');
-    else if (parentActiveTab === 'settings_workspaces') setActiveTab('workspaces');
-    else if (parentActiveTab === 'settings_branding') setActiveTab('branding');
-    else if (parentActiveTab === 'settings_services') setActiveTab('services');
-    else if (parentActiveTab === 'settings_pipelines') setActiveTab('pipelines');
-    else if (parentActiveTab === 'settings_automation') setActiveTab('automation');
-    else if (parentActiveTab === 'settings_backup') setActiveTab('backup');
-    else if (parentActiveTab === 'settings_technical') setActiveTab('technical');
-    else if (parentActiveTab === 'settings') setActiveTab('branding');
+    // Sync with parent active tab
+    useEffect(() => {
+      if (parentActiveTab === 'settings_profile') setActiveTab('profile');
+      else if (parentActiveTab === 'settings_users') setActiveTab('users');
+      else if (parentActiveTab === 'settings_workspaces') setActiveTab('workspaces');
+      else if (parentActiveTab === 'settings_branding') setActiveTab('branding');
+      else if (parentActiveTab === 'settings_services') setActiveTab('services');
+      else if (parentActiveTab === 'settings_pipelines') setActiveTab('pipelines');
+      else if (parentActiveTab === 'settings_automation') setActiveTab('automation');
+      else if (parentActiveTab === 'settings_backup') setActiveTab('backup');
+      else if (parentActiveTab === 'settings_technical') setActiveTab('technical');
+      else if (parentActiveTab === 'settings') setActiveTab('branding');
   }, [parentActiveTab]);
 
   useEffect(() => {
@@ -336,11 +336,10 @@ const Settings: React.FC<SettingsProps> = ({
       // If it's a new user, we need to set the internal email
       if (!userData.id && userData.username) {
         userData.email = `${userData.username}@crm.com`;
-        userData.must_change_password = true;
       }
 
       // Remove job_role object if it exists before saving
-      const { job_role, ...payload } = userData as any;
+      const { job_role, password, must_change_password, ...payload } = userData as any;
 
       if (payload.id) {
         const { error } = await supabase
@@ -610,24 +609,20 @@ const Settings: React.FC<SettingsProps> = ({
     if (error) alert('Erro ao reordenar pipelines: ' + error.message);
   };
 
-  const handleResetPassword = async (userId: string) => {
-    if (!window.confirm('Tem certeza que deseja resetar a senha deste usuário para "Trocar@123"?')) return;
+  const handleResetPassword = async (userEmail: string) => {
+    if (!userEmail) return;
+    if (!window.confirm(`Enviar e-mail de recuperação de senha para ${userEmail}?`)) return;
     
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('m4_users')
-        .update({ 
-          password: 'Trocar@123',
-          must_change_password: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+      const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: window.location.origin
+      });
 
       if (error) throw error;
-      alert('Senha resetada com sucesso! O usuário deverá trocar a senha no próximo acesso.');
+      alert('E-mail de recuperação enviado com sucesso!');
     } catch (error: any) {
-      alert('Erro ao resetar senha: ' + error.message);
+      alert('Erro ao enviar e-mail: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -655,31 +650,13 @@ const Settings: React.FC<SettingsProps> = ({
 
     setIsSaving(true);
     try {
-      // 1. Verify current password
-      const { data: user, error: fetchError } = await supabase
-        .from('m4_users')
-        .select('password')
-        .eq('id', currentUser.id)
-        .single();
+      const { error } = await supabase.auth.updateUser({
+        password: passwordChange.new
+      });
 
-      if (fetchError) throw fetchError;
-      if (user.password !== passwordChange.current) {
-        throw new Error('Senha atual incorreta.');
-      }
+      if (error) throw error;
 
-      // 2. Update password
-      const { error: updateError } = await supabase
-        .from('m4_users')
-        .update({ 
-          password: passwordChange.new,
-          must_change_password: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', currentUser.id);
-
-      if (updateError) throw updateError;
-
-      alert('Senha alterada com sucesso!');
+      alert('Senha alterada com sucesso via Supabase Auth!');
       setPasswordChange({ current: '', new: '', confirm: '' });
     } catch (error: any) {
       alert('Erro ao alterar senha: ' + error.message);
@@ -1300,7 +1277,7 @@ const Settings: React.FC<SettingsProps> = ({
                           <ICONS.Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleResetPassword(user.id)}
+                          onClick={() => handleResetPassword(user.email)}
                           title="Resetar Senha"
                           className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
                         >
@@ -1467,25 +1444,6 @@ const Settings: React.FC<SettingsProps> = ({
             <form onSubmit={handleChangePassword} className="space-y-6">
               <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Alterar Senha</h4>
               <div className="space-y-4">
-                <div className="relative">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha Atual</label>
-                  <div className="relative">
-                    <input 
-                      type={showPasswords.current ? "text" : "password"} 
-                      required
-                      value={passwordChange.current}
-                      onChange={e => setPasswordChange({ ...passwordChange, current: e.target.value })}
-                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12" 
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
-                    >
-                      {showPasswords.current ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nova Senha</label>
@@ -1700,29 +1658,6 @@ const Settings: React.FC<SettingsProps> = ({
                     <option value="inactive">Inativo</option>
                   </select>
                 </div>
-                {!editingUser.id && (
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha Inicial</label>
-                    <div className="relative">
-                      <input 
-                        type={showPasswords.initial ? "text" : "password"} 
-                        required
-                        value={editingUser.password || ''}
-                        onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
-                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200 pr-12"
-                        placeholder="admin123"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswords(prev => ({ ...prev, initial: !prev.initial }))}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        {showPasswords.initial ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
-                      </button>
-                    </div>
-                    <p className="text-[9px] text-slate-400 mt-1 font-medium italic">O usuário será obrigado a trocar a senha no primeiro acesso.</p>
-                  </div>
-                )}
               </div>
               
               <div className="flex gap-4 pt-4">

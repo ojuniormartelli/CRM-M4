@@ -10,7 +10,7 @@ export const clientService = {
       .select('*');
 
     if (workspaceId && isUUID(workspaceId)) {
-      query = query.eq('workspace_id', workspaceId);
+      query = query.eq('workspace_id', workspaceId).is('deleted_at', null);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
