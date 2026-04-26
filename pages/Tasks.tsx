@@ -292,7 +292,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         .from('m4_companies')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('name');
 
       // Debug logs
@@ -314,7 +313,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
 
     const fetchLeads = async () => {
       if (!workspaceId) return;
-      const { data } = await supabase.from('m4_leads').select('*').eq('workspace_id', workspaceId).is('deleted_at', null).order('contact_name');
+      const { data } = await supabase.from('m4_leads').select('*').eq('workspace_id', workspaceId).order('contact_name');
       if (data) setLeads(data);
     };
 
@@ -433,7 +432,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
 
     const { error } = await supabase
       .from('m4_tasks')
-      .update({ deleted_at: new Date().toISOString() }) // Use soft delete as per taskService pattern
+      .delete()
       .eq('id', taskToDelete)
       .eq('workspace_id', workspaceId);
 

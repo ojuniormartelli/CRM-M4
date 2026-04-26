@@ -567,7 +567,6 @@ export const financeService = {
         .from('m4_companies')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('name', { ascending: true });
 
       if (error) throw error;

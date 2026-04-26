@@ -44,7 +44,6 @@ export const taskService = {
         .from('m4_tasks')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -125,7 +124,7 @@ export const taskService = {
     try {
       const { error } = await supabase
         .from('m4_tasks')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .eq('workspace_id', workspaceId);
 

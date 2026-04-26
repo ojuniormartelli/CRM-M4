@@ -40,7 +40,6 @@ export const crmService = {
         .from('m4_contacts')
         .select('*, company:m4_companies(id, name)')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('name');
       if (error) throw error;
       return data || [];
@@ -53,13 +52,20 @@ export const crmService = {
   async getProjects(workspaceId: string) {
     if (!workspaceId || !isUUID(workspaceId)) return [];
     try {
+      // Check if table exists implicitly by handling error 42P01 (relation does not exist)
       const { data, error } = await supabase
         .from('m4_projects')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      
+      if (error) {
+        if ((error as any).code === '42P01') {
+           console.warn('m4_projects table not found, returning empty array');
+           return [];
+        }
+        throw error;
+      }
       return data || [];
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_projects');
@@ -106,7 +112,6 @@ export const crmService = {
         .from('m4_campaigns')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
