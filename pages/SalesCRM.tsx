@@ -479,7 +479,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       .select();
 
     if (companyError) {
-      alert("Erro ao salvar empresa: " + companyError.message);
+      showToast(companyError.message || "Erro ao salvar empresa", "error");
     } else if (companyData) {
       const createdCompany = companyData[0];
       const companyId = createdCompany.id;
@@ -543,7 +543,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       .select();
 
     if (error) {
-      alert("Erro ao salvar contato: " + error.message);
+      showToast(error.message || "Erro ao salvar contato", "error");
     } else if (data) {
       const createdContact = data[0];
       setContacts(prev => [...prev, createdContact].sort((a, b) => a.name.localeCompare(b.name)));
@@ -575,7 +575,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       setSelectedLead(updatedLead);
       setIsEditing(false);
     } catch (error: any) {
-      alert("Erro ao atualizar lead: " + error.message);
+      showToast(error.message || "Erro ao atualizar lead", "error");
     }
     setIsSyncing(false);
   };
@@ -679,9 +679,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       }
       
       setIsStageConfigModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao salvar pipeline:", err);
-      alert("Erro ao salvar pipeline.");
+      showToast(err.message || "Erro ao salvar pipeline", "error");
     } finally {
       setIsSaving(false);
     }
@@ -720,7 +720,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     const validation = leadSchema.safeParse(newLead);
     if (!validation.success) {
       const errors = validation.error.issues.map(err => err.message).join('\n');
-      alert("Erro de validação:\n" + errors);
+      showToast("Ops! " + errors, "warning");
       return;
     }
 
@@ -766,7 +766,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         status: 'active'
       });
     } catch (error: any) {
-      alert("Erro ao salvar no Supabase: " + error.message);
+      showToast(error.message || "Erro ao salvar no Supabase", "error");
     }
     setIsSyncing(false);
   };
@@ -796,7 +796,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         }, workspaceId);
       } catch (error: any) {
         setLeads(originalLeads); // Reverte se falhar
-        alert("Erro ao atualizar estágio: " + error.message);
+        showToast(error.message || "Erro ao atualizar estágio", "error");
       }
     }
     setDraggedLeadId(null);
@@ -953,7 +953,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) {
-        alert("API Key não configurada no ambiente. Por favor, verifique as configurações.");
+        showToast("API Key não configurada. Verifique as configurações.", "warning");
         return;
       }
       const ai = new GoogleGenAI({ apiKey });
@@ -1170,9 +1170,9 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
           task_type: 'commercial'
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao criar tarefa: " + (error as any).message);
+      showToast(error.message || "Erro ao criar tarefa", "error");
     } finally {
       setIsSyncing(false);
     }

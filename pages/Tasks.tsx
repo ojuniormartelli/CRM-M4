@@ -248,7 +248,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
     if (!file || !selectedTask || !currentUser) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('Arquivo muito grande. Limite de 10MB.');
+      showToast('Arquivo muito grande. Limite de 10MB.', 'warning');
       return;
     }
 
@@ -439,7 +439,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
 
       if (error) {
         console.error('ERROR UPDATING TASK:', error);
-        alert('Erro ao salvar tarefa: ' + error.message);
+        showToast(error.message || 'Erro ao salvar tarefa', 'error');
         return;
       }
 
@@ -469,7 +469,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         setIsEditing(false);
       }
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      showToast('Tarefa movida para a lixeira');
+      showToast('Tarefa excluída permanentemente');
     } catch (err: any) {
       console.error('Erro ao excluir tarefa:', err);
       showToast(err.message || 'Erro ao excluir tarefa', 'error');

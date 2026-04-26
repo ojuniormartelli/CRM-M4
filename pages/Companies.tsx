@@ -136,12 +136,12 @@ const Companies: React.FC<CompaniesProps> = ({
       title: 'Excluir Empresa?',
       description: `Tem certeza que deseja remover permanentemente a empresa "${company.name}"?`,
       impactItems: [
-        'A empresa e seu perfil serão apagados permanentemente.',
-        'Projetos e tarefas vinculadas serão removidos.',
-        'Contatos associados precisarão ser reatribuídos.',
-        'Esta ação de exclusão física é irreversível.'
+        'A empresa e seu perfil comercial serão apagados permanentemente.',
+        'Projetos, faturas e tarefas vinculadas serão removidos.',
+        'Contatos associados ficarão sem vínculo de empresa.',
+        'Esta ação de exclusão física é definitiva.'
       ],
-      confirmLabel: 'Confirmar Exclusão',
+      confirmLabel: 'Excluir Empresa',
       variant: 'danger',
       action: () => handleDeleteCompany(company.id)
     });

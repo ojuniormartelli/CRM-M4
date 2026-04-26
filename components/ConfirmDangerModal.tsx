@@ -67,13 +67,16 @@ const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="modal-title"
               className="bg-card rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl border border-border pointer-events-auto overflow-hidden relative"
             >
               <div className={`w-20 h-20 ${config.iconBg} rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ${config.ringColor}`}>
                 {config.icon}
               </div>
               
-              <h3 className="text-2xl font-black text-foreground uppercase text-center mb-2 tracking-tight">
+              <h3 id="modal-title" className="text-2xl font-black text-foreground uppercase text-center mb-2 tracking-tight">
                 {title}
               </h3>
               
