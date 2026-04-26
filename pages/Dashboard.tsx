@@ -26,6 +26,7 @@ interface DashboardProps {
   pipelines: Pipeline[];
   currentUser: User | null;
   setActiveTab: (tab: string) => void;
+  workspaceId: string;
 }
 
 const StatCard = ({ title, value, change, icon: Icon, color }: any) => {

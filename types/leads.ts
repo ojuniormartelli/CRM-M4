@@ -180,6 +180,7 @@ export interface FormResponse {
   id: string;
   form_id: string;
   lead_id: string;
+  workspace_id?: string;
   answers: {
     question_id: string;
     value: any;

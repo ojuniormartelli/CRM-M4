@@ -367,7 +367,8 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
                               .maybeSingle();
                             
                             if (client) {
-                              await clientService.archive(client.id);
+                              const wsId = workspaceId || '';
+                              await clientService.archive(client.id, wsId);
                               alert('Conta encerrada e cliente arquivado com sucesso.');
                               window.location.reload();
                             } else {

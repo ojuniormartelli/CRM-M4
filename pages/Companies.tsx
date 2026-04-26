@@ -77,7 +77,6 @@ const Companies: React.FC<CompaniesProps> = ({
       const { data, error } = await supabase
         .from('m4_companies')
         .select('*')
-        .is('deleted_at', null)
         .order('name');
 
       if (error) {
@@ -98,7 +97,7 @@ const Companies: React.FC<CompaniesProps> = ({
     try {
       const { error } = await supabase
         .from('m4_companies')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;

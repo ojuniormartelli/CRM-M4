@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
 import { Project, Task, TaskStatus, Priority } from '../types';
-import { supabase } from '../lib/supabase';
+import { crmService } from '../services/crmService';
 
 interface ProjectsProps {
   projects: Project[];
@@ -9,9 +9,10 @@ interface ProjectsProps {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   currentUser?: any;
+  workspaceId: string;
 }
 
-const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTasks, currentUser }) => {
+const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTasks, currentUser, workspaceId }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editProject, setEditProject] = useState<Partial<Project>>({});
@@ -22,32 +23,33 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
 
   const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProject) return;
+    if (!selectedProject || !workspaceId) return;
 
-    const { data, error } = await supabase
-      .from('m4_projects')
-      .update(editProject)
-      .eq('id', selectedProject.id)
-      .select();
-
-    if (!error && data) {
-      setProjects(projects.map(p => p.id === selectedProject.id ? data[0] : p));
-      setSelectedProject(data[0]);
-      setIsEditing(false);
+    try {
+      const data = await crmService.updateProject(selectedProject.id, editProject, workspaceId);
+      if (data) {
+        setProjects(projects.map(p => p.id === selectedProject.id ? data : p));
+        setSelectedProject(data);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      console.error('Failed to update project:', err);
     }
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase
-      .from('m4_projects')
-      .insert([{ ...newProject, workspace_id: currentUser?.workspace_id }])
-      .select();
+    if (!workspaceId) return;
 
-    if (!error && data) {
-      setProjects([...projects, data[0]]);
-      setIsModalOpen(false);
-      setNewProject({ name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0 });
+    try {
+      const data = await crmService.createProject(newProject, workspaceId);
+      if (data) {
+        setProjects([...projects, data]);
+        setIsModalOpen(false);
+        setNewProject({ name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0 });
+      }
+    } catch (err) {
+      console.error('Failed to create project:', err);
     }
   };
 

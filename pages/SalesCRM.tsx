@@ -759,7 +759,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         await leadService.update(leadId, { 
           stage: targetStageId,
           status: targetStatus as any
-        });
+        }, workspaceId);
       } catch (error: any) {
         setLeads(originalLeads); // Reverte se falhar
         alert("Erro ao atualizar estágio: " + error.message);
@@ -782,7 +782,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       const updatedLead = await leadService.update(lead.id, { 
         stage: targetStageId,
         status: targetStatus as any
-      });
+      }, workspaceId);
       
       setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
       

@@ -226,21 +226,24 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
     setDeleteError(null);
     
     try {
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID inválido');
+
       switch (itemToDelete.type) {
         case 'account':
-          await financeService.deleteBankAccount(itemToDelete.id);
+          await financeService.deleteBankAccount(itemToDelete.id, workspaceId);
           break;
         case 'transaction':
-          await financeService.deleteTransaction(itemToDelete.id);
+          await financeService.deleteTransaction(itemToDelete.id, workspaceId);
           break;
         case 'category':
-          await financeService.deleteCategory(itemToDelete.id);
+          await financeService.deleteCategory(itemToDelete.id, workspaceId);
           break;
         case 'cost_center':
-          await financeService.deleteCostCenter(itemToDelete.id);
+          await financeService.deleteCostCenter(itemToDelete.id, workspaceId);
           break;
         case 'payment_method':
-          await financeService.deletePaymentMethod(itemToDelete.id);
+          await financeService.deletePaymentMethod(itemToDelete.id, workspaceId);
           break;
       }
       
@@ -305,29 +308,24 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
       if (updatedData.type === FinanceTransactionType.TRANSFER) {
         await financeService.createTransfer({
-          workspace_id: workspaceId,
           description: updatedData.description || '',
           amount: updatedData.amount || 0,
-          issue_date: updatedData.issue_date || new Date().toISOString().split('T')[0],
-          due_date: updatedData.due_date || new Date().toISOString().split('T')[0],
-          paid_at: updatedData.status === FinanceTransactionStatus.PAID ? (updatedData.paid_at || new Date().toISOString()) : undefined,
-          source_bank_account_id: updatedData.bank_account_id || '',
-          destination_bank_account_id: updatedData.destination_bank_account_id || '',
-          status: updatedData.status || FinanceTransactionStatus.PENDING,
-          created_by: currentUser?.id || ''
-        });
+          fromBankAccountId: updatedData.bank_account_id || '',
+          toBankAccountId: updatedData.destination_bank_account_id || '',
+          date: updatedData.due_date || new Date().toISOString().split('T')[0]
+        }, workspaceId);
       } else if (updatedData.id) {
         await financeService.updateTransaction(updatedData.id, {
           ...updatedData,
           updated_by: currentUser?.id
-        });
+        }, workspaceId);
       } else {
-        await financeService.createTransaction({
+        await financeService.createTransaction(workspaceId, {
           ...updatedData,
           workspace_id: workspaceId,
           created_by: currentUser?.id,
           updated_by: currentUser?.id
-        });
+        } as any);
       }
       setIsTransactionFormOpen(false);
       setIsTransferFormOpen(false);
@@ -343,7 +341,14 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const handleConfirmPayment = async (data: { paid_at: string, bank_account_id: string }) => {
     if (!transactionToConfirm) return;
     try {
-      await financeService.confirmPayment(transactionToConfirm.id, data);
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID inválido');
+
+      await financeService.confirmPayment(transactionToConfirm.id, {
+        bankAccountId: data.bank_account_id,
+        paidDate: data.paid_at,
+        amount: Number(transactionToConfirm.amount)
+      }, workspaceId);
       setIsPaymentModalOpen(false);
       setTransactionToConfirm(null);
       await loadData();
@@ -368,11 +373,11 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
       if (data.id) {
         console.log('Updating bank account:', data.id);
-        await financeService.updateBankAccount(data.id, data);
+        await financeService.updateBankAccount(data.id, data, workspaceId);
       } else {
         console.log('Creating new bank account with workspaceId:', workspaceId);
         // Ensure balance and current_balance are set to initial_balance for new accounts
-        await financeService.createBankAccount({ 
+        await financeService.createBankAccount(workspaceId, { 
           ...data, 
           workspace_id: workspaceId,
           balance: data.initial_balance || 0,
@@ -414,9 +419,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       }
 
       if (data.id) {
-        await financeService.updateCategory(data.id, data);
+        await financeService.updateCategory(data.id, data, workspaceId);
       } else {
-        await financeService.createCategory({ ...data, workspace_id: workspaceId });
+        await financeService.createCategory(workspaceId, { ...data, workspace_id: workspaceId });
       }
       setIsCategoryFormOpen(false);
       await loadData();
@@ -438,9 +443,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       }
 
       if (data.id) {
-        await financeService.updateCostCenter(data.id, data);
+        await financeService.updateCostCenter(data.id, data, workspaceId);
       } else {
-        await financeService.createCostCenter({ ...data, workspace_id: workspaceId });
+        await financeService.createCostCenter(workspaceId, { ...data, workspace_id: workspaceId });
       }
       setIsCostCenterFormOpen(false);
       await loadData();
@@ -462,9 +467,9 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
       }
 
       if (data.id) {
-        await financeService.updatePaymentMethod(data.id, data);
+        await financeService.updatePaymentMethod(data.id, data, workspaceId);
       } else {
-        await financeService.createPaymentMethod({ ...data, workspace_id: workspaceId });
+        await financeService.createPaymentMethod(workspaceId, { ...data, workspace_id: workspaceId });
       }
       setIsPaymentMethodFormOpen(false);
       await loadData();

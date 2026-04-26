@@ -33,6 +33,51 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 export const crmService = {
+  async createProject(project: Partial<any>, workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório');
+    try {
+      const { data, error } = await supabase
+        .from('m4_projects')
+        .insert([{ ...project, workspace_id: workspaceId }])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'm4_projects');
+    }
+  },
+
+  async updateProject(id: string, project: Partial<any>, workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório');
+    try {
+      const { data, error } = await supabase
+        .from('m4_projects')
+        .update(project)
+        .eq('id', id)
+        .eq('workspace_id', workspaceId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'm4_projects');
+    }
+  },
+
+  async deleteProject(id: string, workspaceId: string) {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório');
+    try {
+      const { error } = await supabase
+        .from('m4_projects')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
+      if (error) throw error;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'm4_projects');
+    }
+  },
   async getContacts(workspaceId: string) {
     if (!workspaceId || !isUUID(workspaceId)) return [];
     try {
@@ -60,7 +105,8 @@ export const crmService = {
         .order('created_at', { ascending: false });
       
       if (error) {
-        if ((error as any).code === '42P01') {
+        const errorMessage = (error as any).message || '';
+        if ((error as any).code === '42P01' || errorMessage.includes('Could not find the table')) {
            console.warn('m4_projects table not found, returning empty array');
            return [];
         }

@@ -103,9 +103,10 @@ export const financeService = {
     }
   },
 
-  async createTransaction(data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
+  async createTransaction(workspaceId: string, data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      const payload = mappers.transaction(data);
+      const payload = mappers.transaction({ ...data, workspace_id: workspaceId }, workspaceId);
       
       const { data: result, error } = await supabase
         .from('m4_fin_transactions')
@@ -121,6 +122,7 @@ export const financeService = {
           .from('m4_fin_bank_accounts')
           .select('balance, current_balance')
           .eq('id', result.bank_account_id)
+          .eq('workspace_id', workspaceId)
           .single();
         
         if (!accError && account) {
@@ -135,7 +137,8 @@ export const financeService = {
               balance: newBalance,
               current_balance: newBalance
             })
-            .eq('id', result.bank_account_id);
+            .eq('id', result.bank_account_id)
+            .eq('workspace_id', workspaceId);
         }
       }
 
@@ -146,19 +149,21 @@ export const financeService = {
     }
   },
 
-  async updateTransaction(id: string, data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
+  async updateTransaction(id: string, data: Partial<FinanceTransaction>, workspaceId: string): Promise<FinanceTransaction> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       // 1. Get existing transaction to check status and values BEFORE update
       const { data: existing, error: fetchError } = await supabase
         .from('m4_fin_transactions')
         .select('*')
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .single();
 
       if (fetchError) throw fetchError;
       if (!existing) throw new Error('Transação não encontrada');
 
-      const payload = mappers.transaction(data);
+      const payload = mappers.transaction({ ...data, workspace_id: workspaceId }, workspaceId);
 
       // 2. Track changes for history
       const changes: string[] = [];
@@ -185,6 +190,7 @@ export const financeService = {
         .from('m4_fin_transactions')
         .update(payload)
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .select()
         .single();
 
@@ -206,6 +212,7 @@ export const financeService = {
             .from('m4_fin_bank_accounts')
             .select('balance, current_balance')
             .eq('id', existing.bank_account_id)
+            .eq('workspace_id', workspaceId)
             .single();
           
           if (!oldAccError && oldAcc) {
@@ -220,7 +227,8 @@ export const financeService = {
                 balance: revertedBalance,
                 current_balance: revertedBalance
               })
-              .eq('id', existing.bank_account_id);
+              .eq('id', existing.bank_account_id)
+              .eq('workspace_id', workspaceId);
           }
         }
 
@@ -230,6 +238,7 @@ export const financeService = {
             .from('m4_fin_bank_accounts')
             .select('balance, current_balance')
             .eq('id', result.bank_account_id)
+            .eq('workspace_id', workspaceId)
             .single();
           
           if (!newAccError && newAcc) {
@@ -244,7 +253,8 @@ export const financeService = {
                 balance: appliedBalance,
                 current_balance: appliedBalance
               })
-              .eq('id', result.bank_account_id);
+              .eq('id', result.bank_account_id)
+              .eq('workspace_id', workspaceId);
           }
         }
       }
@@ -256,13 +266,15 @@ export const financeService = {
     }
   },
 
-  async deleteTransaction(id: string): Promise<void> {
+  async deleteTransaction(id: string, workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       // 1. Get the transaction before deleting to check if it's paid
       const { data: transaction, error: fetchError } = await supabase
         .from('m4_fin_transactions')
         .select('*')
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .single();
 
       if (!fetchError && transaction && transaction.status === 'paid' && transaction.bank_account_id) {
@@ -271,6 +283,7 @@ export const financeService = {
           .from('m4_fin_bank_accounts')
           .select('balance, current_balance')
           .eq('id', transaction.bank_account_id)
+          .eq('workspace_id', workspaceId)
           .single();
         
         if (!accError && account) {
@@ -285,14 +298,17 @@ export const financeService = {
               balance: revertedBalance,
               current_balance: revertedBalance
             })
-            .eq('id', transaction.bank_account_id);
+            .eq('id', transaction.bank_account_id)
+            .eq('workspace_id', workspaceId);
         }
       }
 
+      // Physical delete because m4_fin_transactions does not have deleted_at column in current schema
       const { error } = await supabase
         .from('m4_fin_transactions')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
 
       if (error) throw error;
     } catch (error) {
@@ -382,9 +398,10 @@ export const financeService = {
     }
   },
 
-  async createBankAccount(account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
+  async createBankAccount(workspaceId: string, account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      const payload = mappers.bankAccount(account);
+      const payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
       console.log('financeService.createBankAccount: Payload:', payload);
       
       const { data, error } = await supabase
@@ -406,13 +423,15 @@ export const financeService = {
     }
   },
 
-  async updateBankAccount(id: string, account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
+  async updateBankAccount(id: string, account: Partial<FinanceBankAccount>, workspaceId: string): Promise<FinanceBankAccount> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      const payload = mappers.bankAccount(account);
+      const payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
       const { data, error } = await supabase
         .from('m4_fin_bank_accounts')
         .update(payload)
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .select()
         .single();
 
@@ -424,16 +443,19 @@ export const financeService = {
     }
   },
 
-  async deleteBankAccount(id: string): Promise<void> {
-    console.log('financeService.deleteBankAccount: Deleting account with id:', id);
+  async deleteBankAccount(id: string, workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
+    console.log('financeService.deleteBankAccount: Deactivating account with id:', id);
     try {
+      // Use is_active = false instead of physical delete for bank accounts
       const { error } = await supabase
         .from('m4_fin_bank_accounts')
-        .delete()
-        .eq('id', id);
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
 
       if (error) {
-        console.error('financeService.deleteBankAccount: Error deleting:', error);
+        console.error('financeService.deleteBankAccount: Error deactivating:', error);
         throw error;
       }
       console.log('financeService.deleteBankAccount: Success');
@@ -476,11 +498,12 @@ export const financeService = {
     }
   },
 
-  async createCategory(category: Partial<FinanceCategory>): Promise<FinanceCategory> {
+  async createCategory(workspaceId: string, category: Partial<FinanceCategory>): Promise<FinanceCategory> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_categories')
-        .insert([category])
+        .insert([{ ...category, workspace_id: workspaceId }])
         .select()
         .single();
 
@@ -492,12 +515,14 @@ export const financeService = {
     }
   },
 
-  async updateCategory(id: string, category: Partial<FinanceCategory>): Promise<FinanceCategory> {
+  async updateCategory(id: string, category: Partial<FinanceCategory>, workspaceId: string): Promise<FinanceCategory> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_categories')
         .update(category)
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .select()
         .single();
 
@@ -509,12 +534,15 @@ export const financeService = {
     }
   },
 
-  async deleteCategory(id: string): Promise<void> {
+  async deleteCategory(id: string, workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
+      // Soft delete using is_active=false
       const { error } = await supabase
         .from('m4_fin_categories')
-        .delete()
-        .eq('id', id);
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
 
       if (error) throw error;
     } catch (error) {
@@ -577,11 +605,12 @@ export const financeService = {
     }
   },
 
-  async createCostCenter(costCenter: Partial<FinanceCostCenter>): Promise<FinanceCostCenter> {
+  async createCostCenter(workspaceId: string, costCenter: Partial<FinanceCostCenter>): Promise<FinanceCostCenter> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_cost_centers')
-        .insert([costCenter])
+        .insert([{ ...costCenter, workspace_id: workspaceId }])
         .select()
         .single();
 
@@ -593,12 +622,14 @@ export const financeService = {
     }
   },
 
-  async updateCostCenter(id: string, costCenter: Partial<FinanceCostCenter>): Promise<FinanceCostCenter> {
+  async updateCostCenter(id: string, costCenter: Partial<FinanceCostCenter>, workspaceId: string): Promise<FinanceCostCenter> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_cost_centers')
         .update(costCenter)
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .select()
         .single();
 
@@ -610,12 +641,15 @@ export const financeService = {
     }
   },
 
-  async deleteCostCenter(id: string): Promise<void> {
+  async deleteCostCenter(id: string, workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
+      // Soft delete using is_active=false
       const { error } = await supabase
         .from('m4_fin_cost_centers')
-        .delete()
-        .eq('id', id);
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
 
       if (error) throw error;
     } catch (error) {
@@ -646,11 +680,12 @@ export const financeService = {
     }
   },
 
-  async createPaymentMethod(method: any): Promise<any> {
+  async createPaymentMethod(workspaceId: string, method: any): Promise<any> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_payment_methods')
-        .insert([method])
+        .insert([{ ...method, workspace_id: workspaceId }])
         .select()
         .single();
 
@@ -662,12 +697,14 @@ export const financeService = {
     }
   },
 
-  async updatePaymentMethod(id: string, method: any): Promise<any> {
+  async updatePaymentMethod(id: string, method: any, workspaceId: string): Promise<any> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
       const { data, error } = await supabase
         .from('m4_fin_payment_methods')
         .update(method)
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .select()
         .single();
 
@@ -679,12 +716,15 @@ export const financeService = {
     }
   },
 
-  async deletePaymentMethod(id: string): Promise<void> {
+  async deletePaymentMethod(id: string, workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
+      // Soft delete using is_active=false
       const { error } = await supabase
         .from('m4_fin_payment_methods')
-        .delete()
-        .eq('id', id);
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('workspace_id', workspaceId);
 
       if (error) throw error;
     } catch (error) {
@@ -692,36 +732,44 @@ export const financeService = {
     }
   },
 
-  async confirmPayment(id: string, data: { paid_at: string, bank_account_id: string }): Promise<void> {
+  async confirmPayment(id: string, data: { bankAccountId: string; paidDate: string; amount: number; notes?: string }, workspaceId: string): Promise<FinanceTransaction | null> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      // 1. Get the transaction to know the amount and type
+      // 1. Get the transaction
       const { data: transaction, error: fetchError } = await supabase
         .from('m4_fin_transactions')
         .select('*')
         .eq('id', id)
+        .eq('workspace_id', workspaceId)
         .single();
 
       if (fetchError) throw fetchError;
       if (!transaction) throw new Error('Transação não encontrada');
 
       // 2. Update the transaction status
-      const { error: updateError } = await supabase
+      const { data: updatedTx, error: updateError } = await supabase
         .from('m4_fin_transactions')
         .update({
-          status: 'paid',
-          paid_at: data.paid_at,
-          bank_account_id: data.bank_account_id
+          status: transaction.type === 'income' ? 'received' : 'paid',
+          paid_at: data.paidDate,
+          bank_account_id: data.bankAccountId,
+          amount: data.amount,
+          notes: data.notes || transaction.notes
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('workspace_id', workspaceId)
+        .select()
+        .single();
 
       if (updateError) throw updateError;
 
       // 3. Update the bank account balance
-      const amount = Number(transaction.amount);
+      const amount = Number(data.amount);
       const { data: account, error: accError } = await supabase
         .from('m4_fin_bank_accounts')
         .select('balance, current_balance')
-        .eq('id', data.bank_account_id)
+        .eq('id', data.bankAccountId)
+        .eq('workspace_id', workspaceId)
         .single();
 
       if (accError) throw accError;
@@ -730,16 +778,16 @@ export const financeService = {
         ? Number(account.balance) + amount 
         : Number(account.balance) - amount;
 
-      const { error: balanceError } = await supabase
+      await supabase
         .from('m4_fin_bank_accounts')
         .update({ 
           balance: newBalance,
           current_balance: newBalance
         })
-        .eq('id', data.bank_account_id);
+        .eq('id', data.bankAccountId)
+        .eq('workspace_id', workspaceId);
 
-      if (balanceError) throw balanceError;
-
+      return updatedTx;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'm4_fin_transactions');
       throw error;
@@ -747,34 +795,28 @@ export const financeService = {
   },
 
   async createTransfer(data: {
-    workspace_id: string;
     description: string;
     amount: number;
-    issue_date: string;
-    due_date: string;
-    paid_at?: string;
-    source_bank_account_id: string;
-    destination_bank_account_id: string;
-    status: FinanceTransactionStatus | string;
-    created_by: string;
-  }): Promise<void> {
+    fromBankAccountId: string;
+    toBankAccountId: string;
+    date: string;
+  }, workspaceId: string): Promise<FinanceTransaction[]> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      // 1. Create Outflow (Transfer Exit)
+      const results: FinanceTransaction[] = [];
+
+      // 1. Create Outflow
       const outflowPayload = mappers.transaction({
-        workspace_id: data.workspace_id,
-        type: FinanceTransactionType.TRANSFER,
-        status: data.status,
-        description: `[TRANSFERÊNCIA] ${data.description}`,
+        workspace_id: workspaceId,
+        type: 'expense',
+        status: 'paid',
+        description: `[TRANSFER] ${data.description}`,
         amount: data.amount,
-        issue_date: data.issue_date,
-        due_date: data.due_date,
-        paid_at: data.paid_at,
-        competence_date: data.issue_date,
-        bank_account_id: data.source_bank_account_id,
-        destination_bank_account_id: data.destination_bank_account_id,
-        created_by: data.created_by,
-        updated_by: data.created_by
-      } as any);
+        due_date: data.date,
+        paid_at: data.date,
+        bank_account_id: data.fromBankAccountId,
+        category: 'Transferência'
+      } as any, workspaceId);
 
       const { data: outflowResult, error: outflowError } = await supabase
         .from('m4_fin_transactions')
@@ -783,61 +825,43 @@ export const financeService = {
         .single();
 
       if (outflowError) throw outflowError;
+      results.push(outflowResult);
 
-      // 2. Create Inflow (Transfer Entry)
+      // 2. Create Inflow
       const inflowPayload = mappers.transaction({
-        workspace_id: data.workspace_id,
-        type: FinanceTransactionType.TRANSFER,
-        status: data.status,
-        description: `[TRANSFERÊNCIA] ${data.description}`,
+        workspace_id: workspaceId,
+        type: 'income',
+        status: 'received',
+        description: `[TRANSFER] ${data.description}`,
         amount: data.amount,
-        issue_date: data.issue_date,
-        due_date: data.due_date,
-        paid_at: data.paid_at,
-        competence_date: data.issue_date,
-        bank_account_id: data.destination_bank_account_id,
-        parent_transaction_id: outflowResult.id, // Link to the outflow
-        created_by: data.created_by,
-        updated_by: data.created_by
-      } as any);
+        due_date: data.date,
+        paid_at: data.date,
+        bank_account_id: data.toBankAccountId,
+        category: 'Transferência'
+      } as any, workspaceId);
 
-      const { error: inflowError } = await supabase
+      const { data: inflowResult, error: inflowError } = await supabase
         .from('m4_fin_transactions')
-        .insert([inflowPayload]);
+        .insert([inflowPayload])
+        .select()
+        .single();
 
       if (inflowError) throw inflowError;
+      results.push(inflowResult);
 
-      // 3. Update balances if status is PAID
-      if (data.status === FinanceTransactionStatus.PAID) {
-        // Source Account
-        const { data: sourceAcc, error: sourceAccError } = await supabase
-          .from('m4_fin_bank_accounts')
-          .select('balance')
-          .eq('id', data.source_bank_account_id)
-          .single();
-        
-        if (sourceAccError) throw sourceAccError;
+      // 3. Update Balances
+      // Re-fetch accounts to be sure
+      const { data: fromAcc } = await supabase.from('m4_fin_bank_accounts').select('balance').eq('id', data.fromBankAccountId).single();
+      const { data: toAcc } = await supabase.from('m4_fin_bank_accounts').select('balance').eq('id', data.toBankAccountId).single();
 
-        await supabase
-          .from('m4_fin_bank_accounts')
-          .update({ balance: Number(sourceAcc.balance) - data.amount })
-          .eq('id', data.source_bank_account_id);
-
-        // Destination Account
-        const { data: destAcc, error: destAccError } = await supabase
-          .from('m4_fin_bank_accounts')
-          .select('balance')
-          .eq('id', data.destination_bank_account_id)
-          .single();
-        
-        if (destAccError) throw destAccError;
-
-        await supabase
-          .from('m4_fin_bank_accounts')
-          .update({ balance: Number(destAcc.balance) + data.amount })
-          .eq('id', data.destination_bank_account_id);
+      if (fromAcc) {
+        await supabase.from('m4_fin_bank_accounts').update({ balance: Number(fromAcc.balance) - data.amount, current_balance: Number(fromAcc.balance) - data.amount }).eq('id', data.fromBankAccountId);
+      }
+      if (toAcc) {
+        await supabase.from('m4_fin_bank_accounts').update({ balance: Number(toAcc.balance) + data.amount, current_balance: Number(toAcc.balance) + data.amount }).eq('id', data.toBankAccountId);
       }
 
+      return results;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'm4_fin_transactions');
       throw error;

@@ -43,7 +43,6 @@ export const leadService = {
         .from('m4_leads')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -192,7 +191,7 @@ export const leadService = {
     try {
       const { error } = await supabase
         .from('m4_leads')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .eq('workspace_id', workspaceId);
 
