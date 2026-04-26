@@ -14,6 +14,7 @@ import { useCRMStore } from '../lib/store';
 import { leadSchema } from '../lib/validation';
 import { LeadSkeleton } from '../components/Skeleton';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
+import Toast, { ToastType } from '../components/Toast';
 import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban } from 'lucide-react';
 
 interface SalesCRMProps {
@@ -321,10 +322,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         setInteractionNote('');
         setInteractionResult('Sucesso');
         setShowInteractionForm(false);
+        showToast('Interação registrada com sucesso');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error registering interaction:', error);
-      alert('Erro ao registrar interação: ' + (error as any).message);
+      showToast(error.message || 'Erro ao registrar interação', 'error');
     } finally {
       setIsRegisteringInteraction(false);
     }
@@ -350,6 +352,17 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
   
+  // Toast state
+  const [toast, setToast] = useState<{ message: string, type: ToastType, isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, isVisible: true });
+  };
+
   // UX: Configuração do modal de confirmação
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -868,9 +881,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      showToast('Lead excluído permanentemente');
     } catch (error: any) {
       console.error('Erro ao excluir lead:', error);
-      alert('Erro ao excluir: ' + error.message);
+      showToast(error.message || 'Erro ao excluir lead', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -886,9 +900,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       setLeads(leads.map(l => l.id === lead.id ? { ...l, status: 'paused' as any } : l));
       setSelectedLead(null);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      showToast('Lead arquivado com sucesso');
     } catch (error: any) {
       console.error('Erro ao arquivar lead:', error);
-      alert('Erro ao arquivar: ' + error.message);
+      showToast(error.message || 'Erro ao arquivar lead', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -901,9 +916,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       title: 'Excluir Negócio?',
       description: `Você está prestes a excluir permanentemente o lead da ${lead.company_name || lead.company || 'empresa'}.`,
       impactItems: [
-        'A exclusão é física e irreversível no banco de dados.',
+        'A exclusão é física e irreversível no sistema.',
         'Todas as tarefas e interações vinculadas serão removidas.',
-        'O lead sairá permanentemente do seu funil de vendas.'
+        'O lead sairá permanentemente do seu funil comercial.'
       ],
       confirmLabel: 'Excluir Agora',
       variant: 'danger',
@@ -915,11 +930,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Arquivar Negócio?',
-      description: `Deseja remover ${lead.company_name || lead.company || 'este lead'} da visualização ativa sem excluir os dados?`,
+      description: `Deseja remover ${lead.company_name || lead.company || 'este lead'} da visualização ativa?`,
       impactItems: [
         'O lead será movido para o status "Pausado".',
-        'Os dados e histórico de interações serão preservados.',
-        'Você poderá reativar este lead no futuro.'
+        'Todo o histórico de interações será preservado.',
+        'O lead sairá do funil visual mas permanecerá no banco.'
       ],
       confirmLabel: 'Arquivar Lead',
       variant: 'info',
@@ -974,9 +989,9 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         setLeads(leads.map(l => l.id === lead.id ? updatedLead : l));
         setSelectedLead(updatedLead);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao enriquecer lead.");
+      showToast(error.message || 'Erro ao enriquecer lead', 'error');
     } finally {
       setIsEnriching(false);
     }
@@ -1088,13 +1103,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     try {
       await onStatusChange(selectedLead.id, 'won', wonData);
       setShowWonSuccess(true);
+      showToast('Negócio marcado como GANHO! parabéns!');
       setTimeout(() => {
         setIsWonModalOpen(false);
         setShowWonSuccess(false);
         setSelectedLead(null);
       }, 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      showToast(error.message || 'Erro ao marcar ganho', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1106,13 +1123,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     try {
       await onStatusChange(selectedLead.id, 'lost', lostData);
       setShowLostSuccess(true);
+      showToast('Negócio marcado como PERDIDO. Analise os motivos para melhorar.');
       setTimeout(() => {
         setIsLostModalOpen(false);
         setShowLostSuccess(false);
         setSelectedLead(null);
       }, 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      showToast(error.message || 'Erro ao marcar perda', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -2757,7 +2776,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                               setCurrentQuestionIndex(0);
                               setFormAnswers({});
                             } else {
-                              alert("Nenhum modelo de formulário encontrado. Crie um na aba 'Sondagem & Reunião'.");
+                              showToast("Nenhum modelo de formulário encontrado. Crie um na aba 'Sondagem'.", "info");
                             }
                           }}
                           className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/90 transition-all"
@@ -3424,6 +3443,13 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         confirmLabel={confirmModal.confirmLabel}
         variant={confirmModal.variant}
         isLoading={isSaving}
+      />
+
+      <Toast 
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
       />
 
       {isExecutingForm && selectedTemplate && (

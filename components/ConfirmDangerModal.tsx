@@ -43,9 +43,9 @@ const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
     },
     info: {
       icon: <ICONS.Archive width="32" height="32" />,
-      iconBg: 'bg-primary/10 text-primary',
-      buttonBg: 'bg-primary text-primary-foreground hover:bg-primary/90',
-      ringColor: 'ring-primary/20'
+      iconBg: 'bg-blue-500/10 text-blue-600',
+      buttonBg: 'bg-blue-600 text-white hover:bg-blue-700',
+      ringColor: 'ring-blue-500/20'
     }
   };
 

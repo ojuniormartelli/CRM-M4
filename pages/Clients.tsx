@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { clientService } from '../services/clientService';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
+import Toast, { ToastType } from '../components/Toast';
 
 interface ClientsProps {
   clients: M4Client[];
@@ -17,6 +18,16 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
   const [searchTerm, setSearchTerm] = useState('');
   const [showExClients, setShowExClients] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: ToastType, isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, isVisible: true });
+  };
+
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -59,8 +70,9 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
           await clientService.archive(client.id, workspaceId);
           setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'churned' } : c));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          showToast(`Cliente ${client.company_name} arquivado`);
         } catch (error: any) {
-          alert('Erro ao arquivar cliente: ' + error.message);
+          showToast(error.message || 'Erro ao arquivar cliente', 'error');
         } finally {
           setIsProcessing(null);
         }
@@ -71,14 +83,14 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
   const handleDelete = (client: M4Client) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Excluir Cliente Permanentemente?',
-      description: `Tem certeza que deseja remover ${client.company_name}? Esta ação é irreversível.`,
+      title: 'Excluir permanentemente?',
+      description: `CUIDADO: Você está prestes a apagar todos os dados de ${client.company_name}.`,
       impactItems: [
-        'Todos os dados do cliente serão apagados fisicamente.',
-        'Projetos, tarefas e faturas vinculadas serão removidos.',
-        'Não será possível recuperar estes dados no futuro.'
+        'A exclusão é física e irreversível.',
+        'Projetos, faturas e tarefas serão removidos.',
+        'O acesso a este cliente será perdido para sempre.'
       ],
-      confirmLabel: 'Excluir Permanentemente',
+      confirmLabel: 'Confirmar Exclusão Física',
       variant: 'danger',
       action: async () => {
         setIsProcessing(client.id);
@@ -86,8 +98,9 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
           await clientService.delete(client.id, workspaceId);
           setClients(prev => prev.filter(c => c.id !== client.id));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          showToast(`Cliente ${client.company_name} removido do sistema`);
         } catch (error: any) {
-          alert(error.message);
+          showToast(error.message || 'Erro ao excluir cliente', 'error');
         } finally {
           setIsProcessing(null);
         }
@@ -222,6 +235,13 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
         confirmLabel={confirmModal.confirmLabel}
         variant={confirmModal.variant}
         isLoading={isProcessing !== null}
+      />
+
+      <Toast 
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { taskService } from '../services/taskService';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
+import Toast, { ToastType } from '../components/Toast';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/pt-br';
@@ -59,7 +60,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
   const [isLeadDropdownOpen, setIsLeadDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: ToastType, isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, isVisible: true });
+  };
   const companyDropdownRef = React.useRef<HTMLDivElement>(null);
   const leadDropdownRef = React.useRef<HTMLDivElement>(null);
   
@@ -401,10 +410,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         setTasks([...tasks, data[0]]);
         setIsModalOpen(false);
         resetNewTask();
-        setToast({ message: 'Tarefa criada com sucesso!', type: 'success' });
+        showToast('Tarefa criada com sucesso!');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('UNEXPECTED ERROR CREATING TASK:', err);
+      showToast(err.message || 'Erro ao criar tarefa', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -438,10 +448,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         setTasks(tasks.map(t => t.id === selectedTask.id ? data[0] : t));
         setSelectedTask(data[0]);
         setIsEditing(false);
-        setToast({ message: 'Tarefa atualizada com sucesso!', type: 'success' });
+        showToast('Tarefa atualizada com sucesso!');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('UNEXPECTED ERROR UPDATING TASK:', err);
+      showToast(err.message || 'Erro ao atualizar tarefa', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -458,10 +469,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         setIsEditing(false);
       }
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      setToast({ message: 'Tarefa excluída com sucesso!', type: 'success' });
-    } catch (err) {
+      showToast('Tarefa movida para a lixeira');
+    } catch (err: any) {
       console.error('Erro ao excluir tarefa:', err);
-      setToast({ message: 'Erro ao excluir tarefa', type: 'error' });
+      showToast(err.message || 'Erro ao excluir tarefa', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -471,11 +482,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
     setConfirmModal({
       isOpen: true,
       title: 'Excluir Tarefa?',
-      description: `Deseja excluir permanentemente a tarefa "${task.title}"?`,
+      description: `Deseja remover permanentemente a tarefa "${task.title}"?`,
       impactItems: [
-        'A tarefa será removida de todos os calendários e listas.',
-        'O histórico de tempo e comentários vinculados serão apagados.',
-        'Esta ação não pode ser desfeita.'
+        'A tarefa sairá de todos os calendários do time.',
+        'O histórico de tempo investido nela será removido.',
+        'Esta ação de exclusão física não pode ser desfeita.'
       ],
       confirmLabel: 'Excluir Tarefa',
       variant: 'danger',
@@ -650,22 +661,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
       {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-[100] animate-in slide-in-from-right-10 duration-300`}>
-          <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border ${
-            toast.type === 'success' 
-              ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-900/30' 
-              : 'bg-red-50 border-red-100 text-red-600 dark:bg-red-900/20 dark:border-red-900/30'
-          }`}>
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-              toast.type === 'success' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-red-100 dark:bg-red-900/40'
-            }`}>
-              {toast.type === 'success' ? <ICONS.Check width="18" height="18" /> : <ICONS.X width="18" height="18" />}
-            </div>
-            <p className="text-sm font-black uppercase tracking-widest">{toast.message}</p>
-          </div>
-        </div>
-      )}
+      <Toast 
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      />
 
       <div className="flex justify-between items-center mb-10 shrink-0">
         <div>

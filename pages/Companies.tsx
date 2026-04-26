@@ -7,6 +7,7 @@ import { crmService } from '../services/crmService';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
+import Toast, { ToastType } from '../components/Toast';
 
 interface CompaniesProps {
   companies: Company[];
@@ -64,6 +65,15 @@ const Companies: React.FC<CompaniesProps> = ({
   const setIsContactNewModalOpen = propSetIsContactNewModalOpen !== undefined ? propSetIsContactNewModalOpen : setLocalIsContactNewModalOpen;
   
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: ToastType, isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ message, type, isVisible: true });
+  };
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -111,9 +121,10 @@ const Companies: React.FC<CompaniesProps> = ({
       setIsEditModalOpen(false);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
       resetForm();
+      showToast('Empresa excluída com sucesso');
     } catch (err: any) {
       console.error('Erro ao excluir empresa:', err);
-      alert('Erro ao excluir empresa: ' + err.message);
+      showToast(err.message || 'Erro ao excluir empresa', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -125,12 +136,12 @@ const Companies: React.FC<CompaniesProps> = ({
       title: 'Excluir Empresa?',
       description: `Tem certeza que deseja remover permanentemente a empresa "${company.name}"?`,
       impactItems: [
-        'Todos os contatos vinculados a esta empresa ficarão órfãos.',
-        'Projetos e tarefas da empresa serão excluídos.',
-        'A empresa será removida da base de clientes se estiver vinculada.',
-        'Esta ação é irreversível.'
+        'A empresa e seu perfil serão apagados permanentemente.',
+        'Projetos e tarefas vinculadas serão removidos.',
+        'Contatos associados precisarão ser reatribuídos.',
+        'Esta ação de exclusão física é irreversível.'
       ],
-      confirmLabel: 'Excluir Empresa',
+      confirmLabel: 'Confirmar Exclusão',
       variant: 'danger',
       action: () => handleDeleteCompany(company.id)
     });
@@ -148,13 +159,14 @@ const Companies: React.FC<CompaniesProps> = ({
       .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
-      alert("Erro ao salvar contato: " + error.message);
+      showToast(error.message || "Erro ao salvar contato", "error");
     } else if (data) {
       setContacts([...contacts, data[0]]);
       setIsContactNewModalOpen(false);
       setNewContactData({
         name: '', email: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
       });
+      showToast('Contato criado com sucesso');
     }
     setIsSaving(false);
   };
@@ -173,10 +185,11 @@ const Companies: React.FC<CompaniesProps> = ({
       .select('*, company:m4_companies(id, name, city, state)');
 
     if (error) {
-      alert("Erro ao atualizar contato: " + error.message);
+      showToast(error.message || "Erro ao atualizar contato", "error");
     } else if (data) {
       setContacts(contacts.map(c => c.id === editingContact.id ? data[0] : c));
       setIsContactEditModalOpen(false);
+      showToast('Contato atualizado com sucesso');
     }
     setIsSaving(false);
   };
@@ -208,7 +221,7 @@ const Companies: React.FC<CompaniesProps> = ({
       .select();
 
     if (companyError) {
-      alert("Erro ao salvar empresa: " + companyError.message);
+      showToast(companyError.message || "Erro ao salvar empresa", "error");
     } else if (companyData) {
       const companyId = companyData[0].id;
       
@@ -226,7 +239,7 @@ const Companies: React.FC<CompaniesProps> = ({
           .select();
         
         if (contactError) {
-          alert("Empresa salva, mas erro ao criar contato: " + contactError.message);
+          showToast("Empresa salva, mas erro ao criar contato: " + contactError.message, "warning");
         } else if (contactData) {
           setContacts([...contacts, contactData[0]]);
         }
@@ -240,7 +253,7 @@ const Companies: React.FC<CompaniesProps> = ({
           .select();
         
         if (contactError) {
-          alert("Empresa salva, mas erro ao associar contato: " + contactError.message);
+          showToast("Empresa salva, mas erro ao associar contato: " + contactError.message, "warning");
         } else if (contactData) {
           setContacts(contacts.map(c => c.id === selectedContactId ? contactData[0] : c));
         }
@@ -249,6 +262,7 @@ const Companies: React.FC<CompaniesProps> = ({
       setCompanies([...companies, companyData[0]]);
       setIsModalOpen(false);
       resetForm();
+      showToast('Empresa criada com sucesso');
     }
     setIsSaving(false);
   };
@@ -268,7 +282,7 @@ const Companies: React.FC<CompaniesProps> = ({
       .select();
 
     if (companyError) {
-      alert("Erro ao atualizar empresa: " + companyError.message);
+      showToast(companyError.message || "Erro ao atualizar empresa", "error");
     } else if (companyData) {
       if (contactMode === 'create' && primaryContact.name) {
         // Desmarcar outros contatos como primários para esta empresa antes de criar o novo primário
@@ -290,7 +304,7 @@ const Companies: React.FC<CompaniesProps> = ({
           .select();
         
         if (contactError) {
-          alert("Empresa atualizada, mas erro ao criar contato: " + contactError.message);
+          showToast("Empresa atualizada, mas erro ao criar contato: " + contactError.message, "warning");
         } else if (contactData) {
           // Atualizar estado local: desmarcar antigos e adicionar novo
           const updatedContacts = contacts.map(c => 
@@ -312,7 +326,7 @@ const Companies: React.FC<CompaniesProps> = ({
           .select();
         
         if (contactError) {
-          alert("Empresa atualizada, mas erro ao associar contato: " + contactError.message);
+          showToast("Empresa atualizada, mas erro ao associar contato: " + contactError.message, "warning");
         } else if (contactData) {
           // Atualizar estado local dos contatos
           const updatedContacts = contacts.map(c => {
@@ -327,6 +341,7 @@ const Companies: React.FC<CompaniesProps> = ({
       setCompanies(companies.map(c => c.id === editingCompany.id ? companyData[0] : c));
       setIsEditModalOpen(false);
       resetForm();
+      showToast('Dados da empresa salvos');
     }
     setIsSaving(false);
   };
@@ -1393,6 +1408,13 @@ const Companies: React.FC<CompaniesProps> = ({
         confirmLabel={confirmModal.confirmLabel}
         variant={confirmModal.variant}
         isLoading={isSaving}
+      />
+      
+      <Toast 
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
       />
     </div>
   );
