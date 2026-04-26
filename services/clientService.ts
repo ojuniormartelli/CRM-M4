@@ -43,7 +43,6 @@ export const clientService = {
         .from('m4_clients')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -115,10 +114,10 @@ export const clientService = {
         throw new Error('Não é possível excluir um cliente que possui lançamentos financeiros. Use a opção de arquivar (Ex-Cliente) em vez disso.');
       }
 
-      // 2. Soft Delete
+      // 2. Physical Delete
       const { error } = await supabase
         .from('m4_clients')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .eq('workspace_id', workspaceId);
       
