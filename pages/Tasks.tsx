@@ -401,7 +401,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
 
       if (error) {
         console.error('ERROR CREATING TASK:', error);
-        alert('Erro ao criar tarefa: ' + error.message);
+        showToast(error.message || 'Erro ao criar tarefa', 'error');
         return;
       }
 
