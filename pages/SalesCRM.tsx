@@ -881,7 +881,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      showToast('Lead excluído permanentemente');
+      showToast('Negócio movido para a lixeira');
     } catch (error: any) {
       console.error('Erro ao excluir lead:', error);
       showToast(error.message || 'Erro ao excluir lead', 'error');
@@ -913,14 +913,14 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const showDeleteConfirm = (lead: Lead) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Excluir Negócio?',
-      description: `Você está prestes a excluir permanentemente o lead da ${lead.company_name || lead.company || 'empresa'}.`,
+      title: 'Mover para Lixeira?',
+      description: `Deseja remover o lead da ${lead.company_name || lead.company || 'empresa'} da sua visão ativa?`,
       impactItems: [
-        'A exclusão é física e irreversível no sistema.',
-        'Todas as tarefas e interações vinculadas serão removidas.',
-        'O lead sairá permanentemente do seu funil comercial.'
+        'O negócio será movido para a lixeira e poderá ser recuperado.',
+        'As tarefas vinculadas serão preservadas no banco de dados.',
+        'O lead sairá do funil comercial principal mas o histórico continua salvo.'
       ],
-      confirmLabel: 'Excluir Agora',
+      confirmLabel: 'Mover para Lixeira',
       variant: 'danger',
       action: () => handleDeleteLead(lead.id)
     });

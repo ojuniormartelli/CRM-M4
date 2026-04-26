@@ -83,14 +83,14 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
   const handleDelete = (client: M4Client) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Excluir permanentemente?',
-      description: `CUIDADO: Você está prestes a apagar todos os dados de ${client.company_name}.`,
+      title: 'Remover da visão ativa?',
+      description: `Deseja remover ${client.company_name} da lista de clientes ativos?`,
       impactItems: [
-        'A exclusão é física e irreversível.',
-        'Projetos, faturas e tarefas serão removidos.',
-        'O acesso a este cliente será perdido para sempre.'
+        'O cliente será movido para a lixeira.',
+        'Projetos, faturas e tarefas serão preservados no histórico.',
+        'Você poderá restaurar o cliente no futuro.'
       ],
-      confirmLabel: 'Confirmar Exclusão Física',
+      confirmLabel: 'Mover para Lixeira',
       variant: 'danger',
       action: async () => {
         setIsProcessing(client.id);
@@ -98,7 +98,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
           await clientService.delete(client.id, workspaceId);
           setClients(prev => prev.filter(c => c.id !== client.id));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
-          showToast(`Cliente ${client.company_name} removido do sistema`);
+          showToast(`Cliente ${client.company_name} movido para a lixeira`);
         } catch (error: any) {
           showToast(error.message || 'Erro ao excluir cliente', 'error');
         } finally {

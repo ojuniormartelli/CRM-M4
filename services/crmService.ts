@@ -70,7 +70,7 @@ export const crmService = {
     try {
       const { error } = await supabase
         .from('m4_projects')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('workspace_id', workspaceId);
       if (error) throw error;
@@ -84,7 +84,7 @@ export const crmService = {
     try {
       const { error } = await supabase
         .from('m4_companies')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('workspace_id', workspaceId);
       if (error) throw error;
@@ -98,7 +98,7 @@ export const crmService = {
     try {
       const { error } = await supabase
         .from('m4_contacts')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .eq('workspace_id', workspaceId);
       if (error) throw error;
@@ -114,6 +114,7 @@ export const crmService = {
         .from('m4_companies')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('name');
       if (error) throw error;
       return data || [];
@@ -130,6 +131,7 @@ export const crmService = {
         .from('m4_contacts')
         .select('*, company:m4_companies(id, name)')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('name');
       if (error) throw error;
       return data || [];
@@ -147,6 +149,7 @@ export const crmService = {
         .from('m4_projects')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       
       if (error) {

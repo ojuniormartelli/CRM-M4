@@ -121,7 +121,7 @@ const Companies: React.FC<CompaniesProps> = ({
       setIsEditModalOpen(false);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
       resetForm();
-      showToast('Empresa excluída com sucesso');
+      showToast('Empresa movida para a lixeira');
     } catch (err: any) {
       console.error('Erro ao excluir empresa:', err);
       showToast(err.message || 'Erro ao excluir empresa', 'error');
@@ -133,15 +133,15 @@ const Companies: React.FC<CompaniesProps> = ({
   const confirmDeleteCompany = (company: Company) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Excluir Empresa?',
-      description: `Tem certeza que deseja remover permanentemente a empresa "${company.name}"?`,
+      title: 'Mover para Lixeira?',
+      description: `Deseja remover a empresa "${company.name}" da visão ativa?`,
       impactItems: [
-        'A empresa e seu perfil comercial serão apagados permanentemente.',
-        'Projetos, faturas e tarefas vinculadas serão removidos.',
-        'Contatos associados ficarão sem vínculo de empresa.',
-        'Esta ação de exclusão física é definitiva.'
+        'A empresa será movida para a lixeira e o histórico preservado.',
+        'Projetos, faturas e tarefas vinculadas continuam salvos.',
+        'Contatos associados manterão o registro mas ocultos.',
+        'Você poderá restaurar esta empresa a qualquer momento.'
       ],
-      confirmLabel: 'Excluir Empresa',
+      confirmLabel: 'Mover para Lixeira',
       variant: 'danger',
       action: () => handleDeleteCompany(company.id)
     });
@@ -957,7 +957,7 @@ const Companies: React.FC<CompaniesProps> = ({
                       <ICONS.Edit className="w-5 h-5" />
                     </button>
                     <button 
-                      onClick={() => setShowDeleteConfirm(true)}
+                      onClick={() => editingCompany && confirmDeleteCompany(editingCompany)}
                       className="p-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-100 transition-all"
                       title="Excluir"
                     >
@@ -1364,39 +1364,7 @@ const Companies: React.FC<CompaniesProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md p-10 space-y-8 shadow-2xl animate-zoom-in-95">
-            <div className="text-center space-y-4">
-              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-3xl flex items-center justify-center mx-auto">
-                <ICONS.Trash width="40" height="40" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Excluir Empresa?</h3>
-                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                  Esta ação não pode ser desfeita. A empresa será removida da lista principal.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={() => editingCompany && handleDeleteCompany(editingCompany.id)}
-                disabled={isSaving}
-                className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-xl shadow-rose-100 dark:shadow-none"
-              >
-                {isSaving ? "EXCLUINDO..." : "EXCLUIR"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete Confirmation Modal - Removido */}
     </div>
       <ConfirmDangerModal
         isOpen={confirmModal.isOpen}

@@ -469,7 +469,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
         setIsEditing(false);
       }
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      showToast('Tarefa excluída permanentemente');
+      showToast('Tarefa movida para a lixeira');
     } catch (err: any) {
       console.error('Erro ao excluir tarefa:', err);
       showToast(err.message || 'Erro ao excluir tarefa', 'error');
@@ -481,14 +481,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   const confirmDelete = (task: Task) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Excluir Tarefa?',
-      description: `Deseja remover permanentemente a tarefa "${task.title}"?`,
+      title: 'Mover para Lixeira?',
+      description: `Deseja remover a tarefa "${task.title}" da sua visão?`,
       impactItems: [
-        'A tarefa sairá de todos os calendários do time.',
-        'O histórico de tempo investido nela será removido.',
-        'Esta ação de exclusão física não pode ser desfeita.'
+        'A tarefa sairá dos calendários ativos do time.',
+        'O histórico de tempo investido será preservado.',
+        'Você poderá recuperar esta tarefa na lixeira futuramente.'
       ],
-      confirmLabel: 'Excluir Tarefa',
+      confirmLabel: 'Mover para Lixeira',
       variant: 'danger',
       action: () => handleDeleteTask(task.id)
     });
@@ -846,7 +846,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                       className="p-3 bg-slate-50 dark:bg-slate-800 text-destructive rounded-xl hover:bg-destructive/10 transition-all"
                       title="Excluir Tarefa"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <ICONS.Trash width="20" height="20" />
                     </button>
                     <button 
                       onClick={(e) => {
@@ -857,16 +857,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                       className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
                     >
                       <ICONS.Settings width="18" height="18" />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTaskToDelete(task.id);
-                        setIsDeleting(true);
-                      }}
-                      className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
-                    >
-                      <ICONS.X width="18" height="18" />
                     </button>
                   </div>
                 </div>
@@ -1875,7 +1865,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                         className="p-4 bg-destructive/10 text-destructive rounded-2xl hover:bg-destructive/20 transition-all"
                         title="Excluir Tarefa"
                       >
-                        <Trash2 width="20" height="20" />
+                        <ICONS.Trash width="20" height="20" />
                       </button>
                     )}
                     <button 
