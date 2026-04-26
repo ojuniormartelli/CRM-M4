@@ -130,8 +130,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -223,7 +223,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <select
                   value={formData.status || FinanceTransactionStatus.PENDING}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as FinanceTransactionStatus })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                 >
                   <option value={FinanceTransactionStatus.PENDING}>Pendente</option>
                   <option value={FinanceTransactionStatus.PAID}>Pago / Recebido</option>
@@ -274,7 +274,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   required
                   value={formData.bank_account_id || ''}
                   onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                 >
                   <option value="">Selecionar Conta</option>
                   {bankAccounts.map(acc => (
@@ -288,7 +288,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   required
                   value={formData.category_id || ''}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                 >
                   <option value="">Selecionar Categoria</option>
                   {filteredCategories.map(cat => (
@@ -304,7 +304,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <select
                   value={formData.cost_center_id || ''}
                   onChange={(e) => setFormData({ ...formData, cost_center_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                 >
                   <option value="">Selecionar Centro de Custo</option>
                   {costCenters.map(cc => (
@@ -317,7 +317,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <select
                   value={formData.payment_method || ''}
                   onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                 >
                   <option value="">Selecionar Método</option>
                   {paymentMethods.map(pm => (
@@ -344,7 +344,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                       client_account_id: e.target.value,
                       lead_id: e.target.value ? '' : formData.lead_id 
                     })}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                   >
                     <option value="">Nenhum</option>
                     {clients.map(c => (
@@ -361,7 +361,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                       lead_id: e.target.value,
                       client_account_id: e.target.value ? '' : formData.client_account_id 
                     })}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                   >
                     <option value="">Nenhum</option>
                     {leads.map(l => (

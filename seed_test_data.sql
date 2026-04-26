@@ -1,6 +1,8 @@
-
 -- 🚀 SCRIPT DE SEED DE DADOS DE TESTE ENRIQUECIDO (M4 CRM)
 -- Este script insere dados de exemplo realistas para demonstração completa das funcionalidades.
+
+-- Garantir coluna company_id em m4_tasks (Migração rápida)
+ALTER TABLE IF EXISTS m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
 
 DO $$ 
 DECLARE
@@ -38,11 +40,15 @@ BEGIN
     END IF;
 
     -- 4. Inserir Empresas de Exemplo com Nichos
+    v_company_tech_id := gen_random_uuid();
+    v_company_food_id := gen_random_uuid();
+    v_company_fashion_id := gen_random_uuid();
+
     INSERT INTO m4_companies (id, name, niche, city, state, workspace_id)
     VALUES 
-    (gen_random_uuid(), 'Tech Soluções LTDA', 'Tecnologia SaaS', 'São Paulo', 'SP', v_workspace_id),
-    (gen_random_uuid(), 'Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
-    (gen_random_uuid(), 'Moda Fashion Brasil', 'Varejo / Moda', 'Rio de Janeiro', 'RJ', v_workspace_id)
+    (v_company_tech_id, 'Tech Soluções LTDA', 'Tecnologia SaaS', 'São Paulo', 'SP', v_workspace_id),
+    (v_company_food_id, 'Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
+    (v_company_fashion_id, 'Moda Fashion Brasil', 'Varejo / Moda', 'Rio de Janeiro', 'RJ', v_workspace_id)
     ON CONFLICT DO NOTHING;
 
     SELECT id INTO v_company_tech_id FROM m4_companies WHERE name = 'Tech Soluções LTDA' LIMIT 1;
@@ -55,8 +61,7 @@ BEGIN
     ('Consultoria Digital TECH', 'Tech Soluções LTDA', 'diretoria@tech.com', 45000.00, 'active', v_pipeline_vendas_id, v_stage_negotiation_id, v_workspace_id, v_company_tech_id, v_admin_id, 80, 'Quente', 'Tecnologia', 'Instagram'),
     ('Expansão E-commerce FASHION', 'Moda Fashion Brasil', 'marketing@moda.com', 28000.00, 'active', v_pipeline_vendas_id, v_stage_proposal_id, v_workspace_id, v_company_fashion_id, v_admin_id, 60, 'Morno', 'Varejo', 'Indicação'),
     ('Contrato Fechado SAAS', 'Tech Soluções LTDA', 'fechado@tech.com', 15000.00, 'won', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 100, 'Quente', 'Software', 'Google'),
-    ('Lead Perdido Exemplo', 'Alimentos Brasil S.A.', 'perda@alimentos.com', 5000.00, 'lost', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_food_id, v_admin_id, 0, 'Frio', 'Alimentos', 'Outros'),
-    ('Novo APP Mobile', 'Tech Soluções LTDA', 'app@tech.com', 120000.00, 'active', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 10, 'Frio', 'Software', 'YouTube')
+    ('Lead Perdido Exemplo', 'Alimentos Brasil S.A.', 'perda@alimentos.com', 5000.00, 'lost', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_food_id, v_admin_id, 0, 'Frio', 'Alimentos', 'Outros')
     ON CONFLICT DO NOTHING;
 
     -- 6. Categorias Financeiras
@@ -72,8 +77,8 @@ BEGIN
     SELECT id INTO v_cat_salarios_id FROM m4_fin_categories WHERE name = 'Folha de Pagamento' LIMIT 1;
 
     -- 7. Conta Bancária
-    INSERT INTO m4_fin_bank_accounts (id, name, bank, type, balance, workspace_id, current_balance)
-    VALUES (gen_random_uuid(), 'Banco Digital PJ', 'Nubank', 'checking', 25000.00, v_workspace_id, 25000.00)
+    INSERT INTO m4_fin_bank_accounts (name, bank, type, balance, current_balance, workspace_id)
+    VALUES ('Banco Digital PJ', 'Nubank', 'checking', 25000.00, 25000.00, v_workspace_id)
     ON CONFLICT DO NOTHING;
 
     SELECT id INTO v_bank_pj_id FROM m4_fin_bank_accounts WHERE name = 'Banco Digital PJ' LIMIT 1;

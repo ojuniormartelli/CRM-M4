@@ -245,6 +245,7 @@ export const mappers = {
     if (data.due_date !== undefined) payload.due_date = data.due_date || null;
     if (data.lead_id !== undefined) payload.lead_id = data.lead_id || null;
     if (data.client_id !== undefined) payload.client_id = data.client_id || null;
+    if ((data as any).company_id !== undefined) payload.company_id = (data as any).company_id || null;
     if ((data as any).assigned_to !== undefined || (data as any).responsible_id !== undefined) {
       payload.assigned_to = (data as any).assigned_to || (data as any).responsible_id || null;
     }
@@ -278,6 +279,31 @@ export const mappers = {
     if (data.trigger_conditions !== undefined) payload.trigger_conditions = data.trigger_conditions || {};
     if (data.actions !== undefined) payload.actions = data.actions || [];
     if (data.is_active !== undefined) payload.is_active = !!data.is_active;
+
+    const ws = getValidWorkspaceId(workspaceId, data.workspace_id);
+    if (ws) payload.workspace_id = ws;
+    return payload;
+  },
+
+  bankAccount: (data: any, workspaceId?: string) => {
+    const payload: any = {};
+    if (data.name !== undefined) payload.name = cleanText(data.name) || 'Sem nome';
+    if (data.bank !== undefined) payload.bank = cleanText(data.bank);
+    if (data.type !== undefined) payload.type = data.type || 'checking';
+    if (data.initial_balance !== undefined) payload.initial_balance = toNumber(data.initial_balance);
+    if (data.initial_balance_date !== undefined) payload.initial_balance_date = data.initial_balance_date;
+    if (data.currency !== undefined) payload.currency = data.currency || 'BRL';
+    if (data.is_active !== undefined) payload.is_active = !!data.is_active;
+    
+    // Core balance fields
+    if (data.balance !== undefined) payload.balance = toNumber(data.balance);
+    else if (data.initial_balance !== undefined) payload.balance = toNumber(data.initial_balance);
+    
+    if (data.current_balance !== undefined) payload.current_balance = toNumber(data.current_balance);
+    else if (payload.balance !== undefined) payload.current_balance = payload.balance;
+
+    if (data.color !== undefined) payload.color = data.color;
+    if (data.icon !== undefined) payload.icon = data.icon;
 
     const ws = getValidWorkspaceId(workspaceId, data.workspace_id);
     if (ws) payload.workspace_id = ws;

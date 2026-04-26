@@ -1080,8 +1080,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     return (
       <>
         {isModalOpen && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
+          <div className="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center p-4">
+            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border overflow-hidden">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">Novo Negócio</h3>
                 <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -1204,7 +1204,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                               stage: pipeline?.stages[0].id || ''
                             });
                           }} 
-                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
+                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground cursor-pointer"
                         >
                           {pipelines.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
@@ -1216,7 +1216,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         <select 
                           value={newLead.stage} 
                           onChange={e => setNewLead({...newLead, stage: e.target.value})} 
-                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
+                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground cursor-pointer"
                         >
                           <option value="">Selecione a Etapa</option>
                           {pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId))?.stages.map(s => (
@@ -1275,8 +1275,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         )}
 
         {isCompanyModalOpen && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
+          <div className="fixed inset-0 bg-slate-900/80 z-[110] flex items-center justify-center p-4">
+            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border overflow-hidden">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase">Nova Empresa</h3>
                 <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">

@@ -1,6 +1,9 @@
 export const SEED_SQL = `-- 🚀 SCRIPT DE SEED DE DADOS DE TESTE ENRIQUECIDO (M4 CRM)
 -- Este script insere dados de exemplo realistas para demonstração completa das funcionalidades.
 
+-- Garantir coluna company_id em m4_tasks (Migração rápida)
+ALTER TABLE IF EXISTS m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
+
 DO $$ 
 DECLARE
     v_workspace_id UUID := 'fb786658-1234-4321-8888-999988887777'; -- Workspace Principal
@@ -24,16 +27,18 @@ BEGIN
     END IF;
 
     -- 2. Garantir etapas extras do funil para dados realistas
-    SELECT id INTO v_stage_contact_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Primeiro Contato' LIMIT 1;
-    SELECT id INTO v_stage_proposal_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Proposta Enviada' LIMIT 1;
-    SELECT id INTO v_stage_negotiation_id FROM m4_pipeline_stages WHERE pipeline_id = v_pipeline_vendas_id AND name = 'Negociação' LIMIT 1;
+    -- (Usando estágios do FULL_SETUP_SQL: Lead, Qualificação, Proposta, Fechamento)
+    v_stage_contact_id := 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'; -- Lead
+    v_stage_proposal_id := 'dddddddd-dddd-dddd-dddd-ddddbbbbbbbb'; -- Proposta
+    v_stage_negotiation_id := 'cccccccc-cccc-cccc-cccc-cccccccccccc'; -- Qualificação
 
     -- 3. Garantir usuário admin
-    SELECT id INTO v_admin_id FROM m4_users WHERE email = 'admin@m4.com' LIMIT 1;
+    SELECT id INTO v_admin_id FROM m4_users WHERE email = 'admin@crm.com' LIMIT 1;
     IF v_admin_id IS NULL THEN
-        v_admin_id := gen_random_uuid();
+        v_admin_id := 'd167f4e8-4a19-4ab7-b655-f104004f8bf0';
         INSERT INTO m4_users (id, name, email, role, workspace_id, status)
-        VALUES (v_admin_id, 'Administrador M4', 'admin@m4.com', 'owner', v_workspace_id, 'active');
+        VALUES (v_admin_id, 'Administrador M4', 'admin@crm.com', 'owner', v_workspace_id, 'active')
+        ON CONFLICT (id) DO NOTHING;
     END IF;
 
     -- 4. Inserir Empresas de Exemplo com Nichos
@@ -42,7 +47,7 @@ BEGIN
     (gen_random_uuid(), 'Tech Soluções LTDA', 'Tecnologia SaaS', 'São Paulo', 'SP', v_workspace_id),
     (gen_random_uuid(), 'Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
     (gen_random_uuid(), 'Moda Fashion Brasil', 'Varejo / Moda', 'Rio de Janeiro', 'RJ', v_workspace_id)
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
 
     SELECT id INTO v_company_tech_id FROM m4_companies WHERE name = 'Tech Soluções LTDA' LIMIT 1;
     SELECT id INTO v_company_food_id FROM m4_companies WHERE name = 'Alimentos Brasil S.A.' LIMIT 1;
@@ -336,6 +341,7 @@ CREATE TABLE public.m4_tasks (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     client_id UUID REFERENCES public.m4_clients(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     description TEXT,
     status TEXT DEFAULT 'Pendente',
@@ -695,6 +701,7 @@ BEGIN
     ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
     ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
 
     -- 3. Cria novo Financeiro se não existir

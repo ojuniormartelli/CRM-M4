@@ -119,7 +119,7 @@ export const financeService = {
       if (result.status === 'paid' && result.bank_account_id) {
         const { data: account, error: accError } = await supabase
           .from('m4_fin_bank_accounts')
-          .select('balance')
+          .select('balance, current_balance')
           .eq('id', result.bank_account_id)
           .single();
         
@@ -131,7 +131,10 @@ export const financeService = {
           
           await supabase
             .from('m4_fin_bank_accounts')
-            .update({ balance: newBalance })
+            .update({ 
+              balance: newBalance,
+              current_balance: newBalance
+            })
             .eq('id', result.bank_account_id);
         }
       }
@@ -201,7 +204,7 @@ export const financeService = {
         if (wasPaid && existing.bank_account_id) {
           const { data: oldAcc, error: oldAccError } = await supabase
             .from('m4_fin_bank_accounts')
-            .select('balance')
+            .select('balance, current_balance')
             .eq('id', existing.bank_account_id)
             .single();
           
@@ -213,7 +216,10 @@ export const financeService = {
             
             await supabase
               .from('m4_fin_bank_accounts')
-              .update({ balance: revertedBalance })
+              .update({ 
+                balance: revertedBalance,
+                current_balance: revertedBalance
+              })
               .eq('id', existing.bank_account_id);
           }
         }
@@ -222,7 +228,7 @@ export const financeService = {
         if (isPaid && result.bank_account_id) {
           const { data: newAcc, error: newAccError } = await supabase
             .from('m4_fin_bank_accounts')
-            .select('balance')
+            .select('balance, current_balance')
             .eq('id', result.bank_account_id)
             .single();
           
@@ -234,7 +240,10 @@ export const financeService = {
             
             await supabase
               .from('m4_fin_bank_accounts')
-              .update({ balance: appliedBalance })
+              .update({ 
+                balance: appliedBalance,
+                current_balance: appliedBalance
+              })
               .eq('id', result.bank_account_id);
           }
         }
@@ -260,7 +269,7 @@ export const financeService = {
         // Revert balance effect
         const { data: account, error: accError } = await supabase
           .from('m4_fin_bank_accounts')
-          .select('balance')
+          .select('balance, current_balance')
           .eq('id', transaction.bank_account_id)
           .single();
         
@@ -272,7 +281,10 @@ export const financeService = {
           
           await supabase
             .from('m4_fin_bank_accounts')
-            .update({ balance: revertedBalance })
+            .update({ 
+              balance: revertedBalance,
+              current_balance: revertedBalance
+            })
             .eq('id', transaction.bank_account_id);
         }
       }
@@ -307,7 +319,7 @@ export const financeService = {
       return (data || []).map(acc => ({
         ...acc,
         balance: Number(acc.balance) || 0,
-        current_balance: Number(acc.balance) || 0
+        current_balance: Number(acc.current_balance ?? acc.balance) || 0
       }));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_fin_bank_accounts');
@@ -346,13 +358,13 @@ export const financeService = {
   },
 
   async createBankAccount(account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
-    const config = (supabase as any).supabaseUrl;
-    console.log('financeService.createBankAccount: Target URL:', config);
-    console.log('financeService.createBankAccount: Payload:', account);
     try {
+      const payload = mappers.bankAccount(account);
+      console.log('financeService.createBankAccount: Payload:', payload);
+      
       const { data, error } = await supabase
         .from('m4_fin_bank_accounts')
-        .insert([account])
+        .insert([payload])
         .select()
         .single();
 
@@ -371,9 +383,10 @@ export const financeService = {
 
   async updateBankAccount(id: string, account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
     try {
+      const payload = mappers.bankAccount(account);
       const { data, error } = await supabase
         .from('m4_fin_bank_accounts')
-        .update(account)
+        .update(payload)
         .eq('id', id)
         .select()
         .single();
@@ -680,7 +693,7 @@ export const financeService = {
       const amount = Number(transaction.amount);
       const { data: account, error: accError } = await supabase
         .from('m4_fin_bank_accounts')
-        .select('balance')
+        .select('balance, current_balance')
         .eq('id', data.bank_account_id)
         .single();
 
@@ -692,7 +705,10 @@ export const financeService = {
 
       const { error: balanceError } = await supabase
         .from('m4_fin_bank_accounts')
-        .update({ balance: newBalance })
+        .update({ 
+          balance: newBalance,
+          current_balance: newBalance
+        })
         .eq('id', data.bank_account_id);
 
       if (balanceError) throw balanceError;
