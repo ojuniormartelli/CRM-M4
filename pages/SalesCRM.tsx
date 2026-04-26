@@ -13,7 +13,8 @@ import { funnelUtils } from '../utils/funnel';
 import { useCRMStore } from '../lib/store';
 import { leadSchema } from '../lib/validation';
 import { LeadSkeleton } from '../components/Skeleton';
-import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users } from 'lucide-react';
+import ConfirmDangerModal from '../components/ConfirmDangerModal';
+import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban } from 'lucide-react';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -348,6 +349,26 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [interactionResult, setInteractionResult] = useState<'Envio de mensagem' | 'Sucesso' | 'Não atendeu'>('Sucesso');
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [isRegisteringInteraction, setIsRegisteringInteraction] = useState(false);
+  
+  // UX: Configuração do modal de confirmação
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    impactItems: string[];
+    confirmLabel: string;
+    variant: 'danger' | 'warning' | 'info';
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    impactItems: [],
+    confirmLabel: '',
+    variant: 'danger',
+    action: async () => {}
+  });
+
   const { 
     filterMode, setFilterMode, 
     sortOrder, setSortOrder,
@@ -840,16 +861,76 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   };
 
   const handleDeleteLead = async (id: string) => {
+    setIsSaving(true);
     try {
       if (!workspaceId) throw new Error("Workspace ID is required");
       await leadService.delete(id, workspaceId);
       setLeads(leads.filter(l => l.id !== id));
       setSelectedLead(null);
-      setIsDeleting(false);
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
     } catch (error: any) {
       console.error('Erro ao excluir lead:', error);
       alert('Erro ao excluir: ' + error.message);
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleArchiveLead = async (lead: Lead) => {
+    setIsSaving(true);
+    try {
+      if (!workspaceId) throw new Error("Workspace ID is required");
+      // Como não temos deleted_at no banco atual, usamos status 'archived' ou 'paused'
+      // Para manter histórico sem remover do banco físico
+      await leadService.update(lead.id, { status: 'paused' as any }, workspaceId);
+      setLeads(leads.map(l => l.id === lead.id ? { ...l, status: 'paused' as any } : l));
+      setSelectedLead(null);
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+    } catch (error: any) {
+      console.error('Erro ao arquivar lead:', error);
+      alert('Erro ao arquivar: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Helpers para Modais de Confirmação
+  const showDeleteConfirm = (lead: Lead) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Negócio?',
+      description: `Você está prestes a excluir permanentemente o lead da ${lead.company_name || lead.company || 'empresa'}.`,
+      impactItems: [
+        'A exclusão é física e irreversível no banco de dados.',
+        'Todas as tarefas e interações vinculadas serão removidas.',
+        'O lead sairá permanentemente do seu funil de vendas.'
+      ],
+      confirmLabel: 'Excluir Agora',
+      variant: 'danger',
+      action: () => handleDeleteLead(lead.id)
+    });
+  };
+
+  const showArchiveConfirm = (lead: Lead) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Arquivar Negócio?',
+      description: `Deseja remover ${lead.company_name || lead.company || 'este lead'} da visualização ativa sem excluir os dados?`,
+      impactItems: [
+        'O lead será movido para o status "Pausado".',
+        'Os dados e histórico de interações serão preservados.',
+        'Você poderá reativar este lead no futuro.'
+      ],
+      confirmLabel: 'Arquivar Lead',
+      variant: 'info',
+      action: () => handleArchiveLead(lead)
+    });
+  };
+
+  const showLostConfirm = (lead: Lead) => {
+    // Para Perda, primeiro abrimos o modal de motivo que já existe
+    setSelectedLead(lead);
+    setIsLostModalOpen(true);
   };
 
   const handleEnrichSingleLead = async (lead: Lead) => {
@@ -2000,7 +2081,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
               <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
                 <button 
-                  onClick={() => setIsLostModalOpen(true)}
+                  onClick={() => showArchiveConfirm(selectedLead)}
+                  className="flex-1 md:flex-none px-6 py-3 bg-muted text-muted-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all flex items-center gap-2"
+                >
+                  <Archive className="w-4 h-4" />
+                  Arquivar
+                </button>
+                <button 
+                  onClick={() => showLostConfirm(selectedLead)}
                   className="flex-1 md:flex-none px-6 py-3 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
                 >
                   Marcar Perda
@@ -2064,7 +2152,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 </button>
 
                 <button 
-                  onClick={() => setIsDeleting(true)}
+                  onClick={() => showDeleteConfirm(selectedLead)}
                   className="p-3 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-all"
                   title="Excluir Lead"
                 >
@@ -3325,35 +3413,19 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         </div>
       )}
 
-      {isDeleting && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 text-center shadow-lg animate-zoom-in-95 border border-border">
-            <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto mb-6">
-              <ICONS.Trash width="32" height="32" />
-            </div>
-            <h3 className="text-2xl font-black text-foreground uppercase mb-2">Excluir Lead?</h3>
-            <p className="text-sm text-muted-foreground font-bold mb-8">Esta ação é irreversível e removerá todos os dados vinculados a este lead.</p>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setIsDeleting(false)}
-                className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={() => {
-                  if (selectedLead) handleDeleteLead(selectedLead.id);
-                  setIsDeleting(false);
-                  setSelectedLead(null);
-                }}
-                className="flex-1 py-4 bg-destructive text-destructive-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-destructive/90 transition-all"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de Confirmação Unificado */}
+      <ConfirmDangerModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.action}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        impactItems={confirmModal.impactItems}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        isLoading={isSaving}
+      />
+
       {isExecutingForm && selectedTemplate && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">

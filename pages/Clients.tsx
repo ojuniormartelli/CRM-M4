@@ -4,6 +4,7 @@ import { M4Client, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { clientService } from '../services/clientService';
+import ConfirmDangerModal from '../components/ConfirmDangerModal';
 
 interface ClientsProps {
   clients: M4Client[];
@@ -16,6 +17,23 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
   const [searchTerm, setSearchTerm] = useState('');
   const [showExClients, setShowExClients] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    impactItems: string[];
+    confirmLabel: string;
+    variant: 'danger' | 'warning' | 'info';
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    impactItems: [],
+    confirmLabel: '',
+    variant: 'danger',
+    action: async () => {}
+  });
 
   const filteredClients = clients.filter(c => {
     const matchesSearch = c.company_name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -23,38 +41,58 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
     return matchesSearch && matchesStatus;
   });
 
-  const handleArchive = async (client: M4Client) => {
-    if (!window.confirm(`Deseja mover ${client.company_name} para a lista de Ex-Clientes? Isso excluirá todas as cobranças futuras (pendentes), mas manterá o histórico de pagamentos realizados.`)) {
-      return;
-    }
-
-    setIsProcessing(client.id);
-    try {
-      await clientService.archive(client.id, workspaceId);
-      setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'churned' } : c));
-      alert('Cliente movido para Ex-Clientes com sucesso.');
-    } catch (error: any) {
-      alert('Erro ao arquivar cliente: ' + error.message);
-    } finally {
-      setIsProcessing(null);
-    }
+  const handleArchive = (client: M4Client) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Arquivar Cliente?',
+      description: `Deseja mover ${client.company_name} para a lista de Ex-Clientes?`,
+      impactItems: [
+        'O status será alterado para Churned.',
+        'Cobranças futuras pendentes serão canceladas.',
+        'O histórico de pagamentos e dados serão preservados.'
+      ],
+      confirmLabel: 'Confirmar Arquivamento',
+      variant: 'warning',
+      action: async () => {
+        setIsProcessing(client.id);
+        try {
+          await clientService.archive(client.id, workspaceId);
+          setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'churned' } : c));
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error: any) {
+          alert('Erro ao arquivar cliente: ' + error.message);
+        } finally {
+          setIsProcessing(null);
+        }
+      }
+    });
   };
 
-  const handleDelete = async (client: M4Client) => {
-    if (!window.confirm(`Tem certeza que deseja remover o cliente ${client.company_name}?`)) {
-      return;
-    }
-
-    setIsProcessing(client.id);
-    try {
-      await clientService.delete(client.id, workspaceId);
-      setClients(prev => prev.filter(c => c.id !== client.id));
-      alert('Cliente excluído com sucesso.');
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setIsProcessing(null);
-    }
+  const handleDelete = (client: M4Client) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Cliente Permanentemente?',
+      description: `Tem certeza que deseja remover ${client.company_name}? Esta ação é irreversível.`,
+      impactItems: [
+        'Todos os dados do cliente serão apagados fisicamente.',
+        'Projetos, tarefas e faturas vinculadas serão removidos.',
+        'Não será possível recuperar estes dados no futuro.'
+      ],
+      confirmLabel: 'Excluir Permanentemente',
+      variant: 'danger',
+      action: async () => {
+        setIsProcessing(client.id);
+        try {
+          await clientService.delete(client.id, workspaceId);
+          setClients(prev => prev.filter(c => c.id !== client.id));
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error: any) {
+          alert(error.message);
+        } finally {
+          setIsProcessing(null);
+        }
+      }
+    });
   };
 
   return (
@@ -173,6 +211,18 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, currentUser, wor
           </div>
         )}
       </div>
+
+      <ConfirmDangerModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.action}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        impactItems={confirmModal.impactItems}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        isLoading={isProcessing !== null}
+      />
     </div>
   );
 };

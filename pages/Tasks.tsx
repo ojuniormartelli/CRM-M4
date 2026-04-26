@@ -4,6 +4,7 @@ import { Task, TaskStatus, Priority, User, Company, Contact, TaskComment, TaskAt
 import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import { taskService } from '../services/taskService';
+import ConfirmDangerModal from '../components/ConfirmDangerModal';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/pt-br';
@@ -26,9 +27,27 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   
+  // UX: Configuração do modal de confirmação
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    impactItems: string[];
+    confirmLabel: string;
+    variant: 'danger' | 'warning' | 'info';
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    impactItems: [],
+    confirmLabel: '',
+    variant: 'danger',
+    action: async () => {}
+  });
+
   // States for Company/Contact selection
   const [companies, setCompanies] = useState<Company[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -428,26 +447,40 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
     }
   };
 
-  const handleDeleteTask = async () => {
-    if (!taskToDelete || !workspaceId) return;
-
+  const handleDeleteTask = async (taskId: string) => {
+    if (!workspaceId) return;
+    setIsSaving(true);
     try {
-      await taskService.delete(taskToDelete, workspaceId);
-      setTasks(tasks.filter(t => t.id !== taskToDelete));
-      if (selectedTask?.id === taskToDelete) {
+      await taskService.delete(taskId, workspaceId);
+      setTasks(tasks.filter(t => t.id !== taskId));
+      if (selectedTask?.id === taskId) {
         setSelectedTask(null);
         setIsEditing(false);
       }
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      setToast({ message: 'Tarefa excluída com sucesso!', type: 'success' });
     } catch (err) {
       console.error('Erro ao excluir tarefa:', err);
+      setToast({ message: 'Erro ao excluir tarefa', type: 'error' });
+    } finally {
+      setIsSaving(false);
     }
-    setIsDeleting(false);
-    setTaskToDelete(null);
   };
 
-  const confirmDelete = (taskId: string) => {
-    setTaskToDelete(taskId);
-    setIsDeleting(true);
+  const confirmDelete = (task: Task) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Tarefa?',
+      description: `Deseja excluir permanentemente a tarefa "${task.title}"?`,
+      impactItems: [
+        'A tarefa será removida de todos os calendários e listas.',
+        'O histórico de tempo e comentários vinculados serão apagados.',
+        'Esta ação não pode ser desfeita.'
+      ],
+      confirmLabel: 'Excluir Tarefa',
+      variant: 'danger',
+      action: () => handleDeleteTask(task.id)
+    });
   };
 
   const openViewModal = (task: Task) => {
@@ -673,6 +706,19 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
       </div>
 
       <div className="flex-1 overflow-y-auto pr-4 scrollbar-none space-y-10 pb-10">
+        {/* Modal de Confirmação Unificado */}
+        <ConfirmDangerModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmModal.action}
+          title={confirmModal.title}
+          description={confirmModal.description}
+          impactItems={confirmModal.impactItems}
+          confirmLabel={confirmModal.confirmLabel}
+          variant={confirmModal.variant}
+          isLoading={isSaving}
+        />
+
         {view === 'list' && (
           <>
             <div className="flex flex-wrap gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
@@ -791,6 +837,16 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                     </div>
                   </div>
                   <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        confirmDelete(task);
+                      }}
+                      className="p-3 bg-slate-50 dark:bg-slate-800 text-destructive rounded-xl hover:bg-destructive/10 transition-all"
+                      title="Excluir Tarefa"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1811,6 +1867,16 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
               <div className="p-10 pt-6 flex gap-4 border-t border-slate-50 dark:border-slate-800 shrink-0">
                 {isEditing ? (
                   <>
+                    {selectedTask && (
+                      <button 
+                        type="button" 
+                        onClick={() => confirmDelete(selectedTask)}
+                        className="p-4 bg-destructive/10 text-destructive rounded-2xl hover:bg-destructive/20 transition-all"
+                        title="Excluir Tarefa"
+                      >
+                        <Trash2 width="20" height="20" />
+                      </button>
+                    )}
                     <button 
                       type="button" 
                       onClick={() => {
@@ -1855,31 +1921,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                 )}
               </div>
             </form>
-          </div>
-        </div>
-      )}
-      {isDeleting && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-zoom-in-95 text-center">
-            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/30 rounded-[2rem] flex items-center justify-center text-red-600 dark:text-red-400 mx-auto mb-6">
-              <ICONS.X width="40" height="40" />
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase mb-2">Excluir Tarefa?</h3>
-            <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mb-8">Esta ação não pode ser desfeita. Deseja continuar?</p>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => { setIsDeleting(false); setTaskToDelete(null); }}
-                className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase text-xs hover:bg-slate-200 transition-all"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteTask}
-                className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs hover:bg-red-700 shadow-xl shadow-red-100 dark:shadow-none transition-all"
-              >
-                Excluir
-              </button>
-            </div>
           </div>
         </div>
       )}

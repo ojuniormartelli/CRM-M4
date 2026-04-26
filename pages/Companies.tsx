@@ -6,6 +6,7 @@ import { mappers } from '../lib/mappers';
 import { crmService } from '../services/crmService';
 import { supabase } from '../lib/supabase';
 import { formatCNPJ, formatPhoneBR } from '../utils/formatters';
+import ConfirmDangerModal from '../components/ConfirmDangerModal';
 
 interface CompaniesProps {
   companies: Company[];
@@ -63,8 +64,24 @@ const Companies: React.FC<CompaniesProps> = ({
   const setIsContactNewModalOpen = propSetIsContactNewModalOpen !== undefined ? propSetIsContactNewModalOpen : setLocalIsContactNewModalOpen;
   
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    impactItems: string[];
+    confirmLabel: string;
+    variant: 'danger' | 'warning' | 'info';
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    impactItems: [],
+    confirmLabel: '',
+    variant: 'danger',
+    action: async () => {}
+  });
+
   const [newContactData, setNewContactData] = useState<Partial<Contact>>({
     name: '', email: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
   });
@@ -92,7 +109,7 @@ const Companies: React.FC<CompaniesProps> = ({
       await crmService.deleteCompany(id, currentUser.workspace_id);
       setCompanies(prev => prev.filter(c => c.id !== id));
       setIsEditModalOpen(false);
-      setShowDeleteConfirm(false);
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
       resetForm();
     } catch (err: any) {
       console.error('Erro ao excluir empresa:', err);
@@ -100,6 +117,23 @@ const Companies: React.FC<CompaniesProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const confirmDeleteCompany = (company: Company) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Empresa?',
+      description: `Tem certeza que deseja remover permanentemente a empresa "${company.name}"?`,
+      impactItems: [
+        'Todos os contatos vinculados a esta empresa ficarão órfãos.',
+        'Projetos e tarefas da empresa serão excluídos.',
+        'A empresa será removida da base de clientes se estiver vinculada.',
+        'Esta ação é irreversível.'
+      ],
+      confirmLabel: 'Excluir Empresa',
+      variant: 'danger',
+      action: () => handleDeleteCompany(company.id)
+    });
   };
 
   const handleCreateContact = async (e: React.FormEvent) => {
@@ -1205,6 +1239,16 @@ const Companies: React.FC<CompaniesProps> = ({
                 <div className="p-10 pt-0 shrink-0 flex gap-4">
                   {isEditing ? (
                     <>
+                      {editingCompany && (
+                        <button 
+                          type="button" 
+                          onClick={() => confirmDeleteCompany(editingCompany)}
+                          className="p-4 bg-destructive/10 text-destructive rounded-2xl hover:bg-destructive/20 transition-all"
+                          title="Excluir Empresa"
+                        >
+                          <ICONS.Trash width="16" height="16" />
+                        </button>
+                      )}
                       <button 
                         type="button" 
                         onClick={() => {
@@ -1339,6 +1383,17 @@ const Companies: React.FC<CompaniesProps> = ({
         </div>
       )}
     </div>
+      <ConfirmDangerModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.action}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        impactItems={confirmModal.impactItems}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        isLoading={isSaving}
+      />
     </div>
   );
 };
