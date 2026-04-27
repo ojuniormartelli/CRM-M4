@@ -146,7 +146,8 @@ CREATE TABLE public.m4_contacts (
     notes TEXT,
     is_primary BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE public.m4_leads (
@@ -203,6 +204,20 @@ CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact
 CREATE INDEX IF NOT EXISTS idx_m4_leads_workspace_id ON public.m4_leads(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_m4_leads_pipeline_id ON public.m4_leads(pipeline_id);
 
+CREATE TABLE public.m4_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'active',
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
 CREATE TABLE public.m4_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -214,7 +229,8 @@ CREATE TABLE public.m4_clients (
     contract_start_date DATE,
     monthly_value DECIMAL(12, 2) DEFAULT 0,
     services JSONB DEFAULT '[]'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE public.m4_client_accounts (
@@ -249,7 +265,8 @@ CREATE TABLE public.m4_tasks (
     is_recurring BOOLEAN DEFAULT false,
     checklist JSONB DEFAULT '[]'::jsonb,
     actual_hours DECIMAL(10, 2) DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE public.m4_services (

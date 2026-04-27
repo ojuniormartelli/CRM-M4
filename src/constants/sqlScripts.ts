@@ -795,8 +795,21 @@ BEGIN
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
     ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
 
-    -- 3. Cria novo Financeiro se não existir
-    -- (O script full ja cobre isso, use-o para uma instalacao limpa ou execute as queries de m4_fin_ individuais)
+    -- 3. Soft Delete Columns (Definitive Migration)
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+    -- 3.1 Índices para Soft Delete
+    CREATE INDEX IF NOT EXISTS idx_m4_leads_deleted_at ON m4_leads(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_m4_companies_deleted_at ON m4_companies(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_m4_contacts_deleted_at ON m4_contacts(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_m4_tasks_deleted_at ON m4_tasks(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_m4_clients_deleted_at ON m4_clients(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_m4_projects_deleted_at ON m4_projects(deleted_at);
 
     -- 4. Correção Schema Leads (Colunas Ausentes)
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_cnpj TEXT;
@@ -819,6 +832,25 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
     CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
+
+    -- 6. Atualização de Políticas RLS (Soft Delete - Estático para Máxima Segurança)
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_leads;
+    CREATE POLICY "Workspace Access" ON m4_leads FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+    
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_companies;
+    CREATE POLICY "Workspace Access" ON m4_companies FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_contacts;
+    CREATE POLICY "Workspace Access" ON m4_contacts FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_tasks;
+    CREATE POLICY "Workspace Access" ON m4_tasks FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_clients;
+    CREATE POLICY "Workspace Access" ON m4_clients FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+
+    DROP POLICY IF EXISTS "Workspace Access" ON m4_projects;
+    CREATE POLICY "Workspace Access" ON m4_projects FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
 END $$;
 `;
 

@@ -476,21 +476,11 @@ export const financeService = {
         .from('m4_fin_categories')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .eq('is_active', true) // Added active filter
+        .eq('is_active', true)
         .order('order', { ascending: true })
         .order('name', { ascending: true });
 
-      if (error) {
-        // Fallback if 'order' column doesn't exist
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('m4_fin_categories')
-          .select('*')
-          .eq('workspace_id', workspaceId)
-          .order('name', { ascending: true });
-        
-        if (fallbackError) throw fallbackError;
-        return fallbackData || [];
-      }
+      if (error) throw error;
       return data || [];
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_fin_categories');
@@ -562,21 +552,11 @@ export const financeService = {
         .from('m4_fin_cost_centers')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .eq('is_active', true) // Added active filter
+        .eq('is_active', true)
         .order('order', { ascending: true })
         .order('name', { ascending: true });
 
-      if (error) {
-        // Fallback if 'order' column doesn't exist
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('m4_fin_cost_centers')
-          .select('*')
-          .eq('workspace_id', workspaceId)
-          .order('name', { ascending: true });
-        
-        if (fallbackError) throw fallbackError;
-        return fallbackData || [];
-      }
+      if (error) throw error;
       return data || [];
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_fin_cost_centers');
@@ -595,6 +575,7 @@ export const financeService = {
         .from('m4_companies')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
         .order('name', { ascending: true });
 
       if (error) throw error;

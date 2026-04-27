@@ -372,14 +372,18 @@ const Companies: React.FC<CompaniesProps> = ({
     });
     
     // Fetch company tasks
-    const { data: tasksData } = await supabase
+    const { data: tasksData, error: tasksError } = await supabase
       .from('m4_tasks')
       .select('*')
       .eq('company_id', company.id)
       .is('deleted_at', null)
       .order('due_date', { ascending: true });
     
-    if (tasksData) setCompanyTasks(tasksData);
+    if (tasksError) {
+      console.error('Error fetching company tasks:', tasksError);
+    } else if (tasksData) {
+      setCompanyTasks(tasksData);
+    }
     
     // Encontrar o contato primário atual
     const primary = contacts.find(c => c.company_id === company.id && c.is_primary);

@@ -116,6 +116,7 @@ export const crmService = {
         .eq('workspace_id', workspaceId)
         .is('deleted_at', null)
         .order('name');
+      
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -133,6 +134,7 @@ export const crmService = {
         .eq('workspace_id', workspaceId)
         .is('deleted_at', null)
         .order('name');
+      
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -144,7 +146,6 @@ export const crmService = {
   async getProjects(workspaceId: string) {
     if (!workspaceId || !isUUID(workspaceId)) return [];
     try {
-      // Check if table exists implicitly by handling error 42P01 (relation does not exist)
       const { data, error } = await supabase
         .from('m4_projects')
         .select('*')

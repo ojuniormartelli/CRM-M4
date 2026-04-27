@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ICONS } from "../constants";
 import { updateSupabaseClient } from "../lib/supabase";
 import { motion } from "motion/react";
+import { FULL_SETUP_SQL, UPDATE_SQL } from "../src/constants/sqlScripts";
 
 const Setup: React.FC = () => {
   const [url, setUrl] = useState("");
@@ -11,185 +12,10 @@ const Setup: React.FC = () => {
   );
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [hasSchemaIssue, setHasSchemaIssue] = useState(false);
 
-  const fullSetupSQL = `-- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite)
--- ⚠️ AVISO: Este script apaga todas as tabelas existentes para uma instalação limpa.
-
--- 1. LIMPEZA TOTAL (ATENÇÃO: APAGA TUDO!)
-DO $$ 
-DECLARE
-    r RECORD;
-BEGIN
-    -- Apaga Tabelas
-    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
-        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-    END LOOP;
-
-    -- Apaga Tipos/Enums (Opcional, mas recomendado para reset limpo)
-    DROP TYPE IF EXISTS fin_transaction_type CASCADE;
-    DROP TYPE IF EXISTS fin_transaction_status CASCADE;
-    DROP TYPE IF EXISTS fin_category_type CASCADE;
-    DROP TYPE IF EXISTS fin_classification_type CASCADE;
-    DROP TYPE IF EXISTS fin_counterparty_type CASCADE;
-    DROP TYPE IF EXISTS fin_bank_account_type CASCADE;
-END $$;
-
--- 2. ENUMS FINANCEIROS
-DO $$ 
-BEGIN
-    DROP TYPE IF EXISTS fin_transaction_type CASCADE;
-    CREATE TYPE fin_transaction_type AS ENUM ('income', 'expense', 'transfer', 'adjustment');
-    
-    DROP TYPE IF EXISTS fin_transaction_status CASCADE;
-    CREATE TYPE fin_transaction_status AS ENUM ('draft', 'pending', 'paid', 'overdue', 'canceled');
-    
-    DROP TYPE IF EXISTS fin_category_type CASCADE;
-    CREATE TYPE fin_category_type AS ENUM ('income', 'expense', 'both');
-    
-    DROP TYPE IF EXISTS fin_classification_type CASCADE;
-    CREATE TYPE fin_classification_type AS ENUM ('operacional', 'nao_operacional', 'financeiro', 'tributario');
-    
-    DROP TYPE IF EXISTS fin_counterparty_type CASCADE;
-    CREATE TYPE fin_counterparty_type AS ENUM ('cliente', 'fornecedor', 'colaborador', 'parceiro', 'outro');
-    
-    DROP TYPE IF EXISTS fin_bank_account_type CASCADE;
-    CREATE TYPE fin_bank_account_type AS ENUM ('checking', 'savings', 'cash', 'credit_account', 'investment');
-EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'Erro ao criar Enums: %', SQLERRM;
-END $$;
-
--- 3. NÚCLEO TENANT (Workspaces & Usuários)
-CREATE TABLE public.m4_workspaces (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    branding_config JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE public.m4_job_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    level INTEGER DEFAULT 10,
-    permissions JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE public.m4_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    role TEXT DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
-    job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL,
-    avatar_url TEXT,
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 7. SINCRONIZAÇÃO DE USUÁRIOS (SUPABASE AUTH)
-CREATE OR REPLACE FUNCTION public.handle_new_user() 
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.m4_users (id, name, email, role, workspace_id, status)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
-    new.email, 
-    'owner', 
-    'fb786658-1234-4321-8888-999988887777', 
-    'active'
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Pipelines e Stages
-INSERT INTO public.m4_pipelines (id, workspace_id, name, position)
-VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Vendas Comercial', 0)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.m4_pipeline_stages (id, pipeline_id, workspace_id, name, position, status)
-VALUES 
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Lead', 0, 'inicial'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Qualificação', 1, 'intermediario'),
-  ('dddddddd-dddd-dddd-dddd-ddddbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Proposta', 2, 'intermediario'),
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Fechamento', 3, 'ganho')
-ON CONFLICT (id) DO NOTHING;
-
--- 8. PERMISSÕES E RLS
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
-
--- Ativar RLS e Aplicar Políticas de Isolamento por Workspace e Soft Delete
-CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
-RETURNS UUID AS $$
-BEGIN
-    RETURN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1);
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
-
-DO $$ 
-DECLARE
-    t text;
-    has_deleted_at boolean;
-BEGIN
-    FOR t IN (
-        SELECT tablename 
-        FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND tablename LIKE 'm4_%' 
-    ) LOOP
-        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Workspace Access" ON %I', t);
-
-        IF t IN ('m4_workspaces', 'm4_users', 'm4_workspace_users') THEN
-            CONTINUE;
-        END IF;
-
-        -- Verificar se a tabela tem a coluna deleted_at
-        SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = t AND column_name = 'deleted_at'
-        ) INTO has_deleted_at;
-
-        IF has_deleted_at THEN
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
-        ELSE
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id())
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
-        END IF;
-    END LOOP;
-END $$;
-
--- Políticas Especiais para Tabelas de Core
-CREATE POLICY "Workspace Member Visibility" ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
-CREATE POLICY "User Profile Visibility" ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
-CREATE POLICY "User Self Update" ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT SELECT ON public.m4_users TO anon;
-`;
+  const fullSetupSQL = FULL_SETUP_SQL;
+  const updateSQL = UPDATE_SQL;
 
   const handleInstall = async () => {
     if (!url || !anonKey) {
@@ -225,10 +51,32 @@ GRANT SELECT ON public.m4_users TO anon;
       if (wsCheckError) {
         if (wsCheckError.code === "42P01") {
           throw new Error(
-            "As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL abaixo no seu painel do Supabase antes de continuar.",
+            "As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL de INSTALAÇÃO no seu painel do Supabase antes de continuar.",
           );
         }
         throw wsCheckError;
+      }
+
+      // Verificação específica de Soft Delete (deleted_at)
+      const tablesToCheck = ['m4_tasks', 'm4_clients', 'm4_contacts', 'm4_leads', 'm4_companies', 'm4_projects'];
+      for (const table of tablesToCheck) {
+        setProgress(`Validando integridade: ${table}...`);
+        const { error: colCheckError } = await supabase
+          .from(table)
+          .select('deleted_at')
+          .limit(1);
+        
+        if (colCheckError) {
+          if (colCheckError.message.includes('deleted_at') || colCheckError.code === '42703') {
+            setHasSchemaIssue(true);
+            throw new Error(
+              `Seu banco está desatualizado. Falta a coluna 'deleted_at' na tabela ${table}. Use o botão abaixo para executar a ATUALIZAÇÃO SEGURA.`
+            );
+          }
+          if (colCheckError.code === '42P01') {
+            throw new Error(`A tabela ${table} não existe. Execute o script de INSTALAÇÃO completa.`);
+          }
+        }
       }
 
       setProgress("Configurando workspace principal...");
@@ -311,7 +159,12 @@ GRANT SELECT ON public.m4_users TO anon;
 
   const copySQL = () => {
     navigator.clipboard.writeText(fullSetupSQL);
-    alert("SQL copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
+    alert("SQL de Instalação copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
+  };
+
+  const copyUpdateSQL = () => {
+    navigator.clipboard.writeText(updateSQL);
+    alert("SQL de Migração (Soft Delete) copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
   };
 
   if (step === "success") {
@@ -407,14 +260,22 @@ GRANT SELECT ON public.m4_users TO anon;
               <ICONS.AlertTriangle size={20} />
               <p className="text-sm font-bold leading-relaxed">{error}</p>
             </div>
-            {error.includes("tabelas") && (
+            <div className="flex flex-col gap-2">
               <button
                 onClick={copySQL}
-                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all"
+                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
               >
-                Copiar Script SQL de Instalação
+                <ICONS.Copy size={14} />
+                Script de Instalação Limpa
               </button>
-            )}
+              <button
+                onClick={copyUpdateSQL}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+              >
+                <ICONS.Copy size={14} />
+                Script de Migração (Corrigir Schema)
+              </button>
+            </div>
           </div>
         )}
 

@@ -98,20 +98,15 @@ export const clientService = {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório para excluir cliente');
     try {
       // 1. Verificações de integridade (financeiro)
-      const [{ count: finCount }, { count: legacyCount }] = await Promise.all([
-        supabase
-          .from('m4_fin_transactions')
-          .select('*', { count: 'exact', head: true })
-          .eq('workspace_id', workspaceId)
-          .eq('client_account_id', id),
-        supabase
-          .from('m4_transactions')
-          .select('*', { count: 'exact', head: true })
-          .eq('workspace_id', workspaceId)
-          .eq('client_account_id', id)
-      ]);
+      const { count: finCount, error: finError } = await supabase
+        .from('m4_fin_transactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId)
+        .eq('client_account_id', id);
 
-      if ((finCount || 0) > 0 || (legacyCount || 0) > 0) {
+      if (finError && finError.code !== '42P01') throw finError;
+
+      if ((finCount || 0) > 0) {
         throw new Error('Não é possível excluir um cliente que possui lançamentos financeiros. Use a opção de arquivar (Ex-Cliente) em vez disso.');
       }
 
