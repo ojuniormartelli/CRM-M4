@@ -1,108 +1,777 @@
-export const SEED_SQL = `-- 🚀 SCRIPT DE SEED DE DADOS DE TESTE ENRIQUECIDO (M4 CRM)
--- Este script insere dados de exemplo realistas para demonstração completa das funcionalidades.
+export const CLEAN_RESET_SQL = `-- 🚀 SCRIPT 1: RESET TOTAL E PREPARAÇÃO DO AMBIENTE (M4 CRM)
+-- Versão: 2.1 (Resiliente e Completa)
+-- Objetivo: Garantir um estado limpo no schema public com permissões corretas para o Supabase.
 
--- Garantir coluna company_id em m4_tasks (Migração rápida)
-ALTER TABLE IF EXISTS m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
+-- 1. Reset Total do Schema Public
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
 
+-- 2. Restauração de Extensões Essenciais
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 3. Grants de Base para o Schema
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON SCHEMA public TO postgres, service_role;
+
+-- 4. Configurar Privilégios Padrão (Essencial para o Supabase)
+-- Isso garante que novas tabelas criadas automaticamente recebam os grants corretos.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO anon;
+
+-- 5. Garantir que o schema public esteja no search_path
+ALTER DATABASE postgres SET search_path TO public, extensions;
+
+-- FIM DO SCRIPT 1
+`;
+
+export const COMPLETE_INSTALL_SQL = `-- ============================================
+-- 1. TIPOS E ENUMS FINANCEIROS
+-- ============================================
+CREATE TYPE fin_transaction_type AS ENUM ('income', 'expense', 'transfer', 'adjustment');
+CREATE TYPE fin_transaction_status AS ENUM ('draft', 'pending', 'paid', 'overdue', 'canceled');
+CREATE TYPE fin_category_type AS ENUM ('income', 'expense', 'both');
+CREATE TYPE fin_classification_type AS ENUM ('operacional', 'nao_operacional', 'financeiro', 'tributario');
+CREATE TYPE fin_counterparty_type AS ENUM ('cliente', 'fornecedor', 'colaborador', 'parceiro', 'outro');
+CREATE TYPE fin_bank_account_type AS ENUM ('checking', 'savings', 'cash', 'credit_account', 'investment');
+
+-- ============================================
+-- 2. FUNÇÕES CORE
+-- ============================================
+
+-- Helper: Pegar Workspace ID do usuário logado via m4_users
+CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
+RETURNS UUID AS $$
+BEGIN
+    RETURN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Trigger: Sincronização Supabase Auth -> m4_users + Auto-vínculo de Workspace
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS trigger AS $$
+DECLARE
+  v_default_ws_id UUID := 'fb786658-1234-4321-8888-999988887777';
+  v_owner_role_id UUID := 'd167f4e8-4a19-4ab7-b655-f104004f8bf1';
+  v_user_count INTEGER;
+BEGIN
+  -- Garante que o Workspace Principal exista
+  INSERT INTO public.m4_workspaces (id, name)
+  VALUES (v_default_ws_id, 'Workspace Principal')
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Conta usuários para saber se este é o primeiro (Admin/Owner)
+  SELECT count(*) INTO v_user_count FROM public.m4_users;
+
+  -- Insere o perfil do usuário
+  INSERT INTO public.m4_users (id, name, email, workspace_id, role, job_role_id, status)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
+    new.email, 
+    v_default_ws_id,
+    CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'user' END,
+    CASE WHEN v_user_count = 0 THEN v_owner_role_id ELSE NULL END,
+    'active'
+  )
+  ON CONFLICT (id) DO UPDATE SET 
+    email = EXCLUDED.email,
+    updated_at = now();
+
+  -- Cria vínculo explícito na tabela de relacionamento
+  INSERT INTO public.m4_workspace_users (workspace_id, user_id, role)
+  VALUES (v_default_ws_id, new.id, CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'member' END)
+  ON CONFLICT (workspace_id, user_id) DO NOTHING;
+
+  RETURN new;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'Erro no trigger handle_new_user: %', SQLERRM;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- 3. CORE MULTI-TENANT
+-- ============================================
+
+CREATE TABLE public.m4_workspaces (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    branding_config JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_job_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    level INTEGER DEFAULT 10,
+    permissions JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
+    job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL,
+    avatar_url TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    must_change_password BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_workspace_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(workspace_id, user_id)
+);
+
+CREATE TABLE public.m4_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE UNIQUE,
+    crm_name TEXT DEFAULT 'M4 CRM',
+    company_name TEXT DEFAULT 'Agency Cloud',
+    logo_url TEXT,
+    primary_color TEXT DEFAULT '#2563eb',
+    theme TEXT DEFAULT 'light',
+    language TEXT DEFAULT 'pt-BR',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================
+-- 4. CRM
+-- ============================================
+
+CREATE TABLE public.m4_pipelines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_pipeline_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT 'blue',
+    position INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'intermediario',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_companies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    cnpj TEXT,
+    website TEXT,
+    niche TEXT,
+    email TEXT,
+    whatsapp TEXT,
+    city TEXT,
+    state TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    role TEXT,
+    email TEXT,
+    whatsapp TEXT,
+    linkedin TEXT,
+    notes TEXT,
+    is_primary BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_leads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE SET NULL,
+    stage_id UUID REFERENCES public.m4_pipeline_stages(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
+    status TEXT DEFAULT 'active',
+    contact_name TEXT,
+    contact_email TEXT,
+    contact_whatsapp TEXT,
+    value DECIMAL(12, 2) DEFAULT 0,
+    temperature TEXT DEFAULT 'Frio',
+    probability INTEGER DEFAULT 0,
+    source TEXT,
+    next_action TEXT,
+    next_action_date DATE,
+    responsible_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
+    last_activity_at TIMESTAMPTZ DEFAULT now(),
+    custom_fields JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'active',
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    company_name TEXT NOT NULL,
+    manager_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
+    status TEXT DEFAULT 'active',
+    contract_start_date DATE,
+    monthly_value DECIMAL(12, 2) DEFAULT 0,
+    services JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_client_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    service_name TEXT,
+    service_type TEXT,
+    monthly_value DECIMAL(12, 2) DEFAULT 0,
+    due_day INTEGER,
+    status TEXT DEFAULT 'ativo',
+    start_date DATE,
+    billing_model TEXT DEFAULT 'recorrente',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    list_id UUID,
+    client_id UUID REFERENCES public.m4_clients(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'Pendente',
+    priority TEXT DEFAULT 'Media',
+    due_date TIMESTAMPTZ,
+    assigned_to UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
+    task_type TEXT DEFAULT 'operational',
+    is_recurring BOOLEAN DEFAULT false,
+    recurrence TEXT DEFAULT 'none',
+    recurrence_pattern JSONB DEFAULT '{}'::jsonb,
+    parent_task_id UUID REFERENCES public.m4_tasks(id) ON DELETE CASCADE,
+    checklist JSONB DEFAULT '[]'::jsonb,
+    dependencies JSONB DEFAULT '[]'::jsonb,
+    estimated_hours NUMERIC DEFAULT 0,
+    actual_hours NUMERIC DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.m4_services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    default_price DECIMAL(12, 2) DEFAULT 0,
+    category TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_emails (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
+    subject TEXT,
+    body TEXT,
+    folder TEXT DEFAULT 'inbox',
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT,
+    status TEXT DEFAULT 'Agendada',
+    sent_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    user_name TEXT,
+    content TEXT,
+    likes INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================
+-- 5. FINANCEIRO
+-- ============================================
+
+CREATE TABLE public.m4_fin_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type fin_category_type NOT NULL DEFAULT 'both',
+    parent_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    classification_type fin_classification_type DEFAULT 'operacional',
+    impacts_dre BOOLEAN DEFAULT true,
+    dre_group TEXT,
+    is_active BOOLEAN DEFAULT true,
+    "order" INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_cost_centers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    code TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_counterparties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type fin_counterparty_type DEFAULT 'outro',
+    document TEXT,
+    email TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type fin_bank_account_type DEFAULT 'checking',
+    current_balance NUMERIC DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES public.m4_fin_categories(id),
+    bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id),
+    cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id),
+    counterparty_id UUID REFERENCES public.m4_fin_counterparties(id),
+    client_account_id UUID REFERENCES public.m4_client_accounts(id),
+    type fin_transaction_type NOT NULL,
+    status fin_transaction_status DEFAULT 'pending',
+    amount NUMERIC NOT NULL,
+    description TEXT NOT NULL,
+    due_date DATE NOT NULL,
+    competence_date DATE NOT NULL,
+    paid_at TIMESTAMPTZ,
+    is_recurring BOOLEAN DEFAULT false,
+    recurrence_frequency TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_fin_budgets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    period TEXT NOT NULL, -- YYYY-MM
+    amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================
+-- 6. AUTOMAÇÕES E METAS
+-- ============================================
+
+CREATE TABLE public.m4_automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    trigger_conditions JSONB DEFAULT '{}'::jsonb,
+    actions JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_automation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'success',
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.m4_goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    month TEXT NOT NULL, -- YYYY-MM
+    target_value DECIMAL(15,2) DEFAULT 0,
+    current_value DECIMAL(15,2) DEFAULT 0,
+    type TEXT DEFAULT 'sales',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(workspace_id, month, type)
+);
+
+-- ============================================
+-- 7. CONFIGURAÇÃO DE SEGURANÇA (RLS)
+-- ============================================
+
+-- Ativar Sincronização Suprema com Supabase Auth
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Habilitar RLS em massa
 DO $$ 
 DECLARE
-    v_workspace_id UUID := 'fb786658-1234-4321-8888-999988887777'; -- Workspace Principal
-    v_admin_id UUID;
-    v_pipeline_vendas_id UUID := 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    v_stage_lead_id UUID := 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-    v_stage_contact_id UUID;
-    v_stage_proposal_id UUID;
-    v_stage_negotiation_id UUID;
-    v_company_tech_id UUID;
-    v_company_food_id UUID;
-    v_company_fashion_id UUID;
-    v_cat_vendas_id UUID;
-    v_cat_aluguel_id UUID;
-    v_cat_salarios_id UUID;
-    v_bank_pj_id UUID;
+    t text;
 BEGIN
-    -- 1. Verificar se o Workspace existe
-    IF NOT EXISTS (SELECT 1 FROM m4_workspaces WHERE id = v_workspace_id) THEN
-        INSERT INTO m4_workspaces (id, name) VALUES (v_workspace_id, 'Workspace Principal');
+    FOR t IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'm4_%') LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+    END LOOP;
+END $$;
+
+-- Policies de Workspace (Multi-tenant + Soft Delete)
+DO $$ 
+DECLARE
+    t text;
+    has_deleted_at boolean;
+BEGIN
+    FOR t IN (
+        SELECT tablename FROM pg_tables 
+        WHERE schemaname = 'public' AND tablename LIKE 'm4_%'
+        AND tablename NOT IN ('m4_workspaces', 'm4_users', 'm4_workspace_users')
+    ) LOOP
+        -- Verifica se a tabela tem soft delete
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = t AND column_name = 'deleted_at'
+        ) INTO has_deleted_at;
+
+        -- SELECT
+        IF has_deleted_at THEN
+            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)', t, t);
+        ELSE
+            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
+        END IF;
+
+        -- INSERT
+        EXECUTE format('CREATE POLICY %I_insert ON %I FOR INSERT TO authenticated WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        -- UPDATE
+        EXECUTE format('CREATE POLICY %I_update ON %I FOR UPDATE TO authenticated USING (workspace_id = public.get_current_workspace_id()) WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        -- DELETE
+        EXECUTE format('CREATE POLICY %I_delete ON %I FOR DELETE TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
+
+    END LOOP;
+END $$;
+
+-- Policies Manuais (Tabelas Core)
+CREATE POLICY m4_workspaces_select ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
+CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+
+-- ============================================
+-- 8. SEEDS RESILIENTES (DADOS ESTRUTURAIS)
+-- ============================================
+
+-- Workspace Base
+INSERT INTO public.m4_workspaces (id, name)
+VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')
+ON CONFLICT (id) DO NOTHING;
+
+-- Cargo Owner Base
+INSERT INTO public.m4_job_roles (id, workspace_id, name, level, permissions)
+VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'Owner', 100, '{"all": true}')
+ON CONFLICT (id) DO NOTHING;
+
+-- Pipeline e Estágios Base
+INSERT INTO public.m4_pipelines (id, workspace_id, name, position)
+VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Funil de Vendas', 0)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.m4_pipeline_stages (id, pipeline_id, workspace_id, name, position, status)
+VALUES 
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Novo Lead', 0, 'inicial'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Qualificação', 1, 'intermediario'),
+  ('dddddddd-dddd-dddd-dddd-ddddbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Proposta Enviada', 2, 'intermediario'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Fechado (Ganho)', 3, 'ganho')
+ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- 9. GRANTS FINAIS
+-- ============================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, authenticated, service_role;
+
+COMMENT ON SCHEMA public IS 'Instalação M4 CRM Concluída';
+`;
+
+export const M4_DEMO_SEED_SQL = `DO $$ 
+DECLARE
+    v_ws_id UUID := 'fb786658-1234-4321-8888-999988887777';
+    v_user_id UUID;
+    v_pip_id UUID;
+    v_stage_1_id UUID;
+    v_stage_2_id UUID;
+    v_stage_3_id UUID;
+    v_comp_id_1 UUID;
+    v_comp_id_2 UUID;
+    v_comp_id_3 UUID;
+    v_cont_id UUID;
+    v_bank_id UUID;
+    v_cat_income_id UUID;
+    v_cat_expense_id UUID;
+BEGIN
+    -- 1. Referências básicas
+    SELECT id INTO v_user_id 
+    FROM m4_users 
+    WHERE workspace_id = v_ws_id 
+    LIMIT 1;
+
+    -- 2. Conta bancária
+    INSERT INTO m4_fin_bank_accounts 
+        (workspace_id, name, type, current_balance, is_active)
+    VALUES 
+        (v_ws_id, 'Conta Principal PJ', 'checking', 25000.00, true)
+    RETURNING id INTO v_bank_id;
+
+    IF v_bank_id IS NULL THEN
+        SELECT id INTO v_bank_id 
+        FROM m4_fin_bank_accounts 
+        WHERE workspace_id = v_ws_id 
+        LIMIT 1;
     END IF;
 
-    -- 2. Garantir etapas extras do funil para dados realistas
-    -- (Usando estágios do FULL_SETUP_SQL: Lead, Qualificação, Proposta, Fechamento)
-    v_stage_contact_id := 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'; -- Lead
-    v_stage_proposal_id := 'dddddddd-dddd-dddd-dddd-ddddbbbbbbbb'; -- Proposta
-    v_stage_negotiation_id := 'cccccccc-cccc-cccc-cccc-cccccccccccc'; -- Qualificação
-
-    -- 2.1 Garantir Admin Principal
-    IF NOT EXISTS (SELECT 1 FROM m4_users WHERE email = 'admin@crm.com') THEN
-        INSERT INTO m4_users (id, name, email, role, workspace_id, status, must_change_password)
-        VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'owner', v_workspace_id, 'active', true);
-    END IF;
-
-    -- 3. Garantir Workspace Principal
-    IF NOT EXISTS (SELECT 1 FROM m4_workspaces WHERE id = v_workspace_id) THEN
-        INSERT INTO m4_workspaces (id, name) VALUES (v_workspace_id, 'Workspace Principal');
-    END IF;
-
-    -- 4. Inserir Empresas de Exemplo com Nichos
-    INSERT INTO m4_companies (id, name, niche, city, state, workspace_id)
+    -- 3. Categorias financeiras
+    INSERT INTO m4_fin_categories 
+        (workspace_id, name, type, impacts_dre)
     VALUES 
-    (gen_random_uuid(), 'Tech Soluções LTDA', 'Tecnologia SaaS', 'São Paulo', 'SP', v_workspace_id),
-    (gen_random_uuid(), 'Alimentos Brasil S.A.', 'Indústria Alimentícia', 'Curitiba', 'PR', v_workspace_id),
-    (gen_random_uuid(), 'Moda Fashion Brasil', 'Varejo / Moda', 'Rio de Janeiro', 'RJ', v_workspace_id)
-    ON CONFLICT (id) DO NOTHING;
+        (v_ws_id, 'Receita de Serviços', 'income', true),
+        (v_ws_id, 'Despesas Operacionais', 'expense', true);
 
-    SELECT id INTO v_company_tech_id FROM m4_companies WHERE name = 'Tech Soluções LTDA' LIMIT 1;
-    SELECT id INTO v_company_food_id FROM m4_companies WHERE name = 'Alimentos Brasil S.A.' LIMIT 1;
-    SELECT id INTO v_company_fashion_id FROM m4_companies WHERE name = 'Moda Fashion Brasil' LIMIT 1;
+    SELECT id INTO v_cat_income_id 
+    FROM m4_fin_categories 
+    WHERE workspace_id = v_ws_id AND type = 'income' 
+    LIMIT 1;
 
-    -- 5. Inserir Leads com Valores e Probabilidades Reais
-    INSERT INTO m4_leads (contact_name, company_name, contact_email, value, status, pipeline_id, stage_id, workspace_id, company_id, responsible_id, probability, temperature, company_niche, source)
+    SELECT id INTO v_cat_expense_id 
+    FROM m4_fin_categories 
+    WHERE workspace_id = v_ws_id AND type = 'expense' 
+    LIMIT 1;
+
+    -- 4. Pipeline
+    INSERT INTO m4_pipelines (workspace_id, name, position)
+    VALUES (v_ws_id, 'Pipeline High-Ticket', 0)
+    RETURNING id INTO v_pip_id;
+
+    -- 5. Etapas
+    INSERT INTO m4_pipeline_stages 
+        (pipeline_id, workspace_id, name, color, position, status)
+    VALUES (v_pip_id, v_ws_id, 'Prospecção', 'blue', 0, 'inicial')
+    RETURNING id INTO v_stage_1_id;
+
+    INSERT INTO m4_pipeline_stages 
+        (pipeline_id, workspace_id, name, color, position, status)
+    VALUES (v_pip_id, v_ws_id, 'Qualificação', 'yellow', 1, 'intermediario')
+    RETURNING id INTO v_stage_2_id;
+
+    INSERT INTO m4_pipeline_stages 
+        (pipeline_id, workspace_id, name, color, position, status)
+    VALUES (v_pip_id, v_ws_id, 'Proposta Enviada', 'purple', 2, 'intermediario')
+    RETURNING id INTO v_stage_3_id;
+
+    -- 6. Empresas
+    INSERT INTO m4_companies 
+        (workspace_id, name, city, state, niche, email)
     VALUES 
-    ('Consultoria Digital TECH', 'Tech Soluções LTDA', 'diretoria@tech.com', 45000.00, 'active', v_pipeline_vendas_id, v_stage_negotiation_id, v_workspace_id, v_company_tech_id, v_admin_id, 80, 'Quente', 'Tecnologia', 'Instagram'),
-    ('Expansão E-commerce FASHION', 'Moda Fashion Brasil', 'marketing@moda.com', 28000.00, 'active', v_pipeline_vendas_id, v_stage_proposal_id, v_workspace_id, v_company_fashion_id, v_admin_id, 60, 'Morno', 'Varejo', 'Indicação'),
-    ('Contrato Fechado SAAS', 'Tech Soluções LTDA', 'fechado@tech.com', 15000.00, 'won', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 100, 'Quente', 'Software', 'Google'),
-    ('Lead Perdido Exemplo', 'Alimentos Brasil S.A.', 'perda@alimentos.com', 5000.00, 'lost', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_food_id, v_admin_id, 0, 'Frio', 'Alimentos', 'Outros'),
-    ('Novo APP Mobile', 'Tech Soluções LTDA', 'app@tech.com', 120000.00, 'active', v_pipeline_vendas_id, v_stage_lead_id, v_workspace_id, v_company_tech_id, v_admin_id, 10, 'Frio', 'Software', 'YouTube')
-    ON CONFLICT DO NOTHING;
+        (v_ws_id, 'TechFlow Solutions', 'São Paulo', 'SP', 'SaaS', 'contato@techflow.io')
+    RETURNING id INTO v_comp_id_1;
 
-    -- 6. Categorias Financeiras
-    INSERT INTO m4_fin_categories (id, name, type, workspace_id)
+    INSERT INTO m4_companies 
+        (workspace_id, name, city, state, niche, email)
     VALUES 
-    (gen_random_uuid(), 'Vendas de CRM', 'income', v_workspace_id),
-    (gen_random_uuid(), 'Aluguel Escritório', 'expense', v_workspace_id),
-    (gen_random_uuid(), 'Folha de Pagamento', 'expense', v_workspace_id)
-    ON CONFLICT DO NOTHING;
+        (v_ws_id, 'Moda Fashion Brasil', 'Rio de Janeiro', 'RJ', 'Varejo', 'contato@modafashion.com.br')
+    RETURNING id INTO v_comp_id_2;
 
-    SELECT id INTO v_cat_vendas_id FROM m4_fin_categories WHERE name = 'Vendas de CRM' LIMIT 1;
-    SELECT id INTO v_cat_aluguel_id FROM m4_fin_categories WHERE name = 'Aluguel Escritório' LIMIT 1;
-    SELECT id INTO v_cat_salarios_id FROM m4_fin_categories WHERE name = 'Folha de Pagamento' LIMIT 1;
-
-    -- 7. Conta Bancária
-    INSERT INTO m4_fin_bank_accounts (id, name, bank, type, balance, workspace_id, current_balance)
-    VALUES (gen_random_uuid(), 'Banco Digital PJ', 'Nubank', 'checking', 25000.00, v_workspace_id, 25000.00)
-    ON CONFLICT DO NOTHING;
-
-    SELECT id INTO v_bank_pj_id FROM m4_fin_bank_accounts WHERE name = 'Banco Digital PJ' LIMIT 1;
-
-    -- 8. Transações Financeiras (Lançamentos)
-    INSERT INTO m4_fin_transactions (workspace_id, type, description, amount, status, due_date, competence_date, bank_account_id, category_id)
+    INSERT INTO m4_companies 
+        (workspace_id, name, city, state, niche, email)
     VALUES 
-    (v_workspace_id, 'income', 'Mensalidade Tech Soluções', 5000.00, 'paid', CURRENT_DATE - 5, CURRENT_DATE - 5, v_bank_pj_id, v_cat_vendas_id),
-    (v_workspace_id, 'expense', 'Aluguel mensal', 3200.00, 'paid', CURRENT_DATE - 2, CURRENT_DATE - 2, v_bank_pj_id, v_cat_aluguel_id),
-    (v_workspace_id, 'income', 'Projeto E-commerce Moda', 12000.00, 'pending', CURRENT_DATE + 10, CURRENT_DATE + 10, v_bank_pj_id, v_cat_vendas_id)
-    ON CONFLICT DO NOTHING;
+        (v_ws_id, 'Alimentos Brasil S.A.', 'Curitiba', 'PR', 'Indústria Alimentícia', 'contato@alimentosbrasil.com.br')
+    RETURNING id INTO v_comp_id_3;
 
-    -- 9. Tarefas de Exemplo
-    INSERT INTO m4_tasks (workspace_id, title, description, status, priority, type, client_id, company_id)
+    -- 7. Contato
+    INSERT INTO m4_contacts 
+        (workspace_id, company_id, name, email, role, is_primary)
     VALUES 
-    (v_workspace_id, 'Setup de Automações TECH', 'Configurar filtros de leads no CRM', 'Em Execução', 'Alta', 'Operacional', NULL, v_company_tech_id),
-    (v_workspace_id, 'Reunião de Alinhamento MODA', 'Follow-up da proposta de e-commerce', 'Pendente', 'Média', 'Comercial', NULL, v_company_fashion_id)
-    ON CONFLICT DO NOTHING;
+        (v_ws_id, v_comp_id_1, 'Roberto Silva', 'roberto@techflow.io', 'CEO', true)
+    RETURNING id INTO v_cont_id;
 
+    -- 8. Leads (apenas colunas que existem na tabela)
+    INSERT INTO m4_leads 
+        (workspace_id, pipeline_id, stage_id, company_id, contact_id,
+         responsible_id, contact_name, contact_email,
+         value, status, temperature, probability, source)
+    VALUES 
+        (v_ws_id, v_pip_id, v_stage_3_id, v_comp_id_1, v_cont_id,
+         v_user_id, 'Roberto Silva', 'roberto@techflow.io',
+         15000.00, 'active', 'Quente', 80, 'Indicação'),
+
+        (v_ws_id, v_pip_id, v_stage_2_id, v_comp_id_2, NULL,
+         v_user_id, 'Ana Costa', 'ana@modafashion.com.br',
+         8000.00, 'active', 'Morno', 50, 'Instagram'),
+
+        (v_ws_id, v_pip_id, v_stage_1_id, v_comp_id_3, NULL,
+         v_user_id, 'Carlos Mendes', 'carlos@alimentosbrasil.com.br',
+         22000.00, 'active', 'Frio', 20, 'Google'),
+
+        (v_ws_id, v_pip_id, v_stage_3_id, v_comp_id_1, v_cont_id,
+         v_user_id, 'Roberto Silva', 'roberto@techflow.io',
+         5000.00, 'won', 'Quente', 100, 'Indicação'),
+
+        (v_ws_id, v_pip_id, v_stage_1_id, v_comp_id_2, NULL,
+         v_user_id, 'Fernanda Lima', 'fernanda@modafashion.com.br',
+         3500.00, 'lost', 'Frio', 0, 'Cold Outreach');
+
+    -- 9. Clientes
+    INSERT INTO m4_clients 
+        (workspace_id, company_id, company_name, status, 
+         monthly_value, manager_id, contract_start_date)
+    VALUES 
+        (v_ws_id, v_comp_id_1, 'TechFlow Solutions', 'active', 
+         5250.00, v_user_id, CURRENT_DATE - INTERVAL '3 months'),
+
+        (v_ws_id, v_comp_id_2, 'Moda Fashion Brasil', 'active', 
+         3800.00, v_user_id, CURRENT_DATE - INTERVAL '1 month');
+
+    -- 10. Tarefas
+    INSERT INTO m4_tasks 
+        (workspace_id, company_id, title, status, priority, 
+         task_type, assigned_to, due_date)
+    VALUES 
+        (v_ws_id, v_comp_id_1, 'Enviar proposta TechFlow', 
+         'Pendente', 'Alta', 'operational', 
+         v_user_id, CURRENT_TIMESTAMP + INTERVAL '2 days'),
+
+        (v_ws_id, v_comp_id_2, 'Reunião Moda Fashion', 
+         'Em Execução', 'Média', 'operational', 
+         v_user_id, CURRENT_TIMESTAMP + INTERVAL '1 day'),
+
+        (v_ws_id, v_comp_id_3, 'Follow-up Alimentos Brasil', 
+         'Pendente', 'Baixa', 'operational', 
+         v_user_id, CURRENT_TIMESTAMP + INTERVAL '5 days');
+
+    -- 11. Transações financeiras
+    INSERT INTO m4_fin_transactions 
+        (workspace_id, bank_account_id, category_id, type, status,
+         description, amount, due_date, competence_date, paid_at)
+    VALUES 
+        (v_ws_id, v_bank_id, v_cat_income_id, 'income', 'paid',
+         'Mensalidade TechFlow', 5250.00, 
+         CURRENT_DATE, CURRENT_DATE, now()),
+
+        (v_ws_id, v_bank_id, v_cat_income_id, 'income', 'paid',
+         'Mensalidade Moda Fashion', 3800.00, 
+         CURRENT_DATE - INTERVAL '5 days', 
+         CURRENT_DATE - INTERVAL '5 days', 
+         now() - INTERVAL '5 days'),
+
+        (v_ws_id, v_bank_id, v_cat_income_id, 'income', 'pending',
+         'Projeto CRM TechFlow', 8000.00, 
+         CURRENT_DATE + INTERVAL '15 days', 
+         CURRENT_DATE + INTERVAL '15 days', NULL),
+
+        (v_ws_id, v_bank_id, v_cat_expense_id, 'expense', 'paid',
+         'Servidores AWS', 850.20, 
+         CURRENT_DATE - INTERVAL '10 days', 
+         CURRENT_DATE - INTERVAL '10 days', 
+         now() - INTERVAL '10 days'),
+
+        (v_ws_id, v_bank_id, v_cat_expense_id, 'expense', 'paid',
+         'Salários Equipe', 8500.00, 
+         CURRENT_DATE - INTERVAL '3 days', 
+         CURRENT_DATE - INTERVAL '3 days', 
+         now() - INTERVAL '3 days'),
+
+        (v_ws_id, v_bank_id, v_cat_expense_id, 'expense', 'pending',
+         'Aluguel Escritório', 4200.00, 
+         CURRENT_DATE + INTERVAL '10 days', 
+         CURRENT_DATE + INTERVAL '10 days', NULL);
+
+    -- 12. Meta do mês
+    INSERT INTO m4_goals 
+        (workspace_id, month, target_value, current_value, type)
+    VALUES 
+        (v_ws_id, TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 30000.00, 9050.00, 'sales')
+    ON CONFLICT (workspace_id, month, type) DO NOTHING;
+
+    RAISE NOTICE '✅ Seed concluído com sucesso!';
 END $$;
 `;
 
-export const FULL_SETUP_SQL = `-- 🚀 SCRIPT DE INSTALACAO SEGURA (M4 CRM & Agency Suite)
+export const SEED_SQL = M4_DEMO_SEED_SQL;
+
+
+export const FULL_SETUP_SQL = `
+-- 🚀 SCRIPT DE INSTALACAO SEGURA (M4 CRM & Agency Suite)
 -- Este script cria a estrutura necessária sem apagar dados existentes.
 
 -- 1. ENUMS FINANCEIROS (Cria apenas se não existirem)

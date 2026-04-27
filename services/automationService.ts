@@ -533,7 +533,7 @@ export const automationService = {
       const clientPayload = mappers.client({
         lead_id: lead.id,
         company_id: lead.company_id,
-        company_name: lead.company,
+        company_name: (typeof lead.company === 'object' ? lead.company?.name : lead.company) || lead.company_name || 'Empresa Importada',
         status: 'active',
         contract_start_date: new Date().toISOString().split('T')[0],
         monthly_value: lead.value,

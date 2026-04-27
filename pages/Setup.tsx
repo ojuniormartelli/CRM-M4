@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ICONS } from "../constants";
 import { updateSupabaseClient } from "../lib/supabase";
 import { motion } from "motion/react";
-import { FULL_SETUP_SQL, UPDATE_SQL } from "../src/constants/sqlScripts";
+import { FULL_SETUP_SQL, UPDATE_SQL, COMPLETE_INSTALL_SQL, CLEAN_RESET_SQL } from "../src/constants/sqlScripts";
 
 const Setup: React.FC = () => {
   const [url, setUrl] = useState("");
@@ -16,6 +16,8 @@ const Setup: React.FC = () => {
 
   const fullSetupSQL = FULL_SETUP_SQL;
   const updateSQL = UPDATE_SQL;
+  const completeInstallSQL = COMPLETE_INSTALL_SQL;
+  const cleanResetSQL = CLEAN_RESET_SQL;
 
   const handleInstall = async () => {
     if (!url || !anonKey) {
@@ -158,8 +160,13 @@ const Setup: React.FC = () => {
   };
 
   const copySQL = () => {
-    navigator.clipboard.writeText(fullSetupSQL);
-    alert("SQL de Instalação copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
+    navigator.clipboard.writeText(completeInstallSQL);
+    alert("SQL de Instalação Completa copiado! Cole-o no SQL Editor do seu Supabase e clique em RUN.");
+  };
+
+  const copyResetSQL = () => {
+    navigator.clipboard.writeText(cleanResetSQL);
+    alert("SQL de Reset Total copiado! CUIDADO: Isso apaga todos os dados do esquema public.");
   };
 
   const copyUpdateSQL = () => {
@@ -263,17 +270,24 @@ const Setup: React.FC = () => {
             <div className="flex flex-col gap-2">
               <button
                 onClick={copySQL}
-                className="w-full py-3 bg-white text-red-600 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-white text-blue-600 border border-blue-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
               >
                 <ICONS.Copy size={14} />
-                Script de Instalação Limpa
+                Instalação Completa (M4 Tables)
+              </button>
+              <button
+                onClick={copyResetSQL}
+                className="w-full py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+              >
+                <ICONS.Copy size={14} />
+                Reset Total (Limpar Banco)
               </button>
               <button
                 onClick={copyUpdateSQL}
-                className="w-full py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all flex items-center justify-center gap-2"
               >
                 <ICONS.Copy size={14} />
-                Script de Migração (Corrigir Schema)
+                Migrar Schema (Soft Delete)
               </button>
             </div>
           </div>
@@ -288,7 +302,31 @@ const Setup: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="space-y-2">
+            <div className="p-8 bg-blue-50/50 rounded-[2rem] border border-blue-100 space-y-4">
+            <div className="flex items-center gap-4 text-blue-800">
+              <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100">
+                <ICONS.Database size={24} />
+              </div>
+              <div>
+                <h3 className="font-black text-sm uppercase tracking-tight">Base de Dados Vazia?</h3>
+                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Execute o Script de Instalação</p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              Antes de configurar, você precisa criar a estrutura de tabelas no seu Supabase. Copie o script abaixo e execute-o no <b>SQL Editor</b> do Supabase.
+            </p>
+
+            <button
+              onClick={copySQL}
+              className="w-full py-4 bg-white text-blue-600 border-2 border-blue-200 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all flex items-center justify-center gap-3 group"
+            >
+              <ICONS.Copy size={16} className="group-hover:scale-110 transition-transform" />
+              Copiar DATABASE_COMPLETE_INSTALL.sql
+            </button>
+          </div>
+
+          <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
                 URL do Supabase
               </label>

@@ -53,8 +53,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/80 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden pointer-events-auto relative z-10">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -190,13 +190,14 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ isOpen, onClose, onSave, in
         </form>
 
         <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">
+          <button type="button" onClick={onClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all cursor-pointer">
             Cancelar
           </button>
           <button 
+            type="button"
             onClick={handleSubmit}
             disabled={isSaving}
-            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer pointer-events-auto"
           >
             {isSaving ? (
               <>

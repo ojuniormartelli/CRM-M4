@@ -41,7 +41,7 @@ export const leadService = {
     try {
       const { data, error } = await supabase
         .from('m4_leads')
-        .select('*')
+        .select('*, company:m4_companies(id, name, niche, city)')
         .eq('workspace_id', workspaceId)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
@@ -62,7 +62,7 @@ export const leadService = {
       const { data, error } = await supabase
         .from('m4_leads')
         .insert([payload])
-        .select()
+        .select('*, company:m4_companies(id, name, niche, city)')
         .single();
 
       if (error) throw error;
@@ -99,7 +99,7 @@ export const leadService = {
         .update(payload)
         .eq('id', id)
         .eq('workspace_id', workspaceId)
-        .select()
+        .select('*, company:m4_companies(id, name, niche, city)')
         .single();
 
       if (error) throw error;
@@ -165,7 +165,7 @@ export const leadService = {
         .update({ status })
         .eq('id', id)
         .eq('workspace_id', workspaceId)
-        .select()
+        .select('*, company:m4_companies(id, name, niche, city)')
         .single();
 
       if (error) throw error;

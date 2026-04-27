@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ICONS } from "../constants";
-import { SEED_SQL, FULL_SETUP_SQL, UPDATE_SQL, MIGRATION_SQL } from "../src/constants/sqlScripts";
+import { CLEAN_RESET_SQL, COMPLETE_INSTALL_SQL, M4_DEMO_SEED_SQL, UPDATE_SQL, MIGRATION_SQL } from "../src/constants/sqlScripts";
 
 const TechnicalPanel: React.FC = () => {
   const [copied, setCopied] = useState<string | null>(null);
@@ -18,8 +18,9 @@ const TechnicalPanel: React.FC = () => {
     }
   };
 
-  const seedSQL = SEED_SQL;
-  const fullSetupSQL = FULL_SETUP_SQL;
+  const cleanResetSQL = CLEAN_RESET_SQL;
+  const completeInstallSQL = COMPLETE_INSTALL_SQL;
+  const demoSeedSQL = M4_DEMO_SEED_SQL;
   const updateSQL = UPDATE_SQL;
   const migrationSQL = MIGRATION_SQL;
 
@@ -46,27 +47,27 @@ const TechnicalPanel: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Opção 1: Setup Completo */}
+        {/* Opção 1: Reset Total */}
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                1. Reset & Instalação Total
+                1. Reset Total de Esquema
               </h3>
               <p className="text-xs font-bold text-red-500 mt-1 uppercase tracking-widest">
-                ⚠️ APAGA TUDO E RECOMEÇA DO ZERO
+                ⚠️ APAGA TUDO (DATABASE_CLEAN_RESET.sql)
               </p>
             </div>
             <button
-              onClick={() => handleCopy(fullSetupSQL, "full")}
-              className={`p-4 rounded-2xl transition-all ${copied === "full" ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white"}`}
+              onClick={() => handleCopy(cleanResetSQL, "clean")}
+              className={`p-4 rounded-2xl transition-all ${copied === "clean" ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white"}`}
             >
-              {copied === "full" ? "Copiado!" : "Copiar SQL"}
+              {copied === "clean" ? "Copiado!" : "Copiar SQL"}
             </button>
           </div>
           <div className="relative">
             <pre className="bg-slate-900 text-blue-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {fullSetupSQL}
+              {cleanResetSQL}
             </pre>
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
@@ -75,60 +76,60 @@ const TechnicalPanel: React.FC = () => {
               <ICONS.Plus className="rotate-45" />
             </div>
             <p className="text-[11px] font-bold text-red-700 leading-relaxed uppercase">
-              CUIDADO: Este script apaga permanentemente todos os dados das tabelas 'm4_' 
-              e reinstala o sistema do zero.
+              CUIDADO: Este script destrói o schema public e recria do zero. 
+              Use apenas em instalações novas ou resets totais. (DATABASE_CLEAN_RESET.sql)
             </p>
           </div>
         </div>
 
-        {/* Opção 2: Atualização Segura */}
+        {/* Opção 2: Instalação Completa */}
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-xl transition-all group bg-blue-50/10">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tight">
-                2. Atualização Segura
+                2. Instalação Completa
               </h3>
               <p className="text-xs font-bold text-blue-400 mt-1 uppercase tracking-widest">
-                Sem apagar dados
+                Tabelas e RLS (DATABASE_COMPLETE_INSTALL.sql)
               </p>
             </div>
             <button
-              onClick={() => handleCopy(updateSQL, "update")}
-              className={`p-4 rounded-2xl transition-all ${copied === "update" ? "bg-emerald-500 text-white" : "bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white"}`}
+              onClick={() => handleCopy(completeInstallSQL, "install")}
+              className={`p-4 rounded-2xl transition-all ${copied === "install" ? "bg-emerald-500 text-white" : "bg-blue-50 text-blue-400 hover:bg-blue-600 hover:text-white"}`}
             >
-              {copied === "update" ? "Copiado!" : "Copiar SQL"}
+              {copied === "install" ? "Copiado!" : "Copiar SQL"}
             </button>
           </div>
           <div className="relative">
             <pre className="bg-slate-900 text-indigo-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {updateSQL}
+              {completeInstallSQL}
             </pre>
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
           <div className="mt-8 p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4">
             <div className="text-emerald-500">
-              <ICONS.Automation />
+              <ICONS.Plus />
             </div>
             <p className="text-[11px] font-bold text-emerald-700 leading-relaxed uppercase">
-              Use este script para atualizar um banco existente. Ele adiciona
-              novas colunas e tabelas sem afetar seus dados.
+              Instala a estrutura completa (DATABASE_COMPLETE_INSTALL.sql). 
+              Execute após o script de Reset Total.
             </p>
           </div>
         </div>
 
-        {/* Opção 3: Dados de Teste (Seed) */}
+        {/* Opção 3: Seed de Demonstração */}
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-xl transition-all group bg-emerald-50/10">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-tight">
-                3. Dados de Teste (Seed)
+                3. Seed de Demonstração
               </h3>
               <p className="text-xs font-bold text-emerald-400 mt-1 uppercase tracking-widest">
-                Popular para demonstração
+                Dados Reais (CRM_M4_DEMO_SEED.sql)
               </p>
             </div>
             <button
-              onClick={() => handleCopy(seedSQL, "seed")}
+              onClick={() => handleCopy(demoSeedSQL, "seed")}
               className={`p-4 rounded-2xl transition-all ${copied === "seed" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-400 hover:bg-blue-600 hover:text-white"}`}
             >
               {copied === "seed" ? "Copiado!" : "Copiar SQL"}
@@ -136,7 +137,7 @@ const TechnicalPanel: React.FC = () => {
           </div>
           <div className="relative">
             <pre className="bg-slate-900 text-emerald-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
-              {seedSQL}
+              {demoSeedSQL}
             </pre>
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
@@ -145,9 +146,34 @@ const TechnicalPanel: React.FC = () => {
               <ICONS.Database />
             </div>
             <p className="text-[11px] font-bold text-blue-700 leading-relaxed uppercase">
-              Use este script para popular o banco com leads, empresas e 
-              lançamentos financeiros de exemplo.
+              Popula o sistema com dados realistas (CRM_M4_DEMO_SEED.sql) para teste imediato.
             </p>
+          </div>
+        </div>
+
+        {/* Opção 4: Atualização Segura (Original) */}
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                4. Atualização Segura
+              </h3>
+              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                Migração Incremental
+              </p>
+            </div>
+            <button
+              onClick={() => handleCopy(updateSQL, "update")}
+              className={`p-4 rounded-2xl transition-all ${copied === "update" ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white"}`}
+            >
+              {copied === "update" ? "Copiado!" : "Copiar SQL"}
+            </button>
+          </div>
+          <div className="relative">
+            <pre className="bg-slate-900 text-slate-300 p-8 rounded-[1.75rem] text-[10px] font-mono overflow-x-auto max-h-[300px] scrollbar-thin">
+              {updateSQL}
+            </pre>
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent rounded-b-[1.75rem]"></div>
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ICONS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
-import { SEED_SQL } from '../src/constants/sqlScripts';
+import { COMPLETE_INSTALL_SQL, SEED_SQL } from '../src/constants/sqlScripts';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -148,8 +148,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           {error && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/30 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest text-center animate-in fade-in slide-in-from-top-2">
-              {error}
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/30 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest text-center uppercase">
+                {error}
+              </div>
+              
+              {/* Botão de instalação sugerido quando há erro (tabelas não encontradas) */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(COMPLETE_INSTALL_SQL);
+                  alert('DATABASE_COMPLETE_INSTALL.sql copiado! Cole no SQL Editor do Supabase.');
+                }}
+                className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-amber-200 dark:shadow-none transition-all flex items-center justify-center gap-3"
+              >
+                <ICONS.Copy size={16} />
+                Copiar DATABASE_COMPLETE_INSTALL.sql
+              </button>
             </div>
           )}
 
@@ -334,19 +349,38 @@ const InstallationAccordion: React.FC = () => {
             </ol>
           </div>
           
-          <div className="relative">
-            <pre className="text-[8px] bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto max-h-40 scrollbar-hide font-mono leading-relaxed">
-              {SEED_SQL}
-            </pre>
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(SEED_SQL);
-                alert('Script copiado!');
-              }}
-              className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all"
-            >
-              <ICONS.Plus size={10} />
-            </button>
+          <div className="space-y-4">
+            <div className="relative">
+              <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">1. Instalação do Banco (Essencial)</p>
+              <pre className="text-[8px] bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto max-h-32 scrollbar-hide font-mono leading-relaxed">
+                {COMPLETE_INSTALL_SQL}
+              </pre>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(COMPLETE_INSTALL_SQL);
+                  alert('Script de Instalação copiado!');
+                }}
+                className="absolute top-6 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all"
+              >
+                <ICONS.Copy size={10} />
+              </button>
+            </div>
+
+            <div className="relative">
+              <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">2. Dados de Teste (Opcional)</p>
+              <pre className="text-[8px] bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto max-h-32 scrollbar-hide font-mono leading-relaxed">
+                {SEED_SQL}
+              </pre>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(SEED_SQL);
+                  alert('Script de Dados de Teste copiado!');
+                }}
+                className="absolute top-6 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all"
+              >
+                <ICONS.Copy size={10} />
+              </button>
+            </div>
           </div>
         </div>
       )}

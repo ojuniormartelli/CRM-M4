@@ -288,12 +288,12 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      {lead.contact_name ? lead.contact_name.charAt(0) : '?'}
+                      {(lead.company?.name || lead.company_name)?.charAt(0) || lead.contact_name?.charAt(0) || '?'}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{lead.company_name || lead.contact_name || 'Sem Nome'}</p>
+                      <p className="font-bold text-slate-900 dark:text-white uppercase tracking-tight">{lead.company?.name || lead.company_name || lead.contact_name || 'Sem Nome'}</p>
                       <div className="flex items-center gap-2">
-                        {lead.company_name && lead.contact_name && (
+                        {(lead.company?.name || lead.company_name) && lead.contact_name && (
                           <>
                             <p className="text-[10px] text-slate-500 font-bold">{lead.contact_name}</p>
                             <span className="text-[8px] text-slate-300 font-black">•</span>
@@ -354,7 +354,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-4">
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight truncate min-w-0">
-                      {isEditingLead ? 'Editando Lead' : (selectedLead.company_name || selectedLead.contact_name)}
+                      {isEditingLead ? 'Editando Lead' : (selectedLead.company?.name || selectedLead.company_name || selectedLead.contact_name)}
                     </h2>
                     {!isEditingLead && (
                       <div className="flex items-center gap-2 shrink-0">
@@ -454,7 +454,7 @@ const SalesOverview: React.FC<SalesOverviewProps> = ({ leads, setLeads, pipeline
                       <EditableInfoItem 
                         label="Nome da Empresa" 
                         value={editedLead.company_name} 
-                        originalValue={selectedLead.company_name}
+                        originalValue={selectedLead.company?.name || selectedLead.company_name}
                         isEditing={isEditingLead}
                         onChange={(val) => setEditedLead({ ...editedLead, company_name: val })}
                       />

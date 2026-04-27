@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service, FunnelStatus } from '../types';
+import { FinanceBankAccount } from '../types/finance';
 import { ICONS } from '../constants';
 import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
@@ -26,14 +27,14 @@ interface SalesCRMProps {
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: any) => Promise<void>;
+  onStatusChange: (leadId: string, status: 'won' | 'lost' | 'active', extraData?: Record<string, unknown>) => Promise<void>;
   companies: Company[];
   setCompanies: React.Dispatch<React.SetStateAction<Company[]>>;
   contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   currentUser: User | null;
   services: Service[];
-  bankAccounts: any[];
+  bankAccounts: FinanceBankAccount[];
   isModalOpen?: boolean;
   setIsModalOpen?: (isOpen: boolean) => void;
   renderOnlyModal?: boolean;
@@ -1056,8 +1057,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         return dateB - dateA; // Most recent first
       }
       if (sortOrder === 'alphabetical') {
-        const nameA = (a.company || a.name || '').toLowerCase();
-        const nameB = (b.company || b.name || '').toLowerCase();
+        const nameA = (a.company?.name || a.company_name || a.name || '').toLowerCase();
+        const nameB = (b.company?.name || b.company_name || b.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
       }
       if (sortOrder === 'value') {
@@ -1182,8 +1183,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     return (
       <>
         {isModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border overflow-hidden">
+          <div className="fixed inset-0 bg-slate-900/80 z-[10000] flex items-center justify-center p-4">
+            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border overflow-hidden pointer-events-auto relative z-10">
               <div className="flex justify-between items-center p-10 pb-0 shrink-0">
                 <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">Novo Negócio</h3>
                 <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
@@ -1366,8 +1367,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 </div>
 
                 <div className="p-10 pt-0 shrink-0 flex gap-4">
-                  <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
-                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all shadow-none disabled:opacity-50">
+                  <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all cursor-pointer">Cancelar</button>
+                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all shadow-none disabled:opacity-50 cursor-pointer pointer-events-auto">
                     {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
                   </button>
                 </div>
@@ -1712,7 +1713,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       </div>
                       
                       <h4 className={`font-black text-foreground group-hover:text-primary transition-colors truncate ${cardDensity === 'compact' ? 'text-sm mb-0' : 'text-lg mb-0.5'}`}>
-                        {lead.company || (lead.responsible_id ? '' : lead.name) || 'Novo Negócio'}
+                        {lead.company?.name || lead.company_name || (lead.responsible_id ? '' : lead.contact_name) || 'Novo Negócio'}
                       </h4>
                       
                       <p className={`font-bold text-muted-foreground uppercase tracking-widest truncate ${cardDensity === 'compact' ? 'text-[8px] mb-2' : 'text-[10px] mb-4'}`}>
@@ -1815,11 +1816,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           <td className="p-6">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black">
-                                {lead.company?.charAt(0) || lead.name?.charAt(0)}
+                                {(lead.company?.name || lead.company_name)?.charAt(0) || lead.contact_name?.charAt(0)}
                               </div>
                               <div>
-                                <p className="font-bold text-foreground group-hover:text-primary transition-colors">{lead.company || 'Sem Nome'}</p>
-                                <p className="text-[10px] text-muted-foreground font-medium">{lead.website || 'Sem website'}</p>
+                                <p className="font-bold text-foreground group-hover:text-primary transition-colors">{lead.company?.name || lead.company_name || 'Sem Nome'}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">{lead.company_website || 'Sem website'}</p>
                               </div>
                             </div>
                           </td>
@@ -2061,30 +2062,30 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                 </div>
               </div>
 
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
-                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50">
-                  {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
-                </button>
-              </div>
+               <div className="p-10 pt-0 shrink-0 flex gap-4">
+                 <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all cursor-pointer">Cancelar</button>
+                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer pointer-events-auto">
+                   {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
+                 </button>
+               </div>
             </form>
           </div>
         </div>
       )}
 
       {selectedLead && (
-        <div className="fixed inset-0 bg-background/60 backdrop-blur-xl z-50 flex justify-center items-center p-4 md:p-10">
-          <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-zoom-in-95 border border-border/50">
+        <div className="fixed inset-0 bg-background/60 z-[999] flex justify-center items-center p-4 md:p-10">
+          <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-zoom-in-95 border border-border/50 pointer-events-auto relative z-10">
             {/* Header 360 */}
             <div className="px-10 py-8 bg-card border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shrink-0">
               <div className="flex items-center gap-6 min-w-0 flex-1">
                 <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 dark:shadow-none shrink-0">
-                  {selectedLead.company_name?.charAt(0) || selectedLead.contact_name?.charAt(0) || 'L'}
+                  {(selectedLead.company?.name || selectedLead.company_name)?.charAt(0) || selectedLead.contact_name?.charAt(0) || 'L'}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="text-2xl font-black text-foreground tracking-tight uppercase truncate min-w-0">
-                      {selectedLead.company_name || selectedLead.contact_name}
+                      {selectedLead.company?.name || selectedLead.company_name || selectedLead.contact_name}
                     </h3>
                     <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 ${
                       selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :

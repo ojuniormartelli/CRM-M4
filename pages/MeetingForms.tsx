@@ -505,7 +505,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
               >
                 <option value="">Selecione o Lead...</option>
                 {leads.map(l => (
-                  <option key={l.id} value={l.id}>{l.name} ({l.company})</option>
+                  <option key={l.id} value={l.id}>{l.contact_name || l.name} ({l.company?.name || l.company_name})</option>
                 ))}
               </select>
             </div>

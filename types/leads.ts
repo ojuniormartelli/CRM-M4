@@ -124,9 +124,16 @@ export interface Lead {
   deleted_at?: string | null;
   created_at: string;
 
+  company?: {
+    id: string;
+    name: string;
+    niche?: string;
+    city?: string;
+    state?: string;
+  };
+
   // Legacy / Compatibility
   name?: string;
-  company?: string;
   email?: string;
   whatsapp?: string;
   notes?: string;

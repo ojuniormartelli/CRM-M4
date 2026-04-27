@@ -1131,7 +1131,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                                     key={lead.id}
                                     type="button"
                                     onClick={() => {
-                                      const label = `${lead.company_name || 'Empresa não informada'} - ${lead.contact_name || 'Contato não informado'}`;
+                                      const label = `${lead.company?.name || lead.company_name || 'Empresa não informada'} - ${lead.contact_name || 'Contato não informado'}`;
                                       setLeadSearch(label);
                                       if (selectedTask) setEditTask({...editTask, lead_id: lead.id, company_id: lead.company_id});
                                       else setNewTask({...newTask, lead_id: lead.id, company_id: lead.company_id});
@@ -1144,7 +1144,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate tracking-tight">
-                                        {lead.company_name || 'Empresa não informada'}
+                                        {lead.company?.name || lead.company_name || 'Empresa não informada'}
                                       </p>
                                       <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase truncate">
                                         {lead.contact_name || 'Contato não informado'}
@@ -1165,7 +1165,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                             </div>
                             <div>
                               <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                {leads.find(l => l.id === selectedTask.lead_id)?.company_name || 'Empresa não informada'}
+                                {leads.find(l => l.id === selectedTask.lead_id)?.company?.name || leads.find(l => l.id === selectedTask.lead_id)?.company_name || 'Empresa não informada'}
                               </p>
                               <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
                                 {leads.find(l => l.id === selectedTask.lead_id)?.contact_name || 'Contato não informado'}

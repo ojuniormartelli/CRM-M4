@@ -36,8 +36,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onConfirm,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 pointer-events-auto relative z-10">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Confirmar Baixa</h3>
@@ -94,7 +94,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onConfirm,
           <button 
             onClick={handleSubmit}
             disabled={isSaving}
-            className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer pointer-events-auto"
           >
             {isSaving ? (
               <>
@@ -111,7 +111,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onConfirm,
           <button 
             onClick={onClose} 
             disabled={isSaving}
-            className="w-full py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest disabled:opacity-50"
+            className="w-full py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest disabled:opacity-50 cursor-pointer"
           >
             Voltar
           </button>

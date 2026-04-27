@@ -116,19 +116,23 @@ export const mappers = {
 
   leadFromDb: (dbLead: any): Lead => {
     if (!dbLead) return {} as Lead;
+    
+    // Prioritize joined company name
+    const companyName = dbLead.company?.name || dbLead.company_name || 'Sem empresa';
+    
     return {
       id: dbLead.id,
       workspace_id: dbLead.workspace_id,
-      company_name: dbLead.company_name || 'Sem empresa',
-      company_cnpj: dbLead.company_cnpj || dbLead.cnpj || '',
-      company_city: dbLead.company_city || dbLead.city || '',
-      company_state: dbLead.company_state || dbLead.state || '',
-      company_niche: dbLead.company_niche || dbLead.niche || '',
-      company_website: dbLead.company_website || dbLead.website || '',
-      company_email: dbLead.company_email || dbLead.email || '',
+      company_name: companyName,
+      company_cnpj: dbLead.company?.cnpj || dbLead.company_cnpj || dbLead.cnpj || '',
+      company_city: dbLead.company?.city || dbLead.company_city || dbLead.city || '',
+      company_state: dbLead.company?.state || dbLead.company_state || dbLead.state || '',
+      company_niche: dbLead.company?.niche || dbLead.company_niche || dbLead.niche || '',
+      company_website: dbLead.company?.website || dbLead.company_website || dbLead.website || '',
+      company_email: dbLead.company?.email || dbLead.company_email || dbLead.email || '',
       company_instagram: dbLead.company_instagram || '',
       company_linkedin: dbLead.company_linkedin || '',
-      company_whatsapp: dbLead.company_phone || dbLead.company_whatsapp || dbLead.whatsapp || dbLead.phone || '',
+      company_whatsapp: dbLead.company?.whatsapp || dbLead.company_phone || dbLead.company_whatsapp || dbLead.whatsapp || dbLead.phone || '',
       contact_name: dbLead.contact_name || 'Sem nome',
       contact_role: dbLead.contact_role || '',
       contact_email: dbLead.contact_email || dbLead.email || '',
@@ -159,9 +163,9 @@ export const mappers = {
       last_activity_at: dbLead.last_activity_at || undefined,
       interactions: dbLead.interactions || [],
       custom_fields: dbLead.custom_fields || {},
+      company: dbLead.company || undefined,
       // Legacy Aliases for UI compatibility
       name: dbLead.contact_name || '',
-      company: dbLead.company_name || '',
       email: dbLead.contact_email || dbLead.email || '',
       whatsapp: dbLead.contact_phone || dbLead.contact_whatsapp || dbLead.whatsapp || dbLead.phone || '',
       notes: dbLead.business_notes || dbLead.notes || '',

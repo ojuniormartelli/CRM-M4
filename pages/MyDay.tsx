@@ -162,8 +162,8 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
                       <ICONS.Sales width="18" height="18" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-foreground truncate uppercase tracking-wider">{lead.company}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground truncate">{lead.name}</p>
+                      <p className="text-xs font-black text-foreground truncate uppercase tracking-wider">{lead.company?.name || lead.company_name}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground truncate">{lead.contact_name || lead.name}</p>
                     </div>
                     <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
                       <ArrowRight className="w-4 h-4" />
