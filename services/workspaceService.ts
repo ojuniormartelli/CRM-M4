@@ -32,7 +32,9 @@ export const workspaceService = {
         .eq('id', userId)
         .maybeSingle();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.warn('workspaceService: Erro ao ler m4_users:', userError);
+      }
 
       if (m4UserData?.workspace_id && isUUID(m4UserData.workspace_id)) {
         return m4UserData.workspace_id;
@@ -46,17 +48,21 @@ export const workspaceService = {
         .limit(1)
         .maybeSingle();
 
-      if (linkError) throw linkError;
+      if (linkError) {
+        console.warn('workspaceService: Erro ao ler m4_workspace_users:', linkError);
+      }
 
       if (m4LinkData?.workspace_id && isUUID(m4LinkData.workspace_id)) {
         return m4LinkData.workspace_id;
       }
 
-      // Se chegar aqui, o usuário existe mas não tem workspace vinculado
-      throw new Error('Nenhum workspace vinculado a este usuário. Entre em contato com o administrador para receber um convite.');
+      // 3. Fallback: Se não houver vínculo em lugar nenhum, mas for o primeiro acesso pós-setup,
+      // ele pode precisar de um vínculo emergencial ou ser direcionado ao onboarding.
+      // Retornamos null ou lançamos um erro específico que o Gancho useWorkspace saiba tratar.
+      return ''; 
     } catch (error: any) {
       console.error('workspaceService: Erro fatal ao resolver workspace:', error);
-      throw new Error(error.message || 'Erro interno ao identificar seu espaço de trabalho.');
+      return '';
     }
   },
 

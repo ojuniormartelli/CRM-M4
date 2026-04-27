@@ -145,6 +145,10 @@ const App: React.FC = () => {
   if (!supabase.auth) return <Setup />; // Fallback check
   if (!currentUser) return <Login onLogin={setCurrentUser} />;
 
+  if (currentUser && !resolvedWorkspaceId) {
+    return <Setup />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans transition-colors duration-300">
       <Sidebar 

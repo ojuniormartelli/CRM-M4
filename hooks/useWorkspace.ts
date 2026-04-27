@@ -35,9 +35,15 @@ export function useWorkspace() {
         // 2. Resolve Workspace from Supabase
         const wsId = await workspaceService.resolveWorkspaceForUser(userId);
         
-        if (mounted && wsId && isUUID(wsId)) {
-          setWorkspaceId(wsId);
-          localStorage.setItem('m4_crm_workspace_id', wsId);
+        if (mounted) {
+          if (wsId && isUUID(wsId)) {
+            setWorkspaceId(wsId);
+            localStorage.setItem('m4_crm_workspace_id', wsId);
+          } else {
+            setWorkspaceId(null);
+            // Se chegamos aqui, o usuário está logado mas não tem workspace
+            console.warn('useWorkspace: Usuário logado sem workspace vinculado.');
+          }
         }
       } catch (err: any) {
         console.error('useWorkspace: Error resolving workspace:', err);

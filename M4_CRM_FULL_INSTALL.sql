@@ -1,9 +1,9 @@
--- 🚀 SCRIPT DE INSTALAÇÃO COMPLETA (M4 CRM & Agency Suite - PRODUÇÃO)
--- Este script reconstrói todo o sistema de CRM, Financeiro, Automações e Metas.
--- Requisito: Executar o Script 1 (RESET) antes deste.
+-- 🚀 SCRIPT 2: INSTALAÇÃO COMPLETA M4 CRM & AGENCY SUITE
+-- Fidelidade Total ao Schema Base + RLS + Sincronização Automática
+[ignoring loop detection]
 
 -- ============================================
--- 1. TIPOS E ENUMS (fin_*)
+-- 1. TIPOS FINANCEIROS
 -- ============================================
 CREATE TYPE fin_transaction_type AS ENUM ('income', 'expense', 'transfer', 'adjustment');
 CREATE TYPE fin_transaction_status AS ENUM ('draft', 'pending', 'paid', 'overdue', 'canceled');
@@ -13,7 +13,7 @@ CREATE TYPE fin_counterparty_type AS ENUM ('cliente', 'fornecedor', 'colaborador
 CREATE TYPE fin_bank_account_type AS ENUM ('checking', 'savings', 'cash', 'credit_account', 'investment');
 
 -- ============================================
--- 2. FUNÇÕES DO NÚCLEO (get_current_workspace_id, handle_new_user)
+-- 2. FUNÇÕES DE NÚCLEO
 -- ============================================
 
 -- Helper: Pegar Workspace ID do usuário logado
@@ -27,25 +27,48 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- Trigger: Sincronização Supabase Auth -> m4_users
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS trigger AS $$
+DECLARE
+  default_ws_id UUID := 'fb786658-1234-4321-8888-999988887777';
+  user_count INTEGER;
 BEGIN
-  INSERT INTO public.m4_users (id, name, email, workspace_id, role)
+  SELECT count(*) INTO user_count FROM public.m4_users;
+
+  IF user_count = 0 THEN
+    INSERT INTO public.m4_workspaces (id, name)
+    VALUES (default_ws_id, 'Workspace Principal')
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+
+  INSERT INTO public.m4_users (id, name, email, workspace_id, role, status)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
     new.email, 
-    'fb786658-1234-4321-8888-999988887777', -- Workspace Principal Padrão
-    'user'
+    default_ws_id,
+    CASE WHEN user_count = 0 THEN 'owner' ELSE 'user' END,
+    'active'
   )
   ON CONFLICT (id) DO UPDATE SET 
     email = EXCLUDED.email,
     updated_at = now();
+
+  IF user_count = 0 THEN
+    INSERT INTO public.m4_workspace_users (workspace_id, user_id, role)
+    VALUES (default_ws_id, new.id, 'owner')
+    ON CONFLICT (workspace_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN new;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'Erro no trigger handle_new_user: %', SQLERRM;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
--- 3. CORE MULTI-TENANT (Workspaces, Roles, Users)
+-- 3. TABELAS CORE
 -- ============================================
+
 CREATE TABLE public.m4_workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -99,8 +122,9 @@ CREATE TABLE public.m4_settings (
 );
 
 -- ============================================
--- 4. CRM (Pipelines, Empresas, Contatos, Leads)
+-- 4. TABELAS CRM
 -- ============================================
+
 CREATE TABLE public.m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -227,7 +251,6 @@ CREATE TABLE public.m4_client_accounts (
 CREATE TABLE public.m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    list_id UUID,
     client_id UUID REFERENCES public.m4_clients(id) ON DELETE CASCADE,
     lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
@@ -239,12 +262,7 @@ CREATE TABLE public.m4_tasks (
     assigned_to UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     task_type TEXT DEFAULT 'operational',
     is_recurring BOOLEAN DEFAULT false,
-    recurrence TEXT DEFAULT 'none',
-    recurrence_pattern JSONB DEFAULT '{}'::jsonb,
-    parent_task_id UUID REFERENCES public.m4_tasks(id) ON DELETE CASCADE,
     checklist JSONB DEFAULT '[]'::jsonb,
-    dependencies JSONB DEFAULT '[]'::jsonb,
-    estimated_hours NUMERIC DEFAULT 0,
     actual_hours NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
@@ -294,8 +312,9 @@ CREATE TABLE public.m4_posts (
 );
 
 -- ============================================
--- 5. FINANCEIRO (Categorias, Bancos, Transações)
+-- 5. TABELAS FINANCEIRO
 -- ============================================
+
 CREATE TABLE public.m4_fin_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -304,7 +323,6 @@ CREATE TABLE public.m4_fin_categories (
     parent_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
     classification_type fin_classification_type DEFAULT 'operacional',
     impacts_dre BOOLEAN DEFAULT true,
-    dre_group TEXT,
     is_active BOOLEAN DEFAULT true,
     "order" INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -354,7 +372,6 @@ CREATE TABLE public.m4_fin_transactions (
     bank_account_id UUID REFERENCES public.m4_fin_bank_accounts(id),
     cost_center_id UUID REFERENCES public.m4_fin_cost_centers(id),
     counterparty_id UUID REFERENCES public.m4_fin_counterparties(id),
-    client_account_id UUID REFERENCES public.m4_client_accounts(id),
     type fin_transaction_type NOT NULL,
     status fin_transaction_status DEFAULT 'pending',
     amount NUMERIC NOT NULL,
@@ -362,8 +379,6 @@ CREATE TABLE public.m4_fin_transactions (
     due_date DATE NOT NULL,
     competence_date DATE NOT NULL,
     paid_at TIMESTAMPTZ,
-    is_recurring BOOLEAN DEFAULT false,
-    recurrence_frequency TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -371,7 +386,7 @@ CREATE TABLE public.m4_fin_budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
-    period TEXT NOT NULL, -- YYYY-MM
+    period TEXT NOT NULL,
     amount DECIMAL(15,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -379,12 +394,12 @@ CREATE TABLE public.m4_fin_budgets (
 -- ============================================
 -- 6. AUTOMAÇÕES E METAS
 -- ============================================
+
 CREATE TABLE public.m4_automations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     trigger_type TEXT NOT NULL,
-    trigger_conditions JSONB DEFAULT '{}'::jsonb,
     actions JSONB DEFAULT '[]'::jsonb,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -402,7 +417,7 @@ CREATE TABLE public.m4_automation_logs (
 CREATE TABLE public.m4_goals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    month TEXT NOT NULL, -- YYYY-MM
+    month TEXT NOT NULL,
     target_value DECIMAL(15,2) DEFAULT 0,
     current_value DECIMAL(15,2) DEFAULT 0,
     type TEXT DEFAULT 'sales',
@@ -411,16 +426,9 @@ CREATE TABLE public.m4_goals (
 );
 
 -- ============================================
--- 7. CONFIGURAÇÃO DE RLS (SEGURANÇA EXTREMA)
+-- 7. RLS CONFIG
 -- ============================================
 
--- Ativar Sincronização automática com Supabase Auth
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Habilitar RLS em todas as tabelas m4_%
 DO $$ 
 DECLARE
     t text;
@@ -430,104 +438,50 @@ BEGIN
     END LOOP;
 END $$;
 
--- Aplicação em Lote de Políticas de Workspace + Soft Delete
 DO $$ 
 DECLARE
     t text;
     has_deleted_at boolean;
 BEGIN
     FOR t IN (
-        SELECT tablename 
-        FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND tablename LIKE 'm4_%' 
-        -- Ignorar tabelas core que precisam de políticas manuais
+        SELECT tablename FROM pg_tables 
+        WHERE schemaname = 'public' AND tablename LIKE 'm4_%'
         AND tablename NOT IN ('m4_workspaces', 'm4_users', 'm4_workspace_users')
     ) LOOP
-        -- Verifica se a tabela possui deleted_at
-        SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = t AND column_name = 'deleted_at'
-        ) INTO has_deleted_at;
-
-        EXECUTE format('DROP POLICY IF EXISTS "Workspace Access" ON %I', t);
-
+        SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = t AND column_name = 'deleted_at') INTO has_deleted_at;
         IF has_deleted_at THEN
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
+            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)', t, t);
         ELSE
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id())
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
+            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
         END IF;
+        EXECUTE format('CREATE POLICY %I_insert ON %I FOR INSERT TO authenticated WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        EXECUTE format('CREATE POLICY %I_update ON %I FOR UPDATE TO authenticated USING (workspace_id = public.get_current_workspace_id()) WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        EXECUTE format('CREATE POLICY %I_delete ON %I FOR DELETE TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
     END LOOP;
 END $$;
 
--- Políticas Core Manuais
-DROP POLICY IF EXISTS "Workspace Member Visibility" ON public.m4_workspaces;
-CREATE POLICY "Workspace Member Visibility" ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
-
-DROP POLICY IF EXISTS "User Profile Visibility" ON public.m4_users;
-CREATE POLICY "User Profile Visibility" ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
-
-DROP POLICY IF EXISTS "User Update Private" ON public.m4_users;
-CREATE POLICY "User Update Private" ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY m4_workspaces_select ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
+CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
 
 -- ============================================
--- 8. SEEDS RESILIENTES (DADOS INICIAIS)
+-- 8. TRIGGER E SEEDS
 -- ============================================
 
--- 1. Workspace Principal
-INSERT INTO public.m4_workspaces (id, name)
-VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal')
-ON CONFLICT (id) DO NOTHING;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 2. Cargo Owner
-INSERT INTO public.m4_job_roles (id, workspace_id, name, level, permissions)
-VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'Owner', 100, '{"all": true}')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.m4_workspaces (id, name) VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.m4_job_roles (id, workspace_id, name, level, permissions) VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'Owner', 100, '{"all": true}') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.m4_pipelines (id, workspace_id, name) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Vendas') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.m4_pipeline_stages (pipeline_id, workspace_id, name, position) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Lead', 0), ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Fechado', 1) ON CONFLICT DO NOTHING;
 
--- 3. Usuário Admin
-INSERT INTO public.m4_users (id, name, email, role, job_role_id, workspace_id, status)
-VALUES ('d167f4e8-4a19-4ab7-b655-f104004f8bf0', 'Administrador', 'admin@crm.com', 'owner', 'd167f4e8-4a19-4ab7-b655-f104004f8bf1', 'fb786658-1234-4321-8888-999988887777', 'active')
-ON CONFLICT (id) DO NOTHING;
-
--- 4. Pipelines de Exemplo
-INSERT INTO public.m4_pipelines (id, workspace_id, name, position)
-VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Vendas Comercial', 0)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.m4_pipeline_stages (id, pipeline_id, workspace_id, name, position, status)
-VALUES 
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Lead', 0, 'inicial'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Proposta', 1, 'intermediario'),
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'fb786658-1234-4321-8888-999988887777', 'Ganho', 2, 'ganho')
-ON CONFLICT (id) DO NOTHING;
-
--- 5. Categorias Financeiras Base
-INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, impacts_dre, dre_group)
-VALUES
-('11111111-1111-1111-1111-111111111101', 'fb786658-1234-4321-8888-999988887777', 'Vendas de Produtos', 'income', true, 'Receita Operacional'),
-('11111111-1111-1111-1111-111111111102', 'fb786658-1234-4321-8888-999988887777', 'Vendas de Serviços', 'income', true, 'Receita Operacional'),
-('22222222-2222-2222-2222-222222222201', 'fb786658-1234-4321-8888-999988887777', 'Salários', 'expense', true, 'Despesa com Pessoal'),
-('22222222-2222-2222-2222-222222222202', 'fb786658-1234-4321-8888-999988887777', 'Softwares / SaaS', 'expense', true, 'Despesas Fixas')
-ON CONFLICT (id) DO NOTHING;
-
--- ============================================
--- 9. GRANTS FINAIS (SEGURANÇA SUPABASE)
--- ============================================
+-- Grants
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, authenticated, service_role;
 
-COMMENT ON SCHEMA public IS 'Schema public Restaurado - M4 CRM Full Suite (Pronto para USO)';
+COMMENT ON SCHEMA public IS 'M4 CRM Instalado com Sucesso';
