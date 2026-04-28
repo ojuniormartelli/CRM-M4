@@ -42,6 +42,7 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
   const modalContentRef = useRef<HTMLDivElement>(null);
 
   const CRM_FIELDS = [
+    // Dados da Empresa
     { id: 'company_name', label: 'Nome da Empresa' },
     { id: 'company_cnpj', label: 'CNPJ da Empresa' },
     { id: 'company_city', label: 'Cidade da Empresa' },
@@ -51,19 +52,32 @@ const DataEnrichment: React.FC<DataEnrichmentProps> = ({ pipelines, onImportComp
     { id: 'company_email', label: 'E-mail da Empresa' },
     { id: 'company_instagram', label: 'Instagram da Empresa' },
     { id: 'company_linkedin', label: 'LinkedIn da Empresa' },
-    { id: 'company_phone', label: 'Telefone da Empresa' },
+    { id: 'company_whatsapp', label: 'WhatsApp da Empresa' },
+    
+    // Dados do Contato
     { id: 'contact_name', label: 'Nome do Contato' },
     { id: 'contact_role', label: 'Cargo do Contato' },
     { id: 'contact_email', label: 'E-mail do Contato' },
     { id: 'contact_instagram', label: 'Instagram do Contato' },
     { id: 'contact_linkedin', label: 'LinkedIn do Contato' },
-    { id: 'contact_phone', label: 'Telefone do Contato' },
+    { id: 'contact_whatsapp', label: 'WhatsApp do Contato' },
     { id: 'contact_notes', label: 'Notas do Contato' },
+    
+    // Dados do Negócio
     { id: 'business_notes', label: 'Notas do Negócio' },
     { id: 'service_type', label: 'Tipo de Serviço' },
     { id: 'source', label: 'Origem / Fonte' },
     { id: 'campaign', label: 'Campanha' },
     { id: 'value', label: 'Valor Estimado' },
+    { id: 'proposed_ticket', label: 'Ticket Proposto' },
+    { id: 'temperature', label: 'Temperatura do Lead' },
+    { id: 'probability', label: 'Probabilidade (%)' },
+    { id: 'qualification', label: 'Qualificação' },
+    { id: 'ai_score', label: 'Pontuação IA' },
+    { id: 'ai_reasoning', label: 'Raciocínio IA' },
+    { id: 'next_action', label: 'Próxima Ação' },
+    { id: 'next_action_date', label: 'Data Próxima Ação' },
+    { id: 'closing_forecast', label: 'Previsão de Fechamento' },
   ];
 
   useEffect(() => {
@@ -89,11 +103,20 @@ Mapeie-os para os seguintes campos do CRM: ${JSON.stringify(CRM_FIELDS.map(f => 
 Considere variações: 
 - "empresa", "negócio", "razão social", "cliente" -> company_name
 - "cnpj", "documento" -> company_cnpj
-- "tel empresa", "whatsapp empresa", "fone empresa" -> company_phone
+- "tel empresa", "whatsapp empresa", "fone empresa" -> company_whatsapp
 - "contato", "responsavel", "nome" -> contact_name
-- "tel contato", "celular", "whatsapp", "fone" -> contact_phone
+- "tel contato", "celular", "whatsapp", "fone" -> contact_whatsapp
 - "nicho", "setor" -> company_niche
 - "município", "cidade" -> company_city
+- "ticket proposto", "valor proposto" -> proposed_ticket
+- "temperatura", "temp" -> temperature
+- "probabilidade", "prob" -> probability
+- "qualificação", "qualif" -> qualification
+- "pontuação ia", "score ia" -> ai_score
+- "raciocínio ia", "reasoning" -> ai_reasoning
+- "próxima ação", "next action" -> next_action
+- "data próxima ação", "data ação" -> next_action_date
+- "previsão fechamento", "closing forecast" -> closing_forecast
 Retorne APENAS um objeto JSON onde as chaves são os ÍNDICES (0-based) das colunas da planilha e os valores são o ID do campo correspondente no CRM.
 Se não encontrar correspondência clara, não inclua no objeto ou use null.
 Exemplo: {"0": "company_name", "2": "contact_name"}`;
@@ -196,9 +219,18 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
           else newMapping[index] = { target: 'contact_email' };
         }
         else if (lower.includes('telefone') || lower.includes('phone') || lower.includes('celular') || lower.includes('tel') || lower.includes('whatsapp') || lower.includes('wpp') || lower.includes('zap')) {
-          if (lower.includes('empresa')) newMapping[index] = { target: 'company_phone' };
-          else newMapping[index] = { target: 'contact_phone' };
+          if (lower.includes('empresa')) newMapping[index] = { target: 'company_whatsapp' };
+          else newMapping[index] = { target: 'contact_whatsapp' };
         }
+        else if (lower.includes('ticket') || lower.includes('proposto') || lower.includes('proposed')) newMapping[index] = { target: 'proposed_ticket' };
+        else if (lower.includes('temperatura') || lower.includes('temp') || lower.includes('temperature')) newMapping[index] = { target: 'temperature' };
+        else if (lower.includes('probabilidade') || lower.includes('prob') || lower.includes('probability')) newMapping[index] = { target: 'probability' };
+        else if (lower.includes('qualificação') || lower.includes('qualif') || lower.includes('qualification')) newMapping[index] = { target: 'qualification' };
+        else if (lower.includes('pontuação') || lower.includes('score') || lower.includes('ia')) newMapping[index] = { target: 'ai_score' };
+        else if (lower.includes('raciocínio') || lower.includes('reasoning')) newMapping[index] = { target: 'ai_reasoning' };
+        else if (lower.includes('próxima') || lower.includes('ação') || lower.includes('next') || lower.includes('action')) newMapping[index] = { target: 'next_action' };
+        else if (lower.includes('data') && (lower.includes('próxima') || lower.includes('ação'))) newMapping[index] = { target: 'next_action_date' };
+        else if (lower.includes('fechamento') || lower.includes('closing') || lower.includes('forecast')) newMapping[index] = { target: 'closing_forecast' };
         else if (lower.includes('nome') || lower.includes('name') || lower.includes('contato')) newMapping[index] = { target: 'contact_name' };
         else if (lower.includes('cargo') || lower.includes('role')) newMapping[index] = { target: 'contact_role' };
         else if (lower.includes('nota') || lower.includes('obs') || lower.includes('notes')) {
@@ -238,7 +270,18 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
           if (!lead.custom_fields) lead.custom_fields = {};
           lead.custom_fields[cfg.customName] = value;
         } else if (cfg.target !== 'custom') {
-          (lead as any)[cfg.target] = String(value);
+          if (cfg.target === 'value' || cfg.target === 'proposed_ticket' || cfg.target === 'ai_score' || cfg.target === 'probability') {
+            const cleaned = String(value).replace(/[^\d,.-]/g, '');
+            if (cleaned.includes(',') && cleaned.includes('.')) {
+              (lead as any)[cfg.target] = parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+            } else if (cleaned.includes(',')) {
+              (lead as any)[cfg.target] = parseFloat(cleaned.replace(',', '.')) || 0;
+            } else {
+              (lead as any)[cfg.target] = parseFloat(cleaned) || 0;
+            }
+          } else {
+            (lead as any)[cfg.target] = String(value);
+          }
         }
       });
 
@@ -652,7 +695,11 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Telefone do Contato</label>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">WhatsApp da Empresa</label>
+                    <input type="text" value={editingLead.company_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, company_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">WhatsApp do Contato</label>
                     <input type="text" value={editingLead.contact_whatsapp || ''} onChange={(e) => setEditingLead({ ...editingLead, contact_whatsapp: formatPhoneBR(e.target.value) })} placeholder="(00) 00000-0000" className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[56px]" />
                   </div>
                   <div>
@@ -755,20 +802,6 @@ Exemplo: {"0": "company_name", "2": "contact_name"}`;
                       rows={1}
                       value={editingLead.company_name || ''} 
                       onChange={(e) => setEditingLead({ ...editingLead, company_name: e.target.value })} 
-                      className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = target.scrollHeight + 'px';
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Razão Social</label>
-                    <textarea 
-                      rows={1}
-                      value={editingLead.business_notes || ''} 
-                      onChange={(e) => setEditingLead({ ...editingLead, business_notes: e.target.value })} 
                       className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none overflow-hidden min-h-[56px]"
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;

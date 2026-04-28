@@ -272,7 +272,6 @@ CREATE TABLE public.m4_leads (
     responsible_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     last_activity_at TIMESTAMPTZ DEFAULT now(),
     custom_fields JSONB DEFAULT '{}'::jsonb,
-    business_notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
