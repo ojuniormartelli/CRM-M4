@@ -121,14 +121,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 3. CORE MULTI-TENANT
 -- ============================================
 
-CREATE TABLE public.m4_workspaces (
+CREATE TABLE IF NOT EXISTS public.m4_workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     branding_config JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_job_roles (
+CREATE TABLE IF NOT EXISTS public.m4_job_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE public.m4_job_roles (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_users (
+CREATE TABLE IF NOT EXISTS public.m4_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
@@ -152,7 +152,7 @@ CREATE TABLE public.m4_users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_workspace_users (
+CREATE TABLE IF NOT EXISTS public.m4_workspace_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,
@@ -161,15 +161,26 @@ CREATE TABLE public.m4_workspace_users (
     UNIQUE(workspace_id, user_id)
 );
 
-CREATE TABLE public.m4_settings (
+CREATE TABLE IF NOT EXISTS public.m4_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE UNIQUE,
     crm_name TEXT DEFAULT 'M4 CRM',
     company_name TEXT DEFAULT 'Agency Cloud',
+    cnpj TEXT,
     logo_url TEXT,
     primary_color TEXT DEFAULT '#2563eb',
     theme TEXT DEFAULT 'light',
     language TEXT DEFAULT 'pt-BR',
+    email TEXT,
+    phone TEXT,
+    website TEXT,
+    zip_code TEXT,
+    address TEXT,
+    address_number TEXT,
+    complement TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -178,7 +189,7 @@ CREATE TABLE public.m4_settings (
 -- 4. CRM
 -- ============================================
 
-CREATE TABLE public.m4_pipelines (
+CREATE TABLE IF NOT EXISTS public.m4_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -186,7 +197,7 @@ CREATE TABLE public.m4_pipelines (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_pipeline_stages (
+CREATE TABLE IF NOT EXISTS public.m4_pipeline_stages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE CASCADE,
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -197,7 +208,7 @@ CREATE TABLE public.m4_pipeline_stages (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_companies (
+CREATE TABLE IF NOT EXISTS public.m4_companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -214,7 +225,7 @@ CREATE TABLE public.m4_companies (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_contacts (
+CREATE TABLE IF NOT EXISTS public.m4_contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
@@ -230,7 +241,7 @@ CREATE TABLE public.m4_contacts (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_leads (
+CREATE TABLE IF NOT EXISTS public.m4_leads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     pipeline_id UUID REFERENCES public.m4_pipelines(id) ON DELETE SET NULL,
@@ -277,7 +288,7 @@ CREATE TABLE public.m4_leads (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_projects (
+CREATE TABLE IF NOT EXISTS public.m4_projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
@@ -291,7 +302,7 @@ CREATE TABLE public.m4_projects (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_clients (
+CREATE TABLE IF NOT EXISTS public.m4_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
@@ -306,7 +317,7 @@ CREATE TABLE public.m4_clients (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_client_accounts (
+CREATE TABLE IF NOT EXISTS public.m4_client_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE CASCADE,
@@ -323,7 +334,7 @@ CREATE TABLE public.m4_client_accounts (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_tasks (
+CREATE TABLE IF NOT EXISTS public.m4_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     list_id UUID,
@@ -349,7 +360,7 @@ CREATE TABLE public.m4_tasks (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.m4_services (
+CREATE TABLE IF NOT EXISTS public.m4_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -360,7 +371,7 @@ CREATE TABLE public.m4_services (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_emails (
+CREATE TABLE IF NOT EXISTS public.m4_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
@@ -373,7 +384,7 @@ CREATE TABLE public.m4_emails (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_campaigns (
+CREATE TABLE IF NOT EXISTS public.m4_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -383,7 +394,7 @@ CREATE TABLE public.m4_campaigns (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_posts (
+CREATE TABLE IF NOT EXISTS public.m4_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     user_name TEXT,
@@ -396,7 +407,7 @@ CREATE TABLE public.m4_posts (
 -- 5. FINANCEIRO
 -- ============================================
 
-CREATE TABLE public.m4_fin_categories (
+CREATE TABLE IF NOT EXISTS public.m4_fin_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -412,7 +423,7 @@ CREATE TABLE public.m4_fin_categories (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_cost_centers (
+CREATE TABLE IF NOT EXISTS public.m4_fin_cost_centers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -424,7 +435,7 @@ CREATE TABLE public.m4_fin_cost_centers (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_counterparties (
+CREATE TABLE IF NOT EXISTS public.m4_fin_counterparties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -435,7 +446,7 @@ CREATE TABLE public.m4_fin_counterparties (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_payment_methods (
+CREATE TABLE IF NOT EXISTS public.m4_fin_payment_methods (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -444,7 +455,7 @@ CREATE TABLE public.m4_fin_payment_methods (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_bank_accounts (
+CREATE TABLE IF NOT EXISTS public.m4_fin_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -455,7 +466,7 @@ CREATE TABLE public.m4_fin_bank_accounts (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_transactions (
+CREATE TABLE IF NOT EXISTS public.m4_fin_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.m4_fin_categories(id),
@@ -476,7 +487,7 @@ CREATE TABLE public.m4_fin_transactions (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_fin_budgets (
+CREATE TABLE IF NOT EXISTS public.m4_fin_budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
@@ -489,7 +500,7 @@ CREATE TABLE public.m4_fin_budgets (
 -- 6. AUTOMAÇÕES E METAS
 -- ============================================
 
-CREATE TABLE public.m4_automations (
+CREATE TABLE IF NOT EXISTS public.m4_automations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -500,7 +511,7 @@ CREATE TABLE public.m4_automations (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_automation_logs (
+CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
@@ -509,7 +520,7 @@ CREATE TABLE public.m4_automation_logs (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE public.m4_goals (
+CREATE TABLE IF NOT EXISTS public.m4_goals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     month TEXT NOT NULL, -- YYYY-MM
@@ -558,6 +569,7 @@ BEGIN
         ) INTO has_deleted_at;
 
         -- SELECT
+        EXECUTE format('DROP POLICY IF EXISTS %I_select ON %I', t, t);
         IF has_deleted_at THEN
             EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)', t, t);
         ELSE
@@ -565,19 +577,31 @@ BEGIN
         END IF;
 
         -- INSERT
+        EXECUTE format('DROP POLICY IF EXISTS %I_insert ON %I', t, t);
         EXECUTE format('CREATE POLICY %I_insert ON %I FOR INSERT TO authenticated WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        
         -- UPDATE
+        EXECUTE format('DROP POLICY IF EXISTS %I_update ON %I', t, t);
         EXECUTE format('CREATE POLICY %I_update ON %I FOR UPDATE TO authenticated USING (workspace_id = public.get_current_workspace_id()) WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
+        
         -- DELETE
+        EXECUTE format('DROP POLICY IF EXISTS %I_delete ON %I', t, t);
         EXECUTE format('CREATE POLICY %I_delete ON %I FOR DELETE TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
 
     END LOOP;
 END $$;
 
 -- Policies Manuais (Tabelas Core)
+DROP POLICY IF EXISTS m4_workspaces_select ON public.m4_workspaces;
 CREATE POLICY m4_workspaces_select ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS m4_users_select ON public.m4_users;
 CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+
+DROP POLICY IF EXISTS m4_users_update ON public.m4_users;
 CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS m4_workspace_users_select ON public.m4_workspace_users;
 CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
 
 -- ============================================
@@ -1463,15 +1487,18 @@ END $$;
 
 -- 3. Políticas Especiais para Tabelas de Core
 -- m4_workspaces: Usuários podem ver o workspace em que participam
+DROP POLICY IF EXISTS "Workspace Member Visibility" ON public.m4_workspaces;
 CREATE POLICY "Workspace Member Visibility" ON public.m4_workspaces
 FOR SELECT TO authenticated
 USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
 
 -- m4_users: Usuários podem ver a si mesmos e colegas do mesmo workspace
+DROP POLICY IF EXISTS "User Profile Visibility" ON public.m4_users;
 CREATE POLICY "User Profile Visibility" ON public.m4_users
 FOR SELECT TO authenticated
 USING (workspace_id = public.get_current_workspace_id());
 
+DROP POLICY IF EXISTS "User Self Update" ON public.m4_users;
 CREATE POLICY "User Self Update" ON public.m4_users
 FOR UPDATE TO authenticated
 USING (id = auth.uid())
@@ -1601,6 +1628,17 @@ BEGIN
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
     ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS cnpj TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS website TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS zip_code TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS address TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS address_number TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS complement TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS neighborhood TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS city TEXT;
+    ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS state TEXT;
     ALTER TABLE m4_users ADD COLUMN IF NOT EXISTS username TEXT;
     ALTER TABLE m4_users ADD COLUMN IF NOT EXISTS job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL;
     ALTER TABLE m4_fin_categories ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;

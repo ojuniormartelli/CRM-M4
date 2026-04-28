@@ -209,10 +209,21 @@ CREATE TABLE IF NOT EXISTS public.m4_settings (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE UNIQUE,
     crm_name TEXT DEFAULT 'M4 CRM',
     company_name TEXT DEFAULT 'Agency Cloud',
+    cnpj TEXT,
     logo_url TEXT,
     primary_color TEXT DEFAULT '#2563eb',
     theme TEXT DEFAULT 'light',
     language TEXT DEFAULT 'pt-BR',
+    email TEXT,
+    phone TEXT,
+    website TEXT,
+    zip_code TEXT,
+    address TEXT,
+    address_number TEXT,
+    complement TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -584,6 +595,12 @@ BEGIN
         )
         INTO has_deleted_at;
 
+        -- Drop existing policies first
+        EXECUTE format('DROP POLICY IF EXISTS %I_select ON public.%I', t, t);
+        EXECUTE format('DROP POLICY IF EXISTS %I_insert ON public.%I', t, t);
+        EXECUTE format('DROP POLICY IF EXISTS %I_update ON public.%I', t, t);
+        EXECUTE format('DROP POLICY IF EXISTS %I_delete ON public.%I', t, t);
+
         IF has_deleted_at THEN
             EXECUTE format(
                 'CREATE POLICY %I_select ON public.%I
@@ -625,6 +642,7 @@ BEGIN
 END
 $$;
 
+DROP POLICY IF EXISTS m4_workspaces_select ON public.m4_workspaces;
 CREATE POLICY m4_workspaces_select
 ON public.m4_workspaces
 FOR SELECT
@@ -642,12 +660,14 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS m4_users_select ON public.m4_users;
 CREATE POLICY m4_users_select
 ON public.m4_users
 FOR SELECT
 TO authenticated
 USING (workspace_id = public.get_current_workspace_id());
 
+DROP POLICY IF EXISTS m4_users_update ON public.m4_users;
 CREATE POLICY m4_users_update
 ON public.m4_users
 FOR UPDATE
@@ -655,6 +675,7 @@ TO authenticated
 USING (id = auth.uid())
 WITH CHECK (id = auth.uid());
 
+DROP POLICY IF EXISTS m4_workspace_users_select ON public.m4_workspace_users;
 CREATE POLICY m4_workspace_users_select
 ON public.m4_workspace_users
 FOR SELECT

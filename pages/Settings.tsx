@@ -717,8 +717,15 @@ const Settings: React.FC<SettingsProps> = ({
         logo_url: settings.logo_url,
         city: settings.city,
         state: settings.state,
-        website_url: settings.website_url,
-        whatsapp_number: settings.whatsapp_number,
+        cnpj: settings.cnpj,
+        email: settings.email,
+        website: settings.website,
+        phone: settings.phone,
+        zip_code: settings.zip_code,
+        address: settings.address,
+        address_number: settings.address_number,
+        complement: settings.complement,
+        neighborhood: settings.neighborhood,
         language: settings.language,
         workspace_id: currentUser?.workspace_id || settings.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
         updated_at: new Date().toISOString() 
@@ -1072,8 +1079,8 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Website</label>
                   <input 
                     type="url" 
-                    value={settings?.website_url ?? ''} 
-                    onChange={e => setSettings({...settings, website_url: e.target.value})}
+                    value={settings?.website ?? ''} 
+                    onChange={e => setSettings({...settings, website: e.target.value})}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
                     placeholder="https://suaempresa.com"
                   />
@@ -1082,8 +1089,8 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp de Contato</label>
                   <input 
                     type="text" 
-                    value={settings?.whatsapp_number ?? ''} 
-                    onChange={e => setSettings({...settings, whatsapp_number: formatPhoneBR(e.target.value)})}
+                    value={settings?.phone ?? ''} 
+                    onChange={e => setSettings({...settings, phone: formatPhoneBR(e.target.value)})}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-200" 
                     placeholder="(00) 00000-0000"
                   />

@@ -181,8 +181,8 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
     logo_url: '',
     city: '',
     state: '',
-    website_url: '',
-    whatsapp_number: '',
+    website: '',
+    phone: '',
     language: 'pt-BR'
   } } = useQuery({
     queryKey: queryKeys.settings(wsId),
