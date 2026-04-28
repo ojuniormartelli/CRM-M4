@@ -1,14 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { workspaceService } from '../services/workspaceService';
-import { isUUID } from '../lib/mappers';
 
 export function useWorkspace() {
-  const [workspaceId, setWorkspaceId] = useState<string | null>(() => {
-    const saved = localStorage.getItem('m4_crm_workspace_id');
-    return isUUID(saved) ? saved : null;
-  });
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -18,13 +13,10 @@ export function useWorkspace() {
     async function resolve() {
       try {
         if (mounted) setLoading(true);
-        
-        // 1. Get current Supabase Auth user or fallback to custom login
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const customUserId = localStorage.getItem('m4_crm_user_id');
-        const userId = authUser?.id || customUserId;
-        
-        if (!userId) {
+
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
           if (mounted) {
             setWorkspaceId(null);
             setLoading(false);
@@ -32,38 +24,23 @@ export function useWorkspace() {
           return;
         }
 
-        // 2. Resolve Workspace from Supabase
-        const wsId = await workspaceService.resolveWorkspaceForUser(userId);
-        
+        const wsId = await workspaceService.resolveWorkspaceForUser(user.id);
+
         if (mounted) {
-          if (wsId && isUUID(wsId)) {
-            setWorkspaceId(wsId);
-            localStorage.setItem('m4_crm_workspace_id', wsId);
-          } else {
-            setWorkspaceId(null);
-            // Se chegamos aqui, o usuário está logado mas não tem workspace
-            console.warn('useWorkspace: Usuário logado sem workspace vinculado.');
-          }
+          setWorkspaceId(wsId ?? null);
         }
-      } catch (err: any) {
-        console.error('useWorkspace: Error resolving workspace:', err);
-        if (mounted) setError(err);
+      } catch (err: unknown) {
+        if (mounted) setError(err instanceof Error ? err : new Error(String(err)));
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    // Listen for auth changes to re-resolve
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log('useWorkspace: Auth event:', event);
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         resolve();
       } else if (event === 'SIGNED_OUT') {
-        const customUserId = localStorage.getItem('m4_crm_user_id');
-        if (!customUserId) {
-          setWorkspaceId(null);
-          localStorage.removeItem('m4_crm_workspace_id');
-        }
+        setWorkspaceId(null);
       }
     });
 

@@ -1,9 +1,8 @@
-
 export enum FunnelStatus {
   INITIAL = 'inicial',
   INTERMEDIATE = 'intermediario',
   WON = 'ganho',
-  LOST = 'perdido'
+  LOST = 'perdido',
 }
 
 export interface PipelineStage {
@@ -25,7 +24,7 @@ export interface Pipeline {
 export enum LeadTemperature {
   COLD = 'Frio',
   WARM = 'Morno',
-  HOT = 'Quente'
+  HOT = 'Quente',
 }
 
 export interface Interaction {
@@ -76,6 +75,8 @@ export interface Contact {
   };
 }
 
+export type LeadStatus = 'active' | 'won' | 'lost' | 'paused' | FunnelStatus;
+
 export interface Lead {
   id: string;
   workspace_id: string;
@@ -118,12 +119,11 @@ export interface Lead {
   company_id?: string;
   contact_id?: string;
   last_activity_at?: string;
-  status?: 'active' | 'won' | 'lost' | 'paused' | FunnelStatus;
+  status?: LeadStatus;
   interactions?: Interaction[];
-  custom_fields?: Record<string, any>;
+  custom_fields?: Record<string, string | number | boolean>;
   deleted_at?: string | null;
   created_at: string;
-
   company?: {
     id: string;
     name: string;
@@ -131,19 +131,6 @@ export interface Lead {
     city?: string;
     state?: string;
   };
-
-  // Legacy / Compatibility
-  name?: string;
-  email?: string;
-  whatsapp?: string;
-  notes?: string;
-  cnpj?: string;
-  website?: string;
-  niche?: string;
-  city?: string;
-  state?: string;
-  instagram?: string;
-  linkedin?: string;
 }
 
 export interface CustomFieldDef {
@@ -160,10 +147,12 @@ export interface CustomFieldValue {
   id: string;
   custom_field_id: string;
   entity_id: string;
-  value: any;
+  value: string | number | boolean;
   workspace_id?: string;
   created_at: string;
 }
+
+export type QuestionLogic = Record<string, string | string[]>;
 
 export interface FormQuestion {
   id: string;
@@ -171,7 +160,7 @@ export interface FormQuestion {
   label: string;
   options?: string[];
   required?: boolean;
-  logic?: any;
+  logic?: QuestionLogic;
 }
 
 export interface FormTemplate {
@@ -183,15 +172,17 @@ export interface FormTemplate {
   created_at: string;
 }
 
+export interface FormAnswer {
+  question_id: string;
+  value: string | string[] | boolean;
+}
+
 export interface FormResponse {
   id: string;
   form_id: string;
   lead_id: string;
   workspace_id?: string;
-  answers: {
-    question_id: string;
-    value: any;
-  }[];
+  answers: FormAnswer[];
   created_at: string;
 }
 
@@ -218,19 +209,21 @@ export enum AutomationTriggerType {
   NO_ACTIVITY = 'no_activity',
   DATE_TRIGGER = 'date_trigger',
   TASK_CREATED = 'task_created',
-  TASK_COMPLETED = 'task_completed'
+  TASK_COMPLETED = 'task_completed',
 }
 
 export enum AutomationEntityType {
   LEAD = 'lead',
   TASK = 'task',
-  CLIENT = 'client'
+  CLIENT = 'client',
 }
+
+export type ConditionValue = string | number | boolean | null;
 
 export interface AutomationCondition {
   field: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
-  value: any;
+  value: ConditionValue;
   pipeline_id?: string;
   from_stage_id?: string;
   to_stage_id?: string;
@@ -239,10 +232,20 @@ export interface AutomationCondition {
   responsible_id?: string;
 }
 
+export type ActionParams = Record<string, string | number | boolean | string[]>;
+
 export interface AutomationAction {
-  type: 'create_task' | 'send_email' | 'update_field' | 'notify_user' | 'webhook' | 'change_stage' | 'move_to_pipeline' | 'duplicate_to_pipeline' | 'assign_user';
-  params?: any;
-  config?: any; // Compatibility
+  type:
+    | 'create_task'
+    | 'send_email'
+    | 'update_field'
+    | 'notify_user'
+    | 'webhook'
+    | 'change_stage'
+    | 'move_to_pipeline'
+    | 'duplicate_to_pipeline'
+    | 'assign_user';
+  params?: ActionParams;
 }
 
 export interface Automation {
@@ -251,7 +254,7 @@ export interface Automation {
   name: string;
   entity_type: AutomationEntityType;
   trigger_type: AutomationTriggerType;
-  trigger_conditions: AutomationCondition[] | any;
+  trigger_conditions: AutomationCondition[];
   actions: AutomationAction[];
   is_active: boolean;
   created_at: string;
