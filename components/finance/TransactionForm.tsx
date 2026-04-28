@@ -40,6 +40,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   paymentMethods = []
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const defaultValues: Partial<FinanceTransaction> = {
     type: FinanceTransactionType.EXPENSE,
@@ -99,28 +100,52 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      console.log('Finance: TransactionForm opened with props size:', {
-        categories: categories.length,
-        costCenters: costCenters.length,
-        leads: leads.length,
-        clients: clients.length
-      });
       setFormData({ ...defaultValues, ...initialData, change_reason: '' });
-    } else {
-      setFormData({ ...defaultValues, change_reason: '' });
+      setErrors({});
       setIsSaving(false);
     }
-  }, [isOpen, initialData, categories, costCenters, leads, clients]);
+  }, [isOpen, initialData]);
 
-  if (!isOpen) return null;
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.description?.trim()) {
+      newErrors.description = 'Descrição é obrigatória';
+    }
+
+    if (!formData.bank_account_id) {
+      newErrors.bank_account_id = 'Selecione uma conta bancária';
+    }
+
+    if (!formData.category_id) {
+      newErrors.category_id = 'Selecione uma categoria';
+    }
+
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount = 'Valor deve ser maior que 0';
+    }
+
+    if (!formData.due_date) {
+      newErrors.due_date = 'Data de vencimento é obrigatória';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     if (isSaving) return;
     
     setIsSaving(true);
     try {
       await onSave(formData);
+      onClose();
     } catch (error: any) {
       console.error('Error in TransactionForm handleSubmit:', error);
       alert('Erro ao salvar lançamento: ' + (error.message || 'Erro desconhecido'));
@@ -129,9 +154,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm('Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    if (!initialData?.id || !onDelete) return;
+
+    setIsSaving(true);
+    try {
+      await onDelete(initialData.id);
+      onClose();
+    } catch (error: any) {
+      console.error('Error deleting transaction:', error);
+      alert('Erro ao excluir: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/80 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden pointer-events-auto relative z-10">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden pointer-events-auto relative z-[10000]">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -198,12 +244,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Descrição</label>
               <input
                 type="text"
-                required
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Ex: Pagamento Fornecedor X"
-                className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 outline-none transition-all ${errors.description ? 'ring-2 ring-rose-500' : 'focus:ring-blue-500'}`}
               />
+              {errors.description && <p className="text-[10px] text-rose-500 font-bold ml-4 mt-1 uppercase tracking-widest">{errors.description}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -212,11 +258,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  required
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 outline-none transition-all ${errors.amount ? 'ring-2 ring-rose-500' : 'focus:ring-blue-500'}`}
                 />
+                {errors.amount && <p className="text-[10px] text-rose-500 font-bold ml-4 mt-1 uppercase tracking-widest">{errors.amount}</p>}
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Status</label>
@@ -247,11 +293,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Vencimento</label>
                 <input
                   type="date"
-                  required
                   value={formData.due_date}
                   onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className={`w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold focus:ring-2 outline-none transition-all ${errors.due_date ? 'ring-2 ring-rose-500' : 'focus:ring-blue-500'}`}
                 />
+                {errors.due_date && <p className="text-[9px] text-rose-500 font-bold ml-4 mt-1 uppercase tracking-widest">{errors.due_date}</p>}
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Competência</label>
@@ -271,30 +317,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   Conta Bancária
                 </label>
                 <select
-                  required
                   value={formData.bank_account_id || ''}
                   onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
+                  className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 outline-none transition-all cursor-pointer ${errors.bank_account_id ? 'ring-2 ring-rose-500' : 'focus:ring-blue-500'}`}
                 >
                   <option value="">Selecionar Conta</option>
                   {bankAccounts.map(acc => (
                     <option key={acc.id} value={acc.id}>{acc.name}</option>
                   ))}
                 </select>
+                {errors.bank_account_id && <p className="text-[10px] text-rose-500 font-bold ml-4 mt-1 uppercase tracking-widest">{errors.bank_account_id}</p>}
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 block">Categoria</label>
                 <select
-                  required
                   value={formData.category_id || ''}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
+                  className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold focus:ring-2 outline-none transition-all cursor-pointer ${errors.category_id ? 'ring-2 ring-rose-500' : 'focus:ring-blue-500'}`}
                 >
                   <option value="">Selecionar Categoria</option>
                   {filteredCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+                {errors.category_id && <p className="text-[10px] text-rose-500 font-bold ml-4 mt-1 uppercase tracking-widest">{errors.category_id}</p>}
               </div>
             </div>
 
@@ -445,15 +491,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </div>
           </div>
 
-          <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-8 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+          <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-8 sticky bottom-0 bg-white dark:bg-slate-900 z-[10001]">
             <div>
               {initialData?.id && onDelete && (
                 <button 
                   type="button"
-                  onClick={() => {
-                    onDelete(initialData.id!);
-                  }}
-                  className="px-6 py-3 text-sm font-bold text-rose-500 hover:text-rose-700 transition-all"
+                  onClick={handleDelete}
+                  disabled={isSaving}
+                  className="px-6 py-3 text-sm font-bold text-rose-500 hover:text-rose-700 transition-all cursor-pointer disabled:opacity-50"
                 >
                   Excluir Lançamento
                 </button>

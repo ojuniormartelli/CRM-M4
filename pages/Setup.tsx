@@ -101,6 +101,31 @@ const Setup: React.FC = () => {
       await supabase.from("m4_workspaces").upsert({ id: defaultWorkspaceId, name: "Workspace Principal" });
       await supabase.from("m4_settings").upsert({ workspace_id: defaultWorkspaceId, crm_name: "M4 CRM" }, { onConflict: "workspace_id" });
 
+      setProgress("Configurando padrões financeiros...");
+      
+      // Categorias padrões (minimalistas no JS, completas no SQL)
+      const defaultCategories = [
+        { id: '11111111-1111-1111-1111-111111111102', workspace_id: defaultWorkspaceId, name: 'Vendas de Serviços', type: 'income' },
+        { id: '22222222-2222-2222-2222-222222222201', workspace_id: defaultWorkspaceId, name: 'Salários e Encargos', type: 'expense' },
+        { id: '22222222-2222-2222-2222-222222222209', workspace_id: defaultWorkspaceId, name: 'Marketing', type: 'expense' }
+      ];
+      await supabase.from("m4_fin_categories").upsert(defaultCategories);
+
+      // Centros de custo padrões
+      const defaultCostCenters = [
+        { id: '33333333-3333-3333-3333-333333333301', workspace_id: defaultWorkspaceId, name: 'Administrativo', code: 'ADM' },
+        { id: '33333333-3333-3333-3333-333333333302', workspace_id: defaultWorkspaceId, name: 'Comercial', code: 'COM' }
+      ];
+      await supabase.from("m4_fin_cost_centers").upsert(defaultCostCenters);
+
+      // Formas de pagamento
+      const defaultPaymentMethods = [
+        { id: '44444444-4444-4444-4444-444444444403', workspace_id: defaultWorkspaceId, name: 'Pix' },
+        { id: '44444444-4444-4444-4444-444444444405', workspace_id: defaultWorkspaceId, name: 'Cartão de Crédito' },
+        { id: '44444444-4444-4444-4444-444444444407', workspace_id: defaultWorkspaceId, name: 'Boleto' }
+      ];
+      await supabase.from("m4_fin_payment_methods").upsert(defaultPaymentMethods);
+
       console.log("Configuração concluída com sucesso!");
       setStep("success");
     } catch (err: any) {

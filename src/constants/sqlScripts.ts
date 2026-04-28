@@ -379,12 +379,14 @@ CREATE TABLE public.m4_fin_categories (
     name TEXT NOT NULL,
     type fin_category_type NOT NULL DEFAULT 'both',
     parent_id UUID REFERENCES public.m4_fin_categories(id) ON DELETE CASCADE,
+    level INTEGER DEFAULT 1,
     classification_type fin_classification_type DEFAULT 'operacional',
     impacts_dre BOOLEAN DEFAULT true,
     dre_group TEXT,
     is_active BOOLEAN DEFAULT true,
     "order" INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_cost_centers (
@@ -392,8 +394,11 @@ CREATE TABLE public.m4_fin_cost_centers (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     code TEXT,
+    description TEXT,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now()
+    "order" INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_counterparties (
@@ -403,7 +408,8 @@ CREATE TABLE public.m4_fin_counterparties (
     type fin_counterparty_type DEFAULT 'outro',
     document TEXT,
     email TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_payment_methods (
@@ -411,7 +417,8 @@ CREATE TABLE public.m4_fin_payment_methods (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_bank_accounts (
@@ -421,7 +428,8 @@ CREATE TABLE public.m4_fin_bank_accounts (
     type fin_bank_account_type DEFAULT 'checking',
     current_balance NUMERIC DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_transactions (
@@ -441,7 +449,8 @@ CREATE TABLE public.m4_fin_transactions (
     paid_at TIMESTAMPTZ,
     is_recurring BOOLEAN DEFAULT false,
     recurrence_frequency TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE public.m4_fin_budgets (
@@ -576,7 +585,47 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- ============================================
--- 9. GRANTS FINAIS
+-- 9. DADOS FINANCEIROS PADRÃO
+-- ============================================
+
+-- Categorias de Receita
+INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, level, "order", is_active, impacts_dre, dre_group, classification_type)
+VALUES
+('11111111-1111-1111-1111-111111111102', 'fb786658-1234-4321-8888-999988887777', 'Vendas de Serviços', 'income', 1, 2, true, true, 'Receita Bruta', 'operacional'),
+('11111111-1111-1111-1111-111111111103', 'fb786658-1234-4321-8888-999988887777', 'Consultoria e Assessoria', 'income', 1, 3, true, true, 'Receita Bruta', 'operacional'),
+('11111111-1111-1111-1111-111111111107', 'fb786658-1234-4321-8888-999988887777', 'Juros Recebidos', 'income', 1, 7, true, true, 'Receita Financeira', 'financeiro'),
+('11111111-1111-1111-1111-111111111110', 'fb786658-1234-4321-8888-999988887777', 'Outras Receitas', 'income', 1, 10, true, true, 'Receita Bruta', 'operacional')
+ON CONFLICT (id) DO NOTHING;
+
+-- Categorias de Despesa
+INSERT INTO public.m4_fin_categories (id, workspace_id, name, type, level, "order", is_active, impacts_dre, dre_group, classification_type)
+VALUES
+('22222222-2222-2222-2222-222222222201', 'fb786658-1234-4321-8888-999988887777', 'Salários e Encargos', 'expense', 1, 1, true, true, 'Despesa Operacional', 'operacional'),
+('22222222-2222-2222-2222-222222222202', 'fb786658-1234-4321-8888-999988887777', 'Aluguel do Escritório', 'expense', 1, 2, true, true, 'Despesa Operacional', 'operacional'),
+('22222222-2222-2222-2222-222222222209', 'fb786658-1234-4321-8888-999988887777', 'Publicidade e Marketing', 'expense', 1, 9, true, true, 'Despesa Operacional', 'operacional'),
+('22222222-2222-2222-2222-222222222214', 'fb786658-1234-4321-8888-999988887777', 'Despesas Bancárias', 'expense', 1, 14, true, true, 'Despesa Financeira', 'financeiro'),
+('22222222-2222-2222-2222-222222222215', 'fb786658-1234-4321-8888-999988887777', 'Outras Despesas', 'expense', 1, 15, true, true, 'Despesa Operacional', 'operacional')
+ON CONFLICT (id) DO NOTHING;
+
+-- Centros de Custo
+INSERT INTO public.m4_fin_cost_centers (id, workspace_id, name, code, is_active)
+VALUES
+('33333333-3333-3333-3333-333333333301', 'fb786658-1234-4321-8888-999988887777', 'Administrativo', 'ADM', true),
+('33333333-3333-3333-3333-333333333302', 'fb786658-1234-4321-8888-999988887777', 'Comercial / Vendas', 'COM', true),
+('33333333-3333-3333-3333-333333333304', 'fb786658-1234-4321-8888-999988887777', 'Operacional', 'OPE', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Formas de Pagamento
+INSERT INTO public.m4_fin_payment_methods (id, workspace_id, name, is_active)
+VALUES
+('44444444-4444-4444-4444-444444444402', 'fb786658-1234-4321-8888-999988887777', 'TED', true),
+('44444444-4444-4444-4444-444444444403', 'fb786658-1234-4321-8888-999988887777', 'Pix', true),
+('44444444-4444-4444-4444-444444444405', 'fb786658-1234-4321-8888-999988887777', 'Cartão de Crédito', true),
+('44444444-4444-4444-4444-444444444407', 'fb786658-1234-4321-8888-999988887777', 'Boleto', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================
+-- 10. GRANTS FINAIS
 -- ============================================
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, authenticated, service_role;
