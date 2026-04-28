@@ -1,12 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ICONS } from "../constants";
-import { updateSupabaseClient } from "../lib/supabase";
+import { updateSupabaseClient, getSupabaseConfig } from "../lib/supabase";
 import { motion } from "motion/react";
 import { FULL_SETUP_SQL, UPDATE_SQL, COMPLETE_INSTALL_SQL, CLEAN_RESET_SQL } from "../src/constants/sqlScripts";
 
 const Setup: React.FC = () => {
   const [url, setUrl] = useState("");
   const [anonKey, setAnonKey] = useState("");
+
+  useEffect(() => {
+    const config = getSupabaseConfig();
+    console.log("Configuração detectada no mount:", config);
+    if (config.url && config.url !== 'https://placeholder.supabase.co') setUrl(config.url);
+    if (config.key && config.key !== 'placeholder') setAnonKey(config.key);
+  }, []);
   const [step, setStep] = useState<"config" | "installing" | "success">(
     "config",
   );
@@ -20,8 +27,12 @@ const Setup: React.FC = () => {
   const cleanResetSQL = CLEAN_RESET_SQL;
 
   const handleInstall = async () => {
-    if (!url || !anonKey) {
-      setError("Por favor, preencha todos os campos.");
+    const trimmedUrl = url.trim();
+    const trimmedKey = anonKey.trim();
+
+    console.log("Iniciando handleInstall com URL:", trimmedUrl);
+    if (!trimmedUrl || !trimmedKey) {
+      setError("Por favor, preencha todos os campos (URL e Anon Key).");
       return;
     }
 
@@ -29,132 +40,72 @@ const Setup: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Salvar no localStorage
-      localStorage.setItem("supabase_url", url);
-      localStorage.setItem("supabase_anon_key", anonKey);
+      // 1. Tentar salvar no localStorage (pode falhar em alguns iframes ou modo privado)
+      try {
+        localStorage.setItem("supabase_url", trimmedUrl);
+        localStorage.setItem("supabase_anon_key", trimmedKey);
+      } catch (lsErr) {
+        console.warn("localStorage bloqueado:", lsErr);
+      }
 
       // 2. Atualizar cliente
-      const supabase = updateSupabaseClient(url, anonKey);
+      const supabase = updateSupabaseClient(trimmedUrl, trimmedKey);
+      console.log("Cliente Supabase atualizado com sucesso.");
 
-      // 3. Simular progresso
-      setProgress("Verificando conexão...");
-      await new Promise((r) => setTimeout(r, 1000));
+      // 3. Pequeno delay para feedback visual
+      setProgress("Conectando ao Supabase...");
+      await new Promise((r) => setTimeout(r, 800));
 
-      setProgress("Criando tabelas e estruturas...");
+      setProgress("Verificando estrutura do banco...");
 
       const defaultWorkspaceId = "fb786658-1234-4321-8888-999988887777";
 
       // Verificar se a tabela de workspaces existe
+      console.log("Executando consulta para verificar m4_workspaces...");
       const { error: wsCheckError } = await supabase
         .from("m4_workspaces")
         .select("id")
         .limit(1);
 
       if (wsCheckError) {
-        if (wsCheckError.code === "42P01") {
+        console.error("Erro Supabase (Check):", wsCheckError);
+        if (wsCheckError.code === "42P01" || wsCheckError.message.includes("does not exist")) {
           throw new Error(
-            "As tabelas ainda não foram criadas no seu Supabase. Por favor, execute o script SQL de INSTALAÇÃO no seu painel do Supabase antes de continuar.",
+            "Tabelas não encontradas. Por favor, COPIE O SCRIPT SQL de instalação e execute-o no SQL EDITOR do seu painel Supabase."
           );
         }
-        throw wsCheckError;
+        if (wsCheckError.code === "PGRST301") {
+          throw new Error("Erro de autenticação: JWT inválido ou Anon Key incorreta.");
+        }
+        throw new Error(wsCheckError.message || `Erro do banco: ${wsCheckError.code}`);
       }
 
-      // Verificação específica de Soft Delete (deleted_at)
-      const tablesToCheck = ['m4_tasks', 'm4_clients', 'm4_contacts', 'm4_leads', 'm4_companies', 'm4_projects'];
+      // Verificação de Soft Delete
+      const tablesToCheck = ['m4_tasks', 'm4_clients', 'm4_leads', 'm4_companies'];
       for (const table of tablesToCheck) {
-        setProgress(`Validando integridade: ${table}...`);
-        const { error: colCheckError } = await supabase
-          .from(table)
-          .select('deleted_at')
-          .limit(1);
+        setProgress(`Validando: ${table}...`);
+        const { error: colCheckError } = await supabase.from(table).select('deleted_at').limit(1);
         
         if (colCheckError) {
+          console.error(`Erro estrutural em ${table}:`, colCheckError);
           if (colCheckError.message.includes('deleted_at') || colCheckError.code === '42703') {
             setHasSchemaIssue(true);
-            throw new Error(
-              `Seu banco está desatualizado. Falta a coluna 'deleted_at' na tabela ${table}. Use o botão abaixo para executar a ATUALIZAÇÃO SEGURA.`
-            );
-          }
-          if (colCheckError.code === '42P01') {
-            throw new Error(`A tabela ${table} não existe. Execute o script de INSTALAÇÃO completa.`);
+            throw new Error(`Seu banco está desatualizado (coluna deleted_at ausente em ${table}). Use a ATUALIZAÇÃO SEGURA.`);
           }
         }
       }
 
-      setProgress("Configurando workspace principal...");
-      await supabase.from("m4_workspaces").upsert({
-        id: defaultWorkspaceId,
-        name: "Workspace Principal",
-      });
+      setProgress("Finalizando configuração inicial...");
+      
+      // Upserts básicos para garantir que o sistema não quebre
+      await supabase.from("m4_workspaces").upsert({ id: defaultWorkspaceId, name: "Workspace Principal" });
+      await supabase.from("m4_settings").upsert({ workspace_id: defaultWorkspaceId, crm_name: "M4 CRM" }, { onConflict: "workspace_id" });
 
-      setProgress("Configurando configurações do CRM...");
-      await supabase.from("m4_settings").upsert(
-        {
-          workspace_id: defaultWorkspaceId,
-          crm_name: "M4 CRM",
-          company_name: "Agency Cloud",
-        },
-        { onConflict: "workspace_id" },
-      );
-
-      setProgress("Configurando pipelines de demonstração...");
-      const pipelines = [
-        {
-          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          name: "Vendas Comercial",
-          position: 0,
-          workspace_id: defaultWorkspaceId,
-        },
-      ];
-      await supabase.from("m4_pipelines").upsert(pipelines);
-
-      setProgress("Configurando etapas do funil...");
-      const stages = [
-        {
-          id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          workspace_id: defaultWorkspaceId,
-          name: "Lead",
-          position: 0,
-          color: "blue",
-          status: "inicial",
-        },
-        {
-          id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          workspace_id: defaultWorkspaceId,
-          name: "Qualificação",
-          position: 1,
-          color: "amber",
-          status: "intermediario",
-        },
-        {
-          id: "dddddddd-dddd-dddd-dddd-ddddbbbbbbbb",
-          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          workspace_id: defaultWorkspaceId,
-          name: "Proposta",
-          position: 2,
-          color: "indigo",
-          status: "intermediario",
-        },
-        {
-          id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
-          pipeline_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-          workspace_id: defaultWorkspaceId,
-          name: "Fechamento",
-          position: 3,
-          color: "emerald",
-          status: "ganho",
-        },
-      ];
-      await supabase.from("m4_pipeline_stages").upsert(stages);
-
-      setProgress("Finalizando configuração...");
-      await new Promise((r) => setTimeout(r, 1000));
-
+      console.log("Configuração concluída com sucesso!");
       setStep("success");
     } catch (err: any) {
-      setError(err.message);
+      console.error("Falha no processo de instalação:", err);
+      setError(err.message || "Falha na conexão. Verifique suas credenciais e internet.");
       setStep("config");
     }
   };
@@ -327,8 +278,13 @@ const Setup: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center justify-between">
                 URL do Supabase
+                {getSupabaseConfig().url && (
+                  <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100">
+                    Auto-detectado
+                  </span>
+                )}
               </label>
               <input
                 type="text"
@@ -339,8 +295,13 @@ const Setup: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center justify-between">
                 Anon Key
+                {getSupabaseConfig().key && (
+                  <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100">
+                    Auto-detectado
+                  </span>
+                )}
               </label>
               <input
                 type="password"

@@ -9,7 +9,7 @@ export const automationConditionSchema = z.object({
 
 export const automationActionSchema = z.object({
   type: z.enum(['update_field', 'create_task', 'send_notification', 'send_webhook', 'change_stage', 'assign_user', 'move_to_pipeline', 'duplicate_to_pipeline']),
-  config: z.record(z.string(), z.any()),
+  params: z.record(z.string(), z.any()),
 });
 
 export const automationSchema = z.object({

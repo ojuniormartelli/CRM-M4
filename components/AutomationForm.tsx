@@ -151,7 +151,7 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
   };
 
   const handleAddAction = () => {
-    setActions([...actions, { type: 'update_field', config: {} }]);
+    setActions([...actions, { type: 'update_field', params: {} }]);
   };
 
   const handleRemoveAction = (index: number) => {
@@ -161,20 +161,20 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
   const handleActionChange = (index: number, field: string, value: any) => {
     const newActions = [...actions];
     if (field === 'type') {
-      // Ao mudar o tipo da ação, resetamos o config para evitar lixo de outras ações
-      newActions[index] = { ...newActions[index], type: value as any, config: {} };
+      // Ao mudar o tipo da ação, resetamos o params para evitar lixo de outras ações
+      newActions[index] = { ...newActions[index], type: value as any, params: {} };
     } else if (field === 'pipeline_id') {
       // Ao mudar o pipeline de destino, limpamos a etapa anterior para forçar nova seleção
       newActions[index] = { 
         ...newActions[index], 
-        config: { 
-          ...newActions[index].config, 
+        params: { 
+          ...newActions[index].params, 
           pipeline_id: value,
           stage_id: '' 
         } 
       };
     } else {
-      newActions[index] = { ...newActions[index], config: { ...newActions[index].config, [field]: value } };
+      newActions[index] = { ...newActions[index], params: { ...newActions[index].params, [field]: value } };
     }
     setActions(newActions);
   };
@@ -725,14 +725,14 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <input
                           type="text"
                           placeholder="Nome do Campo"
-                          value={action.config.field || ''}
+                          value={(action.params as any).field || ''}
                           onChange={(e) => handleActionChange(index, 'field', e.target.value)}
                           className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                         />
                         <input
                           type="text"
                           placeholder="Novo Valor"
-                          value={action.config.value || ''}
+                          value={(action.params as any).value || ''}
                           onChange={(e) => handleActionChange(index, 'value', e.target.value)}
                           className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                         />
@@ -743,14 +743,14 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <input
                           type="text"
                           placeholder="Título da Tarefa"
-                          value={action.config.title || ''}
+                          value={(action.params as any).title || ''}
                           onChange={(e) => handleActionChange(index, 'title', e.target.value)}
                           className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                         />
                         <input
                           type="number"
                           placeholder="Prazo (dias)"
-                          value={action.config.due_days || ''}
+                          value={(action.params as any).due_days || ''}
                           onChange={(e) => handleActionChange(index, 'due_days', e.target.value)}
                           className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                         />
@@ -761,7 +761,7 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">Pipeline</label>
                           <select
-                            value={action.config.pipeline_id || ''}
+                            value={(action.params as any).pipeline_id || ''}
                             onChange={(e) => handleActionChange(index, 'pipeline_id', e.target.value)}
                             className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                           >
@@ -772,13 +772,13 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">Etapa de Destino</label>
                           <select
-                            value={action.config.stage_id || ''}
-                            disabled={!action.config.pipeline_id}
+                            value={(action.params as any).stage_id || ''}
+                            disabled={!(action.params as any).pipeline_id}
                             onChange={(e) => handleActionChange(index, 'stage_id', e.target.value)}
                             className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500 disabled:opacity-50"
                           >
                             <option value="">Selecione uma etapa</option>
-                            {allStages.filter(s => s.pipeline_id === action.config.pipeline_id).map(s => (
+                            {allStages.filter(s => s.pipeline_id === (action.params as any).pipeline_id).map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                           </select>
@@ -790,7 +790,7 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">Pipeline de Destino</label>
                           <select
-                            value={action.config.pipeline_id || ''}
+                            value={(action.params as any).pipeline_id || ''}
                             onChange={(e) => handleActionChange(index, 'pipeline_id', e.target.value)}
                             className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                           >
@@ -801,13 +801,13 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">Etapa de Destino</label>
                           <select
-                            value={action.config.stage_id || ''}
-                            disabled={!action.config.pipeline_id}
+                            value={(action.params as any).stage_id || ''}
+                            disabled={!(action.params as any).pipeline_id}
                             onChange={(e) => handleActionChange(index, 'stage_id', e.target.value)}
                             className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500 disabled:opacity-50"
                           >
                             <option value="">Selecione uma etapa</option>
-                            {allStages.filter(s => s.pipeline_id === action.config.pipeline_id).map(s => (
+                            {(allStages || []).filter(s => s.pipeline_id === (action.params as any).pipeline_id).map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                           </select>
@@ -816,7 +816,7 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     )}
                     {action.type === 'assign_user' && (
                       <select
-                        value={action.config.user_id || ''}
+                        value={(action.params as any).user_id || ''}
                         onChange={(e) => handleActionChange(index, 'user_id', e.target.value)}
                         className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold outline-none focus:border-blue-500"
                       >

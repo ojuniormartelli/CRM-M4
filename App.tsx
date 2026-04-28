@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
-import { supabase } from './lib/supabase';
+import { supabase, getSupabaseConfig } from './lib/supabase';
 import Login from './components/Login';
 import Setup from './pages/Setup';
 import { useTheme } from './ThemeContext';
@@ -139,6 +139,9 @@ const App: React.FC = () => {
 
   // --- GUARDS DE RENDERIZACAO ---
 
+  const config = getSupabaseConfig();
+  const hasConfig = config.url && config.url !== 'https://placeholder.supabase.co';
+
   if (appData.loading || workspaceLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-white dark:bg-slate-950 flex-col gap-4 transition-colors duration-300">
@@ -150,18 +153,19 @@ const App: React.FC = () => {
     );
   }
 
-  // Guard: sem sessao ativa e sem workspace -> exibe Setup
-  if (!resolvedWorkspaceId && !currentUser) {
+  // Se não tem configuração de Supabase (URL/Key), força Setup
+  if (!hasConfig) {
     return <Setup />;
   }
 
-  // Guard: tem workspace mas usuario ainda nao carregou -> exibe Login
+  // Se tem configuração mas não está logado, força Login
   if (!currentUser) {
     return <Login onLogin={setCurrentUser} />;
   }
 
-  // Guard: usuario logado mas sem workspace -> exibe Setup
-  if (currentUser && !resolvedWorkspaceId) {
+  // Se está logado mas por algum motivo não resolveu o workspace, tenta mostrar Setup (ou erro)
+  if (currentUser && !resolvedWorkspaceId && !workspaceLoading) {
+    // Se o usuário está logado mas não há workspace, pode ser erro de sincronização ou primeiro acesso mal sucedido
     return <Setup />;
   }
 
@@ -179,32 +183,49 @@ const App: React.FC = () => {
         expandedMenus={expandedMenus}
         setExpandedMenus={setExpandedMenus}
         currentUser={currentUser}
-        handleLogout={handleLogout}
         settings={appData.settings}
         deferredPrompt={deferredPrompt}
         handleInstallClick={handleInstallClick}
+        pipelines={appData.pipelines}
+        activePipelineId={activePipelineId}
+        setActivePipelineId={setActivePipelineId}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <Header
-          activeTab={activeTab}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          isSidebarOpen={isSidebarOpen}
-          setSidebarOpen={setSidebarOpen}
           currentUser={currentUser}
-          settings={appData.settings}
-          setShowNewLeadModal={setShowNewLeadModal}
-          setShowNewCompanyModal={setShowNewCompanyModal}
-          setShowNewContactModal={setShowNewContactModal}
+          handleLogout={handleLogout}
+          setActiveTab={setActiveTab}
         />
         <MainContent
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          searchQuery={searchQuery}
+          leads={appData.leads}
+          setLeads={appData.setLeads}
+          transactions={appData.transactions}
+          tasks={appData.tasks}
+          setTasks={appData.setTasks}
+          pipelines={appData.pipelines}
+          setPipelines={appData.setPipelines}
           currentUser={currentUser}
-          appData={appData}
+          companies={appData.companies}
+          setCompanies={appData.setCompanies}
+          contacts={appData.contacts}
+          setContacts={appData.setContacts}
+          emails={appData.emails}
+          setEmails={appData.setEmails}
+          clients={appData.clients}
+          setClients={appData.setClients}
+          projects={appData.projects}
+          setProjects={appData.setProjects}
+          clientAccounts={appData.clientAccounts}
+          setClientAccounts={appData.setClientAccounts}
+          services={appData.services}
+          setServices={appData.setServices}
+          bankAccounts={appData.bankAccounts}
           fetchLeads={() => appData.fetchLeads()}
-          fetchServices={() => appData.fetchServices()}
+          fetchServices={appData.fetchServices}
           handleStatusChange={handleStatusChange}
           activePipelineId={activePipelineId}
           setActivePipelineId={setActivePipelineId}

@@ -280,7 +280,8 @@ export const automationService = {
    * Evaluates if an automation should be triggered for a given event
    */
   evaluateTrigger(automation: Automation, eventData: any): boolean {
-    const { trigger_type, trigger_conditions: cond } = automation;
+    const { trigger_type, trigger_conditions } = automation;
+    const cond = trigger_conditions as any;
 
     console.log(`[Automation] Evaluating trigger "${automation.name}" (${trigger_type})`, { cond, eventData });
 
@@ -439,7 +440,8 @@ export const automationService = {
    * Execute a single automation action
    */
   async executeAction(automation: Automation, action: any, entity: any, workspaceId: string) {
-    const { type, config } = action;
+    const { type } = action;
+    const config = action.params || action.config || {};
 
     switch (type) {
       case 'move_to_pipeline':

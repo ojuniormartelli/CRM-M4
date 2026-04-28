@@ -131,6 +131,14 @@ export interface Lead {
     city?: string;
     state?: string;
   };
+  // Legacy Aliases for UI compatibility
+  name?: string;
+  email?: string;
+  whatsapp?: string;
+  notes?: string;
+  cnpj?: string;
+  website?: string;
+  niche?: string;
 }
 
 export interface CustomFieldDef {
@@ -152,7 +160,12 @@ export interface CustomFieldValue {
   created_at: string;
 }
 
-export type QuestionLogic = Record<string, string | string[]>;
+export interface LogicItem {
+  trigger_value: string;
+  go_to_question_id: string;
+}
+
+export type QuestionLogic = LogicItem[];
 
 export interface FormQuestion {
   id: string;
