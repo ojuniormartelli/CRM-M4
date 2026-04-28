@@ -336,35 +336,71 @@ const Settings: React.FC<SettingsProps> = ({
       const userData = { ...editingUser, role: mappedRole };
       
       // If it's a new user, we need to set the internal email
+      if (!userData.username && !userData.id) {
+          alert('Username é obrigatório para novos usuários.');
+          return;
+      }
+
       if (!userData.id && userData.username) {
         userData.email = `${userData.username}@crm.com`;
       }
 
       // Remove job_role object if it exists before saving
-      const { job_role, password, must_change_password, ...payload } = userData as any;
+      const { job_role, ...payload } = userData as any;
 
       if (payload.id) {
+        // Edit existing user - password changes are handled via handleResetPassword for security
+        const { password, ...updatePayload } = payload;
         const { error } = await supabase
           .from('m4_users')
-          .update(payload)
+          .update(updatePayload)
           .eq('id', payload.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('m4_users')
-          .insert([{ 
-            ...payload, 
-            status: 'active',
-            ...(currentUser?.workspace_id ? { workspace_id: currentUser.workspace_id } : {})
-          }]);
-        if (error) throw error;
+        // Create new user in Supabase Auth
+        if (!userData.password || userData.password.length < 6) {
+          throw new Error('A senha inicial deve ter pelo menos 6 caracteres.');
+        }
+
+        // 1. Sign Up the user to create the auth account
+        // Note: In some environments this might sign out the admin.
+        // We add must_change_password: true to the profile
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: userData.email,
+            password: userData.password,
+            options: {
+              data: {
+                full_name: userData.name,
+                workspace_id: currentUser.workspace_id
+              }
+            }
+        });
+
+        if (authError) throw authError;
+
+        if (authData.user) {
+          // 2. The trigger handles initial m4_users creation, but we update extra fields
+          // and ensure must_change_password is TRUE for admin-created users
+          const { error: profileError } = await supabase
+            .from('m4_users')
+            .update({ 
+               job_role_id: userData.job_role_id,
+               role: mappedRole,
+               must_change_password: true,
+               status: 'active',
+               workspace_id: currentUser.workspace_id
+            })
+            .eq('id', authData.user.id);
+          
+          if (profileError) console.error('Error updating user profile:', profileError);
+        }
       }
       
       const { data } = await supabase.from('m4_users').select('*, job_role:m4_job_roles(*)').order('name');
       if (data) setUsers(data);
       setIsUserModalOpen(false);
       setEditingUser(null);
-      alert('Usuário salvo com sucesso!');
+      alert('Usuário salvo com sucesso! O primeiro acesso deve ser feito com a senha definida.');
     } catch (error: any) {
       alert('Erro ao salvar usuário: ' + error.message);
     } finally {
@@ -1649,6 +1685,29 @@ const Settings: React.FC<SettingsProps> = ({
                     ))}
                   </select>
                 </div>
+                {!editingUser.id && (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Senha Inicial</label>
+                    <div className="relative">
+                      <input 
+                        type={showPasswords['new_user'] ? "text" : "password"} 
+                        required
+                        value={editingUser.password || ''}
+                        onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
+                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
+                        placeholder="Ex: M4@2024"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, 'new_user': !prev['new_user'] }))}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                      >
+                        {showPasswords['new_user'] ? <ICONS.EyeOff size={18} /> : <ICONS.Eye size={18} />}
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-2 font-medium">O usuário será obrigado a alterar esta senha no primeiro acesso.</p>
+                  </div>
+                )}
                 <div className={editingUser.id ? "col-span-2" : ""}>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
                   <select 
