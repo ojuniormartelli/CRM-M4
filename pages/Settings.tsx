@@ -385,6 +385,7 @@ const Settings: React.FC<SettingsProps> = ({
             .from('m4_users')
             .update({ 
                job_role_id: userData.job_role_id,
+               username: userData.username,
                role: mappedRole,
                must_change_password: true,
                status: 'active',
@@ -1306,7 +1307,11 @@ const Settings: React.FC<SettingsProps> = ({
                       <div className="flex justify-end gap-1">
                         <button 
                           onClick={() => {
-                            setEditingUser(user);
+                            setEditingUser({
+                              ...user,
+                              username: user.username || user.email.split('@')[0],
+                              job_role_id: user.job_role_id || user.job_role?.id || ''
+                            });
                             setIsUserModalOpen(true);
                           }}
                           title="Editar"

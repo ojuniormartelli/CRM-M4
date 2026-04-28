@@ -142,6 +142,7 @@ CREATE TABLE public.m4_users (
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    username TEXT,
     role TEXT DEFAULT 'user' CHECK (role IN ('owner', 'admin', 'user')),
     job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL,
     avatar_url TEXT,
@@ -237,6 +238,7 @@ CREATE TABLE public.m4_leads (
     company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL,
     contact_id UUID REFERENCES public.m4_contacts(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'active',
+    company_name TEXT,
     contact_name TEXT,
     contact_email TEXT,
     contact_whatsapp TEXT,
@@ -249,6 +251,7 @@ CREATE TABLE public.m4_leads (
     responsible_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     last_activity_at TIMESTAMPTZ DEFAULT now(),
     custom_fields JSONB DEFAULT '{}'::jsonb,
+    business_notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
@@ -1578,6 +1581,10 @@ BEGIN
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.m4_companies(id) ON DELETE SET NULL;
     ALTER TABLE m4_settings ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
+    ALTER TABLE m4_users ADD COLUMN IF NOT EXISTS username TEXT;
+    ALTER TABLE m4_users ADD COLUMN IF NOT EXISTS job_role_id UUID REFERENCES public.m4_job_roles(id) ON DELETE SET NULL;
+    ALTER TABLE m4_fin_categories ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
+    ALTER TABLE m4_fin_categories ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
 
     -- 3. Soft Delete Columns (Definitive Migration)
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
@@ -1596,6 +1603,7 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_m4_projects_deleted_at ON m4_projects(deleted_at);
 
     -- 4. Correção Schema Leads (Colunas Ausentes)
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_name TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_cnpj TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_city TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_state TEXT;
@@ -1611,6 +1619,14 @@ BEGIN
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_linkedin TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_whatsapp TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_notes TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS business_notes TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS service_type TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS campaign TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS proposed_ticket DECIMAL(12, 2) DEFAULT 0;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS closing_forecast DATE;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS qualification TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_score INTEGER DEFAULT 0;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
 
     -- 5. Índices de Performance
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);

@@ -433,6 +433,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     value: 0,
     business_notes: '',
     service_type: '',
+    campaign: '',
     responsible_id: currentUser?.id || '',
     status: 'active'
   });
@@ -709,6 +710,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       value: 0,
       business_notes: '',
       service_type: '',
+      campaign: '',
       responsible_id: currentUser?.id || '',
       status: 'active'
     });
@@ -763,6 +765,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         value: 0,
         business_notes: '',
         service_type: '',
+        campaign: '',
         responsible_id: currentUser?.id || '',
         status: 'active'
       });
@@ -1357,6 +1360,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Serviço</label>
                       <input value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Gestão de Tráfego" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Campanha</label>
+                      <input value={newLead.campaign} onChange={e => setNewLead({...newLead, campaign: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Black Friday 2024" />
                     </div>
 
                     <div className="space-y-2">
@@ -2269,6 +2277,16 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                               <option key={service.id} value={service.name}>{service.name}</option>
                             ))}
                           </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Campanha</label>
+                          <input 
+                            type="text" 
+                            value={editLead.campaign || ''} 
+                            onChange={e => setEditLead({...editLead, campaign: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                            placeholder="Origem/Campanha"
+                          />
                         </div>
                         <div>
                           <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Previsão</label>

@@ -19,6 +19,7 @@ export const leadSchema = z.object({
   value: z.number().optional(),
   business_notes: z.string().optional(),
   service_type: z.string().optional(),
+  campaign: z.string().optional(),
   responsible_id: z.string().optional(),
   status: z.string().optional(),
 });
