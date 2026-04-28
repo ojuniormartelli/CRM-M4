@@ -632,6 +632,51 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, authenticated, service_rol
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, authenticated, service_role;
 
+-- ============================================
+-- 11. USUÁRIO ADMINISTRADOR PADRÃO (admin / admin123)
+-- ============================================
+-- Nota: Criamos o usuário na tabela auth.users do Supabase se ele não existir.
+-- O ID é fixo para garantir que o m4_users e o auth.users fiquem em sincronia.
+
+DO $$
+DECLARE
+    v_admin_id UUID := 'fb786658-1234-4321-8888-000000000000';
+    v_ws_id UUID := 'fb786658-1234-4321-8888-999988887777';
+BEGIN
+    -- 1. Inserir em auth.users (Supabase Auth)
+    -- Usamos o ID fixo para o administrador para facilitar referências
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin@crm.com') THEN
+        INSERT INTO auth.users (
+            id, instance_id, email, encrypted_password, 
+            email_confirmed_at, raw_app_meta_data, raw_user_meta_data, 
+            is_super_admin, role, aud, confirmation_token
+        )
+        VALUES (
+            v_admin_id,
+            '00000000-0000-0000-0000-000000000000',
+            'admin@crm.com',
+            crypt('admin123', gen_salt('bf')),
+            now(),
+            '{"provider":"email","providers":["email"]}',
+            '{"full_name":"Administrador M4"}',
+            false,
+            'authenticated',
+            'authenticated',
+            ''
+        );
+        
+        -- 2. Garantir que o perfil exista em m4_users (O trigger handle_new_user já deve fazer isso, mas reforçamos)
+        INSERT INTO public.m4_users (id, workspace_id, name, email, role, status)
+        VALUES (v_admin_id, v_ws_id, 'Administrador M4', 'admin@crm.com', 'owner', 'active')
+        ON CONFLICT (id) DO NOTHING;
+        
+        -- 3. Vínculo com Workspace
+        INSERT INTO public.m4_workspace_users (workspace_id, user_id, role)
+        VALUES (v_ws_id, v_admin_id, 'owner')
+        ON CONFLICT (workspace_id, user_id) DO NOTHING;
+    END IF;
+END $$;
+
 COMMENT ON SCHEMA public IS 'Instalação M4 CRM Concluída';
 `;
 

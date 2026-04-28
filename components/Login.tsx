@@ -69,9 +69,30 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message.includes('Invalid login credentials') ? 'E-mail ou senha incorretos.' : err.message);
+      try {
+        // Extrair mensagem de erro amigável
+        let msg = 'Erro ao realizar login.';
+        if (err.message) {
+          msg = err.message;
+          if (msg.includes('Invalid login credentials')) msg = 'E-mail ou senha incorretos.';
+          if (msg.includes('relation "public.m4_users" does not exist')) msg = 'Tabelas não encontradas. Por favor, execute o script de instalação.';
+        } else if (typeof err === 'string') {
+          msg = err;
+        }
+        setError(msg);
+      } catch (innerErr) {
+        setError('Erro ao processar erro de login.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetConfig = () => {
+    if (window.confirm('Deseja limpar as configurações de conexão (Supabase URL/Key)?')) {
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_anon_key');
+      window.location.reload();
     }
   };
 
@@ -190,6 +211,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest text-center">Acesso Padrão:</p>
             <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 mt-1 text-center">admin / admin123</p>
           </div>
+
+          <button
+            onClick={handleResetConfig}
+            className="text-[9px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-widest transition-colors"
+          >
+            Refazer Configuração de Conexão
+          </button>
 
           <InstallationAccordion />
         </div>
