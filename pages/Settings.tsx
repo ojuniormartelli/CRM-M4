@@ -540,9 +540,10 @@ const Settings: React.FC<SettingsProps> = ({
     if (!editingPipeline || !editingPipeline.name) return;
     setIsSaving(true);
     try {
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
       const pipelineData = {
         name: editingPipeline.name,
-        workspace_id: currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id'),
+        workspace_id: workspaceId,
         position: editingPipeline.position ?? pipelines.length
       };
 
@@ -561,6 +562,7 @@ const Settings: React.FC<SettingsProps> = ({
         const allStages = editingPipeline.stages.map((s, idx) => {
           const stage: any = {
             pipeline_id: pipelineId,
+            workspace_id: workspaceId,
             name: s.name,
             position: idx,
             color: s.color || 'blue',
@@ -568,7 +570,7 @@ const Settings: React.FC<SettingsProps> = ({
           };
           
           // Only include ID if it looks like a real UUID (not a temp ID from Math.random)
-          if (s.id && !s.id.includes('.')) {
+          if (s.id && s.id.length > 20 && !s.id.includes('.')) {
             stage.id = s.id;
           }
           

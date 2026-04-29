@@ -1014,6 +1014,10 @@ CREATE TABLE IF NOT EXISTS public.m4_settings (
     primary_color TEXT DEFAULT '#2563eb',
     theme TEXT DEFAULT 'light',
     language TEXT DEFAULT 'pt-BR',
+    city TEXT,
+    state TEXT,
+    website TEXT,
+    phone TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );

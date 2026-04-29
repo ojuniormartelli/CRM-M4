@@ -66,8 +66,8 @@ export const mappers = {
     }
     if (data.company_instagram !== undefined) payload.company_instagram = cleanText(data.company_instagram);
     if (data.company_linkedin !== undefined) payload.company_linkedin = cleanText(data.company_linkedin);
-    if (data.company_whatsapp !== undefined || (data as any).company_phone !== undefined || (data as any).whatsapp !== undefined || (data as any).phone !== undefined) {
-      payload.company_whatsapp = cleanDigits(data.company_whatsapp || (data as any).company_phone || (data as any).whatsapp || (data as any).phone);
+    if (data.company_whatsapp !== undefined || (data as any).whatsapp !== undefined || (data as any).phone !== undefined) {
+      payload.company_whatsapp = cleanDigits(data.company_whatsapp || (data as any).whatsapp || (data as any).phone);
     }
     
     if (data.contact_name !== undefined || (data as any).name !== undefined) {
@@ -77,8 +77,8 @@ export const mappers = {
     if (data.contact_email !== undefined) payload.contact_email = cleanText(data.contact_email);
     if (data.contact_instagram !== undefined) payload.contact_instagram = cleanText(data.contact_instagram);
     if (data.contact_linkedin !== undefined) payload.contact_linkedin = cleanText(data.contact_linkedin);
-    if (data.contact_whatsapp !== undefined || (data as any).contact_phone !== undefined) {
-      payload.contact_whatsapp = cleanDigits(data.contact_whatsapp || (data as any).contact_phone);
+    if (data.contact_whatsapp !== undefined) {
+      payload.contact_whatsapp = cleanDigits(data.contact_whatsapp);
     }
     if (data.contact_notes !== undefined) payload.contact_notes = cleanText(data.contact_notes);
 
@@ -132,13 +132,13 @@ export const mappers = {
       company_email: dbLead.company?.email || dbLead.company_email || dbLead.email || '',
       company_instagram: dbLead.company_instagram || '',
       company_linkedin: dbLead.company_linkedin || '',
-      company_whatsapp: dbLead.company?.whatsapp || dbLead.company_phone || dbLead.company_whatsapp || dbLead.whatsapp || dbLead.phone || '',
+      company_whatsapp: dbLead.company?.whatsapp || dbLead.company_whatsapp || dbLead.whatsapp || dbLead.phone || '',
       contact_name: dbLead.contact_name || 'Sem nome',
       contact_role: dbLead.contact_role || '',
       contact_email: dbLead.contact_email || dbLead.email || '',
       contact_instagram: dbLead.contact_instagram || '',
       contact_linkedin: dbLead.contact_linkedin || '',
-      contact_whatsapp: dbLead.contact_phone || dbLead.contact_whatsapp || dbLead.whatsapp || dbLead.phone || '',
+      contact_whatsapp: dbLead.contact_whatsapp || dbLead.whatsapp || dbLead.phone || '',
       contact_notes: dbLead.contact_notes || '',
       pipeline_id: dbLead.pipeline_id || null,
       stage_id: dbLead.stage_id || null,
@@ -167,7 +167,7 @@ export const mappers = {
       // Legacy Aliases for UI compatibility
       name: dbLead.contact_name || '',
       email: dbLead.contact_email || dbLead.email || '',
-      whatsapp: dbLead.contact_phone || dbLead.contact_whatsapp || dbLead.whatsapp || dbLead.phone || '',
+      whatsapp: dbLead.contact_whatsapp || dbLead.whatsapp || dbLead.phone || '',
       notes: dbLead.business_notes || dbLead.notes || '',
       cnpj: dbLead.company_cnpj || dbLead.cnpj || '',
       website: dbLead.company_website || dbLead.website || '',
