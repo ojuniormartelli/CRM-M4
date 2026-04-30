@@ -142,7 +142,7 @@ const App: React.FC = () => {
   const config = getSupabaseConfig();
   const hasConfig = config.url && config.url !== 'https://placeholder.supabase.co';
 
-  if (appData.loading || workspaceLoading) {
+  if (workspaceLoading && !resolvedWorkspaceId) {
     return (
       <div className="h-screen flex items-center justify-center bg-white dark:bg-slate-950 flex-col gap-4 transition-colors duration-300">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
@@ -154,19 +154,30 @@ const App: React.FC = () => {
   }
 
   // Se não tem configuração de Supabase (URL/Key), força Setup
-  if (!hasConfig) {
+  if (!hasConfig && !workspaceLoading) {
     return <Setup />;
   }
 
   // Se tem configuração mas não está logado, força Login
-  if (!currentUser) {
+  if (!currentUser && !workspaceLoading) {
     return <Login onLogin={setCurrentUser} />;
   }
 
   // Se está logado mas por algum motivo não resolveu o workspace, tenta mostrar Setup (ou erro)
   if (currentUser && !resolvedWorkspaceId && !workspaceLoading) {
-    // Se o usuário está logado mas não há workspace, pode ser erro de sincronização ou primeiro acesso mal sucedido
     return <Setup />;
+  }
+
+  // Mostrar loading moderado se temos usuário mas ainda estamos buscando os dados iniciais do app
+  if (currentUser && resolvedWorkspaceId && appData.loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-slate-950 flex-col gap-4 transition-colors duration-300">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-slate-400 uppercase tracking-widest text-[10px] animate-pulse">
+          Carregando seu Espaço de Trabalho...
+        </p>
+      </div>
+    );
   }
 
   return (

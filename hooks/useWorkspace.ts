@@ -10,16 +10,16 @@ export function useWorkspace() {
   useEffect(() => {
     let mounted = true;
 
-    async function resolve() {
+    async function resolve(isInitial = false) {
       try {
-        if (mounted) setLoading(true);
+        if (mounted && isInitial) setLoading(true);
 
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
           if (mounted) {
             setWorkspaceId(null);
-            setLoading(false);
+            if (isInitial) setLoading(false);
           }
           return;
         }
@@ -32,19 +32,19 @@ export function useWorkspace() {
       } catch (err: unknown) {
         if (mounted) setError(err instanceof Error ? err : new Error(String(err)));
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && isInitial) setLoading(false);
       }
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        resolve();
+        resolve(false);
       } else if (event === 'SIGNED_OUT') {
         setWorkspaceId(null);
       }
     });
 
-    resolve();
+    resolve(true);
 
     return () => {
       mounted = false;
