@@ -66,11 +66,21 @@ END $$;
 -- 2. FUNÇÕES CORE
 -- ============================================
 
--- Helper: Pegar Workspace ID do usuário logado via m4_users
+-- Helper: Pegar Workspace ID do usuário logado via m4_users ou m4_workspace_users
 CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
 RETURNS UUID AS $$
+DECLARE
+    v_workspace_id UUID;
 BEGIN
-    RETURN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1);
+    -- 1. Tentar m4_users (perfil principal)
+    SELECT workspace_id INTO v_workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1;
+    IF v_workspace_id IS NOT NULL THEN
+        RETURN v_workspace_id;
+    END IF;
+
+    -- 2. Tentar m4_workspace_users (vínculo explícito)
+    SELECT workspace_id INTO v_workspace_id FROM public.m4_workspace_users WHERE user_id = auth.uid() LIMIT 1;
+    RETURN v_workspace_id;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 

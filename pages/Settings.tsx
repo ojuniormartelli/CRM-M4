@@ -541,6 +541,8 @@ const Settings: React.FC<SettingsProps> = ({
     setIsSaving(true);
     try {
       const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId) throw new Error("Workspace não identificado");
+
       const pipelineData = {
         name: editingPipeline.name,
         workspace_id: workspaceId,
@@ -549,17 +551,26 @@ const Settings: React.FC<SettingsProps> = ({
 
       let pipelineId = editingPipeline.id;
       if (pipelineId) {
-        const { error } = await supabase.from('m4_pipelines').update(pipelineData).eq('id', pipelineId);
+        const { error } = await supabase
+          .from('m4_pipelines')
+          .update(pipelineData)
+          .eq('id', pipelineId)
+          .eq('workspace_id', workspaceId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from('m4_pipelines').insert(pipelineData).select().single();
+        const { data, error } = await supabase
+          .from('m4_pipelines')
+          .insert(pipelineData)
+          .select()
+          .single();
         if (error) throw error;
+        if (!data) throw new Error("Erro ao criar funil");
         pipelineId = data.id;
       }
 
       // Save stages
       if (editingPipeline.stages) {
-        const allStages = editingPipeline.stages.map((s, idx) => {
+        const processedStages = editingPipeline.stages.map((s, idx) => {
           const stage: any = {
             pipeline_id: pipelineId,
             workspace_id: workspaceId,
@@ -569,7 +580,6 @@ const Settings: React.FC<SettingsProps> = ({
             status: s.status || FunnelStatus.INTERMEDIATE
           };
           
-          // Only include ID if it looks like a real UUID (not a temp ID from Math.random)
           if (s.id && s.id.length > 20 && !s.id.includes('.')) {
             stage.id = s.id;
           }
@@ -577,36 +587,59 @@ const Settings: React.FC<SettingsProps> = ({
           return stage;
         });
 
-        // 1. Identify stages to delete (those in DB but not in currentStages)
+        // 1. Identify stages to delete
         if (editingPipeline.id) {
-          const { data: dbStages } = await supabase.from('m4_pipeline_stages').select('id').eq('pipeline_id', pipelineId);
+          const { data: dbStages } = await supabase
+            .from('m4_pipeline_stages')
+            .select('id')
+            .eq('pipeline_id', pipelineId)
+            .eq('workspace_id', workspaceId);
+          
           if (dbStages) {
-            const currentIds = allStages.map(s => s.id).filter(Boolean);
+            const currentIds = processedStages.map(s => s.id).filter(Boolean);
             const toDelete = dbStages.filter(s => !currentIds.includes(s.id)).map(s => s.id);
             if (toDelete.length > 0) {
-              await supabase.from('m4_pipeline_stages').delete().in('id', toDelete);
+              const { error: delError } = await supabase
+                .from('m4_pipeline_stages')
+                .delete()
+                .in('id', toDelete)
+                .eq('workspace_id', workspaceId);
+              if (delError) throw delError;
             }
           }
         }
 
         // 2. Separate updates and inserts
-        const stagesToUpsert = allStages.filter(s => s.id);
-        const stagesToInsert = allStages.filter(s => !s.id);
+        const stagesToUpsert = processedStages.filter(s => s.id);
+        const stagesToInsert = processedStages.filter(s => !s.id);
 
         if (stagesToUpsert.length > 0) {
-          const { error: uError } = await supabase.from('m4_pipeline_stages').upsert(stagesToUpsert);
+          const { error: uError } = await supabase
+            .from('m4_pipeline_stages')
+            .upsert(stagesToUpsert);
           if (uError) throw uError;
         }
 
         if (stagesToInsert.length > 0) {
-          const { error: iError } = await supabase.from('m4_pipeline_stages').insert(stagesToInsert);
+          const { error: iError } = await supabase
+            .from('m4_pipeline_stages')
+            .insert(stagesToInsert);
           if (iError) throw iError;
         }
       }
 
       // Refresh pipelines
-      const { data: pData } = await supabase.from('m4_pipelines').select('*').order('position');
-      const { data: sData } = await supabase.from('m4_pipeline_stages').select('*').order('position');
+      const { data: pData } = await supabase
+        .from('m4_pipelines')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('position');
+      
+      const { data: sData } = await supabase
+        .from('m4_pipeline_stages')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('position');
       
       if (pData) {
         const fullPipelines = pData.map(p => ({
@@ -618,9 +651,10 @@ const Settings: React.FC<SettingsProps> = ({
 
       setIsPipelineModalOpen(false);
       setEditingPipeline(null);
-      alert('Pipeline salvo com sucesso!');
+      alert('Funil salvo com sucesso!');
     } catch (error: any) {
-      alert('Erro ao salvar pipeline: ' + error.message);
+      console.error('Erro ao salvar pipeline:', error);
+      alert('Erro ao salvar pipeline: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setIsSaving(false);
     }
