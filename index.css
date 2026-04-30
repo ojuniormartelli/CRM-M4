@@ -44,6 +44,7 @@
 }
 
 :root {
+  font-size: 14px; /* Reduced from default 16px for a more compact "high-res" feel */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -56,6 +57,12 @@
   --ring: #2563eb;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+}
+
+@media (min-width: 1536px) {
+  :root {
+    font-size: 15px; /* Slightly larger on very wide screens but still compact */
+  }
 }
 
 .dark {
@@ -76,21 +83,21 @@
 /* Configure dark mode to use the .dark class instead of media query */
 @custom-variant dark (&:where(.dark, .dark *));
 
-  /* 🎨 UX REFINEMENTS */
+  /* 🎨 dense UX REFINEMENTS */
   .modal-container {
-    @apply flex flex-col h-full max-h-[95vh] overflow-hidden rounded-[2.5rem] bg-background shadow-2xl border border-border/50 animate-zoom-in-95;
+    @apply flex flex-col h-full max-h-[92vh] overflow-hidden rounded-[1.5rem] bg-background shadow-2xl border border-border/50 animate-zoom-in-95;
   }
   
   .modal-header {
-    @apply shrink-0 px-10 py-8 bg-card border-b border-border flex justify-between items-center z-10;
+    @apply shrink-0 px-6 py-5 bg-card border-b border-border flex justify-between items-center z-10;
   }
   
   .modal-content {
-    @apply flex-1 overflow-y-auto p-10;
+    @apply flex-1 overflow-y-auto p-6 md:p-8;
   }
   
   .modal-footer {
-    @apply shrink-0 p-10 pt-0 flex gap-4 bg-background z-10;
+    @apply shrink-0 p-6 pt-0 flex gap-4 bg-background z-10;
   }
 
   h1, h2, h3, h4, h5, h6 {

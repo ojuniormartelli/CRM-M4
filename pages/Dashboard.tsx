@@ -41,7 +41,7 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
       : 'text-red-600 dark:text-red-400';
 
   return (
-    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
         <div>
           <p className="text-muted-foreground text-sm font-medium mb-1">{title}</p>
@@ -158,11 +158,11 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
     .slice(0, 3);
 
   return (
-    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-8 animate-in fade-in duration-500">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h2 className="text-3xl font-black text-foreground tracking-tight">Dashboard Comercial</h2>
-          <p className="text-muted-foreground font-medium">Performance e métricas em tempo real.</p>
+          <h2 className="text-2xl font-black text-foreground tracking-tight">Dashboard Comercial</h2>
+          <p className="text-muted-foreground font-medium text-xs">Performance e métricas em tempo real.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <PipelineSelector 
@@ -179,7 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         <StatCard title="Leads Ativos" value={metrics.activeLeads} change={formatChange(comparison.leadsChange)} icon={ICONS.Sales} color="blue" />
         <StatCard title="Ticket Médio" value={`R$ ${metrics.averageTicket.toLocaleString()}`} change="0%" icon={ICONS.TrendingUp} color="indigo" />
         <StatCard title="Fechado (Mês)" value={`R$ ${metrics.closedRevenue.toLocaleString()}`} change={formatChange(comparison.revenueChange)} icon={ICONS.Plus} color="emerald" />
@@ -188,7 +188,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         <StatCard title="Churn Rate" value={`${churnRate.toFixed(1)}%`} change="—" icon={ICONS.X} color="red" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <AlertsPanel 
             leads={filteredLeads} 
@@ -202,10 +202,10 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
-            <h3 className="text-lg font-black text-foreground mb-8 uppercase tracking-widest">Performance de Vendas</h3>
+          <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+            <h3 className="text-base font-black text-foreground mb-6 uppercase tracking-widest">Performance de Vendas</h3>
             <div style={{ height: 320 }} className="w-full">
               <ResponsiveContainer width="100%" height={320} minWidth={0}>
                 <LineChart data={chartData}>
@@ -228,18 +228,18 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StageConversionChart leads={filteredLeads} pipelines={filteredPipelines} />
         <SourceAnalytics leads={filteredLeads} pipelines={filteredPipelines} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
           <PerformanceScorecard leads={filteredLeads} pipelines={filteredPipelines} />
         </div>
-        <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-lg font-black text-foreground uppercase tracking-widest">Próximas Reuniões</h3>
+        <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-base font-black text-foreground uppercase tracking-widest">Próximas Reuniões</h3>
             <button className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Ver Agenda</button>
           </div>
           <div className="space-y-4">
@@ -265,18 +265,18 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         </div>
       </div>
 
-      {/* AI Forecast Banner - Simplified as it's now integrated in ForecastBreakdown but kept for visual impact */}
-      <div className="p-8 bg-gradient-to-r from-indigo-600 to-blue-700 dark:from-indigo-900 dark:to-blue-900 rounded-[2.5rem] text-white shadow-2xl shadow-blue-100 dark:shadow-none relative overflow-hidden">
+      {/* AI Forecast Banner */}
+      <div className="p-6 bg-gradient-to-r from-indigo-600 to-blue-700 dark:from-indigo-900 dark:to-blue-900 rounded-2xl text-white shadow-2xl shadow-blue-100 dark:shadow-none relative overflow-hidden">
         <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex-1">
-             <div className="flex items-center gap-3 mb-4">
+             <div className="flex items-center gap-3 mb-3">
                <div className="p-2 bg-white/20 rounded-lg">
                  <ICONS.Automation width="20" height="20" />
                </div>
                <span className="text-[10px] font-black uppercase tracking-[0.2em]">AI Sales Prediction</span>
              </div>
-             <h2 className="text-3xl font-black tracking-tight mb-2">
+             <h2 className="text-2xl font-black tracking-tight mb-2">
                {isForecasting ? 'Analisando Pipeline...' : `R$ ${forecast?.predictedRevenue.toLocaleString() || '0'}`}
              </h2>
              <p className="text-blue-100 font-medium text-sm">

@@ -114,7 +114,7 @@ const MainContent: React.FC<MainContentProps> = ({
   campaigns
 }) => {
   return (
-    <div className="flex-1 flex flex-col overflow-hidden p-10 scroll-smooth">
+    <div className="flex-1 flex flex-col overflow-hidden p-6 lg:p-8 scroll-smooth">
       {activeTab === 'dashboard' && (
         <Dashboard 
           leads={leads} 

@@ -48,14 +48,14 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
     <div className="border-b border-border last:border-0">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center py-6 px-10 hover:bg-muted/50 transition-all group"
+        className="w-full flex justify-between items-center py-4 px-6 hover:bg-muted/50 transition-all group"
       >
         <h4 className="text-sm font-black text-foreground group-hover:text-primary transition-colors uppercase tracking-[0.2em]">{title}</h4>
         <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
           <ICONS.ChevronDown width="16" height="16" className="text-muted-foreground" />
         </div>
       </button>
-      {isOpen && <div className="px-10 pb-10 animate-in fade-in slide-in-from-top-2 duration-300">{children}</div>}
+      {isOpen && <div className="px-6 pb-6 animate-in fade-in slide-in-from-top-2 duration-300">{children}</div>}
     </div>
   );
 };
@@ -76,7 +76,7 @@ const PipelineProgress = ({
   const foundIndex = stages.findIndex(s => s.id === currentStageId);
   const currentIndex = foundIndex === -1 ? 0 : foundIndex;
   return (
-    <div className="flex items-center w-full px-10 py-6 bg-card border-b border-border overflow-x-auto scrollbar-none gap-4">
+    <div className="flex items-center w-full px-6 py-4 bg-card border-b border-border overflow-x-auto scrollbar-none gap-4">
       {onMove && (
         <button 
           onClick={() => onMove('prev')}
@@ -1700,14 +1700,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
 
       {viewMode === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto pb-10 -mx-10 px-10 scrollbar-none relative">
+        <div className="flex-1 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-none relative">
           {leadsHiddenByFilter && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center p-10 bg-background/50 backdrop-blur-[2px]">
-              <div className="bg-card p-10 rounded-[3rem] border-2 border-primary shadow-2xl max-w-md text-center animate-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-6">
-                  <ICONS.Clock width="40" height="40" />
+            <div className="absolute inset-0 z-10 flex items-center justify-center p-6 bg-background/50 backdrop-blur-[2px]">
+              <div className="bg-card p-8 rounded-3xl border-2 border-primary shadow-2xl max-w-md text-center animate-in zoom-in duration-500">
+                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
+                  <ICONS.Clock width="32" height="32" />
                 </div>
-                <h3 className="text-2xl font-black text-foreground uppercase mb-4">Filtro Ativo!</h3>
+                <h3 className="text-xl font-black text-foreground uppercase mb-3">Filtro Ativo!</h3>
                 <p className="text-muted-foreground font-bold leading-relaxed mb-8">
                   Você possui <span className="text-primary">{totalLeadsInPipeline} leads ativos</span> neste pipeline, mas nenhum aparece porque o filtro <span className="bg-primary/10 px-2 py-1 rounded-lg text-primary italic">"Meu Dia"</span> está selecionado e eles não possuem ações para hoje.
                 </p>
@@ -1721,15 +1721,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             </div>
           )}
           
-          <div className="flex gap-8 h-full min-w-max">
+          <div className="flex gap-4 h-full min-w-max">
             {activePipeline.stages.map((stage) => (
               <div 
                 key={stage.id} 
                 onDragOver={onDragOver} 
                 onDrop={(e) => onDrop(e, stage.id)}
-                className={`w-[360px] flex flex-col bg-muted/30 rounded-[2.5rem] border transition-all duration-500 p-3 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
+                className={`w-[280px] flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
               >
-                <div className="p-6 flex justify-between items-center bg-card/60 rounded-[2rem] border-b border-border/50 mb-4 shadow-sm">
+                <div className="p-4 flex justify-between items-center bg-card/60 rounded-2xl border-b border-border/50 mb-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
                     <h3 className="font-black text-foreground text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
@@ -1738,8 +1738,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="bg-foreground dark:bg-muted px-3 py-1 rounded-full text-[10px] font-black text-background dark:text-foreground">{getLeadsByStage(stage.id).length}</span>
-                    <p className="text-[10px] font-black text-muted-foreground mt-1">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
+                    <span className="bg-foreground dark:bg-muted px-2 py-0.5 rounded-full text-[9px] font-black text-background dark:text-foreground">{getLeadsByStage(stage.id).length}</span>
+                    <p className="text-[9px] font-black text-muted-foreground mt-0.5">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
                   </div>
                 </div>
 
@@ -1757,10 +1757,10 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       draggable
                       onDragStart={(e) => onDragStart(e, lead.id)}
                       onClick={() => setSelectedLead(lead)}
-                      className={`bg-card rounded-[1.75rem] border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'} ${cardDensity === 'compact' ? 'p-4' : 'p-6'}`}
+                      className={`bg-card rounded-2xl border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'} ${cardDensity === 'compact' ? 'p-3' : 'p-5'}`}
                     >
-                      <div className={`flex justify-between items-start ${cardDensity === 'compact' ? 'mb-2' : 'mb-4'}`}>
-                        <span className={`uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-3.5 py-1.5 rounded-xl border border-primary/20 inline-block max-w-full break-words ${cardDensity === 'compact' ? 'text-[8px]' : 'text-[9px]'}`}>
+                      <div className={`flex justify-between items-start ${cardDensity === 'compact' ? 'mb-1.5' : 'mb-3'}`}>
+                        <span className={`uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 inline-block max-w-full break-words ${cardDensity === 'compact' ? 'text-[8px]' : 'text-[9px]'}`}>
                           {lead.niche || 'Sem Nicho'}
                         </span>
                         {isStale(lead) && (

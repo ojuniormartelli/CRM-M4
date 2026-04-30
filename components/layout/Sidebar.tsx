@@ -39,7 +39,7 @@ const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle,
           setActiveTab(id);
         }
       }}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 ${
+      className={`w-full flex items-center justify-between px-4 py-2 rounded-xl transition-all duration-300 ${
         isActive && (!hasSubItems || !isSidebarOpen)
           ? 'bg-blue-600 text-white shadow-xl shadow-blue-100/50 scale-[1.02]' 
           : 'text-slate-500 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400'
@@ -100,9 +100,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-card border-r border-border transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
-      <div className="p-8 flex items-center gap-4 border-b border-border h-24 shrink-0">
-        <div className="w-11 h-11 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-100 overflow-hidden">
+    <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
+      <div className="p-6 flex items-center gap-4 border-b border-border h-20 shrink-0">
+        <div className="w-10 h-10 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-100 overflow-hidden">
           {settings?.logo_url ? (
             <img src={settings.logo_url} alt="Logo" className="w-full h-full object-cover" />
           ) : (
@@ -117,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto scrollbar-none">
+      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto scrollbar-none">
         <SidebarItem 
           id="dashboard" 
           icon={ICONS.Dashboard} 
@@ -129,7 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         {menuSections.map((section, sIdx) => (
           <React.Fragment key={sIdx}>
-            <div className={`pt-8 pb-3 px-6 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>
+            <div className={`pt-6 pb-2 px-6 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] transition-opacity ${!isSidebarOpen && 'opacity-0'}`}>
               {section.title}
             </div>
             {section.items.map(item => (
