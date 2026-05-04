@@ -109,10 +109,10 @@ const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-background/80 backdrop-blur-md z-[300]"
+            className="fixed inset-0 bg-background/80 backdrop-blur-md z-[99998]"
             aria-hidden="true"
           />
-          <div className="fixed inset-0 z-[301] flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               ref={modalRef}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -153,6 +153,7 @@ const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
 
               <div className="flex gap-4">
                 <button 
+                  type="button"
                   ref={cancelButtonRef}
                   onClick={onClose}
                   disabled={isLoading}
@@ -161,6 +162,7 @@ const ConfirmDangerModal: React.FC<ConfirmDangerModalProps> = ({
                   {cancelLabel}
                 </button>
                 <button 
+                  type="button"
                   onClick={onConfirm}
                   disabled={isLoading}
                   className={`flex-1 py-4 ${config.buttonBg} rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all disabled:opacity-50 shadow-lg shadow-black/5 flex items-center justify-center gap-2 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background`}

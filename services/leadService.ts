@@ -13,25 +13,28 @@ enum OperationType {
 }
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const workspaceId = localStorage.getItem('m4_crm_workspace_id');
-  const userId = localStorage.getItem('m4_crm_user_id');
+  let errorMessage = 'Ocorreu um erro na operação';
+  let technicalDetails = '';
 
-  let errorMessage = 'Erro desconhecido';
   if (error instanceof Error) {
-    errorMessage = error.message;
+    technicalDetails = error.message;
+    if (error.message.includes('row-level security policy')) {
+      errorMessage = 'Permissão negada: você não tem autorização para realizar esta ação neste registro.';
+    } else if (error.message.includes('JWT')) {
+      errorMessage = 'Sessão expirada. Por favor, faça login novamente.';
+    }
   } else if (typeof error === 'object' && error !== null) {
-    errorMessage = (error as any).message || (error as any).details || JSON.stringify(error);
+    const errorObj = error as any;
+    technicalDetails = errorObj.message || errorObj.details || JSON.stringify(error);
+    if (errorObj.code === '42501') {
+      errorMessage = 'Permissão negada no banco de dados.';
+    }
   }
 
-  const errInfo = {
-    error: errorMessage,
-    authInfo: { userId: userId || 'unknown', workspaceId },
-    operationType,
-    path
-  };
+  console.error(`[LeadService] ${operationType} failed on ${path}:`, technicalDetails);
   
-  console.error('Lead Service Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // Lança um erro que a UI consiga entender como amigável
+  throw new Error(errorMessage);
 }
 
 export const leadService = {
@@ -107,7 +110,7 @@ export const leadService = {
       const updatedLead = mappers.leadFromDb(data);
 
       if (currentLead) {
-        if (lead.pipeline_id || lead.stage_id) {
+        if (lead.pipeline_id || lead.stage_id || (lead as any).stage) {
           automationService.processEvent(workspaceId, 'lead', 'stage_change', {
             pipeline_id: updatedLead.pipeline_id,
             from_stage_id: currentLead.stage_id,

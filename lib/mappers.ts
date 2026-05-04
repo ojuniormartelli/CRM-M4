@@ -105,6 +105,7 @@ export const mappers = {
     if (data.company_id !== undefined) payload.company_id = data.company_id || null;
     if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
     if (data.status !== undefined) payload.status = data.status || 'active';
+    if (data.origin_lead_id !== undefined) payload.origin_lead_id = data.origin_lead_id || null;
     if (data.custom_fields !== undefined) payload.custom_fields = data.custom_fields || {};
     if (data.interactions !== undefined) payload.interactions = data.interactions || [];
 
@@ -159,6 +160,7 @@ export const mappers = {
       company_id: dbLead.company_id || undefined,
       contact_id: dbLead.contact_id || undefined,
       status: dbLead.status || 'active',
+      origin_lead_id: dbLead.origin_lead_id || undefined,
       created_at: dbLead.created_at || new Date().toISOString(),
       last_activity_at: dbLead.last_activity_at || undefined,
       interactions: dbLead.interactions || [],

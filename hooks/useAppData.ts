@@ -8,25 +8,25 @@ import { useCRMStore } from '../lib/store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const queryKeys = {
-  all: (wsId: string) => [wsId],
-  leads: (wsId: string) => ['leads', wsId],
-  tasks: (wsId: string) => ['tasks', wsId],
-  transactions: (wsId: string) => ['transactions', wsId],
-  companies: (wsId: string) => ['companies', wsId],
-  contacts: (wsId: string) => ['contacts', wsId],
-  emails: (wsId: string) => ['emails', wsId],
-  projects: (wsId: string) => ['projects', wsId],
-  clients: (wsId: string) => ['clients', wsId],
-  clientAccounts: (wsId: string) => ['clientAccounts', wsId],
-  services: (wsId: string) => ['services', wsId],
-  bankAccounts: (wsId: string) => ['bankAccounts', wsId],
-  creditCards: (wsId: string) => ['creditCards', wsId],
-  financeCategories: (wsId: string) => ['financeCategories', wsId],
-  paymentMethods: (wsId: string) => ['paymentMethods', wsId],
-  posts: (wsId: string) => ['posts', wsId],
-  campaigns: (wsId: string) => ['campaigns', wsId],
-  pipelines: (wsId: string) => ['pipelines', wsId],
-  settings: (wsId: string) => ['settings', wsId],
+  all: (wsId: string) => ['workspace', wsId],
+  leads: (wsId: string) => ['workspace', wsId, 'leads'],
+  tasks: (wsId: string) => ['workspace', wsId, 'tasks'],
+  transactions: (wsId: string) => ['workspace', wsId, 'transactions'],
+  companies: (wsId: string) => ['workspace', wsId, 'companies'],
+  contacts: (wsId: string) => ['workspace', wsId, 'contacts'],
+  emails: (wsId: string) => ['workspace', wsId, 'emails'],
+  projects: (wsId: string) => ['workspace', wsId, 'projects'],
+  clients: (wsId: string) => ['workspace', wsId, 'clients'],
+  clientAccounts: (wsId: string) => ['workspace', wsId, 'clientAccounts'],
+  services: (wsId: string) => ['workspace', wsId, 'services'],
+  bankAccounts: (wsId: string) => ['workspace', wsId, 'bankAccounts'],
+  creditCards: (wsId: string) => ['workspace', wsId, 'creditCards'],
+  financeCategories: (wsId: string) => ['workspace', wsId, 'financeCategories'],
+  paymentMethods: (wsId: string) => ['workspace', wsId, 'paymentMethods'],
+  posts: (wsId: string) => ['workspace', wsId, 'posts'],
+  campaigns: (wsId: string) => ['workspace', wsId, 'campaigns'],
+  pipelines: (wsId: string) => ['workspace', wsId, 'pipelines'],
+  settings: (wsId: string) => ['workspace', wsId, 'settings'],
 };
 
 export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading: boolean) => {
@@ -203,15 +203,11 @@ export const useAppData = (resolvedWorkspaceId: string | null, workspaceLoading:
       
       // Invalidate all workspace data to ensure consistency on automation changes
       if (wsId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.all(wsId) });
-      }
-      
-      // Specifically invalidate by entity if possible
-      if (e.detail?.entityType && wsId) {
-        const entityKey = e.detail.entityType + 's';
-        if (queryKeys[entityKey as keyof typeof queryKeys]) {
-          queryClient.invalidateQueries({ queryKey: (queryKeys[entityKey as keyof typeof queryKeys] as Function)(wsId) });
-        }
+        console.log('[useAppData] Invalidating queries for workspace:', wsId);
+        queryClient.invalidateQueries({
+          queryKey: ['workspace', wsId],
+          refetchType: 'all'
+        });
       }
     };
 

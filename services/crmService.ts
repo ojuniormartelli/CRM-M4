@@ -11,25 +11,26 @@ enum OperationType {
 }
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const workspaceId = localStorage.getItem('m4_crm_workspace_id');
-  const userId = localStorage.getItem('m4_crm_user_id');
+  let errorMessage = 'Ocorreu um erro na plataforma';
+  let technicalDetails = '';
 
-  let errorMessage = 'Erro desconhecido';
   if (error instanceof Error) {
-    errorMessage = error.message;
+    technicalDetails = error.message;
+    if (error.message.includes('row-level security policy')) {
+      errorMessage = 'Permissão negada: verifique se você tem acesso a este workspace.';
+    } else if (error.message.includes('JWT')) {
+      errorMessage = 'Sessão expirada. Por favor, faça login novamente.';
+    }
   } else if (typeof error === 'object' && error !== null) {
-    errorMessage = (error as any).message || (error as any).details || JSON.stringify(error);
+    const errorObj = error as any;
+    technicalDetails = errorObj.message || errorObj.details || JSON.stringify(error);
+    if (errorObj.code === '42501') {
+      errorMessage = 'Acesso negado no banco de dados.';
+    }
   }
 
-  const errInfo = {
-    error: errorMessage,
-    authInfo: { userId: userId || 'unknown', workspaceId },
-    operationType,
-    path
-  };
-  
-  console.error('CRM Service Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.error(`[CRMService] ${operationType} failed on ${path}:`, technicalDetails);
+  throw new Error(errorMessage);
 }
 
 export const crmService = {

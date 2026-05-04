@@ -122,6 +122,7 @@ export interface Lead {
   status?: LeadStatus;
   interactions?: Interaction[];
   custom_fields?: Record<string, string | number | boolean>;
+  origin_lead_id?: string;
   deleted_at?: string | null;
   created_at: string;
   company?: {

@@ -59,7 +59,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, isVisible, onClose }) => {
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-          className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[500] px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-4 border pointer-events-auto min-w-[320px] max-w-md"
+          className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100000] px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-4 border pointer-events-auto min-w-[320px] max-w-md"
           style={{ 
             backgroundColor: 'var(--background)',
             borderColor: 'var(--border)',

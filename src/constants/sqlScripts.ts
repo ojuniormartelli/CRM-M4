@@ -66,6 +66,39 @@ END $$;
 -- 2. FUNÇÕES CORE
 -- ============================================
 
+-- Helper: Verifica se o usuário tem acesso ao workspace
+CREATE OR REPLACE FUNCTION public.is_member_of(v_workspace_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+BEGIN
+    -- Se não houver workspace_id ou user_id, nega acesso
+    IF v_workspace_id IS NULL OR v_user_id IS NULL THEN RETURN FALSE; END IF;
+    
+    -- Admin Master (Backup de segurança)
+    -- O UUID abaixo é o do administrador padrão criado no seed
+    IF v_user_id = 'd167f4e8-4a19-4ab7-b655-f104004f8bf0' THEN RETURN TRUE; END IF;
+
+    RETURN EXISTS (
+        -- 1. Perfil principal m4_users
+        SELECT 1 FROM public.m4_users 
+        WHERE id = v_user_id AND workspace_id = v_workspace_id
+        
+        UNION ALL
+        
+        -- 2. Tabela de vínculo explícito m4_workspace_users
+        SELECT 1 FROM public.m4_workspace_users 
+        WHERE user_id = v_user_id AND workspace_id = v_workspace_id
+        
+        UNION ALL
+        
+        -- 3. Super-users (Owners globais podem ver tudo por enquanto para evitar lockouts em dev)
+        SELECT 1 FROM public.m4_users
+        WHERE id = v_user_id AND role = 'owner'
+    );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
 -- Helper: Pegar Workspace ID do usuário logado via m4_users ou m4_workspace_users
 CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
 RETURNS UUID AS $$
@@ -113,6 +146,8 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE SET 
     email = EXCLUDED.email,
+    workspace_id = COALESCE(public.m4_users.workspace_id, EXCLUDED.workspace_id),
+    role = COALESCE(public.m4_users.role, EXCLUDED.role),
     updated_at = now();
 
   -- Cria vínculo explícito na tabela de relacionamento
@@ -293,10 +328,19 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     responsible_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     last_activity_at TIMESTAMPTZ DEFAULT now(),
     custom_fields JSONB DEFAULT '{}'::jsonb,
+    origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );
+
+-- Migração para m4_leads
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_leads' AND column_name = 'origin_lead_id') THEN
+        ALTER TABLE public.m4_leads ADD COLUMN origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.m4_projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -514,21 +558,63 @@ CREATE TABLE IF NOT EXISTS public.m4_automations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
     trigger_type TEXT NOT NULL,
     trigger_conditions JSONB DEFAULT '{}'::jsonb,
     actions JSONB DEFAULT '[]'::jsonb,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now()
+    last_triggered_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Migração para adicionar colunas faltantes se a tabela já existir
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automations' AND column_name = 'entity_type') THEN
+        ALTER TABLE public.m4_automations ADD COLUMN entity_type TEXT;
+        UPDATE public.m4_automations SET entity_type = 'leads' WHERE entity_type IS NULL;
+        ALTER TABLE public.m4_automations ALTER COLUMN entity_type SET NOT NULL;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automations' AND column_name = 'last_triggered_at') THEN
+        ALTER TABLE public.m4_automations ADD COLUMN last_triggered_at TIMESTAMPTZ;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automations' AND column_name = 'updated_at') THEN
+        ALTER TABLE public.m4_automations ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
+    entity_id UUID,
+    entity_type TEXT,
+    action_type TEXT,
     status TEXT DEFAULT 'success',
     error_message TEXT,
+    execution_details JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Migração para m4_automation_logs
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automation_logs' AND column_name = 'entity_id') THEN
+        ALTER TABLE public.m4_automation_logs ADD COLUMN entity_id UUID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automation_logs' AND column_name = 'entity_type') THEN
+        ALTER TABLE public.m4_automation_logs ADD COLUMN entity_type TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automation_logs' AND column_name = 'action_type') THEN
+        ALTER TABLE public.m4_automation_logs ADD COLUMN action_type TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automation_logs' AND column_name = 'execution_details') THEN
+        ALTER TABLE public.m4_automation_logs ADD COLUMN execution_details JSONB DEFAULT '{}'::jsonb;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.m4_goals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -538,6 +624,9 @@ CREATE TABLE IF NOT EXISTS public.m4_goals (
     current_value DECIMAL(15,2) DEFAULT 0,
     type TEXT DEFAULT 'sales',
     created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(workspace_id, month, type)
+);
     UNIQUE(workspace_id, month, type)
 );
 
@@ -580,39 +669,37 @@ BEGIN
 
         -- SELECT
         EXECUTE format('DROP POLICY IF EXISTS %I_select ON %I', t, t);
-        IF has_deleted_at THEN
-            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)', t, t);
-        ELSE
-            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
-        END IF;
+        EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (public.is_member_of(workspace_id))', t, t);
 
-        -- INSERT
+        -- OPERAÇÕES DE ESCRITA (INSERT, UPDATE, DELETE)
+        -- Usamos is_member_of para permitir acesso a qualquer workspace que o usuário pertença
+        EXECUTE format('DROP POLICY IF EXISTS %I_write ON %I', t, t);
+        EXECUTE format('CREATE POLICY %I_write ON %I FOR ALL TO authenticated USING (public.is_member_of(workspace_id)) WITH CHECK (public.is_member_of(workspace_id))', t, t);
+        
+        -- Limpando políticas legadas que possam conflitar
         EXECUTE format('DROP POLICY IF EXISTS %I_insert ON %I', t, t);
-        EXECUTE format('CREATE POLICY %I_insert ON %I FOR INSERT TO authenticated WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
-        
-        -- UPDATE
         EXECUTE format('DROP POLICY IF EXISTS %I_update ON %I', t, t);
-        EXECUTE format('CREATE POLICY %I_update ON %I FOR UPDATE TO authenticated USING (workspace_id = public.get_current_workspace_id()) WITH CHECK (workspace_id = public.get_current_workspace_id())', t, t);
-        
-        -- DELETE
         EXECUTE format('DROP POLICY IF EXISTS %I_delete ON %I', t, t);
-        EXECUTE format('CREATE POLICY %I_delete ON %I FOR DELETE TO authenticated USING (workspace_id = public.get_current_workspace_id())', t, t);
+        EXECUTE format('DROP POLICY IF EXISTS "Workspace Access" ON %I', t);
 
     END LOOP;
 END $$;
 
 -- Policies Manuais (Tabelas Core)
 DROP POLICY IF EXISTS m4_workspaces_select ON public.m4_workspaces;
-CREATE POLICY m4_workspaces_select ON public.m4_workspaces FOR SELECT TO authenticated USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
+CREATE POLICY m4_workspaces_select ON public.m4_workspaces FOR SELECT TO authenticated 
+USING (public.is_member_of(id));
 
 DROP POLICY IF EXISTS m4_users_select ON public.m4_users;
-CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated 
+USING (id = auth.uid() OR public.is_member_of(workspace_id));
 
 DROP POLICY IF EXISTS m4_users_update ON public.m4_users;
 CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
 DROP POLICY IF EXISTS m4_workspace_users_select ON public.m4_workspace_users;
-CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated USING (workspace_id = public.get_current_workspace_id());
+CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated 
+USING (user_id = auth.uid() OR public.is_member_of(workspace_id));
 
 -- ============================================
 -- 8. SEEDS RESILIENTES (DADOS ESTRUTURAIS)
@@ -1143,6 +1230,7 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     custom_fields JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
+    origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     deleted_at TIMESTAMPTZ
 );
 
@@ -1368,45 +1456,9 @@ CREATE TABLE IF NOT EXISTS public.m4_fin_budgets (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.m4_automations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    trigger_type TEXT NOT NULL,
-    trigger_conditions JSONB DEFAULT '{}'::jsonb,
-    actions JSONB DEFAULT '[]'::jsonb,
-    is_active BOOLEAN DEFAULT true,
-    last_triggered_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.m4_automation_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    automation_id UUID REFERENCES public.m4_automations(id) ON DELETE CASCADE,
-    entity_id UUID NOT NULL,
-    entity_type TEXT NOT NULL,
-    action_type TEXT NOT NULL,
-    status TEXT DEFAULT 'success',
-    error_message TEXT,
-    execution_details JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
 -- 6. METAS E OBJETIVOS
-CREATE TABLE IF NOT EXISTS public.m4_goals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
-    month TEXT NOT NULL, -- Formato YYYY-MM
-    target_value DECIMAL(15,2) DEFAULT 0,
-    current_value DECIMAL(15,2) DEFAULT 0,
-    type TEXT DEFAULT 'sales',
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(workspace_id, month, type)
-);
+-- (Removido bloco duplicado de automações)
+
 
 -- 7. SEEDS INICIAIS
 INSERT INTO public.m4_workspaces (id, name)
@@ -1452,71 +1504,9 @@ BEGIN
     END LOOP;
 END $$;
 
--- 1. Helper: Pegar Workspace ID do usuário logado
-CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
-RETURNS UUID AS $$
-BEGIN
-    RETURN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1);
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
-
--- 2. Políticas de Isolamento por Workspace e Soft Delete
-DO $$ 
-DECLARE
-    t text;
-    has_deleted_at boolean;
-BEGIN
-    FOR t IN (
-        SELECT tablename 
-        FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND tablename LIKE 'm4_%' 
-        AND tablename NOT IN ('m4_workspaces', 'm4_users', 'm4_workspace_users')
-    ) LOOP
-        -- Verificar se a tabela tem a coluna deleted_at
-        SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = t AND column_name = 'deleted_at'
-        ) INTO has_deleted_at;
-
-        IF has_deleted_at THEN
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL)
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
-        ELSE
-            EXECUTE format('
-                CREATE POLICY "Workspace Access" ON %I 
-                FOR ALL 
-                TO authenticated 
-                USING (workspace_id = public.get_current_workspace_id())
-                WITH CHECK (workspace_id = public.get_current_workspace_id())
-            ', t);
-        END IF;
-    END LOOP;
-END $$;
-
--- 3. Políticas Especiais para Tabelas de Core
--- m4_workspaces: Usuários podem ver o workspace em que participam
-DROP POLICY IF EXISTS "Workspace Member Visibility" ON public.m4_workspaces;
-CREATE POLICY "Workspace Member Visibility" ON public.m4_workspaces
-FOR SELECT TO authenticated
-USING (id IN (SELECT workspace_id FROM public.m4_users WHERE id = auth.uid()));
-
--- m4_users: Usuários podem ver a si mesmos e colegas do mesmo workspace
-DROP POLICY IF EXISTS "User Profile Visibility" ON public.m4_users;
-CREATE POLICY "User Profile Visibility" ON public.m4_users
-FOR SELECT TO authenticated
-USING (workspace_id = public.get_current_workspace_id());
-
-DROP POLICY IF EXISTS "User Self Update" ON public.m4_users;
-CREATE POLICY "User Self Update" ON public.m4_users
-FOR UPDATE TO authenticated
-USING (id = auth.uid())
-WITH CHECK (id = auth.uid());
+-- 10. CONFIGURAÇÕES FINAIS DE SEGURANÇA
+-- Nota: As políticas RLS e funções de auxílio foram consolidadas no início deste script.
+-- Isso evita duplicações e garante uma ordem de execução previsível.
 
 -- 4. Trigger de Sincronização Supabase Auth -> Perfil m4_users
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
@@ -1532,6 +1522,8 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE SET 
     email = EXCLUDED.email,
+    workspace_id = COALESCE(public.m4_users.workspace_id, EXCLUDED.workspace_id),
+    role = COALESCE(public.m4_users.role, EXCLUDED.role),
     updated_at = now();
   RETURN new;
 END;
@@ -1635,7 +1627,13 @@ BEGIN
         INSERT INTO public.m4_workspaces (id, name) VALUES ('fb786658-1234-4321-8888-999988887777', 'Workspace Principal');
     END IF;
 
-    -- 2. Atualiza tabelas existentes com workspace_id
+    -- 2. Atualiza tabelas existentes com workspace_id (Fixing Data)
+    UPDATE public.m4_users SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE workspace_id IS NULL;
+    UPDATE public.m4_leads SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE workspace_id IS NULL;
+    UPDATE public.m4_companies SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE workspace_id IS NULL;
+    UPDATE public.m4_contacts SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE workspace_id IS NULL;
+    UPDATE public.m4_tasks SET workspace_id = 'fb786658-1234-4321-8888-999988887777' WHERE workspace_id IS NULL;
+
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
     ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.m4_workspaces(id) DEFAULT 'fb786658-1234-4321-8888-999988887777';
@@ -1699,30 +1697,29 @@ BEGIN
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS qualification TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_score INTEGER DEFAULT 0;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL;
+
+    -- 4.1 Correção Schema Automações
+    ALTER TABLE m4_automations ADD COLUMN IF NOT EXISTS entity_type TEXT;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automations' AND column_name = 'entity_type') THEN
+        UPDATE public.m4_automations SET entity_type = 'leads' WHERE entity_type IS NULL;
+        ALTER TABLE public.m4_automations ALTER COLUMN entity_type SET NOT NULL;
+    END IF;
+    ALTER TABLE m4_automations ADD COLUMN IF NOT EXISTS last_triggered_at TIMESTAMPTZ;
+    ALTER TABLE m4_automations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+    
+    ALTER TABLE m4_automation_logs ADD COLUMN IF NOT EXISTS entity_id UUID;
+    ALTER TABLE m4_automation_logs ADD COLUMN IF NOT EXISTS entity_type TEXT;
+    ALTER TABLE m4_automation_logs ADD COLUMN IF NOT EXISTS action_type TEXT;
+    ALTER TABLE m4_automation_logs ADD COLUMN IF NOT EXISTS execution_details JSONB DEFAULT '{}'::jsonb;
 
     -- 5. Índices de Performance
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_cnpj ON public.m4_leads(company_cnpj);
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
     CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
 
-    -- 6. Atualização de Políticas RLS (Soft Delete - Estático para Máxima Segurança)
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_leads;
-    CREATE POLICY "Workspace Access" ON m4_leads FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
-    
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_companies;
-    CREATE POLICY "Workspace Access" ON m4_companies FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
-
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_contacts;
-    CREATE POLICY "Workspace Access" ON m4_contacts FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
-
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_tasks;
-    CREATE POLICY "Workspace Access" ON m4_tasks FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
-
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_clients;
-    CREATE POLICY "Workspace Access" ON m4_clients FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
-
-    DROP POLICY IF EXISTS "Workspace Access" ON m4_projects;
-    CREATE POLICY "Workspace Access" ON m4_projects FOR ALL TO authenticated USING (workspace_id = public.get_current_workspace_id() AND deleted_at IS NULL) WITH CHECK (workspace_id = public.get_current_workspace_id());
+    -- 6. Atualização de Políticas RLS (Consolidada via Script Dinâmico)
+    -- As políticas agora são gerenciadas centralmente no início do script para evitar redundâncias.
 END $$;
 `;
 

@@ -3,7 +3,7 @@ import { mappers } from '../lib/mappers';
 import { Lead, TaskTemplate, M4Client, Automation } from '../types';
 import { addDays } from 'date-fns';
 
-const isUUID = (uuid: any) => typeof uuid === 'string' && (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid));
+const isUUID = (uuid: any) => typeof uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
 
 export const automationService = {
   /**
@@ -394,12 +394,12 @@ export const automationService = {
         return;
       }
 
-      console.log(`[Automation] Found ${automations.length} active automations`);
+      console.log(`[Automation] Found ${automations.length} active automations for ${triggerType}`);
 
       for (const auto of automations) {
         // 2. Evaluate conditions
         const isTriggered = this.evaluateTrigger(auto, eventData);
-        console.log(`[Automation] Evaluating "${auto.name}": ${isTriggered ? 'MATCHED' : 'SKIPPED'}`);
+        console.log(`[Automation] Evaluating "${auto.name}" (ID: ${auto.id}): ${isTriggered ? 'MATCHED ✅' : 'SKIPPED ❌'}`);
         
         if (isTriggered) {
           console.log(`[Automation] Executing actions for: ${auto.name}`);
@@ -428,9 +428,13 @@ export const automationService = {
       }
 
       // Dispatch event for UI refresh
-      window.dispatchEvent(new CustomEvent('m4_automation_executed', { 
-        detail: { entityType, triggerType, workspaceId } 
-      }));
+      // Small delay ensures database consistency is achieved before UI refetches
+      setTimeout(() => {
+        console.log(`[Automation] Dispatching m4_automation_executed event for workspace: ${workspaceId}`);
+        window.dispatchEvent(new CustomEvent('m4_automation_executed', { 
+          detail: { entityType, triggerType, workspaceId } 
+        }));
+      }, 800);
     } catch (err) {
       console.error('Error in automation engine:', err);
     }
