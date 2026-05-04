@@ -371,7 +371,9 @@ const Settings: React.FC<SettingsProps> = ({
             options: {
               data: {
                 full_name: userData.name,
-                workspace_id: currentUser.workspace_id
+                workspace_id: currentUser.workspace_id,
+                role: mappedRole,
+                job_role_id: userData.job_role_id
               }
             }
         });
@@ -1724,7 +1726,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cargo</label>
                   <select 
                     value={editingUser.job_role_id || ''}
-                    onChange={e => setEditingUser({ ...editingUser, job_role_id: e.target.value })}
+                    onChange={e => setEditingUser({ ...editingUser, job_role_id: e.target.value || null })}
                     className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-200"
                   >
                     <option value="">Selecione um cargo...</option>

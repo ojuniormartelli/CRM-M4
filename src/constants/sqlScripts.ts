@@ -117,6 +117,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
+-- Helper: Pegar Role do usuário logado via m4_users
+CREATE OR REPLACE FUNCTION public.get_current_user_role() 
+RETURNS TEXT AS $$
+DECLARE
+    v_role TEXT;
+BEGIN
+    SELECT role INTO v_role FROM public.m4_users WHERE id = auth.uid() LIMIT 1;
+    RETURN v_role;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
 -- Trigger: Sincronização Supabase Auth -> m4_users + Auto-vínculo de Workspace
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS trigger AS $$
@@ -139,20 +150,27 @@ BEGIN
     new.id, 
     COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
     new.email, 
-    v_default_ws_id,
-    CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'user' END,
-    CASE WHEN v_user_count = 0 THEN v_owner_role_id ELSE NULL END,
+    COALESCE((new.raw_user_meta_data->>'workspace_id')::UUID, v_default_ws_id),
+    COALESCE(new.raw_user_meta_data->>'role', CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'user' END),
+    COALESCE(
+        CASE WHEN (new.raw_user_meta_data->>'job_role_id') IS NULL OR (new.raw_user_meta_data->>'job_role_id') = '' 
+             THEN NULL 
+             ELSE (new.raw_user_meta_data->>'job_role_id')::UUID 
+        END,
+        CASE WHEN v_user_count = 0 THEN v_owner_role_id ELSE NULL END
+    ),
     'active'
   )
   ON CONFLICT (id) DO UPDATE SET 
     email = EXCLUDED.email,
     workspace_id = COALESCE(public.m4_users.workspace_id, EXCLUDED.workspace_id),
-    role = COALESCE(public.m4_users.role, EXCLUDED.role),
+    role = COALESCE(EXCLUDED.role, public.m4_users.role),
+    job_role_id = COALESCE(EXCLUDED.job_role_id, public.m4_users.job_role_id),
     updated_at = now();
 
   -- Cria vínculo explícito na tabela de relacionamento
   INSERT INTO public.m4_workspace_users (workspace_id, user_id, role)
-  VALUES (v_default_ws_id, new.id, CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'member' END)
+  VALUES (COALESCE((new.raw_user_meta_data->>'workspace_id')::UUID, v_default_ws_id), new.id, CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'member' END)
   ON CONFLICT (workspace_id, user_id) DO NOTHING;
 
   RETURN new;
@@ -695,7 +713,9 @@ CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated
 USING (id = auth.uid() OR public.is_member_of(workspace_id));
 
 DROP POLICY IF EXISTS m4_users_update ON public.m4_users;
-CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated 
+USING (id = auth.uid() OR (public.is_member_of(workspace_id) AND public.get_current_user_role() IN ('admin', 'owner')))
+WITH CHECK (id = auth.uid() OR (public.is_member_of(workspace_id) AND public.get_current_user_role() IN ('admin', 'owner')));
 
 DROP POLICY IF EXISTS m4_workspace_users_select ON public.m4_workspace_users;
 CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated 
@@ -1509,25 +1529,7 @@ END $$;
 -- Isso evita duplicações e garante uma ordem de execução previsível.
 
 -- 4. Trigger de Sincronização Supabase Auth -> Perfil m4_users
-CREATE OR REPLACE FUNCTION public.handle_new_user() 
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.m4_users (id, name, email, workspace_id, role)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
-    new.email, 
-    'fb786658-1234-4321-8888-999988887777', -- Default Admin Workspace
-    'user'
-  )
-  ON CONFLICT (id) DO UPDATE SET 
-    email = EXCLUDED.email,
-    workspace_id = COALESCE(public.m4_users.workspace_id, EXCLUDED.workspace_id),
-    role = COALESCE(public.m4_users.role, EXCLUDED.role),
-    updated_at = now();
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Trigger defined earlier in script to ensure it runs correctly with metadata.
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
