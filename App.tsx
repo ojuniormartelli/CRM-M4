@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
+import { ICONS } from './constants';
 import { supabase, getSupabaseConfig } from './lib/supabase';
 import Login from './components/Login';
 import Setup from './pages/Setup';
@@ -16,7 +17,7 @@ import MainContent from './components/layout/MainContent';
 
 const App: React.FC = () => {
   const { theme } = useTheme();
-  const { workspaceId: resolvedWorkspaceId, loading: workspaceLoading } = useWorkspace();
+  const { workspaceId: resolvedWorkspaceId, loading: workspaceLoading, error: workspaceError } = useWorkspace();
   const appData = useAppData(resolvedWorkspaceId, workspaceLoading);
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -35,6 +36,8 @@ const App: React.FC = () => {
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
+
+  const [showConfigError, setShowConfigError] = useState(false);
 
   // --- PWA INSTALLATION ---
   useEffect(() => {
@@ -56,15 +59,25 @@ const App: React.FC = () => {
   // --- AUTH: usa Supabase Auth nativo, sem localStorage manual ---
   useEffect(() => {
     const loadUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-      const { data: user } = await supabase
-        .from('m4_users')
-        .select('*, job_role:m4_job_roles(*)')
-        .eq('id', authUser.id)
-        .maybeSingle();
-      if (user) {
-        setCurrentUser(user as User);
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!authUser) return;
+        const { data: user, error: profileError } = await supabase
+          .from('m4_users')
+          .select('*, job_role:m4_job_roles(*)')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        
+        if (profileError) throw profileError;
+        if (user) {
+          setCurrentUser(user as User);
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar usuário:', err);
+        if (err.message?.includes('fetch') || err.message?.includes('failed')) {
+          setShowConfigError(true);
+        }
       }
     };
     loadUser();
@@ -141,6 +154,45 @@ const App: React.FC = () => {
 
   const config = getSupabaseConfig();
   const hasConfig = config.url && config.url !== 'https://placeholder.supabase.co';
+
+  if (showConfigError || workspaceError) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-950 p-12 text-center space-y-6">
+        <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-[2rem] flex items-center justify-center">
+          <ICONS.AlertTriangle size={40} />
+        </div>
+        <div className="max-w-md space-y-2">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Falha na Conexão</h1>
+          <p className="text-slate-500 font-medium leading-relaxed">
+            O aplicativo não conseguiu se conectar ao Supabase. Verifique sua conexão com a internet ou se a URL/Key configuradas estão corretas.
+          </p>
+          {workspaceError && (
+            <p className="text-[10px] font-mono text-rose-500 mt-4 p-4 bg-rose-50 rounded-xl overflow-auto w-full">
+              {workspaceError.message}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
+          >
+            Tentar Novamente
+          </button>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('supabase_url');
+              localStorage.removeItem('supabase_anon_key');
+              window.location.reload();
+            }}
+            className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+          >
+            Resetar Configuração
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (workspaceLoading && !resolvedWorkspaceId) {
     return (

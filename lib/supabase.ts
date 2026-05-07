@@ -27,6 +27,7 @@ export function getSupabaseConfig(): SupabaseConfig {
     return { url: localUrl, key: localKey, isCustom: true };
   }
 
+  console.warn('[Supabase] Nenhuma configuração encontrada (ENV ou LocalStorage). Usando placeholder.');
   return { url: '', key: '', isCustom: false };
 }
 

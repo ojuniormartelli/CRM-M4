@@ -78,23 +78,23 @@ const Sidebar: React.FC<SidebarProps> = ({
         { id: 'my_day', icon: CheckCircle2, label: 'Meu Dia' },
         { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
         { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
-        { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
-        { id: 'settings_group', icon: ICONS.Settings, label: 'Configurações', hasSubItems: true, menuKey: 'admin' },
       ]
     },
     {
-      title: "Comercial",
+      title: "CRM & Operação",
       items: [
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
         { id: 'goal_settings', icon: ICONS.Target, label: 'Metas de Vendas' },
         { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
+        { id: 'tasks', icon: ICONS.Tasks, label: 'Minhas Tarefas' },
+        { id: 'projects', icon: ICONS.Projects, label: 'Projetos & Squads' },
       ]
     },
     {
-      title: "Operacional",
+      title: "Administrativo",
       items: [
-        { id: 'tasks', icon: ICONS.Tasks, label: 'Minhas Tarefas' },
-        { id: 'projects', icon: ICONS.Projects, label: 'Projetos & Squads' },
+        { id: 'finance_group', icon: ICONS.Finance, label: 'Financeiro', hasSubItems: true, menuKey: 'finance' },
+        { id: 'settings_group', icon: ICONS.Settings, label: 'Configurações', hasSubItems: true, menuKey: 'admin' },
       ]
     }
   ];

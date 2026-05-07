@@ -76,55 +76,84 @@ BEGIN
     IF v_workspace_id IS NULL OR v_user_id IS NULL THEN RETURN FALSE; END IF;
     
     -- Admin Master (Backup de segurança)
-    -- O UUID abaixo é o do administrador padrão criado no seed
     IF v_user_id = 'd167f4e8-4a19-4ab7-b655-f104004f8bf0' THEN RETURN TRUE; END IF;
 
+    -- 1. Tentar via JWT metadata (Otimizado)
+    IF (auth.jwt() -> 'user_metadata' ->> 'workspace_id')::UUID = v_workspace_id THEN
+        RETURN TRUE;
+    END IF;
+
+    -- 2. Tentar via Owner Role (Otimizado)
+    IF (auth.jwt() -> 'user_metadata' ->> 'role') = 'owner' THEN
+        RETURN TRUE;
+    END IF;
+
     RETURN EXISTS (
-        -- 1. Perfil principal m4_users
-        SELECT 1 FROM public.m4_users 
-        WHERE id = v_user_id AND workspace_id = v_workspace_id
-        
-        UNION ALL
-        
-        -- 2. Tabela de vínculo explícito m4_workspace_users
+        -- 3. Tabela de vínculo explícito m4_workspace_users
         SELECT 1 FROM public.m4_workspace_users 
         WHERE user_id = v_user_id AND workspace_id = v_workspace_id
         
         UNION ALL
-        
-        -- 3. Super-users (Owners globais podem ver tudo por enquanto para evitar lockouts em dev)
-        SELECT 1 FROM public.m4_users
-        WHERE id = v_user_id AND role = 'owner'
+
+        -- 4. Perfil principal m4_users (Fallback se metadata falhou/está desatualizado)
+        SELECT 1 FROM public.m4_users 
+        WHERE id = v_user_id AND (workspace_id = v_workspace_id OR role = 'owner')
     );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- Helper: Pegar Workspace ID do usuário logado via m4_users ou m4_workspace_users
+-- Helper: Pegar Workspace ID do usuário logado (SEGURO PARA RLS - USA APENAS METADATA)
+CREATE OR REPLACE FUNCTION public.get_my_workspace_id_safe() 
+RETURNS UUID AS $$
+BEGIN
+    RETURN (auth.jwt() -> 'user_metadata' ->> 'workspace_id')::UUID;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Helper: Pegar Workspace ID do usuário logado via metadata ou tabelas (PARA USO GERAL)
 CREATE OR REPLACE FUNCTION public.get_current_workspace_id() 
 RETURNS UUID AS $$
 DECLARE
     v_workspace_id UUID;
 BEGIN
-    -- 1. Tentar m4_users (perfil principal)
-    SELECT workspace_id INTO v_workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1;
+    -- 1. Tentar via JWT metadata (Mais rápido e evita recursão)
+    v_workspace_id := (auth.jwt() -> 'user_metadata' ->> 'workspace_id')::UUID;
     IF v_workspace_id IS NOT NULL THEN
         RETURN v_workspace_id;
     END IF;
 
     -- 2. Tentar m4_workspace_users (vínculo explícito)
+    -- Nota: Isso pode disparar RLS se não for SECURITY DEFINER e estiver em uma política
     SELECT workspace_id INTO v_workspace_id FROM public.m4_workspace_users WHERE user_id = auth.uid() LIMIT 1;
+    IF v_workspace_id IS NOT NULL THEN
+        RETURN v_workspace_id;
+    END IF;
+
+    -- 3. Fallback: m4_users
+    SELECT workspace_id INTO v_workspace_id FROM public.m4_users WHERE id = auth.uid() LIMIT 1;
     RETURN v_workspace_id;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- Helper: Pegar Role do usuário logado via m4_users
+-- Helper: Pegar Role do usuário logado via JWT metadata ou m4_users
 CREATE OR REPLACE FUNCTION public.get_current_user_role() 
 RETURNS TEXT AS $$
 DECLARE
     v_role TEXT;
 BEGIN
+    -- 1. Tentar via JWT metadata (evita recursão)
+    v_role := (auth.jwt() -> 'user_metadata' ->> 'role');
+    IF v_role IS NOT NULL THEN RETURN v_role; END IF;
+
+    -- 2. Fallback m4_users
     SELECT role INTO v_role FROM public.m4_users WHERE id = auth.uid() LIMIT 1;
     RETURN v_role;
+EXCEPTION WHEN OTHERS THEN
+    RETURN 'user';
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
@@ -710,16 +739,38 @@ USING (public.is_member_of(id));
 
 DROP POLICY IF EXISTS m4_users_select ON public.m4_users;
 CREATE POLICY m4_users_select ON public.m4_users FOR SELECT TO authenticated 
-USING (id = auth.uid() OR public.is_member_of(workspace_id));
+USING (
+    id = auth.uid() 
+    OR 
+    workspace_id = public.get_my_workspace_id_safe()
+);
 
 DROP POLICY IF EXISTS m4_users_update ON public.m4_users;
 CREATE POLICY m4_users_update ON public.m4_users FOR UPDATE TO authenticated 
-USING (id = auth.uid() OR (public.is_member_of(workspace_id) AND public.get_current_user_role() IN ('admin', 'owner')))
-WITH CHECK (id = auth.uid() OR (public.is_member_of(workspace_id) AND public.get_current_user_role() IN ('admin', 'owner')));
+USING (
+    id = auth.uid() 
+    OR (
+        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('admin', 'owner')
+        AND 
+        workspace_id = public.get_my_workspace_id_safe()
+    )
+)
+WITH CHECK (
+    id = auth.uid() 
+    OR (
+        (auth.jwt() -> 'user_metadata' ->> 'role') IN ('admin', 'owner')
+        AND 
+        workspace_id = public.get_my_workspace_id_safe()
+    )
+);
 
 DROP POLICY IF EXISTS m4_workspace_users_select ON public.m4_workspace_users;
 CREATE POLICY m4_workspace_users_select ON public.m4_workspace_users FOR SELECT TO authenticated 
-USING (user_id = auth.uid() OR public.is_member_of(workspace_id));
+USING (
+    user_id = auth.uid() 
+    OR 
+    workspace_id = public.get_my_workspace_id_safe()
+);
 
 -- ============================================
 -- 8. SEEDS RESILIENTES (DADOS ESTRUTURAIS)

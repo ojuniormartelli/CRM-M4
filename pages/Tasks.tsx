@@ -379,11 +379,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
   }, [newTask.company_id, editTask.company_id, isEditing]);
 
   useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000);
+    if (toast && toast.isVisible) {
+      const timer = setTimeout(() => setToast(prev => prev ? { ...prev, isVisible: false } : prev), 3000);
       return () => clearTimeout(timer);
     }
-  }, [toast]);
+  }, [toast?.isVisible]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
