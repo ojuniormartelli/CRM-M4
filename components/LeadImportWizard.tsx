@@ -36,7 +36,7 @@ const CRM_FIELDS = [
   { id: 'company_email', label: 'E-mail da Empresa', aliases: ['email empresa', 'email corporativo', 'company_email'] },
   { id: 'company_instagram', label: 'Instagram da Empresa', aliases: ['instagram empresa', 'insta empresa', 'company_instagram'] },
   { id: 'company_linkedin', label: 'LinkedIn da Empresa', aliases: ['linkedin empresa', 'company_linkedin'] },
-  { id: 'company_whatsapp', label: 'Telefone / WhatsApp da Empresa', aliases: ['telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
+  { id: 'company_whatsapp', label: 'Telefone / WhatsApp da Empresa', aliases: ['whatsapp empresa', 'telefone empresa', 'fone empresa', 'company_phone', 'company_whatsapp', 'whatsapp_empresa'] },
 
   // SEÇÃO 2 - CONTATO / DECISOR
   { id: 'contact_name', label: 'Nome do Contato', aliases: ['contato', 'responsavel', 'nome', 'person', 'contact', 'decisor', 'nome_contato', 'contact_name', 'name'] },
@@ -44,7 +44,7 @@ const CRM_FIELDS = [
   { id: 'contact_email', label: 'E-mail do Contato', aliases: ['email contato', 'email pessoal', 'email_contato', 'e-mail', 'email', 'contact_email'] },
   { id: 'contact_instagram', label: 'Instagram do Contato', aliases: ['instagram contato', 'insta contato', 'contact_instagram'] },
   { id: 'contact_linkedin', label: 'LinkedIn do Contato', aliases: ['linkedin contato', 'contact_linkedin', 'linkedin'] },
-  { id: 'contact_whatsapp', label: 'Telefone / WhatsApp do Contato', aliases: ['telefone contato', 'fone contato', 'celular', 'telefone_contato', 'telefone', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
+  { id: 'contact_whatsapp', label: 'Telefone / WhatsApp do Contato', aliases: ['whatsapp', 'telefone', 'celular', 'telefone contato', 'fone contato', 'telefone_contato', 'contact_phone', 'contact_whatsapp', 'whatsapp_contato', 'phone'] },
   { id: 'contact_notes', label: 'Notas do Contato', aliases: ['notas contato', 'obs contato', 'contact_notes'] },
 
   // SEÇÃO 3 - DADOS DO NEGÓCIO
