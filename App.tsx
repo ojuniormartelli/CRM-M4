@@ -61,8 +61,15 @@ const App: React.FC = () => {
     const loadUser = async () => {
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-        if (authError) throw authError;
+        
+        // If no user or session error, just stop silently
+        if (authError) {
+          if (authError.message?.includes('Auth session missing')) return;
+          throw authError;
+        }
+        
         if (!authUser) return;
+        
         const { data: user, error: profileError } = await supabase
           .from('m4_users')
           .select('*, job_role:m4_job_roles(*)')
@@ -74,6 +81,9 @@ const App: React.FC = () => {
           setCurrentUser(user as User);
         }
       } catch (err: any) {
+        // Don't log "session missing" as an error
+        if (err.message?.includes('Auth session missing')) return;
+        
         console.error('Erro ao carregar usuário:', err);
         if (err.message?.includes('fetch') || err.message?.includes('failed')) {
           setShowConfigError(true);

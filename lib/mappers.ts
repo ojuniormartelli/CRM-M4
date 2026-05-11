@@ -114,7 +114,6 @@ export const mappers = {
     if (data.status !== undefined) payload.status = data.status || 'active';
     if (data.origin_lead_id !== undefined) payload.origin_lead_id = data.origin_lead_id || null;
     if (data.custom_fields !== undefined) payload.custom_fields = data.custom_fields || {};
-    if (data.interactions !== undefined) payload.interactions = data.interactions || [];
 
     const ws = getValidWorkspaceId(workspaceId, data.workspace_id);
     if (ws) payload.workspace_id = ws;

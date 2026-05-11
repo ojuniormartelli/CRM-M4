@@ -381,6 +381,36 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     deleted_at TIMESTAMPTZ
 );
 
+-- Interações e Histórico
+CREATE TABLE IF NOT EXISTS public.m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    type TEXT,
+    title TEXT,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Formulários e Sondagens
+CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    questions JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    answers JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Migração para m4_leads
 DO $$ 
 BEGIN 
