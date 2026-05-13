@@ -190,6 +190,7 @@ export const mappers = {
     if (data.city !== undefined) payload.city = cleanText(data.city);
     if (data.state !== undefined) payload.state = cleanText(data.state);
     if (data.email !== undefined) payload.email = cleanText(data.email);
+    if (data.instagram !== undefined) payload.instagram = cleanText(data.instagram);
     if (data.whatsapp !== undefined) payload.whatsapp = cleanDigits(data.whatsapp);
     if (data.notes !== undefined) payload.notes = cleanText(data.notes);
 
@@ -203,6 +204,7 @@ export const mappers = {
     if (data.name !== undefined) payload.name = cleanText(data.name) || 'Sem nome';
     if (data.company_id !== undefined) payload.company_id = data.company_id;
     if (data.email !== undefined) payload.email = cleanText(data.email);
+    if (data.instagram !== undefined) payload.instagram = cleanText(data.instagram);
     if (data.role !== undefined) payload.role = cleanText(data.role);
     if (data.whatsapp !== undefined) payload.whatsapp = cleanDigits(data.whatsapp);
     if (data.notes !== undefined) payload.notes = cleanText(data.notes);

@@ -423,10 +423,12 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     company_website: '',
     company_email: '',
     company_whatsapp: '',
+    company_instagram: '',
     contact_name: '',
     contact_role: '',
     contact_email: '',
     contact_whatsapp: '',
+    contact_instagram: '',
     contact_notes: '',
     pipeline_id: activePipelineId,
     stage: activePipeline?.stages?.[0]?.id || '',
@@ -453,7 +455,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', notes: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', instagram: '', notes: ''
   });
   
   // Contact selection states for New Company form
@@ -466,7 +468,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   });
 
   const [newContact, setNewContact] = useState<Partial<Contact>>({
-    name: '', email: '', role: '', whatsapp: '', company_id: ''
+    name: '', email: '', role: '', whatsapp: '', instagram: '', company_id: ''
   });
 
   const handleCreateCompany = async (e: React.FormEvent) => {
@@ -803,10 +805,12 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         company_website: '',
         company_email: '',
         company_whatsapp: '',
+        company_instagram: '',
         contact_name: '',
         contact_role: '',
         contact_email: '',
         contact_whatsapp: '',
+        contact_instagram: '',
         contact_notes: '',
         pipeline_id: activePipelineId,
         stage: activePipeline?.stages?.[0]?.id || '',
@@ -1294,10 +1298,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp (Empresa)</label>
                         <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Empresa)</label>
+                        <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
                       </div>
                     </div>
                   </div>
@@ -1322,10 +1330,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       </div>
                     </div>
 
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                       <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Contato)</label>
+                      <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="@usuario" />
                     </div>
                   </div>
 
@@ -1480,10 +1492,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="contato@empresa.com" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                       <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
                     </div>
                   </div>
                 </div>
@@ -1530,10 +1546,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
                   </div>
                 </div>
 
@@ -1775,6 +1795,24 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       <p className={`font-bold text-muted-foreground uppercase tracking-widest truncate ${cardDensity === 'compact' ? 'text-[8px] mb-2' : 'text-[10px] mb-4'}`}>
                         {lead.responsible_id ? lead.name : (lead.responsible_name || 'Contato não informado')}
                       </p>
+
+                      <div className="flex items-center gap-2 mb-3">
+                        {lead.contact_whatsapp && (
+                          <div className="p-1.5 bg-green-500/10 text-green-600 rounded-lg" title={lead.contact_whatsapp}>
+                            <ICONS.Phone width={12} height={12} />
+                          </div>
+                        )}
+                        {lead.contact_instagram && (
+                          <div className="p-1.5 bg-pink-500/10 text-pink-600 rounded-lg" title={lead.contact_instagram}>
+                            <ICONS.Instagram width={12} height={12} />
+                          </div>
+                        )}
+                        {lead.company_instagram && (
+                          <div className="p-1.5 bg-purple-500/10 text-purple-600 rounded-lg" title={`Empresa: ${lead.company_instagram}`}>
+                            <ICONS.Building width={12} height={12} />
+                          </div>
+                        )}
+                      </div>
 
                       {cardDensity === 'normal' && (
                         <>
@@ -2432,6 +2470,21 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                             )}
                           </div>
                         </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Instagram</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-foreground">{selectedLead.contact_instagram || '–'}</p>
+                            {selectedLead.contact_instagram && (
+                              <button 
+                                onClick={() => window.open(`https://instagram.com/${selectedLead.contact_instagram.replace('@', '')}`, '_blank')}
+                                className="p-1.5 bg-pink-500 text-white rounded-lg hover:opacity-90 transition-all"
+                                title="Ver Instagram"
+                              >
+                                <Instagram width="12" height="12" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </>
                     ) : (
                       <div className="space-y-4">
@@ -2467,6 +2520,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                             value={editLead.contact_whatsapp || ''} 
                             onChange={e => setEditLead({...editLead, contact_whatsapp: formatPhoneBR(e.target.value)})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram</label>
+                          <input 
+                            value={editLead.contact_instagram || ''} 
+                            onChange={e => setEditLead({...editLead, contact_instagram: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                            placeholder="@usuario"
                           />
                         </div>
                       </div>
@@ -2513,6 +2575,21 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                                 title="Conversar no WhatsApp"
                               >
                                 <MessageSquare width="12" height="12" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Instagram da Empresa</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-foreground">{selectedLead.company_instagram || '–'}</p>
+                            {selectedLead.company_instagram && (
+                              <button 
+                                onClick={() => window.open(`https://instagram.com/${selectedLead.company_instagram.replace('@', '')}`, '_blank')}
+                                className="p-1.5 bg-pink-500 text-white rounded-lg hover:opacity-90 transition-all"
+                                title="Ver Instagram da Empresa"
+                              >
+                                <Instagram width="12" height="12" />
                               </button>
                             )}
                           </div>
@@ -2586,6 +2663,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                             value={editLead.company_whatsapp || ''} 
                             onChange={e => setEditLead({...editLead, company_whatsapp: formatPhoneBR(e.target.value)})}
                             className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram da Empresa</label>
+                          <input 
+                            value={editLead.company_instagram || ''} 
+                            onChange={e => setEditLead({...editLead, company_instagram: e.target.value})}
+                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
+                            placeholder="@usuario"
                           />
                         </div>
                       </div>
@@ -3337,10 +3423,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
                   </div>
                 </div>
               </div>

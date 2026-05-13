@@ -36,12 +36,12 @@ const Contacts: React.FC<ContactsProps> = ({
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newContact, setNewContact] = useState<Partial<Contact>>({
-    name: '', email: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
+    name: '', email: '', role: '', whatsapp: '', instagram: '', notes: '', is_primary: false, company_id: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', notes: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', instagram: '', notes: ''
   });
 
   // Contact selection states for New Company form
@@ -54,6 +54,7 @@ const Contacts: React.FC<ContactsProps> = ({
     email: '',
     role: '',
     whatsapp: '',
+    instagram: '',
     notes: ''
   });
 
@@ -108,12 +109,13 @@ const Contacts: React.FC<ContactsProps> = ({
       setNewContact({ ...newContact, company_id: companyData[0].id });
       setCompanies([...companies, companyData[0]]);
       setIsCompanyModalOpen(false);
-      setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', notes: '' });
+      setNewCompany({ name: '', cnpj: '', city: '', state: '', segment: '', whatsapp: '', email: '', website: '', instagram: '', notes: '' });
       setPrimaryContact({ 
       name: '', 
       email: '', 
       role: '',
       whatsapp: '',
+      instagram: '',
       notes: ''
     });
       setSelectedContactId('');
@@ -141,7 +143,7 @@ const Contacts: React.FC<ContactsProps> = ({
       setContacts([...contacts, data[0]]);
       setIsModalOpen(false);
       setNewContact({
-        name: '', email: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
+        name: '', email: '', role: '', whatsapp: '', instagram: '', notes: '', is_primary: false, company_id: ''
       });
     }
     setIsSaving(false);
@@ -178,6 +180,7 @@ const Contacts: React.FC<ContactsProps> = ({
       email: contact.email,
       role: contact.role,
       whatsapp: contact.whatsapp,
+      instagram: contact.instagram,
       notes: contact.notes,
       is_primary: contact.is_primary,
       company_id: contact.company_id
@@ -224,10 +227,14 @@ const Contacts: React.FC<ContactsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                   </div>
                 </div>
 
@@ -370,6 +377,12 @@ const Contacts: React.FC<ContactsProps> = ({
                   <ICONS.Phone width="14" height="14" />
                   <span className="text-xs font-bold">{contact.whatsapp ? formatPhoneBR(contact.whatsapp) : 'N/A'}</span>
                 </div>
+                {contact.instagram && (
+                  <div className="flex items-center gap-3 text-pink-500">
+                    <ICONS.Instagram width="14" height="14" />
+                    <span className="text-xs font-bold truncate">{contact.instagram}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                   <ICONS.Mail width="14" height="14" />
                   <span className="text-xs font-bold">{contact.email || 'N/A'}</span>
@@ -418,27 +431,21 @@ const Contacts: React.FC<ContactsProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
-                    <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
-                  </div>
-                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
                     <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="joao@empresa.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone</label>
-                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                    <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
@@ -531,11 +538,15 @@ const Contacts: React.FC<ContactsProps> = ({
                         <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="Ex: Diretor Comercial" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
-                        <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="joao@empresa.com" />
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                        <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">E-mail</label>
+                        <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="joao@empresa.com" />
+                      </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                         <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
@@ -583,6 +594,10 @@ const Contacts: React.FC<ContactsProps> = ({
                       <div className="space-y-1 min-w-0">
                         <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Telefone / WhatsApp</p>
                         <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingContact?.whatsapp ? formatPhoneBR(editingContact.whatsapp) : '–'}</p>
+                      </div>
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingContact?.instagram || '–'}</p>
                       </div>
                     </div>
 
@@ -758,12 +773,16 @@ const Contacts: React.FC<ContactsProps> = ({
                           <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="email@contato.com" />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                          <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                            <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Instagram</label>
+                            <input value={primaryContact.instagram} onChange={e => setPrimaryContact({...primaryContact, instagram: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="@usuario" />
+                          </div>
                         </div>
-                      </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Notas</label>
                         <textarea value={primaryContact.notes} onChange={e => setPrimaryContact({...primaryContact, notes: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400 h-20" placeholder="Observações sobre o contato..." />

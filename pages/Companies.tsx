@@ -41,7 +41,7 @@ const Companies: React.FC<CompaniesProps> = ({
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
-    name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', whatsapp: '', notes: ''
+    name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', whatsapp: '', instagram: '', notes: ''
   });
   
   // Tasks state
@@ -55,7 +55,7 @@ const Companies: React.FC<CompaniesProps> = ({
   const [showContactDropdown, setShowContactDropdown] = useState(false);
 
   const [primaryContact, setPrimaryContact] = useState({
-    name: '', email: '', role: '', whatsapp: '', notes: ''
+    name: '', email: '', role: '', whatsapp: '', instagram: '', notes: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isContactEditModalOpen, setIsContactEditModalOpen] = useState(false);
@@ -93,7 +93,7 @@ const Companies: React.FC<CompaniesProps> = ({
   });
 
   const [newContactData, setNewContactData] = useState<Partial<Contact>>({
-    name: '', email: '', role: '', whatsapp: '', notes: '', is_primary: false, company_id: ''
+    name: '', email: '', role: '', whatsapp: '', instagram: '', notes: '', is_primary: false, company_id: ''
   });
 
   useEffect(() => {
@@ -201,6 +201,7 @@ const Companies: React.FC<CompaniesProps> = ({
       email: contact.email,
       role: contact.role,
       whatsapp: contact.whatsapp,
+      instagram: contact.instagram,
       notes: contact.notes,
       is_primary: contact.is_primary,
       company_id: contact.company_id
@@ -348,9 +349,9 @@ const Companies: React.FC<CompaniesProps> = ({
 
   const resetForm = () => {
     setNewCompany({
-      name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', whatsapp: '', notes: ''
+      name: '', cnpj: '', city: '', state: '', segment: '', website: '', email: '', whatsapp: '', instagram: '', notes: ''
     });
-    setPrimaryContact({ name: '', email: '', role: '', whatsapp: '', notes: '' });
+    setPrimaryContact({ name: '', email: '', role: '', whatsapp: '', instagram: '', notes: '' });
     setSelectedContactId('');
     setContactSearch('');
     setContactMode('select');
@@ -368,6 +369,7 @@ const Companies: React.FC<CompaniesProps> = ({
       website: company.website,
       email: company.email,
       whatsapp: company.whatsapp,
+      instagram: company.instagram,
       notes: company.notes
     });
     
@@ -443,10 +445,14 @@ const Companies: React.FC<CompaniesProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newContactData.whatsapp} onChange={e => setNewContactData({...newContactData, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newContactData.instagram} onChange={e => setNewContactData({...newContactData, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                   </div>
                 </div>
 
@@ -508,10 +514,14 @@ const Companies: React.FC<CompaniesProps> = ({
                       <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                       <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                      <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                     </div>
                   </div>
                   <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
@@ -589,10 +599,14 @@ const Companies: React.FC<CompaniesProps> = ({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                             <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="(00) 00000-0000" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest ml-1">Instagram</label>
+                            <input value={primaryContact.instagram} onChange={e => setPrimaryContact({...primaryContact, instagram: e.target.value})} className="w-full p-3 bg-white dark:bg-slate-700 rounded-xl border-none text-sm font-bold text-slate-900 dark:text-white dark:placeholder:text-slate-400" placeholder="@usuario" />
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -815,10 +829,14 @@ const Companies: React.FC<CompaniesProps> = ({
                     <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="contato@empresa.com" />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
                     <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Instagram</label>
+                    <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none font-bold text-slate-900 dark:text-white" placeholder="@usuario" />
                   </div>
                 </div>
                 <div className="space-y-4 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
@@ -1191,6 +1209,10 @@ const Companies: React.FC<CompaniesProps> = ({
                           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">WhatsApp</p>
                           <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.whatsapp ? formatPhoneBR(editingCompany.whatsapp) : '–'}</p>
                         </div>
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instagram</p>
+                          <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{editingCompany?.instagram || '–'}</p>
+                        </div>
                       </div>
                       
                       <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -1235,12 +1257,12 @@ const Companies: React.FC<CompaniesProps> = ({
                               
                               <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-1 min-w-0">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">E-mail</p>
-                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={contact.email}>{contact.email || '–'}</p>
-                                </div>
-                                <div className="space-y-1 min-w-0">
                                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Telefone / WhatsApp</p>
                                   <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{contact.whatsapp ? formatPhoneBR(contact.whatsapp) : '–'}</p>
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Instagram</p>
+                                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{contact.instagram || '–'}</p>
                                 </div>
                               </div>
                             </div>

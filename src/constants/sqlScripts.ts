@@ -419,6 +419,23 @@ BEGIN
     END IF;
 END $$;
 
+-- Migração para m4_companies e m4_contacts (Instagram)
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_companies' AND column_name = 'instagram') THEN
+        ALTER TABLE public.m4_companies ADD COLUMN instagram TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_contacts' AND column_name = 'instagram') THEN
+        ALTER TABLE public.m4_contacts ADD COLUMN instagram TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_leads' AND column_name = 'company_instagram') THEN
+        ALTER TABLE public.m4_leads ADD COLUMN company_instagram TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_leads' AND column_name = 'contact_instagram') THEN
+        ALTER TABLE public.m4_leads ADD COLUMN contact_instagram TEXT;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.m4_projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
@@ -1782,7 +1799,11 @@ BEGIN
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL;
 
-    -- 4.1 Correção Schema Automações
+    -- 4.1 Colunas Adicionais (Instagram para Company e Contact)
+    ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS instagram TEXT;
+    ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS instagram TEXT;
+
+    -- 4.2 Correção Schema Automações
     ALTER TABLE m4_automations ADD COLUMN IF NOT EXISTS entity_type TEXT;
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'm4_automations' AND column_name = 'entity_type') THEN
         UPDATE public.m4_automations SET entity_type = 'leads' WHERE entity_type IS NULL;

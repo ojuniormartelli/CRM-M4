@@ -47,6 +47,7 @@ export interface Company {
   segment?: string;
   website?: string;
   email?: string;
+  instagram?: string;
   whatsapp?: string;
   notes?: string;
   deleted_at?: string | null;
@@ -61,6 +62,7 @@ export interface Contact {
   name: string;
   role?: string;
   email?: string;
+  instagram?: string;
   whatsapp?: string;
   linkedin?: string;
   notes?: string;
