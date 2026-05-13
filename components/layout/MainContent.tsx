@@ -217,7 +217,7 @@ const MainContent: React.FC<MainContentProps> = ({
         />
       )}
       {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
-      {activeTab === 'meeting_forms' && <MeetingForms leads={leads} />}
+      {activeTab === 'meeting_forms' && <MeetingForms leads={leads} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {activeTab === 'collaboration' && <Collaboration posts={posts as any} setPosts={posts as any} currentUser={currentUser} />}
       {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}

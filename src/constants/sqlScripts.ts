@@ -89,8 +89,8 @@ BEGIN
     END IF;
 
     RETURN EXISTS (
-        -- 3. Tabela de vínculo explícito m4_workspace_users
-        SELECT 1 FROM public.m4_workspace_users 
+        -- 3. Tabela de vínculo explícito m4_workspace_members
+        SELECT 1 FROM public.m4_workspace_members 
         WHERE user_id = v_user_id AND workspace_id = v_workspace_id
         
         UNION ALL
@@ -124,9 +124,9 @@ BEGIN
         RETURN v_workspace_id;
     END IF;
 
-    -- 2. Tentar m4_workspace_users (vínculo explícito)
+    -- 2. Tentar m4_workspace_members (vínculo explícito)
     -- Nota: Isso pode disparar RLS se não for SECURITY DEFINER e estiver em uma política
-    SELECT workspace_id INTO v_workspace_id FROM public.m4_workspace_users WHERE user_id = auth.uid() LIMIT 1;
+    SELECT workspace_id INTO v_workspace_id FROM public.m4_workspace_members WHERE user_id = auth.uid() LIMIT 1;
     IF v_workspace_id IS NOT NULL THEN
         RETURN v_workspace_id;
     END IF;
@@ -198,7 +198,7 @@ BEGIN
     updated_at = now();
 
   -- Cria vínculo explícito na tabela de relacionamento
-  INSERT INTO public.m4_workspace_users (workspace_id, user_id, role)
+  INSERT INTO public.m4_workspace_members (workspace_id, user_id, role)
   VALUES (COALESCE((new.raw_user_meta_data->>'workspace_id')::UUID, v_default_ws_id), new.id, CASE WHEN v_user_count = 0 THEN 'owner' ELSE 'member' END)
   ON CONFLICT (workspace_id, user_id) DO NOTHING;
 
@@ -244,7 +244,15 @@ CREATE TABLE IF NOT EXISTS public.m4_users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.m4_workspace_users (
+-- = CROSS-VERSION FIX: Renaming table if needed
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_workspace_users') THEN
+        ALTER TABLE public.m4_workspace_users RENAME TO m4_workspace_members;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.m4_workspace_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,
@@ -388,7 +396,9 @@ CREATE TABLE IF NOT EXISTS public.m4_interactions (
     lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
     type TEXT,
     title TEXT,
+    note TEXT,
     content TEXT,
+    success BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -1211,7 +1221,7 @@ CREATE TABLE IF NOT EXISTS public.m4_users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.m4_workspace_users (
+CREATE TABLE IF NOT EXISTS public.m4_workspace_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,
@@ -1350,6 +1360,38 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     updated_at TIMESTAMPTZ DEFAULT now(),
     origin_lead_id UUID REFERENCES public.m4_leads(id) ON DELETE SET NULL,
     deleted_at TIMESTAMPTZ
+);
+
+-- Interações e Histórico
+CREATE TABLE IF NOT EXISTS public.m4_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    type TEXT,
+    title TEXT,
+    note TEXT,
+    content TEXT,
+    success BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Formulários e Sondagens
+CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    questions JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+    form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+    lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+    answers JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Índices para melhor performance
@@ -1822,8 +1864,54 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_m4_leads_company_email ON public.m4_leads(company_email);
     CREATE INDEX IF NOT EXISTS idx_m4_leads_contact_email ON public.m4_leads(contact_email);
 
-    -- 6. Atualização de Políticas RLS (Consolidada via Script Dinâmico)
-    -- As políticas agora são gerenciadas centralmente no início do script para evitar redundâncias.
+    -- 6. Tabelas de Sondagem e Interação
+    CREATE TABLE IF NOT EXISTS public.m4_interactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+        lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+        type TEXT,
+        title TEXT,
+        note TEXT,
+        content TEXT,
+        success BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS public.m4_form_templates (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        questions JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS public.m4_form_responses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
+        form_id UUID REFERENCES public.m4_form_templates(id) ON DELETE CASCADE,
+        lead_id UUID REFERENCES public.m4_leads(id) ON DELETE CASCADE,
+        answers JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- 7. Atualização de Políticas RLS (Dinâmico)
+    DECLARE
+        t text;
+    BEGIN
+        FOR t IN (
+            SELECT tablename FROM pg_tables 
+            WHERE schemaname = 'public' AND (tablename = 'm4_interactions' OR tablename = 'm4_form_templates' OR tablename = 'm4_form_responses')
+        ) LOOP
+            EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+            EXECUTE format('DROP POLICY IF EXISTS %I_select ON %I', t, t);
+            EXECUTE format('CREATE POLICY %I_select ON %I FOR SELECT TO authenticated USING (public.is_member_of(workspace_id))', t, t);
+            EXECUTE format('DROP POLICY IF EXISTS %I_write ON %I', t, t);
+            EXECUTE format('CREATE POLICY %I_write ON %I FOR ALL TO authenticated USING (public.is_member_of(workspace_id)) WITH CHECK (public.is_member_of(workspace_id))', t, t);
+        END LOOP;
+    END;
+
+    -- 8. Finalização
 END $$;
 `;
 

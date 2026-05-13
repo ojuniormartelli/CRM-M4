@@ -34,16 +34,16 @@ export const workspaceService = {
       return m4UserData.workspace_id;
     }
 
-    // 2. Tabela de convites / mapeamento m4_workspace_users
+    // 2. Tabela de mapeamento m4_workspace_members
     const { data: m4LinkData, error: linkError } = await supabase
-      .from('m4_workspace_users')
+      .from('m4_workspace_members')
       .select('workspace_id')
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle();
 
     if (linkError) {
-      console.warn('[workspaceService] m4_workspace_users lookup failed:', linkError.message);
+      console.warn('[workspaceService] m4_workspace_members lookup failed:', linkError.message);
     }
 
     if (m4LinkData?.workspace_id && isUUID(m4LinkData.workspace_id)) {

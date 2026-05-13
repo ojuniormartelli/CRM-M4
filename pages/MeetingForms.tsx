@@ -6,9 +6,10 @@ import { supabase } from '../lib/supabase';
 
 interface MeetingFormsProps {
   leads: Lead[];
+  workspaceId: string;
 }
 
-const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
+const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [activeView, setActiveView] = useState<'list' | 'builder' | 'execution'>('list');
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
@@ -17,6 +18,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const AGENCY_TEMPLATES = [
     {
@@ -51,12 +53,52 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   });
 
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    if (workspaceId) {
+      fetchTemplates();
+    }
+  }, [workspaceId]);
 
   const fetchTemplates = async () => {
-    const { data, error } = await supabase.from('m4_form_templates').select('*');
+    const { data, error } = await supabase
+      .from('m4_form_templates')
+      .select('*')
+      .eq('workspace_id', workspaceId);
+      
     if (data) setTemplates(data);
+  };
+
+  const deleteTemplate = async (templateId: string, bypassConfirm: boolean = false) => {
+    console.log('MeetingForms: deleteTemplate target ->', templateId);
+    if (!templateId) return;
+    
+    if (!bypassConfirm) {
+      setDeletingId(templateId);
+      return;
+    }
+    
+    setIsSyncing(true);
+    try {
+      console.log('MeetingForms: sending delete request to Supabase...');
+      const { error, count } = await supabase
+        .from('m4_form_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) {
+        console.error('MeetingForms: deletion error ->', error);
+        throw error;
+      }
+      
+      console.log('MeetingForms: deletion success. rows affected ->', count);
+      alert("Modelo excluído com sucesso!");
+      await fetchTemplates();
+    } catch (error: any) {
+      console.error('Erro detalhado ao excluir modelo:', error);
+      alert(`Erro ao excluir: ${error.message || 'Erro desconhecido'}. Verifique o console do navegador (F12).`);
+    } finally {
+      setIsSyncing(false);
+      setDeletingId(null);
+    }
   };
 
   const handleCreateTemplate = () => {
@@ -101,17 +143,54 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   };
 
   const saveTemplate = async () => {
-    const { data, error } = await supabase
-      .from('m4_form_templates')
-      .upsert([{
-        ...builderForm,
-        created_at: new Date().toISOString()
-      }])
-      .select();
+    if (!workspaceId) {
+      alert("Erro: ID do Workspace não identificado. Por favor, recarregue o sistema.");
+      return;
+    }
 
-    if (!error) {
-      fetchTemplates();
+    if (!builderForm.title) {
+      alert("Por favor, insira um título para o formulário.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { id, ...rest } = builderForm;
+      const templateData: any = {
+        ...rest,
+        workspace_id: workspaceId,
+        created_at: builderForm.created_at || new Date().toISOString()
+      };
+
+      // Se o ID existir e NÃO for um dos modelos estáticos da agência (tpl_...), usamos ele para UPSERT.
+      // Caso contrário, deixamos o Supabase gerar um novo UUID.
+      if (id && !String(id).startsWith('tpl_')) {
+        templateData.id = id;
+      }
+
+      console.log('MeetingForms: Salvando Template ->', templateData);
+
+      const { data, error } = await supabase
+        .from('m4_form_templates')
+        .upsert([templateData])
+        .select();
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01') {
+          throw new Error("Tabela m4_form_templates não encontrada. Por favor, execute o script de INSTALAÇÃO no Painel Técnico e recarregue a página.");
+        }
+        throw error;
+      }
+      
+      console.log('MeetingForms: Template salvo com sucesso ->', data);
+      alert("Formulário salvo com sucesso!");
+      await fetchTemplates();
       setActiveView('list');
+    } catch (error: any) {
+      console.error('Erro ao salvar formulário:', error);
+      alert(`Erro ao salvar formulário: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,43 +239,75 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
   };
 
   const finishMeeting = async () => {
+    if (!workspaceId) {
+      alert("Erro: ID do Workspace não identificado.");
+      return;
+    }
+
     if (!selectedLeadId) {
       alert("Por favor, selecione um lead antes de finalizar.");
       return;
     }
 
     setIsSaving(true);
-    const response: Partial<FormResponse> = {
-      form_id: selectedTemplate?.id,
-      lead_id: selectedLeadId,
-      answers: Object.entries(answers).map(([question_id, value]) => ({ question_id, value })),
-      created_at: new Date().toISOString()
-    };
-
-    const { error } = await supabase.from('m4_form_responses').insert([response]);
-
-    if (!error) {
-      // Also add an interaction to the lead
-      await supabase.from('m4_interactions').insert([{
+    try {
+      const response = {
+        form_id: selectedTemplate?.id,
         lead_id: selectedLeadId,
-        type: 'ai_insight',
-        title: `Sondagem Realizada: ${selectedTemplate?.title}`,
-        content: `Formulário preenchido durante reunião. ${Object.keys(answers).length} perguntas respondidas.`,
+        workspace_id: workspaceId,
+        answers: Object.entries(answers).map(([question_id, value]) => ({ question_id, value })),
+        created_at: new Date().toISOString()
+      };
+
+      console.log('Salvando Resposta:', response);
+
+      const { data, error: responseError } = await supabase.from('m4_form_responses').insert([response]).select();
+      if (responseError) {
+        if (responseError.code === 'PGRST205') {
+          throw new Error("Tabela m4_form_responses não encontrada. Por favor, execute a migração SQL.");
+        }
+        throw responseError;
+      }
+
+      console.log('Resposta salva:', data);
+
+      // Also add an interaction to the lead
+      const { error: interactionError } = await supabase.from('m4_interactions').insert([{
+        lead_id: selectedLeadId,
+        workspace_id: workspaceId,
+        type: 'Reunião',
+        note: `Sondagem Realizada: ${selectedTemplate?.title}. ${Object.keys(answers).length} perguntas respondidas.`,
+        success: true,
         created_at: new Date().toISOString()
       }]);
+      if (interactionError) throw interactionError;
 
       alert("Sondagem salva com sucesso!");
       setActiveView('list');
+    } catch (error: any) {
+      console.error('Erro ao finalizar reunião:', error);
+      alert(`Erro ao finalizar reunião: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-700">
       <div className="flex justify-between items-center mb-10 shrink-0">
-        <div>
-          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Sondagem & Reunião</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Formulários dinâmicos para qualificação</p>
+        <div className="flex items-center gap-6">
+          {activeView !== 'list' && (
+            <button 
+              onClick={() => setActiveView('list')}
+              className="p-4 bg-white dark:bg-slate-900 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm border border-slate-100 dark:border-slate-800"
+            >
+              <ICONS.ChevronLeft size={20} />
+            </button>
+          )}
+          <div>
+            <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Sondagem & Reunião</h2>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Formulários dinâmicos para qualificação</p>
+          </div>
         </div>
         {activeView === 'list' && (
           <button 
@@ -255,7 +366,8 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                   <div className="flex gap-3">
                     <button 
                       onClick={() => startMeeting(template)}
-                      className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all"
+                      disabled={isSyncing}
+                      className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all disabled:opacity-50"
                     >
                       Iniciar Reunião
                     </button>
@@ -264,10 +376,41 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                         setBuilderForm(template);
                         setActiveView('builder');
                       }}
-                      className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
+                      disabled={isSyncing}
+                      className="p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all disabled:opacity-50"
+                      title="Editar Modelo"
                     >
-                      <ICONS.Settings width="18" height="18" />
+                      <ICONS.Edit width="18" height="18" />
                     </button>
+                    {deletingId === template.id ? (
+                      <div className="flex gap-2 animate-in zoom-in duration-300">
+                        <button 
+                          onClick={() => {
+                            deleteTemplate(template.id, true);
+                          }}
+                          disabled={isSyncing}
+                          className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase disabled:opacity-50"
+                        >
+                          {isSyncing ? '...' : 'Confirmar'}
+                        </button>
+                        <button 
+                          onClick={() => setDeletingId(null)}
+                          disabled={isSyncing}
+                          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase"
+                        >
+                          Não
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => setDeletingId(template.id)}
+                        disabled={isSyncing}
+                        className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all disabled:opacity-50"
+                        title="Excluir Modelo"
+                      >
+                        <ICONS.Trash width="18" height="18" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -475,7 +618,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
               ))}
             </div>
 
-            <div className="flex gap-4 pt-10">
+            <div className="flex flex-wrap gap-4 pt-10">
               <button 
                 onClick={addQuestion}
                 className="flex-1 py-5 border-2 border-dashed border-slate-200 rounded-[2rem] font-black text-slate-400 hover:border-blue-200 hover:text-blue-600 transition-all"
@@ -483,10 +626,17 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads }) => {
                 + ADICIONAR PERGUNTA
               </button>
               <button 
-                onClick={saveTemplate}
-                className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-200"
+                onClick={() => setActiveView('list')}
+                className="px-8 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-all"
               >
-                Salvar Formulário
+                Cancelar
+              </button>
+              <button 
+                onClick={saveTemplate}
+                disabled={isSaving}
+                className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Salvando...' : 'Salvar Formulário'}
               </button>
             </div>
           </div>

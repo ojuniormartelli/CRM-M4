@@ -60,9 +60,13 @@ export const aiService = {
         score: result.score || 0,
         reasoning: result.reasoning || "Unable to analyze lead."
       };
-    } catch (error) {
-      console.error("AI Scoring Error:", error);
-      return { score: 0, reasoning: "AI Service temporarily unavailable." };
+    } catch (error: any) {
+      if (error?.message?.includes("quota") || error?.status === 429) {
+        console.warn("AI Scoring: Quota atingida.");
+      } else {
+        console.error("AI Scoring Error:", error);
+      }
+      return { score: 0, reasoning: "AI Service temporarily unavailable (Quota)." };
     }
   },
 
@@ -94,7 +98,10 @@ export const aiService = {
       });
 
       return response.text || "Summary unavailable.";
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes("quota") || error?.status === 429) {
+        return "Resumo indisponível no momento (Limite de cota de IA atingido).";
+      }
       console.error("AI Summary Error:", error);
       return "Error generating summary.";
     }
@@ -148,8 +155,12 @@ export const aiService = {
         predictedRevenue: result.predictedRevenue || 0,
         confidence: result.confidence || 0.5
       };
-    } catch (error) {
-      console.error("AI Forecast Error:", error);
+    } catch (error: any) {
+      if (error?.message?.includes("quota") || error?.status === 429) {
+        console.warn("AI Forecast: Quota atingida. Usando valores padrão.");
+      } else {
+        console.error("AI Forecast Error:", error);
+      }
       return { predictedRevenue: 0, confidence: 0 };
     }
   }

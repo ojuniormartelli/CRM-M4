@@ -195,7 +195,15 @@ CREATE TABLE IF NOT EXISTS public.m4_users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.m4_workspace_users (
+-- = CROSS-VERSION FIX: Renaming table if needed
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'm4_workspace_users') THEN
+        ALTER TABLE public.m4_workspace_users RENAME TO m4_workspace_members;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.m4_workspace_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.m4_users(id) ON DELETE CASCADE,

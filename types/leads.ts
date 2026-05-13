@@ -181,7 +181,7 @@ export interface FormQuestion {
 
 export interface FormTemplate {
   id: string;
-  tenant_id: string;
+  workspace_id: string;
   title: string;
   description?: string;
   questions: FormQuestion[];
