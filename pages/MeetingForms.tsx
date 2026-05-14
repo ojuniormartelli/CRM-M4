@@ -67,19 +67,17 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
     if (data) setTemplates(data);
   };
 
-  const deleteTemplate = async (templateId: string, bypassConfirm: boolean = false) => {
-    console.log('MeetingForms: deleteTemplate target ->', templateId);
+  const deleteTemplate = async (templateId: string) => {
     if (!templateId) return;
     
-    if (!bypassConfirm) {
-      setDeletingId(templateId);
+    if (!window.confirm('Tem certeza que deseja excluir este formulário? Esta ação não pode ser desfeita.')) {
       return;
     }
     
     setIsSyncing(true);
     try {
-      console.log('MeetingForms: sending delete request to Supabase...');
-      const { error, count } = await supabase
+      console.log('MeetingForms: sending delete request to Supabase for ID ->', templateId);
+      const { error } = await supabase
         .from('m4_form_templates')
         .delete()
         .eq('id', templateId);
@@ -89,12 +87,11 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
         throw error;
       }
       
-      console.log('MeetingForms: deletion success. rows affected ->', count);
       alert("Modelo excluído com sucesso!");
       await fetchTemplates();
     } catch (error: any) {
       console.error('Erro detalhado ao excluir modelo:', error);
-      alert(`Erro ao excluir: ${error.message || 'Erro desconhecido'}. Verifique o console do navegador (F12).`);
+      alert(`Erro ao excluir: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setIsSyncing(false);
       setDeletingId(null);
@@ -166,6 +163,9 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
       // Caso contrário, deixamos o Supabase gerar um novo UUID.
       if (id && !String(id).startsWith('tpl_')) {
         templateData.id = id;
+      } else {
+        // Se for um modelo da agência ou novo, removemos o ID para criar um novo no banco do usuário
+        delete templateData.id;
       }
 
       console.log('MeetingForms: Salvando Template ->', templateData);
@@ -382,35 +382,14 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
                     >
                       <ICONS.Edit width="18" height="18" />
                     </button>
-                    {deletingId === template.id ? (
-                      <div className="flex gap-2 animate-in zoom-in duration-300">
-                        <button 
-                          onClick={() => {
-                            deleteTemplate(template.id, true);
-                          }}
-                          disabled={isSyncing}
-                          className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase disabled:opacity-50"
-                        >
-                          {isSyncing ? '...' : 'Confirmar'}
-                        </button>
-                        <button 
-                          onClick={() => setDeletingId(null)}
-                          disabled={isSyncing}
-                          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase"
-                        >
-                          Não
-                        </button>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setDeletingId(template.id)}
-                        disabled={isSyncing}
-                        className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all disabled:opacity-50"
-                        title="Excluir Modelo"
-                      >
-                        <ICONS.Trash width="18" height="18" />
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => deleteTemplate(template.id)}
+                      disabled={isSyncing}
+                      className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all disabled:opacity-50"
+                      title="Excluir Modelo"
+                    >
+                      <ICONS.Trash width="18" height="18" />
+                    </button>
                   </div>
                 </div>
               ))}
