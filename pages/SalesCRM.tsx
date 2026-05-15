@@ -76,45 +76,42 @@ const PipelineProgress = ({
   const foundIndex = stages.findIndex(s => s.id === currentStageId);
   const currentIndex = foundIndex === -1 ? 0 : foundIndex;
   return (
-    <div className="flex items-center w-full px-6 py-4 bg-card border-b border-border overflow-x-auto scrollbar-none gap-4">
+    <div className="flex items-center w-full px-4 md:px-6 py-3 md:py-4 bg-card border-b border-border gap-2 md:gap-4 shrink-0 overflow-hidden">
       {onMove && (
         <button 
           onClick={() => onMove('prev')}
           disabled={currentIndex <= 0 || isUpdating}
-          className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground hover:bg-muted/80 rounded-xl transition-all disabled:opacity-30 shrink-0 font-black text-[10px] uppercase tracking-widest"
+          className="flex items-center gap-1.5 px-3 py-2 bg-muted text-muted-foreground hover:bg-muted/80 rounded-xl transition-all disabled:opacity-30 shrink-0 font-black text-[9px] md:text-[10px] uppercase tracking-widest"
         >
           <ArrowRight className="w-3 h-3 rotate-180" />
-          Voltar
+          <span className="hidden xs:inline">Voltar</span>
         </button>
       )}
 
-      <div className="flex items-center flex-1 justify-center gap-4 min-w-max">
+      <div className="flex items-center flex-1 justify-center gap-1 md:gap-3 overflow-hidden">
         {stages.map((stage, index) => (
           <React.Fragment key={stage.id}>
             <div 
-              className={`flex flex-col items-center min-w-[120px] relative group ${onStageClick && !isUpdating ? 'cursor-pointer' : ''}`}
+              className={`flex flex-col items-center min-w-[60px] md:min-w-[90px] relative group ${onStageClick && !isUpdating ? 'cursor-pointer' : ''}`}
               onClick={() => onStageClick && !isUpdating && onStageClick(stage.id)}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black z-10 transition-all duration-500 border-4 ${
+              <div className={`w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center text-[9px] md:text-xs font-black z-10 transition-all duration-500 border md:border-2 ${
                 index === currentIndex 
-                  ? 'bg-primary text-primary-foreground border-primary/20 shadow-lg shadow-primary/20 scale-110 ring-4 ring-primary/10' 
+                  ? 'bg-primary text-primary-foreground border-primary/20 shadow-lg shadow-primary/20 scale-110' 
                   : index < currentIndex
                     ? 'bg-primary/10 text-primary border-transparent'
                     : 'bg-muted text-muted-foreground border-transparent'
               } ${onStageClick && !isUpdating && index !== currentIndex ? 'group-hover:scale-105 group-hover:border-primary/30' : ''}`}>
-                {index < currentIndex ? <ICONS.Check width="16" height="16" /> : index + 1}
+                {index < currentIndex ? <ICONS.Check width="12" height="12" /> : index + 1}
               </div>
-              <span className={`mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-center transition-colors duration-500 ${
+              <span className={`mt-1.5 text-[7px] md:text-[8px] font-black uppercase tracking-tight text-center transition-colors duration-500 line-clamp-1 max-w-full px-0.5 ${
                 index === currentIndex ? 'text-primary' : 'text-muted-foreground'
               } ${onStageClick && !isUpdating && index !== currentIndex ? 'group-hover:text-foreground' : ''}`}>
                 {stage.name}
               </span>
-              {index === currentIndex && (
-                <div className="absolute -top-1 w-2 h-2 bg-primary rounded-full animate-ping"></div>
-              )}
             </div>
             {index < stages.length - 1 && (
-              <div className={`flex-1 h-[2px] min-w-[30px] -mt-8 rounded-full transition-colors duration-1000 ${
+              <div className={`flex-1 h-[1px] min-w-[5px] md:min-w-[15px] -mt-5 md:-mt-6 rounded-full transition-colors duration-1000 ${
                 index < currentIndex ? 'bg-primary' : 'bg-muted'
               }`} />
             )}
@@ -126,9 +123,9 @@ const PipelineProgress = ({
         <button 
           onClick={() => onMove('next')}
           disabled={currentIndex >= stages.length - 1 || isUpdating}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl transition-all disabled:opacity-30 shadow-lg shadow-primary/20 shrink-0 font-black text-[10px] uppercase tracking-widest"
+          className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl transition-all disabled:opacity-30 shadow-lg shadow-primary/20 shrink-0 font-black text-[9px] md:text-[10px] uppercase tracking-widest"
         >
-          Avançar
+          <span className="hidden xs:inline">Avançar</span>
           <ArrowRight className="w-3 h-3" />
         </button>
       )}
@@ -228,15 +225,22 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     if (!error && data) {
       setFormResponses([...formResponses, data[0] as FormResponse]);
       
-      // Also add an interaction to the lead
-      await supabase.from('m4_interactions').insert([{
+      const newInteraction = {
+        id: Math.random().toString(36), // Temporary ID for state
         lead_id: selectedLead.id,
         workspace_id: workspaceId,
         type: 'ai_insight',
         title: `Sondagem Realizada: ${selectedTemplate.title}`,
         content: `Formulário preenchido durante reunião. ${Object.keys(formAnswers).length} perguntas respondidas.`,
-        created_at: new Date().toISOString()
-      }]);
+        created_at: new Date().toISOString(),
+        interaction_success: true,
+        task_type: 'commercial'
+      };
+
+      // Also add an interaction to the lead in DB
+      await supabase.from('m4_interactions').insert([newInteraction]);
+
+      setInteractions([newInteraction as any, ...interactions]);
 
       setIsExecutingForm(false);
       setSelectedTemplate(null);
@@ -270,19 +274,45 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     }
   }, [selectedLead, workspaceId]);
 
+  // Fetch interactions (tasks + events)
   useEffect(() => {
     if (selectedLead && workspaceId) {
       const fetchInteractions = async () => {
-        const { data } = await supabase
+        const { data: taskData } = await supabase
           .from('m4_tasks')
           .select('*')
           .eq('lead_id', selectedLead.id)
           .eq('workspace_id', workspaceId)
           .order('created_at', { ascending: false });
         
-        if (data) {
-          setInteractions(data as Task[]);
+        const { data: activityData } = await supabase
+          .from('m4_interactions')
+          .select('*')
+          .eq('lead_id', selectedLead.id)
+          .eq('workspace_id', workspaceId)
+          .order('created_at', { ascending: false });
+
+        let combined = [...(taskData || [])];
+        
+        if (activityData) {
+          activityData.forEach(act => {
+            combined.push({
+              id: act.id,
+              title: act.title,
+              description: act.content,
+              type: act.type as any,
+              status: 'Concluído',
+              created_at: act.created_at,
+              interaction_success: true,
+              task_type: 'commercial'
+            } as any);
+          });
         }
+
+        // Sort combined list by created_at desc
+        combined.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        setInteractions(combined as Task[]);
       };
       fetchInteractions();
     }
@@ -2179,39 +2209,62 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         <div className="fixed inset-0 bg-background/60 z-[999] flex justify-center items-center p-4 md:p-10">
           <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-zoom-in-95 border border-border/50 pointer-events-auto relative z-10">
             {/* Header 360 */}
-            <div className="px-10 py-8 bg-card border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shrink-0">
-              <div className="flex items-center gap-6 min-w-0 flex-1">
-                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-xl shadow-primary/20 dark:shadow-none shrink-0">
-                  {(selectedLead.company?.name || selectedLead.company_name)?.charAt(0) || selectedLead.contact_name?.charAt(0) || 'L'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-2xl font-black text-foreground tracking-tight uppercase truncate min-w-0">
-                      {selectedLead.company?.name || selectedLead.company_name || selectedLead.contact_name}
-                    </h3>
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 ${
-                      selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
-                      selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
-                      'bg-primary/10 text-primary'
-                    }`}>
-                      {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
-                    </div>
+            <div className="px-10 py-6 bg-card border-b border-border flex flex-col gap-4 shrink-0">
+              {/* Top Row: Title, Identifier and System controls */}
+              <div className="flex items-center justify-between gap-4 w-full overflow-hidden">
+                <div className="flex items-center gap-4 min-w-0">
+                  {/* Lead Initial identifier */}
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-lg shadow-lg shrink-0">
+                    {(selectedLead.company?.name || selectedLead.company_name || selectedLead.contact_name)?.charAt(0) || 'L'}
                   </div>
-                  <p className="text-muted-foreground font-bold text-sm truncate">{selectedLead.contact_name} • {selectedLead.contact_email}</p>
+                  
+                  <h3 className="text-lg md:text-xl font-black text-foreground tracking-tight uppercase truncate">
+                    {selectedLead.company_name || selectedLead.company?.name || 'Sem Empresa'} 
+                    {selectedLead.contact_name && (selectedLead.company_name || selectedLead.company?.name) !== selectedLead.contact_name && (
+                      <span className="text-muted-foreground font-bold"> • {selectedLead.contact_name}</span>
+                    )}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button 
+                    onClick={() => showDeleteConfirm(selectedLead)}
+                    className="p-2.5 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10 transition-all"
+                    title="Excluir Lead"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  
+                  <button 
+                    onClick={() => setSelectedLead(null)}
+                    className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all font-black"
+                    title="Fechar"
+                  >
+                    <ICONS.X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+              {/* Bottom Row: Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 w-full">
+                <div className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 mr-1 ${
+                  selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
+                  selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
+                  'bg-primary/10 text-primary'
+                }`}>
+                  {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
+                </div>
+
                 <button 
                   onClick={() => showArchiveConfirm(selectedLead)}
-                  className="flex-1 md:flex-none px-6 py-3 bg-muted text-muted-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all flex items-center gap-2"
+                  className="px-4 py-2.5 bg-muted text-muted-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all flex items-center gap-2"
                 >
                   <Archive className="w-4 h-4" />
                   Arquivar
                 </button>
                 <button 
                   onClick={() => showLostConfirm(selectedLead)}
-                  className="flex-1 md:flex-none px-6 py-3 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
+                  className="px-4 py-2.5 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
                 >
                   Marcar Perda
                 </button>
@@ -2224,7 +2277,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     });
                     setIsWonModalOpen(true);
                   }}
-                  className="flex-1 md:flex-none px-6 py-3 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all shadow-none"
+                  className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all"
                 >
                   Marcar Venda
                 </button>
@@ -2238,54 +2291,40 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     });
                     setIsNewTaskModalOpen(true);
                   }}
-                  className="flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all"
                 >
                   Agendar Contato
                 </button>
-                <div className="w-px h-8 bg-border mx-2 hidden md:block" />
-                
+
+                <div className="w-px h-6 bg-border mx-1" />
+
                 <button 
                   onClick={() => {
                     setIsEditing(true);
                     setEditLead({ ...selectedLead });
                   }}
-                  className={`p-3 rounded-xl transition-all ${isEditing ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                  className={`p-2.5 rounded-xl transition-all ${isEditing ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
                   title="Editar Lead"
                 >
-                  <ICONS.Edit className="w-6 h-6" />
+                  <Edit className="w-5 h-5" />
                 </button>
 
                 <button 
                   onClick={() => handleAIScore(selectedLead)}
                   disabled={isAIScoring}
-                  className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50"
+                  className="p-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50"
                   title="Score com IA"
                 >
-                  <Brain className={`w-6 h-6 ${isAIScoring ? 'animate-pulse' : ''}`} />
+                  <Brain className={`w-5 h-5 ${isAIScoring ? 'animate-pulse' : ''}`} />
                 </button>
 
                 <button 
                   onClick={() => handleEnrichSingleLead(selectedLead)}
                   disabled={isEnriching}
-                  className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-100 transition-all disabled:opacity-50"
+                  className="p-2.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-100 transition-all disabled:opacity-50"
                   title="Enriquecer com IA"
                 >
-                  <Sparkles className={`w-6 h-6 ${isEnriching ? 'animate-pulse' : ''}`} />
-                </button>
-
-                <button 
-                  onClick={() => showDeleteConfirm(selectedLead)}
-                  className="p-3 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-all"
-                  title="Excluir Lead"
-                >
-                  <Trash2 className="w-6 h-6" />
-                </button>
-                
-                <button 
-                  onClick={() => setSelectedLead(null)}
-                  className="p-3 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all"
-                >
-                  <ICONS.X className="w-6 h-6" />
+                  <Sparkles className={`w-5 h-5 ${isEnriching ? 'animate-pulse' : ''}`} />
                 </button>
               </div>
             </div>
@@ -2843,6 +2882,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                                 {interaction.type === 'E-mail' ? <ICONS.Mail width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Ligação' ? <ICONS.Phone width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Reunião' ? <Users width="18" height="18" className="text-amber-500" /> :
+                                 interaction.type === 'ai_insight' ? <ICONS.Automation width="18" height="18" className="text-indigo-500" /> :
                                  <MessageSquare width="18" height="18" className="text-muted-foreground" />}
                               </div>
                               <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${!interaction.interaction_success ? 'border-destructive/20' : ''}`}>

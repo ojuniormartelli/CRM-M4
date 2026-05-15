@@ -263,6 +263,10 @@ export const mappers = {
     if ((data as any).assigned_to !== undefined || (data as any).responsible_id !== undefined) {
       payload.assigned_to = (data as any).assigned_to || (data as any).responsible_id || null;
     }
+    if (data.type !== undefined) payload.type = data.type;
+    if (data.task_type !== undefined) payload.task_type = data.task_type;
+    if (data.interaction_success !== undefined) payload.interaction_success = !!data.interaction_success;
+    if (data.interaction_note !== undefined) payload.interaction_note = cleanText(data.interaction_note);
 
     const ws = getValidWorkspaceId(workspaceId, data.workspace_id);
     if (ws) payload.workspace_id = ws;
