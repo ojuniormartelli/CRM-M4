@@ -823,21 +823,21 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto pr-4 scrollbar-none max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
-      <div className="flex justify-between items-end">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-200">
+    <div className="h-full overflow-y-auto pr-0 lg:pr-4 scrollbar-none max-w-6xl mx-auto space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20 p-2 md:p-0">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+        <div className="flex items-center gap-4 md:gap-6">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-900 text-white rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-200 shrink-0">
             <ICONS.Settings />
           </div>
           <div>
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configurações do CRM</h2>
-            <p className="text-slate-500 font-medium">Personalize a identidade e o comportamento do seu workspace.</p>
+            <h2 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configurações</h2>
+            <p className="text-[10px] md:text-sm text-slate-500 font-medium">Gerencie seu workspace.</p>
           </div>
         </div>
         <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-2xl shadow-blue-100 transition-all disabled:opacity-50"
+          className="w-full md:w-auto px-8 py-3 md:py-4 bg-primary text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
         >
           {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
         </button>
@@ -1048,7 +1048,7 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 relative overflow-hidden flex flex-col justify-center">
+            <div className="bg-slate-900 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 relative overflow-hidden flex flex-col justify-center">
               <div className="absolute right-0 top-0 w-64 h-64 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
               <h3 className="text-lg font-black text-white/40 uppercase tracking-widest relative z-10">Preview Visual</h3>
               <div className="space-y-6 relative z-10">

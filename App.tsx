@@ -21,7 +21,22 @@ const App: React.FC = () => {
   const appData = useAppData(resolvedWorkspaceId, workspaceLoading);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
+
+  // Close sidebar on mobile when navigating
+  useEffect(() => {
+    if (window.innerWidth <= 1024) {
+      setSidebarOpen(false);
+    }
+  }, [activeTab]);
+
+  const handleSetActiveTab = (tab: string) => {
+    if (tab === 'menu_toggle') {
+      setSidebarOpen(!isSidebarOpen);
+      return;
+    }
+    setActiveTab(tab);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedMenus, setExpandedMenus] = useState({
     sales: true,
@@ -250,7 +265,7 @@ const App: React.FC = () => {
     >
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         isSidebarOpen={isSidebarOpen}
         setSidebarOpen={setSidebarOpen}
         expandedMenus={expandedMenus}
@@ -269,11 +284,11 @@ const App: React.FC = () => {
           setSearchQuery={setSearchQuery}
           currentUser={currentUser}
           handleLogout={handleLogout}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSetActiveTab}
         />
         <MainContent
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSetActiveTab}
           leads={appData.leads}
           setLeads={appData.setLeads}
           transactions={appData.transactions}

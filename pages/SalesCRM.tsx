@@ -1603,17 +1603,17 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative animate-in fade-in duration-1000">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 shrink-0">
-        <div className="flex items-center gap-6">
-          <div>
-            <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 md:gap-6 mb-6 md:mb-10 shrink-0">
+        <div className="flex items-center gap-4 md:gap-6 w-full lg:w-auto">
+          <div className="flex-1 lg:flex-none">
+            <div className="flex items-center gap-2 md:gap-3">
               <button 
                 onClick={() => setIsPipelineModalOpen(true)}
-                className="flex items-center gap-3 group text-left"
+                className="flex items-center gap-2 md:gap-3 group text-left min-w-0"
                 title="Trocar Pipeline"
               >
-                <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors">{activePipeline.name}</h2>
-                <ICONS.ChevronDown className="text-muted-foreground group-hover:text-primary transition-colors w-6 h-6" />
+                <h2 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors truncate">{activePipeline.name}</h2>
+                <ICONS.ChevronDown className="text-muted-foreground group-hover:text-primary transition-colors w-5 h-5 md:w-6 md:h-6 shrink-0" />
               </button>
               
               <button 
@@ -1635,72 +1635,30 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
           </div>
         </div>
 
-          <div className="flex gap-4">
-            <div className="flex bg-muted p-1 rounded-xl mr-2">
-              <button 
-                onClick={() => setViewMode('kanban')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                title="Visualização em Kanban"
-              >
-                <LayoutGrid width="18" height="18" />
-              </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                title="Visualização em Lista"
-              >
-                <List width="18" height="18" />
-              </button>
-            </div>
-
-            {viewMode === 'kanban' && (
-              <div className="flex bg-muted p-1 rounded-xl mr-2">
-                <button 
-                  onClick={() => setCardDensity('normal')}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${cardDensity === 'normal' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Normal
-                </button>
-                <button 
-                  onClick={() => setCardDensity('compact')}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${cardDensity === 'compact' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Compacto
-                </button>
-              </div>
-            )}
-
-            <div className="flex bg-muted p-1 rounded-xl mr-2">
-              <select 
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
-                className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest text-muted-foreground focus:ring-0 cursor-pointer px-3"
-              >
-                <option value="recent">Mais Recentes</option>
-                <option value="alphabetical">A-Z</option>
-                <option value="value">Maior Valor</option>
-              </select>
-            </div>
-
-            <div className="flex bg-muted p-1 rounded-xl mr-4">
-              <button 
-                onClick={() => setFilterMode('all')}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterMode === 'all' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Todos
-              </button>
-              <button 
-                onClick={() => setFilterMode('my_day')}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${filterMode === 'my_day' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <ICONS.Clock width="12" height="12" />
-                Meu Dia
-              </button>
-            </div>
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-3 px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-sm hover:opacity-90 shadow-2xl shadow-primary/20 dark:shadow-none transition-all hover:-translate-y-1">
-              <ICONS.Plus /> NOVO NEGÓCIO
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
+          <div className="flex bg-muted p-1 rounded-xl">
+            <button 
+              onClick={() => setViewMode('kanban')}
+              className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Visualização em Kanban"
+            >
+              <LayoutGrid width="16" height="16" />
+            </button>
+            <button 
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Visualização em Lista"
+            >
+              <List width="16" height="16" />
             </button>
           </div>
+
+          <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3 bg-primary text-primary-foreground rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm hover:opacity-90 shadow-lg shadow-primary/20 transition-all ml-auto lg:ml-0">
+            <ICONS.Plus className="w-4 h-4 md:w-5 md:h-5" /> 
+            <span className="hidden xs:inline">NOVO NEGÓCIO</span>
+            <span className="xs:hidden">NOVO</span>
+          </button>
+        </div>
       </div>
 
       {isPipelineModalOpen && (
@@ -1771,13 +1729,13 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             </div>
           )}
           
-          <div className="flex gap-4 h-full min-w-max">
+          <div className="flex gap-4 h-full min-w-max md:min-w-0">
             {activePipeline.stages.map((stage) => (
               <div 
                 key={stage.id} 
                 onDragOver={onDragOver} 
                 onDrop={(e) => onDrop(e, stage.id)}
-                className={`w-[280px] flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
+                className={`w-[85vw] md:w-[280px] flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 shrink-0 md:shrink-1 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
               >
                 <div className="p-4 flex justify-between items-center bg-card/60 rounded-2xl border-b border-border/50 mb-3 shadow-sm">
                   <div className="flex items-center gap-3">
@@ -1987,15 +1945,15 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
-            <div className="flex justify-between items-center p-10 pb-0 shrink-0 gap-4">
-              <h3 className="text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
+          <div className="bg-card rounded-[1.5rem] md:rounded-[2.5rem] w-full max-w-2xl h-full md:h-auto md:max-h-[85vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
+            <div className="flex justify-between items-center p-6 md:p-10 pb-0 shrink-0 gap-4">
+              <h3 className="text-xl md:text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
               <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
-                <ICONS.Plus className="rotate-45" />
+                <ICONS.Plus className="rotate-45 w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
             <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-none">
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 scrollbar-none">
                 
                 {/* Seção 1 - DADOS DA EMPRESA PROSPECTADA */}
                 <div className="space-y-6">
@@ -2006,36 +1964,36 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Dados da Empresa Prospectada</h4>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-                      <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: M4 Marketing" />
+                      <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: M4 Marketing" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">CNPJ</label>
-                      <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="00.000.000/0000-00" />
+                      <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="00.000.000/0000-00" />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cidade</label>
-                      <input value={newLead.company_city} onChange={e => setNewLead({...newLead, company_city: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: São Paulo" />
+                      <input value={newLead.company_city} onChange={e => setNewLead({...newLead, company_city: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: São Paulo" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado</label>
-                      <input value={newLead.company_state} onChange={e => setNewLead({...newLead, company_state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: SP" />
+                      <input value={newLead.company_state} onChange={e => setNewLead({...newLead, company_state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: SP" />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                      <input value={newLead.company_niche} onChange={e => setNewLead({...newLead, company_niche: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Energia Solar" />
+                      <input value={newLead.company_niche} onChange={e => setNewLead({...newLead, company_niche: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: Energia Solar" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website</label>
-                      <input value={newLead.company_website} onChange={e => setNewLead({...newLead, company_website: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="https://..." />
+                      <input value={newLead.company_website} onChange={e => setNewLead({...newLead, company_website: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="https://..." />
                     </div>
                   </div>
 
@@ -2046,20 +2004,20 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp (Empresa)</label>
-                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
+                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Empresa)</label>
-                      <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
+                      <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="@usuario" />
                     </div>
                   </div>
                 </div>
 
                 {/* Seção 2 - CONTATO / DECISOR */}
-                <div className="bg-muted/50 p-8 rounded-[32px] space-y-6">
+                <div className="bg-muted/50 p-4 md:p-8 rounded-2xl md:rounded-[32px] space-y-4 md:space-y-6">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
                       <ICONS.User width="16" height="16" />
@@ -2067,25 +2025,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Contato / Decisor</h4>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Contato</label>
-                      <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Nome do contato" />
+                      <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Nome do contato" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                      <input value={newLead.contact_role} onChange={e => setNewLead({...newLead, contact_role: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="Ex: Diretor Comercial" />
+                      <input value={newLead.contact_role} onChange={e => setNewLead({...newLead, contact_role: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: Diretor Comercial" />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp (Contato)</label>
-                      <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="(00) 00000-0000" />
+                      <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Contato)</label>
-                      <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm" placeholder="@usuario" />
+                      <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="@usuario" />
                     </div>
                   </div>
 

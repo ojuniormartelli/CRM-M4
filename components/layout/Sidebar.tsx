@@ -100,7 +100,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none`}>
+    <>
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[25] lg:hidden animate-in fade-in duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`fixed lg:static inset-y-0 left-0 ${isSidebarOpen ? 'w-72' : 'w-0 lg:w-20'} bg-card border-r border-border transition-all duration-500 flex flex-col z-30 shadow-2xl shadow-slate-200/20 dark:shadow-none overflow-hidden lg:overflow-visible`}>
       <div className="p-6 flex items-center gap-4 border-b border-border h-20 shrink-0">
         <div className="w-10 h-10 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-100 overflow-hidden">
           {settings?.logo_url ? (
@@ -332,6 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
     </aside>
+    </>
   );
 };
 
