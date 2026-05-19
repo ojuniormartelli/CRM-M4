@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, getSupabaseConfig } from '../lib/supabase';
+import { supabase, getSupabaseConfig, isSupabaseConfigured } from '../lib/supabase';
 
 const SupabaseStatus: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
@@ -7,8 +7,7 @@ const SupabaseStatus: React.FC = () => {
 
   const checkConnection = async () => {
     // Check if configuration exists first
-    const config = getSupabaseConfig();
-    if (!config.url || !config.key || config.url.includes('placeholder')) {
+    if (!isSupabaseConfigured()) {
       setStatus('error');
       setErrorMessage("Configuração do Supabase ausente ou inválida.");
       return;

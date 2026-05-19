@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
 import { ICONS } from './constants';
-import { supabase, getSupabaseConfig } from './lib/supabase';
+import { supabase, getSupabaseConfig, isSupabaseConfigured, diagnoseSupabaseError } from './lib/supabase';
 import Login from './components/Login';
 import Setup from './pages/Setup';
 import { useTheme } from './ThemeContext';
@@ -17,7 +17,14 @@ import MainContent from './components/layout/MainContent';
 
 const App: React.FC = () => {
   const { theme } = useTheme();
-  const { workspaceId: resolvedWorkspaceId, loading: workspaceLoading, error: workspaceError } = useWorkspace();
+  
+  // High-level initialization flags
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const bootstrapping = React.useRef(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Guards data hooks until auth state is resolved once
+  const { workspaceId: resolvedWorkspaceId, loading: workspaceLoading, error: workspaceError } = useWorkspace(authInitialized);
   const appData = useAppData(resolvedWorkspaceId, workspaceLoading);
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -44,7 +51,6 @@ const App: React.FC = () => {
     finance: true,
     admin: false
   });
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [activePipelineId, setActivePipelineId] = useState<string>('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 
@@ -52,7 +58,7 @@ const App: React.FC = () => {
   const [showNewContactModal, setShowNewContactModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
 
-  const [showConfigError, setShowConfigError] = useState(false);
+  const [showConfigError, setShowConfigError] = useState<{ title: string; message: string; type?: string } | null>(null);
 
   // --- PWA INSTALLATION ---
   useEffect(() => {
@@ -71,49 +77,78 @@ const App: React.FC = () => {
     if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
-  // --- AUTH: usa Supabase Auth nativo, sem localStorage manual ---
+  // --- AUTH: centralized bootstrap ---
   useEffect(() => {
-    const loadUser = async () => {
+    if (!isSupabaseConfigured()) {
+      setAuthInitialized(true);
+      return;
+    }
+
+    const bootstrapAuth = async (retries = 3, delay = 500) => {
+      if (bootstrapping.current && !retries) return;
+      bootstrapping.current = true;
+      
+      console.log(`[App] Starting Auth Bootstrap (Retries left: ${retries})...`);
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
-        // If no user or session error, just stop silently
         if (authError) {
-          if (authError.message?.includes('Auth session missing')) return;
+          if (authError.message?.includes('Auth session missing')) {
+            setAuthInitialized(true);
+            return;
+          }
           throw authError;
         }
         
-        if (!authUser) return;
-        
-        const { data: user, error: profileError } = await supabase
-          .from('m4_users')
-          .select('*, job_role:m4_job_roles(*)')
-          .eq('id', authUser.id)
-          .maybeSingle();
-        
-        if (profileError) throw profileError;
-        if (user) {
-          setCurrentUser(user as User);
+        if (authUser) {
+          const { data: user, error: profileError } = await supabase
+            .from('m4_users')
+            .select('*, job_role:m4_job_roles(*)')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          
+          if (profileError) throw profileError;
+          if (user) setCurrentUser(user as User);
         }
+        setAuthInitialized(true);
       } catch (err: any) {
-        // Don't log "session missing" as an error
-        if (err.message?.includes('Auth session missing')) return;
-        
-        console.error('Erro ao carregar usuário:', err);
-        if (err.message?.includes('fetch') || err.message?.includes('failed')) {
-          setShowConfigError(true);
+        // Retry logic for network errors
+        if (retries > 0 && (err.message?.includes('fetch') || err.message?.includes('CONEXAO_BLOQUEADA'))) {
+          console.warn(`[App] Auth bootstrap attempt failed, retrying in ${delay}ms... (Retries left: ${retries})`, err);
+          setTimeout(() => bootstrapAuth(retries - 1, delay * 2), delay);
+          return;
         }
+
+        console.error('[App] Auth bootstrap fully failed after exhausting retries:', err);
+        setShowConfigError(diagnoseSupabaseError(err));
+        setAuthInitialized(true); // Release guard even on error to show error screen
+      } finally {
+        bootstrapping.current = false;
+        console.log('[App] Auth Bootstrap sequence ended.');
       }
     };
-    loadUser();
 
+    bootstrapAuth();
+
+    // Listener for subsequent changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[App] Auth state change:', event);
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
       } else if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
-        loadUser();
+        // Re-fetch user profile if signed in or updated
+        const fetchProfile = async () => {
+          const { data: user } = await supabase
+            .from('m4_users')
+            .select('*, job_role:m4_job_roles(*)')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          if (user) setCurrentUser(user as User);
+        };
+        fetchProfile();
       }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -181,27 +216,48 @@ const App: React.FC = () => {
   const hasConfig = config.url && config.url !== 'https://placeholder.supabase.co';
 
   if (showConfigError || workspaceError) {
+    const errorInfo = showConfigError || (workspaceError ? diagnoseSupabaseError(workspaceError) : null);
+    
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-950 p-12 text-center space-y-6">
         <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-[2rem] flex items-center justify-center">
           <ICONS.AlertTriangle size={40} />
         </div>
         <div className="max-w-md space-y-2">
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Falha na Conexão</h1>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+            {errorInfo?.title || 'Falha na Conexão'}
+          </h1>
           <p className="text-slate-500 font-medium leading-relaxed">
-            O aplicativo não conseguiu se conectar ao Supabase. Verifique sua conexão com a internet ou se a URL/Key configuradas estão corretas.
+            {errorInfo?.message || 'O aplicativo não conseguiu se conectar ao Supabase. Verifique sua conexão com a internet ou se a URL/Key configuradas estão corretas.'}
           </p>
-          {workspaceError && (
-            <p className="text-[10px] font-mono text-rose-500 mt-4 p-4 bg-rose-50 rounded-xl overflow-auto w-full">
-              {workspaceError.message}
-            </p>
+          
+          {errorInfo?.type === 'blocked' && (
+            <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/20 rounded-2xl text-left">
+              <p className="text-amber-800 dark:text-amber-400 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                <ICONS.AlertTriangle size={14} /> Dica de Diagnóstico
+              </p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-500 leading-relaxed italic">
+                Caudado provável: Seu navegador está bloqueando o domínio do Supabase. <br/>
+                <b>Solução:</b> Desative extensões de AdBlock (uBlock, AdBlock Plus, etc) para este site e recarregue a página.
+              </p>
+            </div>
+          )}
+
+          {(workspaceError || showConfigError) && (
+            <div className="mt-4">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Erro Detalhado (Developer Trace)</p>
+              <pre className="text-[10px] font-mono text-rose-400 p-4 bg-rose-50/50 dark:bg-rose-900/10 rounded-xl overflow-auto w-full max-h-32 text-left">
+                {workspaceError?.message || JSON.stringify(showConfigError, null, 2)}
+              </pre>
+            </div>
           )}
         </div>
         <div className="flex gap-4">
           <button 
             onClick={() => window.location.reload()}
-            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
+            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-100 dark:shadow-none"
           >
+            <ICONS.RefreshCw size={14} />
             Tentar Novamente
           </button>
           <button 
@@ -210,8 +266,9 @@ const App: React.FC = () => {
               localStorage.removeItem('supabase_anon_key');
               window.location.reload();
             }}
-            className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+            className="flex items-center gap-2 px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
           >
+            <ICONS.Settings size={14} />
             Resetar Configuração
           </button>
         </div>

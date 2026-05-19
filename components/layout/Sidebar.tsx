@@ -47,7 +47,7 @@ const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle,
     >
       <div className="flex items-center gap-3">
         <Icon />
-        <span className={`font-bold text-sm whitespace-nowrap transition-opacity ${!isSidebarOpen ? 'opacity-0' : 'opacity-100'}`}>{label}</span>
+        <span className={`font-bold text-sm whitespace-nowrap transition-opacity ${!isSidebarOpen ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>{label}</span>
       </div>
       {hasSubItems && isSidebarOpen && (
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
@@ -71,6 +71,209 @@ const Sidebar: React.FC<SidebarProps> = ({
   deferredPrompt,
   handleInstallClick
 }) => {
+  const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
+  const [hoverTimeout, setHoverTimeout] = React.useState<NodeJS.Timeout|null>(null);
+  const [flyoutTop, setFlyoutTop] = React.useState<number>(0);
+
+  const handleMouseEnter = (id: string, e: React.MouseEvent) => {
+    if (isSidebarOpen) return;
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    
+    // Calculate position for fixed flyout
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFlyoutTop(rect.top);
+    setHoveredItem(id);
+  };
+
+  const handleMouseLeave = () => {
+    if (isSidebarOpen) return;
+    // Debounce closing to allow moving mouse to the flyout
+    const timeout = setTimeout(() => {
+      setHoveredItem(null);
+    }, 450);
+    setHoverTimeout(timeout);
+  };
+
+  const handleFlyoutEnter = (id: string) => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    setHoveredItem(id);
+  };
+
+  const renderSubItems = (itemId: string, isFlyout: boolean = false) => {
+    const commonClass = isFlyout 
+      ? "w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2"
+      : "w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2";
+    
+    const containerClass = isFlyout
+      ? "space-y-1 animate-in fade-in slide-in-from-left-2 duration-200"
+      : "ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300";
+
+    switch(itemId) {
+      case 'comercial':
+        return (
+          <div className={containerClass}>
+            <button
+              onClick={() => setActiveTab('sales_overview')}
+              className={`${commonClass} ${
+                activeTab === 'sales_overview'
+                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Visão Geral
+            </button>
+            {pipelines.map(p => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setActivePipelineId(p.id);
+                  setActiveTab('sales');
+                }}
+                className={`${commonClass} ${
+                  activeTab === 'sales' && activePipelineId === p.id 
+                    ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales' && activePipelineId === p.id ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        );
+      case 'operacao':
+        return (
+          <div className={containerClass}>
+            <button
+              onClick={() => setActiveTab('clients_overview')}
+              className={`${commonClass} ${
+                activeTab === 'clients_overview'
+                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Visão Geral
+            </button>
+            <button
+              onClick={() => setActiveTab('companies')}
+              className={`${commonClass} ${
+                activeTab === 'companies'
+                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Empresas
+            </button>
+            <button
+              onClick={() => setActiveTab('contacts')}
+              className={`${commonClass} ${
+                activeTab === 'contacts'
+                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Contatos
+            </button>
+          </div>
+        );
+      case 'finance_group':
+        return (
+          <div className={containerClass}>
+            <button onClick={() => setActiveTab('finance_dashboard')} className={`${commonClass} ${activeTab === 'finance_dashboard' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dashboard' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Dashboard
+            </button>
+            <button onClick={() => setActiveTab('finance_transactions')} className={`${commonClass} ${activeTab === 'finance_transactions' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_transactions' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Lançamentos
+            </button>
+            <button onClick={() => setActiveTab('finance_dre')} className={`${commonClass} ${activeTab === 'finance_dre' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dre' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              DRE Gerencial
+            </button>
+            <button onClick={() => setActiveTab('finance_performance')} className={`${commonClass} ${activeTab === 'finance_performance' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'performance' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Performance & KPIs
+            </button>
+            <div className="pt-2 pb-1 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Cadastros</div>
+            <button onClick={() => setActiveTab('finance_accounts')} className={`${commonClass} ${activeTab === 'finance_accounts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_accounts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Contas Bancárias
+            </button>
+            <button onClick={() => setActiveTab('finance_categories')} className={`${commonClass} ${activeTab === 'finance_categories' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_categories' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Categorias
+            </button>
+            <button onClick={() => setActiveTab('finance_cost_centers')} className={`${commonClass} ${activeTab === 'finance_cost_centers' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_cost_centers' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Centros de Custo
+            </button>
+            <button onClick={() => setActiveTab('finance_payment_methods')} className={`${commonClass} ${activeTab === 'finance_payment_methods' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_payment_methods' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Métodos de Pagto
+            </button>
+          </div>
+        );
+      case 'settings_group':
+        return (
+          <div className={containerClass}>
+            <button onClick={() => setActiveTab('settings_branding')} className={`${commonClass} ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Geral e Branding
+            </button>
+            <button onClick={() => setActiveTab('settings_profile')} className={`${commonClass} ${activeTab === 'settings_profile' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_profile' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Meu Perfil
+            </button>
+            <button onClick={() => setActiveTab('settings_users')} className={`${commonClass} ${activeTab === 'settings_users' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_users' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Equipe (Usuários e Cargos)
+            </button>
+            <button onClick={() => setActiveTab('settings_workspaces')} className={`${commonClass} ${activeTab === 'settings_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Workspaces
+            </button>
+            <button onClick={() => setActiveTab('settings_services')} className={`${commonClass} ${activeTab === 'settings_services' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_services' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Serviços
+            </button>
+            <button onClick={() => setActiveTab('settings_pipelines')} className={`${commonClass} ${activeTab === 'settings_pipelines' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_pipelines' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Funil de Vendas
+            </button>
+            <button onClick={() => setActiveTab('settings_automation')} className={`${commonClass} ${activeTab === 'settings_automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Automações
+            </button>
+            {currentUser?.role === UserRole.OWNER && (
+              <>
+                <button onClick={() => setActiveTab('settings_backup')} className={`${commonClass} ${activeTab === 'settings_backup' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_backup' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                  Backup
+                </button>
+                <button onClick={() => setActiveTab('settings_technical')} className={`${commonClass} ${activeTab === 'settings_technical' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_technical' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                  Painel Técnico
+                </button>
+              </>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   const menuSections = [
     {
       title: "Workspaces",
@@ -142,7 +345,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               {section.title}
             </div>
             {section.items.map(item => (
-              <React.Fragment key={item.id}>
+              <div 
+                key={item.id} 
+                className="relative group/nav-item"
+                onMouseEnter={(e) => handleMouseEnter(item.id, e)}
+                onMouseLeave={handleMouseLeave}
+              >
                 <SidebarItem 
                   id={item.id}
                   icon={item.icon}
@@ -160,159 +368,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onToggle={item.menuKey ? () => setExpandedMenus({...expandedMenus, [item.menuKey!]: !(expandedMenus as any)[item.menuKey]}) : undefined}
                 />
                 
-                {item.id === 'comercial' && expandedMenus.sales && isSidebarOpen && (
-                  <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                    <button
-                      onClick={() => setActiveTab('sales_overview')}
-                      className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                        activeTab === 'sales_overview'
-                          ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Visão Geral
-                    </button>
-                    {pipelines.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          setActivePipelineId(p.id);
-                          setActiveTab('sales');
-                        }}
-                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                          activeTab === 'sales' && activePipelineId === p.id 
-                            ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'sales' && activePipelineId === p.id ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                        {p.name}
-                      </button>
-                    ))}
+                {/* Flyout Submenu for Collapsed Sidebar */}
+                {!isSidebarOpen && item.hasSubItems && hoveredItem === item.id && (
+                  <div 
+                    className="fixed left-[64px] py-4 px-2 w-64 bg-card border border-border shadow-[20px_20px_60px_rgba(0,0,0,0.3)] rounded-2xl z-[9999] animate-in fade-in slide-in-from-left-2 duration-200"
+                    style={{ top: flyoutTop - 8 }}
+                    onMouseEnter={() => handleFlyoutEnter(item.id)}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    {/* Hover Bridge: A transparent bridge between sidebar and flyout */}
+                    <div className="absolute -left-4 top-0 bottom-0 w-6 bg-transparent" />
+                    
+                    <div className="px-4 pb-2 mb-2 border-b border-border/50">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">{item.label}</p>
+                    </div>
+                    {renderSubItems(item.id, true)}
                   </div>
                 )}
-
-                {item.id === 'operacao' && expandedMenus.clients && isSidebarOpen && (
-                  <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                    <button
-                      onClick={() => setActiveTab('clients_overview')}
-                      className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                        activeTab === 'clients_overview'
-                          ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Visão Geral
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('companies')}
-                      className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                        activeTab === 'companies'
-                          ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Empresas
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('contacts')}
-                      className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${
-                        activeTab === 'contacts'
-                          ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Contatos
-                    </button>
-                  </div>
-                )}
-
-                {item.id === 'finance_group' && expandedMenus.finance && isSidebarOpen && (
-                  <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                    <button onClick={() => setActiveTab('finance_dashboard')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_dashboard' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dashboard' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Dashboard
-                    </button>
-                    <button onClick={() => setActiveTab('finance_transactions')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_transactions' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_transactions' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Lançamentos
-                    </button>
-                    <button onClick={() => setActiveTab('finance_dre')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_dre' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_dre' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      DRE Gerencial
-                    </button>
-                    <button onClick={() => setActiveTab('finance_performance')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_performance' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'performance' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Performance & KPIs
-                    </button>
-                    <div className="pt-2 pb-1 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Cadastros</div>
-                    <button onClick={() => setActiveTab('finance_accounts')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_accounts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_accounts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Contas Bancárias
-                    </button>
-                    <button onClick={() => setActiveTab('finance_categories')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_categories' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_categories' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Categorias
-                    </button>
-                    <button onClick={() => setActiveTab('finance_cost_centers')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_cost_centers' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_cost_centers' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Centros de Custo
-                    </button>
-                    <button onClick={() => setActiveTab('finance_payment_methods')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'finance_payment_methods' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'finance_payment_methods' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Métodos de Pagto
-                    </button>
-                  </div>
-                )}
-                {item.id === 'settings_group' && expandedMenus.admin && isSidebarOpen && (
-                  <div className="ml-10 space-y-1 mt-2 animate-in slide-in-from-top-4 duration-300">
-                    <button onClick={() => setActiveTab('settings_branding')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_branding' || activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Geral e Branding
-                    </button>
-                    <button onClick={() => setActiveTab('settings_profile')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_profile' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_profile' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Meu Perfil
-                    </button>
-                    <button onClick={() => setActiveTab('settings_users')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_users' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_users' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Equipe (Usuários e Cargos)
-                    </button>
-                    <button onClick={() => setActiveTab('settings_workspaces')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_workspaces' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_workspaces' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Workspaces
-                    </button>
-                    <button onClick={() => setActiveTab('settings_services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_services' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_services' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Serviços
-                    </button>
-                    <button onClick={() => setActiveTab('settings_pipelines')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_pipelines' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_pipelines' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Funil de Vendas
-                    </button>
-                    <button onClick={() => setActiveTab('settings_automation')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_automation' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_automation' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                      Automações
-                    </button>
-                    {currentUser?.role === UserRole.OWNER && (
-                      <>
-                        <button onClick={() => setActiveTab('settings_backup')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_backup' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_backup' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                          Backup
-                        </button>
-                        <button onClick={() => setActiveTab('settings_technical')} className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 ${activeTab === 'settings_technical' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'settings_technical' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                          Painel Técnico
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </React.Fragment>
+                
+                {item.id === 'comercial' && expandedMenus.sales && isSidebarOpen && renderSubItems('comercial')}
+                {item.id === 'operacao' && expandedMenus.clients && isSidebarOpen && renderSubItems('operacao')}
+                {item.id === 'finance_group' && expandedMenus.finance && isSidebarOpen && renderSubItems('finance_group')}
+                {item.id === 'settings_group' && expandedMenus.admin && isSidebarOpen && renderSubItems('settings_group')}
+              </div>
             ))}
           </React.Fragment>
         ))}

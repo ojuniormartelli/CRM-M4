@@ -179,6 +179,7 @@ export const mappers = {
       notes: dbLead.business_notes || dbLead.notes || '',
       cnpj: dbLead.company_cnpj || dbLead.cnpj || '',
       website: dbLead.company_website || dbLead.website || '',
+      niche: dbLead.company?.niche || dbLead.company_niche || dbLead.niche || '',
     } as Lead;
   },
 

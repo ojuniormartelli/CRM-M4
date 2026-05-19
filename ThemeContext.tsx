@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -19,6 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Busca tema do Supabase filtrando pelo workspace correto via RLS
   useEffect(() => {
     const fetchTheme = async () => {
+      if (!isSupabaseConfigured()) return;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -70,7 +71,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setTheme = async (newTheme: Theme, skipPersistence: boolean = false) => {
     setThemeState(newTheme);
     localStorage.setItem('m4_theme', newTheme);
-    if (skipPersistence) return;
+    if (skipPersistence || !isSupabaseConfigured()) return;
     try {
       const { data: settings, error: fetchError } = await supabase
         .from('m4_settings')

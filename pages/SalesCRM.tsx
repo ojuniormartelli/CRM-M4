@@ -1769,7 +1769,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     >
                       <div className={`flex justify-between items-start ${cardDensity === 'compact' ? 'mb-1.5' : 'mb-3'}`}>
                         <span className={`uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 inline-block max-w-full break-words ${cardDensity === 'compact' ? 'text-[8px]' : 'text-[9px]'}`}>
-                          {lead.niche || 'Sem Nicho'}
+                          {lead.company_niche || lead.niche || 'Sem Nicho'}
                         </span>
                         {isStale(lead) && (
                           <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
@@ -1912,7 +1912,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           </td>
                           <td className="p-6">
                             <span className="px-3 py-1 bg-muted rounded-full text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                              {lead.niche || 'Geral'}
+                              {lead.company_niche || lead.niche || 'Sem Nicho'}
                             </span>
                           </td>
                           <td className="p-6">

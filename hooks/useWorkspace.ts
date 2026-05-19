@@ -1,16 +1,27 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getSupabaseConfig, isSupabaseConfigured } from '../lib/supabase';
 import { workspaceService } from '../services/workspaceService';
 
-export function useWorkspace() {
+export function useWorkspace(enabled: boolean = true) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     async function resolve(isInitial = false) {
+      // Don't try to resolve workspace if config is missing or invalid
+      if (!isSupabaseConfigured()) {
+        if (mounted && isInitial) setLoading(false);
+        return;
+      }
+
       try {
         if (mounted && isInitial) setLoading(true);
 
@@ -36,6 +47,12 @@ export function useWorkspace() {
       }
     }
 
+    if (!isSupabaseConfigured()) {
+      setLoading(false);
+      return;
+    }
+
+    // Skip listener setup if not enabled
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         resolve(false);
@@ -50,7 +67,7 @@ export function useWorkspace() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   return { workspaceId, loading, error };
 }
