@@ -16,7 +16,7 @@ import { leadSchema } from '../lib/validation';
 import { LeadSkeleton } from '../components/Skeleton';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
 import Toast, { ToastType } from '../components/Toast';
-import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban } from 'lucide-react';
+import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban, Maximize2, Minimize2 } from 'lucide-react';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -1636,6 +1636,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
+          {viewMode === 'kanban' && (
+            <div className="flex bg-muted p-1 rounded-xl">
+              <button 
+                onClick={() => setCardDensity('normal')}
+                className={`p-2 rounded-lg transition-all ${cardDensity === 'normal' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
+                title="Visualização Detalhada"
+              >
+                <Maximize2 width="16" height="16" />
+              </button>
+              <button 
+                onClick={() => setCardDensity('compact')}
+                className={`p-2 rounded-lg transition-all ${cardDensity === 'compact' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
+                title="Visualização Compacta"
+              >
+                <Minimize2 width="16" height="16" />
+              </button>
+            </div>
+          )}
+
           <div className="flex bg-muted p-1 rounded-xl">
             <button 
               onClick={() => setViewMode('kanban')}
