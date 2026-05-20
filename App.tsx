@@ -119,7 +119,12 @@ const App: React.FC = () => {
           return;
         }
 
-        console.error('[App] Auth bootstrap fully failed after exhausting retries:', err);
+        const isConnectionIssue = err.message?.includes('fetch') || err.message?.includes('CONEXAO_BLOQUEADA') || err.message?.includes('blocked');
+        if (isConnectionIssue) {
+          console.warn('[App] Auth bootstrap connection blocked/failed (possible AdBlock or empty config):', err.message);
+        } else {
+          console.error('[App] Auth bootstrap fully failed after exhausting retries:', err);
+        }
         setShowConfigError(diagnoseSupabaseError(err));
         setAuthInitialized(true); // Release guard even on error to show error screen
       } finally {

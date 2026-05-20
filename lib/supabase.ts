@@ -48,6 +48,23 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
       // Differentiate between real network error and potential AdBlock
       console.warn(`[Supabase Fetch Warning] Connection issue/block detected for URL: ${urlStr}`);
       console.warn('[Supabase Fetch Warning] Details:', err);
+      
+      // Return simulated 503 Response to stop unhandled TypeErrors from cluttering console inside iframe preview
+      if (typeof Response !== 'undefined') {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "Failed to fetch (AdBlock/Connection blocked)",
+              details: err?.message || String(err)
+            }
+          }),
+          {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
     throw err;
   }
