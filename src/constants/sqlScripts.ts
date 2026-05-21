@@ -516,6 +516,8 @@ CREATE TABLE IF NOT EXISTS public.m4_tasks (
     dependencies JSONB DEFAULT '[]'::jsonb,
     estimated_hours NUMERIC DEFAULT 0,
     actual_hours NUMERIC DEFAULT 0,
+    interaction_success BOOLEAN DEFAULT true,
+    interaction_note TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );
@@ -1453,6 +1455,8 @@ CREATE TABLE IF NOT EXISTS public.m4_tasks (
     is_recurring BOOLEAN DEFAULT false,
     checklist JSONB DEFAULT '[]'::jsonb,
     actual_hours DECIMAL(10, 2) DEFAULT 0,
+    interaction_success BOOLEAN DEFAULT true,
+    interaction_note TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );
@@ -1807,6 +1811,9 @@ BEGIN
     ALTER TABLE m4_companies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE m4_contacts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS interaction_success BOOLEAN DEFAULT true;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS interaction_note TEXT;
+    ALTER TABLE m4_tasks ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'task';
     ALTER TABLE m4_clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE m4_projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 

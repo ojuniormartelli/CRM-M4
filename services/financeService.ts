@@ -31,11 +31,15 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const userId = localStorage.getItem('m4_crm_user_id');
 
   // Ensure we have a string for the error message
-  let errorMessage = 'Erro desconhecido';
+  let errorMessage = 'Erro desconhecido na plataforma de finanças';
+  
   if (error instanceof Error) {
     errorMessage = error.message;
   } else if (typeof error === 'object' && error !== null) {
-    errorMessage = (error as any).message || (error as any).details || (error as any).error_description || JSON.stringify(error);
+    const errObj = error as any;
+    // Extract nested error message if present from custom fetch simulation or Supabase
+    const innerError = errObj.error || errObj;
+    errorMessage = innerError?.message || innerError?.details || errObj.message || errObj.details || errObj.error_description || JSON.stringify(error);
   } else if (error) {
     errorMessage = String(error);
   }

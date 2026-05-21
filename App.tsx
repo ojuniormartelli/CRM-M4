@@ -14,6 +14,7 @@ import { useAppData } from './hooks/useAppData';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import MainContent from './components/layout/MainContent';
+import toast from 'react-hot-toast';
 
 const App: React.FC = () => {
   const { theme } = useTheme();
@@ -190,10 +191,50 @@ const App: React.FC = () => {
     if (!lead) return;
     try {
       const workspaceId = resolvedWorkspaceId || '';
-      await leadService.updateStatus(leadId, status, workspaceId);
-      appData.setLeads(appData.leads.map((l) => (l.id === leadId ? { ...l, status } : l)));
+      
+      // Encontra a etapa correspondente no funil para atualizar a coluna visual também
+      const pipeline = appData.pipelines.find(p => p.id === lead.pipeline_id) || appData.pipelines[0];
+      let targetStageId: string | undefined = undefined;
+
+      if (pipeline && pipeline.stages) {
+        if (status === 'lost') {
+          const lostStage = pipeline.stages.find(s => 
+            s.status?.toLowerCase() === 'lost' || 
+            s.status?.toLowerCase() === 'perdido' || 
+            s.name?.toLowerCase().includes('perdido') || 
+            s.name?.toLowerCase().includes('lost')
+          );
+          if (lostStage) {
+            targetStageId = lostStage.id;
+          }
+        } else if (status === 'won') {
+          const wonStage = pipeline.stages.find(s => 
+            s.status?.toLowerCase() === 'won' || 
+            s.status?.toLowerCase() === 'ganho' || 
+            s.name?.toLowerCase().includes('ganho') || 
+            s.name?.toLowerCase().includes('won') || 
+            s.name?.toLowerCase().includes('fechamento') || 
+            s.name?.toLowerCase().includes('fechado')
+          );
+          if (wonStage) {
+            targetStageId = wonStage.id;
+          }
+        }
+      }
+
+      await leadService.updateStatus(leadId, status, workspaceId, targetStageId);
+      appData.setLeads(appData.leads.map((l) => (l.id === leadId ? { 
+        ...l, 
+        status,
+        ...(targetStageId ? { stage_id: targetStageId, stage: targetStageId } : {})
+      } : l)));
       if (status === 'won') {
-        await automationService.convertLeadToClient(lead, workspaceId);
+        const updatedLeadWithNewStage = {
+          ...lead,
+          status,
+          ...(targetStageId ? { stage_id: targetStageId, stage: targetStageId } : {})
+        };
+        await automationService.convertLeadToClient(updatedLeadWithNewStage, workspaceId);
         const clientsData = await clientService.getAll(workspaceId);
         appData.setClients(clientsData);
       } else if (status === 'lost') {
@@ -210,8 +251,10 @@ const App: React.FC = () => {
         const newTask = await taskService.create(followUpTask, workspaceId);
         appData.setTasks([...appData.tasks, newTask]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao alterar status do lead:', err);
+      toast.error(err.message || 'Erro ao alterar status do lead');
+      throw err;
     }
   };
 

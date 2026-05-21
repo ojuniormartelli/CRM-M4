@@ -17,11 +17,17 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const workspaceId = localStorage.getItem('m4_crm_workspace_id');
   const userId = localStorage.getItem('m4_crm_user_id');
 
-  let errorMessage = 'Erro desconhecido';
+  let errorMessage = 'Erro desconhecido na plataforma';
+  
   if (error instanceof Error) {
     errorMessage = error.message;
   } else if (typeof error === 'object' && error !== null) {
-    errorMessage = (error as any).message || (error as any).details || JSON.stringify(error);
+    const errObj = error as any;
+    // Extract nested error message if present from custom fetch simulation or Supabase
+    const innerError = errObj.error || errObj;
+    errorMessage = innerError?.message || innerError?.details || errObj.message || errObj.details || JSON.stringify(error);
+  } else if (error) {
+    errorMessage = String(error);
   }
 
   const errInfo = {
@@ -32,7 +38,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   };
   
   console.error('Task Service Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  throw new Error(errorMessage);
 }
 
 export const taskService = {

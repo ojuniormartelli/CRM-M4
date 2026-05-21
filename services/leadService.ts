@@ -18,15 +18,19 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
   if (error instanceof Error) {
     technicalDetails = error.message;
+    errorMessage = error.message;
     if (error.message.includes('row-level security policy')) {
       errorMessage = 'Permissão negada: você não tem autorização para realizar esta ação neste registro.';
     } else if (error.message.includes('JWT')) {
       errorMessage = 'Sessão expirada. Por favor, faça login novamente.';
     }
   } else if (typeof error === 'object' && error !== null) {
-    const errorObj = error as any;
-    technicalDetails = errorObj.message || errorObj.details || JSON.stringify(error);
-    if (errorObj.code === '42501') {
+    const errObj = error as any;
+    // Extract nested error message if present from custom fetch simulation or Supabase
+    const innerError = errObj.error || errObj;
+    technicalDetails = innerError?.message || innerError?.details || errObj.message || errObj.details || JSON.stringify(error);
+    errorMessage = technicalDetails;
+    if (errObj.code === '42501') {
       errorMessage = 'Permissão negada no banco de dados.';
     }
   }
@@ -151,21 +155,26 @@ export const leadService = {
     }
   },
 
-  async updateStatus(id: string, status: string, workspaceId: string) {
+  async updateStatus(id: string, status: string, workspaceId: string, stageId?: string) {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID obrigatório para atualizar status');
     try {
       const { data: currentLead, error: fetchError } = await supabase
         .from('m4_leads')
-        .select('status, workspace_id')
+        .select('status, workspace_id, stage_id')
         .eq('id', id)
         .eq('workspace_id', workspaceId)
         .single();
 
       if (fetchError) throw fetchError;
 
+      const updatePayload: any = { status };
+      if (stageId) {
+        updatePayload.stage_id = stageId;
+      }
+
       const { data, error } = await supabase
         .from('m4_leads')
-        .update({ status })
+        .update(updatePayload)
         .eq('id', id)
         .eq('workspace_id', workspaceId)
         .select('*, company:m4_companies(id, name, niche, city)')
@@ -175,12 +184,22 @@ export const leadService = {
 
       const updatedLead = mappers.leadFromDb(data);
 
-      if (currentLead && status !== currentLead.status) {
-        automationService.processEvent(workspaceId, 'lead', 'status_change', {
-          from_status: currentLead.status,
-          to_status: status,
-          pipeline_id: updatedLead.pipeline_id
-        }, updatedLead);
+      if (currentLead && (status !== currentLead.status || (stageId && stageId !== currentLead.stage_id))) {
+        // Realiza os eventos apropriados
+        if (status !== currentLead.status) {
+          automationService.processEvent(workspaceId, 'lead', 'status_change', {
+            from_status: currentLead.status,
+            to_status: status,
+            pipeline_id: updatedLead.pipeline_id
+          }, updatedLead);
+        }
+        if (stageId && stageId !== currentLead.stage_id) {
+          automationService.processEvent(workspaceId, 'lead', 'stage_change', {
+            from_stage_id: currentLead.stage_id,
+            to_stage_id: updatedLead.stage_id,
+            pipeline_id: updatedLead.pipeline_id
+          }, updatedLead);
+        }
       }
 
       return updatedLead;

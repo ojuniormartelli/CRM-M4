@@ -103,6 +103,169 @@ export let supabase: SupabaseClient = createClient(
   }
 );
 
+// Resilient fallback logic for missing task columns on legacy databases
+function isMissingColumnError(error: any): boolean {
+  if (!error) return false;
+  const msg = (error.message || String(error)).toLowerCase();
+  return (
+    msg.includes('interaction_note') || 
+    msg.includes('interaction_success') || 
+    msg.includes('type') || 
+    msg.includes('task_type') ||
+    msg.includes('schema cache') ||
+    error.code === '42703' || 
+    error.code === 'PGRST204' ||
+    (msg.includes('column') && msg.includes('does not exist'))
+  );
+}
+
+function getMissingColumnName(error: any): string | null {
+  if (!error) return null;
+  const msg = error.message || String(error);
+  
+  // PostgREST message: "Could not find the 'type' column of 'm4_tasks' in the schema cache"
+  const match1 = msg.match(/'([^']+)' column/i);
+  if (match1) return match1[1];
+  
+  // Postgres standard: "column \"type\" of relation \"m4_tasks\" does not exist"
+  const match2 = msg.match(/column "([^"]+)"/i);
+  if (match2) return match2[1];
+  
+  // Another variant: "column 'type' of relation..."
+  const match3 = msg.match(/column '([^']+)'/i);
+  if (match3) return match3[1];
+  
+  return null;
+}
+
+function wrapPostgrestBuilder(
+  builder: any, 
+  getCleanBuilder: (strippedColumns: Set<string>) => any, 
+  strippedColumns = new Set<string>()
+): any {
+  const originalThen = builder.then;
+  builder.then = function(onfulfilled: any, onrejected: any) {
+    return originalThen.call(builder, 
+      async (result: any) => {
+        if (result && result.error && isMissingColumnError(result.error)) {
+          const missingColumn = getMissingColumnName(result.error);
+          const columnToStrip = missingColumn || 'type'; // Fallback to 'type' if undetermined
+          
+          if (!strippedColumns.has(columnToStrip)) {
+            const updatedStripped = new Set(strippedColumns);
+            updatedStripped.add(columnToStrip);
+            console.warn(`[Supabase Fallback] Missing column '${columnToStrip}' detected. Retrying query without it...`, result.error);
+            try {
+              const cleanBuilder = getCleanBuilder(updatedStripped);
+              return cleanBuilder.then(onfulfilled, onrejected);
+            } catch (retryErr) {
+              if (onfulfilled) return onfulfilled({ error: retryErr });
+            }
+          }
+        }
+        if (onfulfilled) return onfulfilled(result);
+        return result;
+      },
+      async (error: any) => {
+        if (isMissingColumnError(error)) {
+          const missingColumn = getMissingColumnName(error);
+          const columnToStrip = missingColumn || 'type'; // Fallback to 'type'
+          
+          if (!strippedColumns.has(columnToStrip)) {
+            const updatedStripped = new Set(strippedColumns);
+            updatedStripped.add(columnToStrip);
+            console.warn(`[Supabase Fallback Exception] Missing column '${columnToStrip}' detected. Retrying query without it...`, error);
+            try {
+              const cleanBuilder = getCleanBuilder(updatedStripped);
+              return cleanBuilder.then(onfulfilled, onrejected);
+            } catch (retryErr) {
+              if (onrejected) return onrejected(retryErr);
+              throw retryErr;
+            }
+          }
+        }
+        if (onrejected) return onrejected(error);
+        throw error;
+      }
+    );
+  };
+
+  const chainMethods = ['select', 'order', 'limit', 'single', 'eq', 'neq', 'gt', 'lt', 'match', 'or', 'csv', 'geojson'];
+  chainMethods.forEach(method => {
+    if (typeof builder[method] === 'function') {
+      const originalMethod = builder[method];
+      builder[method] = function(...args: any[]) {
+        const nextBuilder = originalMethod.apply(builder, args);
+        return wrapPostgrestBuilder(nextBuilder, (updatedStripped) => {
+          const baseCleanBuilder = getCleanBuilder(updatedStripped);
+          if (typeof baseCleanBuilder[method] === 'function') {
+            return baseCleanBuilder[method](...args);
+          }
+          return baseCleanBuilder;
+        }, strippedColumns);
+      };
+    }
+  });
+
+  return builder;
+}
+
+function patchSupabaseInstance(client: SupabaseClient) {
+  const originalFrom = client.from;
+  client.from = function(relation: string) {
+    if (relation === 'm4_tasks') {
+      const originalBuilder = originalFrom.call(client, relation);
+      
+      const originalInsert = originalBuilder.insert;
+      originalBuilder.insert = function(values: any, options: any) {
+        const resultBuilder = originalInsert.call(originalBuilder, values, options);
+        return wrapPostgrestBuilder(resultBuilder, (strippedCols) => {
+          const cleanSingleValue = (v: any) => {
+            const copy = { ...v };
+            
+            // Default preset column restrictions for legacy DB compatibility
+            if (strippedCols.size === 0) {
+              // Proactively remove obvious potential ones if we already detected schema issues,
+              // or wait for dynamic detection. To be safest, we strip dynamically.
+            }
+            
+            strippedCols.forEach(col => {
+              delete copy[col];
+            });
+            return copy;
+          };
+
+          const cleanValues = Array.isArray(values)
+            ? values.map(cleanSingleValue)
+            : cleanSingleValue(values);
+          
+          const freshBuilder = originalFrom.call(client, relation);
+          return freshBuilder.insert(cleanValues, options);
+        });
+      };
+
+      const originalUpdate = originalBuilder.update;
+      originalBuilder.update = function(values: any, options: any) {
+        const resultBuilder = originalUpdate.call(originalBuilder, values, options);
+        return wrapPostgrestBuilder(resultBuilder, (strippedCols) => {
+          const copy = { ...values };
+          strippedCols.forEach(col => {
+            delete copy[col];
+          });
+          
+          const freshBuilder = originalFrom.call(client, relation);
+          return freshBuilder.update(copy, options);
+        });
+      };
+
+      return originalBuilder;
+    }
+    return originalFrom.call(client, relation);
+  };
+}
+
+patchSupabaseInstance(supabase);
+
 export function isSupabaseConfigured(): boolean {
   const config = getSupabaseConfig();
   return !!config.url && config.url !== 'https://placeholder.supabase.co' && !config.url.includes('no-config-yet.invalid');
@@ -169,5 +332,6 @@ export function updateSupabaseClient(url: string, key: string): SupabaseClient {
       },
     },
   });
+  patchSupabaseInstance(supabase);
   return supabase;
 }

@@ -376,9 +376,12 @@ CREATE TABLE IF NOT EXISTS public.m4_tasks (
     due_date TIMESTAMPTZ,
     assigned_to UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     task_type TEXT DEFAULT 'operational',
+    type TEXT DEFAULT 'task',
     is_recurring BOOLEAN DEFAULT false,
     checklist JSONB DEFAULT '[]'::jsonb,
     actual_hours NUMERIC DEFAULT 0,
+    interaction_success BOOLEAN DEFAULT true,
+    interaction_note TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );

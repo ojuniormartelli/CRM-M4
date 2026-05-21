@@ -3076,7 +3076,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
 
       {isWonModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
           <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
               <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Configurar Nova Conta</h3>
@@ -3168,7 +3168,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
 
       {isLostModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
           <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
             <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
               <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Marcar Perda</h3>

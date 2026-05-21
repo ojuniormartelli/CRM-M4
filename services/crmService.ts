@@ -16,15 +16,19 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
   if (error instanceof Error) {
     technicalDetails = error.message;
+    errorMessage = error.message;
     if (error.message.includes('row-level security policy')) {
       errorMessage = 'Permissão negada: verifique se você tem acesso a este workspace.';
     } else if (error.message.includes('JWT')) {
       errorMessage = 'Sessão expirada. Por favor, faça login novamente.';
     }
   } else if (typeof error === 'object' && error !== null) {
-    const errorObj = error as any;
-    technicalDetails = errorObj.message || errorObj.details || JSON.stringify(error);
-    if (errorObj.code === '42501') {
+    const errObj = error as any;
+    // Extract nested error message if present from custom fetch simulation or Supabase
+    const innerError = errObj.error || errObj;
+    technicalDetails = innerError?.message || innerError?.details || errObj.message || errObj.details || JSON.stringify(error);
+    errorMessage = technicalDetails;
+    if (errObj.code === '42501') {
       errorMessage = 'Acesso negado no banco de dados.';
     }
   }
@@ -253,10 +257,46 @@ export const crmService = {
 
       if (sError) throw sError;
 
-      return (pData || []).map(p => ({
+      const pipelines = (pData || []).map(p => ({
         ...p,
         stages: (sData || []).filter(s => s.pipeline_id === p.id)
       }));
+
+      // Self-healing: Garante que cada pipeline tenha pelo menos uma etapa de status "lost" (Perdido)
+      for (const p of pipelines) {
+        const hasLostStage = p.stages.some(s => 
+          s.status?.toLowerCase() === 'lost' || 
+          s.status?.toLowerCase() === 'perdido' || 
+          s.name?.toLowerCase().includes('perdido')
+        );
+        if (!hasLostStage) {
+          console.log(`[crmService] Self-healing: Adicionando etapa 'Perdido' ao pipeline '${p.name}'`);
+          try {
+            const newStage = {
+              pipeline_id: p.id,
+              workspace_id: workspaceId,
+              name: 'Perdido',
+              position: p.stages.length,
+              status: 'lost',
+              color: 'red'
+            };
+            const { data: insertedStage, error: insertError } = await supabase
+              .from('m4_pipeline_stages')
+              .insert([newStage])
+              .select('*')
+              .single();
+            if (!insertError && insertedStage) {
+              p.stages.push(insertedStage);
+            } else {
+              console.error('[crmService] Erro ao criar etapa Perdido automática:', insertError);
+            }
+          } catch (err) {
+            console.error('[crmService] Erro ao criar etapa Perdido automática:', err);
+          }
+        }
+      }
+
+      return pipelines;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_pipelines');
       return [];
