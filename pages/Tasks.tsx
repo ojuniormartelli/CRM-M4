@@ -96,6 +96,43 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Global keydown event listener to close active modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (confirmModal.isOpen) {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          return;
+        }
+        if (isCompanyDropdownOpen) {
+          setIsCompanyDropdownOpen(false);
+          return;
+        }
+        if (isLeadDropdownOpen) {
+          setIsLeadDropdownOpen(false);
+          return;
+        }
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          return;
+        }
+        if (selectedTask) {
+          setSelectedTask(null);
+          return;
+        }
+        if (taskToDelete) {
+          setTaskToDelete(null);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [confirmModal.isOpen, isCompanyDropdownOpen, isLeadDropdownOpen, isModalOpen, selectedTask, taskToDelete]);
+
   useEffect(() => {
     if (selectedTask && companies.length > 0) {
       const company = companies.find(c => c.id === selectedTask.company_id);

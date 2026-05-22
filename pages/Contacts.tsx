@@ -58,6 +58,35 @@ const Contacts: React.FC<ContactsProps> = ({
     notes: ''
   });
 
+  // Global keydown event listener to close active modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isCompanyModalOpen) {
+          setIsCompanyModalOpen(false);
+          return;
+        }
+        if (isEditModalOpen) {
+          setIsEditModalOpen(false);
+          return;
+        }
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          return;
+        }
+        if (showContactDropdown) {
+          setShowContactDropdown(false);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCompanyModalOpen, isEditModalOpen, isModalOpen, showContactDropdown, setIsModalOpen]);
+
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { Project, Task, TaskStatus, Priority } from '../types';
 import { crmService } from '../services/crmService';
@@ -20,6 +20,27 @@ const Projects: React.FC<ProjectsProps> = ({ projects, setProjects, tasks, setTa
   const [newProject, setNewProject] = useState<Partial<Project>>({
     name: '', status: 'active', start_date: new Date().toISOString().split('T')[0], value: 0
   });
+
+  // Global keydown event listener to close active modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          return;
+        }
+        if (selectedProject) {
+          setSelectedProject(null);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isModalOpen, selectedProject]);
 
   const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();

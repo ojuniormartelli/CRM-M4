@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as ICONS from 'lucide-react';
 import { Transaction, BankAccount, CreditCard, ClientAccount, User, FinanceCategory, PaymentMethod } from '../types';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, addWeeks, addYears, addDays, isWithinInterval, isToday, isTomorrow, parseISO, isAfter, isSameDay, isSameMonth, isSameYear } from 'date-fns';
@@ -57,6 +57,75 @@ const Finance: React.FC<FinanceProps> = ({
   const [editTransaction, setEditTransaction] = useState<Partial<Transaction> & { updateScope?: 'single' | 'future' | 'all'; recurrence?: 'fixed' | 'variable'; months?: number | 'indefinite' }>({});
   const [isUpdateScopeModalOpen, setIsUpdateScopeModalOpen] = useState(false);
   const [isDeleteScopeModalOpen, setIsDeleteScopeModalOpen] = useState(false);
+
+  // Global keydown event listener to close active modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isUpdateScopeModalOpen) {
+          setIsUpdateScopeModalOpen(false);
+          return;
+        }
+        if (isDeleteScopeModalOpen) {
+          setIsDeleteScopeModalOpen(false);
+          return;
+        }
+        if (isDeleteModalOpen) {
+          setIsDeleteModalOpen(false);
+          return;
+        }
+        if (isConfirmModalOpen) {
+          setIsConfirmModalOpen(false);
+          return;
+        }
+        if (isEditModalOpen) {
+          setIsEditModalOpen(false);
+          return;
+        }
+        if (isBankModalOpen) {
+          setIsBankModalOpen(false);
+          return;
+        }
+        if (isCardModalOpen) {
+          setIsCardModalOpen(false);
+          return;
+        }
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          return;
+        }
+        if (isDetailOpen) {
+          setIsDetailOpen(false);
+          return;
+        }
+        if (selectedTransaction) {
+          setSelectedTransaction(null);
+          return;
+        }
+        if (selectedAccount) {
+          setSelectedAccount(null);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    isUpdateScopeModalOpen,
+    isDeleteScopeModalOpen,
+    isDeleteModalOpen,
+    isConfirmModalOpen,
+    isEditModalOpen,
+    isBankModalOpen,
+    isCardModalOpen,
+    isModalOpen,
+    isDetailOpen,
+    selectedTransaction,
+    selectedAccount
+  ]);
 
   const getRecurrenceSummary = (t: Partial<Transaction>) => {
     if (!t.is_recurring) return null;
