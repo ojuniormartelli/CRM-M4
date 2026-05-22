@@ -484,70 +484,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     if (workspaceId) fetchUsers();
   }, [workspaceId]);
 
-  // Global keydown event listener to close active modals on Escape key press
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (confirmModal.isOpen) {
-          setConfirmModal(prev => ({ ...prev, isOpen: false }));
-          return;
-        }
-        if (isCompanyModalOpen) {
-          setIsCompanyModalOpen(false);
-          return;
-        }
-        if (isContactModalOpen) {
-          setIsContactModalOpen(false);
-          return;
-        }
-        if (isLostModalOpen) {
-          setIsLostModalOpen(false);
-          return;
-        }
-        if (isWonModalOpen) {
-          setIsWonModalOpen(false);
-          return;
-        }
-        if (isNewTaskModalOpen) {
-          setIsNewTaskModalOpen(false);
-          return;
-        }
-        if (isStageConfigModalOpen) {
-          setIsStageConfigModalOpen(false);
-          return;
-        }
-        if (isPipelineModalOpen) {
-          setIsPipelineModalOpen(false);
-          return;
-        }
-        if (isModalOpen) {
-          setIsModalOpen(false);
-          return;
-        }
-        if (selectedLead) {
-          setSelectedLead(null);
-          return;
-        }
-      }
-    };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [
-    confirmModal.isOpen,
-    isCompanyModalOpen,
-    isContactModalOpen,
-    isLostModalOpen,
-    isWonModalOpen,
-    isNewTaskModalOpen,
-    isStageConfigModalOpen,
-    isPipelineModalOpen,
-    isModalOpen,
-    selectedLead,
-    setIsModalOpen
-  ]);
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -684,6 +621,71 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [isStageConfigModalOpen, setIsStageConfigModalOpen] = useState(false);
   const [editingPipeline, setEditingPipeline] = useState<Pipeline | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Global keydown event listener to close active modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (confirmModal.isOpen) {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          return;
+        }
+        if (isCompanyModalOpen) {
+          setIsCompanyModalOpen(false);
+          return;
+        }
+        if (isContactModalOpen) {
+          setIsContactModalOpen(false);
+          return;
+        }
+        if (isLostModalOpen) {
+          setIsLostModalOpen(false);
+          return;
+        }
+        if (isWonModalOpen) {
+          setIsWonModalOpen(false);
+          return;
+        }
+        if (isNewTaskModalOpen) {
+          setIsNewTaskModalOpen(false);
+          return;
+        }
+        if (isStageConfigModalOpen) {
+          setIsStageConfigModalOpen(false);
+          return;
+        }
+        if (isPipelineModalOpen) {
+          setIsPipelineModalOpen(false);
+          return;
+        }
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          return;
+        }
+        if (selectedLead) {
+          setSelectedLead(null);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    confirmModal.isOpen,
+    isCompanyModalOpen,
+    isContactModalOpen,
+    isLostModalOpen,
+    isWonModalOpen,
+    isNewTaskModalOpen,
+    isStageConfigModalOpen,
+    isPipelineModalOpen,
+    isModalOpen,
+    selectedLead,
+    setIsModalOpen
+  ]);
 
   const STAGE_COLORS = [
     { name: 'Azul', value: 'blue', hex: '#3b82f6' },
