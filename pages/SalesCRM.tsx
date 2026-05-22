@@ -418,6 +418,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     sortOrder, setSortOrder,
     viewMode, setViewMode,
     cardDensity, setCardDensity,
+    columnWidth, setColumnWidth,
     isLoadingLeads 
   } = useCRMStore();
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -1748,13 +1749,14 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             </div>
           )}
           
-          <div className="flex gap-4 h-full min-w-max md:min-w-0">
+          <div className="flex gap-4 h-full min-w-max">
             {activePipeline.stages.map((stage) => (
               <div 
                 key={stage.id} 
                 onDragOver={onDragOver} 
                 onDrop={(e) => onDrop(e, stage.id)}
-                className={`w-[85vw] md:w-[280px] flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 shrink-0 md:shrink-1 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
+                style={{ width: `${columnWidth || 300}px` }}
+                className={`flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 shrink-0 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
               >
                 <div className="p-4 flex justify-between items-center bg-card/60 rounded-2xl border-b border-border/50 mb-3 shadow-sm">
                   <div className="flex items-center gap-3">
@@ -3482,16 +3484,33 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
               </button>
             </div>
             <form onSubmit={handleSavePipeline} className="p-10 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-none">
-              <div>
-                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Nome do Funil</label>
-                <input 
-                  type="text" 
-                  required
-                  value={editingPipeline.name || ''}
-                  onChange={e => setEditingPipeline({ ...editingPipeline, name: e.target.value })}
-                  className="w-full p-4 bg-muted rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
-                  placeholder="Ex: Funil de Vendas Principal"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Nome do Funil</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingPipeline.name || ''}
+                    onChange={e => setEditingPipeline({ ...editingPipeline, name: e.target.value })}
+                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                    placeholder="Ex: Funil de Vendas Principal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Largura das Colunas (Kanban)</label>
+                  <div className="flex items-center gap-4 bg-muted p-4 rounded-2xl border border-border/10">
+                    <input 
+                      type="range" 
+                      min="240" 
+                      max="450" 
+                      value={columnWidth || 300} 
+                      onChange={(e) => setColumnWidth(Number(e.target.value))} 
+                      className="flex-1 h-1 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <span className="text-xs font-black text-foreground min-w-[50px] text-right font-mono">{(columnWidth || 300)}px</span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4">

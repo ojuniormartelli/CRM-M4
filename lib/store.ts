@@ -10,6 +10,8 @@ interface CRMState {
   setViewMode: (mode: 'kanban' | 'list') => void;
   cardDensity: 'normal' | 'compact';
   setCardDensity: (density: 'normal' | 'compact') => void;
+  columnWidth: number;
+  setColumnWidth: (width: number) => void;
   isLoadingLeads: boolean;
   setIsLoadingLeads: (loading: boolean) => void;
 }
@@ -25,6 +27,8 @@ export const useCRMStore = create<CRMState>()(
       setViewMode: (mode) => set({ viewMode: mode }),
       cardDensity: 'normal',
       setCardDensity: (density) => set({ cardDensity: density }),
+      columnWidth: 300,
+      setColumnWidth: (width) => set({ columnWidth: width }),
       isLoadingLeads: false,
       setIsLoadingLeads: (loading) => set({ isLoadingLeads: loading }),
     }),
@@ -34,7 +38,8 @@ export const useCRMStore = create<CRMState>()(
         filterMode: state.filterMode,
         sortOrder: state.sortOrder,
         viewMode: state.viewMode,
-        cardDensity: state.cardDensity
+        cardDensity: state.cardDensity,
+        columnWidth: state.columnWidth
       }),
     }
   )
