@@ -4,7 +4,7 @@ import { Task, Lead, User, Priority, TaskStatus } from '../types';
 import { ICONS } from '../constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, Calendar, ArrowRight, Star, Play, CheckCircle, Edit, Phone, Sparkles } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Calendar, ArrowRight, Star, Play, CheckCircle, Edit, Phone, Sparkles, X, Info } from 'lucide-react';
 
 interface MyDayProps {
   tasks: Task[];
@@ -65,6 +65,17 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
 
   const [greeting, setGreeting] = useState('');
 
+  // --- Estados do Modal de Edição ---
+  const [selectedEditTask, setSelectedEditTask] = useState<Task | null>(null);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalDesc, setModalDesc] = useState('');
+  const [modalPriority, setModalPriority] = useState<Priority | string>(Priority.MEDIUM);
+  const [modalType, setModalType] = useState<'commercial' | 'operational' | 'internal' | ''>('');
+  const [modalDueDate, setModalDueDate] = useState('');
+  const [modalLeadId, setModalLeadId] = useState('');
+  const [modalCompanyId, setModalCompanyId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Bom dia');
@@ -72,9 +83,93 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
     else setGreeting('Boa noite');
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedEditTask(null);
+    };
+    if (selectedEditTask) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEditTask]);
+
   const handleToggleTask = async (task: Task) => {
     const newStatus = task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE;
     await onUpdateTask({ ...task, status: newStatus });
+  };
+
+  const toDatetimeLocal = (isoStr: string | null | undefined): string => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const handleOpenEditModal = (task: Task) => {
+    setSelectedEditTask(task);
+    setModalTitle(task.title || '');
+    setModalDesc(task.description || task.interaction_note || '');
+    setModalPriority(task.priority || Priority.MEDIUM);
+    setModalType(task.task_type || '');
+    setModalDueDate(toDatetimeLocal(task.due_date));
+    setModalLeadId(task.lead_id || '');
+    setModalCompanyId(task.company_id || '');
+  };
+
+  const handleSaveModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEditTask) return;
+    setIsSaving(true);
+    try {
+      const isAuto = ['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '');
+      
+      const updatedData: Task = {
+        ...selectedEditTask,
+        priority: modalPriority,
+        description: modalDesc,
+        interaction_note: modalDesc,
+      };
+
+      if (!isAuto) {
+        updatedData.title = modalTitle;
+        updatedData.task_type = modalType ? (modalType as 'commercial' | 'operational' | 'internal') : undefined;
+        updatedData.due_date = modalDueDate ? new Date(modalDueDate).toISOString() : undefined;
+        updatedData.lead_id = modalLeadId || undefined;
+        updatedData.company_id = modalCompanyId || undefined;
+      }
+
+      await onUpdateTask(updatedData);
+      setSelectedEditTask(null);
+    } catch (err) {
+      console.error('Erro ao salvar tarefa em Meu Dia:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePlayAction = async (task: Task) => {
+    const isCompleted = task.status === TaskStatus.DONE;
+    let newStatus: string;
+    
+    if (isCompleted) {
+      newStatus = TaskStatus.TODO; // 'Pendente'
+    } else {
+      newStatus = TaskStatus.IN_PROGRESS; // 'Em Execução'
+    }
+    
+    await onUpdateTask({
+      ...task,
+      status: newStatus
+    });
   };
 
   return (
@@ -128,7 +223,16 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
               </div>
               <div className="grid gap-3">
                 {overdueTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isOverdue leads={leads} companies={companies} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={() => handleToggleTask(task)} 
+                    onEdit={() => handleOpenEditModal(task)}
+                    onPlay={() => handlePlayAction(task)}
+                    isOverdue 
+                    leads={leads} 
+                    companies={companies} 
+                  />
                 ))}
               </div>
             </section>
@@ -146,7 +250,15 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
             {todayTasks.length > 0 ? (
               <div className="grid gap-3">
                 {todayTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} leads={leads} companies={companies} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={() => handleToggleTask(task)} 
+                    onEdit={() => handleOpenEditModal(task)}
+                    onPlay={() => handlePlayAction(task)}
+                    leads={leads} 
+                    companies={companies} 
+                  />
                 ))}
               </div>
             ) : (
@@ -171,7 +283,16 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
               </div>
               <div className="max-h-[350px] overflow-y-auto pr-2 scrollbar-thin space-y-3">
                 {completedToday.map(task => (
-                  <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isCompleted leads={leads} companies={companies} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={() => handleToggleTask(task)} 
+                    onEdit={() => handleOpenEditModal(task)}
+                    onPlay={() => handlePlayAction(task)}
+                    isCompleted 
+                    leads={leads} 
+                    companies={companies} 
+                  />
                 ))}
               </div>
             </section>
@@ -229,20 +350,220 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
           </section>
         </div>
       </div>
+
+      {/* Modal de Edição de Tarefa em Meu Dia */}
+      {selectedEditTask && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-zoom-in-95 overflow-hidden">
+            <div className="p-8 pb-4 flex justify-between items-center shrink-0 border-b border-border/50">
+              <div>
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight">
+                  {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '') 
+                    ? 'Notas da Interação de CRM' 
+                    : 'Editar Tarefa'}
+                </h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                  ID: {selectedEditTask.id.substring(0, 8)}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedEditTask(null)} 
+                className="p-3 bg-muted text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted/80 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModal} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-8 space-y-6 scrollbar-none">
+                
+                {/* Banner informativo para tarefas automáticas */}
+                {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '') && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3 text-xs font-bold text-foreground">
+                    <Info className="w-5 h-5 text-primary shrink-0 animate-pulse" />
+                    <div>
+                      Esta é uma interação de CRM registrada automaticamente (tipo <span className="text-primary">{selectedEditTask.type}</span>).
+                      As notas e a prioridade podem ser revisadas livremente, mas os campos estruturais permanecem protegidos para integridade do CRM.
+                    </div>
+                  </div>
+                )}
+
+                {/* Título */}
+                <div>
+                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Título</label>
+                  {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '') ? (
+                    <div className="p-4 bg-muted/50 border border-border rounded-2xl font-bold text-muted-foreground text-sm uppercase">
+                      {selectedEditTask.title}
+                    </div>
+                  ) : (
+                    <input 
+                      type="text" 
+                      required
+                      value={modalTitle}
+                      onChange={(e) => setModalTitle(e.target.value)}
+                      placeholder="Ex: Enviar proposta de marketing"
+                      className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                    />
+                  )}
+                </div>
+
+                {/* Descrição / Notas */}
+                <div>
+                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                    {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '') 
+                      ? 'Notas da Interação' 
+                      : 'Descrição / Anotações'}
+                  </label>
+                  <textarea 
+                    value={modalDesc}
+                    onChange={(e) => setModalDesc(e.target.value)}
+                    placeholder="Escreva anotações ou detalhes sobre a tarefa..."
+                    className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all min-h-[100px] text-sm"
+                  />
+                </div>
+
+                {!['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(selectedEditTask.type || '') && (
+                  <>
+                    {/* Data de Vencimento e Tipo */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Data Limite & Hora</label>
+                        <input 
+                          type="datetime-local"
+                          value={modalDueDate}
+                          onChange={(e) => setModalDueDate(e.target.value)}
+                          className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm shrink-0"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Tipo de Tarefa</label>
+                        <select
+                          value={modalType}
+                          onChange={(e) => setModalType(e.target.value as any)}
+                          className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        >
+                          <option value="">Nenhum (Interno)</option>
+                          <option value="commercial">Comercial</option>
+                          <option value="operational">Operacional</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Vínculos (Empresa e Lead) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Empresa Vinculada</label>
+                        <select
+                          value={modalCompanyId}
+                          onChange={(e) => setModalCompanyId(e.target.value)}
+                          className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        >
+                          <option value="">Sem empresa</option>
+                          {companies.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Lead Vinculado</label>
+                        <select
+                          value={modalLeadId}
+                          onChange={(e) => setModalLeadId(e.target.value)}
+                          className="w-full p-4 bg-muted/30 border border-border rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        >
+                          <option value="">Sem lead</option>
+                          {leads.map(l => (
+                            <option key={l.id} value={l.id}>
+                              {l.company?.name || l.company_name || 'Lead s/ Nome'} - {l.contact_name || l.name || 'Contato s/ Nome'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Prioridade sempre elegível */}
+                <div>
+                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Prioridade</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.URGENT].map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setModalPriority(p)}
+                        className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-wider border transition-all ${
+                          modalPriority === p 
+                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                            : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Rodapé */}
+              <div className="p-8 border-t border-border/50 bg-muted/10 shrink-0 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEditTask(null)}
+                  className="px-6 py-3 border border-border rounded-xl text-xs font-black text-muted-foreground uppercase tracking-widest hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-8 py-3 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2"
+                >
+                  {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: { task: Task; onToggle: () => void; isOverdue?: boolean; isCompleted?: boolean; leads: Lead[]; companies: any[] }) => {
+const TaskCard = ({ 
+  task, 
+  onToggle, 
+  onEdit, 
+  onPlay, 
+  isOverdue, 
+  isCompleted, 
+  leads, 
+  companies 
+}: { 
+  task: Task; 
+  onToggle: () => void; 
+  onEdit: () => void;
+  onPlay: () => void;
+  isOverdue?: boolean; 
+  isCompleted?: boolean; 
+  leads: Lead[]; 
+  companies: any[] 
+}) => {
   const priorityColor = {
-    [Priority.LOW]: 'bg-slate-100 text-slate-600',
-    [Priority.MEDIUM]: 'bg-blue-100 text-blue-600',
-    [Priority.HIGH]: 'bg-amber-100 text-amber-600',
-    [Priority.URGENT]: 'bg-destructive/10 text-destructive'
+    [Priority.LOW]: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    [Priority.MEDIUM]: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+    [Priority.HIGH]: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+    [Priority.URGENT]: 'bg-destructive/10 text-destructive dark:bg-destructive/20'
   };
 
   const lead = task.lead_id ? leads.find(l => l.id === task.lead_id) : null;
   const company = task.company_id ? companies.find(c => c.id === task.company_id) : null;
+
+  const isCommunicationTask = ['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'call', 'meeting', 'email'].includes(task.type || '');
 
   return (
     <div className={`group flex items-center gap-4 p-5 bg-card border border-border rounded-3xl transition-all hover:shadow-md ${isCompleted ? 'opacity-60' : ''}`}>
@@ -264,9 +585,9 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: 
           </h4>
           {task.task_type && (
             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
-              task.task_type === 'commercial' ? 'bg-amber-100 text-amber-600' :
-              task.task_type === 'operational' ? 'bg-blue-100 text-blue-600' :
-              'bg-slate-100 text-slate-400'
+              task.task_type === 'commercial' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+              task.task_type === 'operational' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+              'bg-slate-100 text-slate-400 dark:bg-slate-800'
             }`}>
               {task.task_type === 'commercial' ? 'Comercial' : task.task_type === 'operational' ? 'Operacional' : 'Interno'}
             </span>
@@ -301,12 +622,30 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: 
         </div>
       </div>
 
-      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
-          <Play className="w-4 h-4" />
-        </button>
-        <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
-          <Edit className="w-4 h-4" />
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {!isCommunicationTask && (
+          <button 
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
+            className="p-2 text-muted-foreground hover:text-primary transition-colors hover:bg-muted dark:hover:bg-slate-800 rounded-lg"
+            title={isCompleted ? "Reativar/Reabrir tarefa" : "Iniciar tarefa (Em Execução)"}
+          >
+            <Play className={`w-4 h-4 ${isCompleted ? 'text-blue-500' : 'text-emerald-500 fill-emerald-500/20'}`} />
+          </button>
+        )}
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          className="p-2 text-muted-foreground hover:text-primary transition-colors hover:bg-muted dark:hover:bg-slate-800 rounded-lg"
+          title={isCommunicationTask ? "Ver/Editar notas da interação" : "Editar tarefa"}
+        >
+          <Edit className="w-4 h-4 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" />
         </button>
       </div>
     </div>
@@ -314,3 +653,4 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: 
 };
 
 export default MyDay;
+
