@@ -4,7 +4,7 @@ import { Task, Lead, User, Priority, TaskStatus } from '../types';
 import { ICONS } from '../constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, Calendar, ArrowRight, Star, Play, CheckCircle, Edit } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Calendar, ArrowRight, Star, Play, CheckCircle, Edit, Phone, Sparkles } from 'lucide-react';
 
 interface MyDayProps {
   tasks: Task[];
@@ -15,15 +15,50 @@ interface MyDayProps {
 }
 
 const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onUpdateTask }) => {
-  const today = new Date().toISOString().split('T')[0];
+  const getLocalDateString = (val: string | Date | null | undefined): string => {
+    if (!val) return '';
+    const d = typeof val === 'string' ? new Date(val) : val;
+    if (isNaN(d.getTime())) return '';
+    
+    // Se for string pura YYYY-MM-DD, retorna diretamente para evitar fuso horário
+    if (typeof val === 'string' && val.length <= 10 && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      return val;
+    }
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayLocal = getLocalDateString(new Date());
   
   const myTasks = tasks.filter(t => t.assigned_to === currentUser?.id || !t.assigned_to);
-  const todayTasks = myTasks.filter(t => t.due_date?.startsWith(today) && t.status !== TaskStatus.DONE);
-  const overdueTasks = myTasks.filter(t => t.due_date && t.due_date < today && t.status !== TaskStatus.DONE);
-  const completedToday = myTasks.filter(t => t.status === TaskStatus.DONE && t.created_at.startsWith(today));
+  
+  const todayTasks = myTasks.filter(t => {
+    if (!t.due_date || t.status === TaskStatus.DONE) return false;
+    return getLocalDateString(t.due_date) === todayLocal;
+  });
+  
+  const overdueTasks = myTasks.filter(t => {
+    if (!t.due_date || t.status === TaskStatus.DONE) return false;
+    const taskDateStr = getLocalDateString(t.due_date);
+    return taskDateStr < todayLocal;
+  });
+  
+  const completedToday = myTasks.filter(t => {
+    if (t.status !== TaskStatus.DONE) return false;
+    // Se created_at não estiver definido (ex: optimist UI), cai de volta para due_date
+    const taskDateStr = getLocalDateString(t.created_at || t.due_date);
+    return taskDateStr === todayLocal;
+  });
   
   // Follow-ups baseados em leads com data de próxima ação hoje OU tarefas comerciais hoje
-  const followUpsToday = leads.filter(l => l.next_action_date === today && (l.status !== 'won' && l.status !== 'lost'));
+  const followUpsToday = leads.filter(l => {
+    if (!l.next_action_date || l.status === 'won' || l.status === 'lost') return false;
+    return getLocalDateString(l.next_action_date) === todayLocal;
+  });
+  
   const commercialTasksToday = todayTasks.filter(t => t.task_type === 'commercial');
   const operationalTasksToday = todayTasks.filter(t => t.task_type === 'operational');
   const internalTasksToday = todayTasks.filter(t => t.task_type === 'internal' || !t.task_type);
@@ -43,7 +78,7 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
+    <div className="h-full overflow-y-auto pr-4 scrollbar-none space-y-10 animate-in fade-in duration-700 pb-10">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
@@ -134,7 +169,7 @@ const MyDay: React.FC<MyDayProps> = ({ tasks, leads, companies, currentUser, onU
                 <CheckCircle2 className="w-5 h-5" />
                 <h3 className="text-sm font-black uppercase tracking-[0.2em]">Concluídas Hoje</h3>
               </div>
-              <div className="grid gap-3">
+              <div className="max-h-[350px] overflow-y-auto pr-2 scrollbar-thin space-y-3">
                 {completedToday.map(task => (
                   <TaskCard key={task.id} task={task} onToggle={() => handleToggleTask(task)} isCompleted leads={leads} companies={companies} />
                 ))}
@@ -279,5 +314,3 @@ const TaskCard = ({ task, onToggle, isOverdue, isCompleted, leads, companies }: 
 };
 
 export default MyDay;
-
-import { Sparkles, Phone } from 'lucide-react';

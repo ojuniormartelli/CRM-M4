@@ -193,6 +193,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
           <AlertsPanel 
             leads={filteredLeads} 
             pipelines={filteredPipelines} 
+            tasks={tasks}
+            currentUser={currentUser}
             setActiveTab={setActiveTab}
             onFilterChange={(mode) => useCRMStore.getState().setFilterMode(mode)}
           />
