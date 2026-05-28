@@ -198,24 +198,57 @@ const App: React.FC = () => {
 
       if (pipeline && pipeline.stages) {
         if (status === 'lost') {
-          const lostStage = pipeline.stages.find(s => 
-            s.status?.toLowerCase() === 'lost' || 
-            s.status?.toLowerCase() === 'perdido' || 
-            s.name?.toLowerCase().includes('perdido') || 
-            s.name?.toLowerCase().includes('lost')
-          );
+          // Prioridade 1: Nome exato "perdido" ou "lost"
+          let lostStage = pipeline.stages.find(s => {
+            const nameLower = s.name?.toLowerCase().trim() || '';
+            return nameLower === 'perdido' || nameLower === 'lost';
+          });
+
+          // Prioridade 2: Nome contendo "perdido" ou "lost"
+          if (!lostStage) {
+            lostStage = pipeline.stages.find(s => {
+              const nameLower = s.name?.toLowerCase() || '';
+              return nameLower.includes('perdido') || nameLower.includes('lost');
+            });
+          }
+
+          // Prioridade 3: Apenas o status é 'lost' ou 'perdido'
+          if (!lostStage) {
+            lostStage = pipeline.stages.find(s => {
+              const statusLower = s.status?.toLowerCase() || '';
+              return statusLower === 'lost' || statusLower === 'perdido';
+            });
+          }
+
           if (lostStage) {
             targetStageId = lostStage.id;
           }
         } else if (status === 'won') {
-          const wonStage = pipeline.stages.find(s => 
-            s.status?.toLowerCase() === 'won' || 
-            s.status?.toLowerCase() === 'ganho' || 
-            s.name?.toLowerCase().includes('ganho') || 
-            s.name?.toLowerCase().includes('won') || 
-            s.name?.toLowerCase().includes('fechamento') || 
-            s.name?.toLowerCase().includes('fechado')
-          );
+          // Prioridade 1: Nome exato "ganho", "won" ou "cliente"
+          let wonStage = pipeline.stages.find(s => {
+            const nameLower = s.name?.toLowerCase().trim() || '';
+            return nameLower === 'ganho' || nameLower === 'won' || nameLower === 'cliente';
+          });
+
+          // Prioridade 2: Nome contendo "ganho", "won", "fechado" ou "fechamento"
+          if (!wonStage) {
+            wonStage = pipeline.stages.find(s => {
+              const nameLower = s.name?.toLowerCase() || '';
+              return nameLower.includes('ganho') || 
+                     nameLower.includes('won') || 
+                     nameLower.includes('fechamento') || 
+                     nameLower.includes('fechado');
+            });
+          }
+
+          // Prioridade 3: Apenas o status é 'won' ou 'ganho'
+          if (!wonStage) {
+            wonStage = pipeline.stages.find(s => {
+              const statusLower = s.status?.toLowerCase() || '';
+              return statusLower === 'won' || statusLower === 'ganho';
+            });
+          }
+
           if (wonStage) {
             targetStageId = wonStage.id;
           }
