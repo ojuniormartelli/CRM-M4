@@ -1875,7 +1875,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
                       <div className="flex items-center gap-2 mb-3">
                         {lead.contact_whatsapp && (
-                          <div className="p-1.5 bg-green-500/10 text-green-600 rounded-lg" title={lead.contact_whatsapp}>
+                          <div className="p-1.5 bg-green-500/10 text-green-600 rounded-lg" title={formatPhoneBR(lead.contact_whatsapp)}>
                             <ICONS.Phone width={12} height={12} />
                           </div>
                         )}
@@ -2552,7 +2552,9 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Telefone / WhatsApp</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">{selectedLead.contact_whatsapp || '–'}</p>
+                            <p className="text-xs font-bold text-foreground">
+                              {selectedLead.contact_whatsapp ? formatPhoneBR(selectedLead.contact_whatsapp) : '–'}
+                            </p>
                             {selectedLead.contact_whatsapp && (
                               <button 
                                 onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
@@ -2630,7 +2632,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Empresa" defaultOpen={false}>
+                <CollapsibleSection title="Empresa" defaultOpen={true}>
                   <div className="space-y-4">
                     {!isEditing ? (
                       <>
@@ -2661,7 +2663,9 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Telefone / WhatsApp da Empresa</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">{selectedLead.company_whatsapp || '–'}</p>
+                            <p className="text-xs font-bold text-foreground">
+                              {selectedLead.company_whatsapp ? formatPhoneBR(selectedLead.company_whatsapp) : '–'}
+                            </p>
                             {selectedLead.company_whatsapp && (
                               <button 
                                 onClick={() => window.open(`https://wa.me/55${selectedLead.company_whatsapp?.replace(/\D/g, '')}`, '_blank')}

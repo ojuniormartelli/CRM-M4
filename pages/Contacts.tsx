@@ -771,7 +771,7 @@ const Contacts: React.FC<ContactsProps> = ({
                                   >
                                     <div>
                                       <p className="font-bold text-slate-900 dark:text-white">{c.name}</p>
-                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.whatsapp}</p>
+                                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{c.email} • {c.whatsapp ? formatPhoneBR(c.whatsapp) : 'Sem Telefone'}</p>
                                     </div>
                                     {selectedContactId === c.id && <ICONS.Check className="text-blue-600" width="16" height="16" />}
                                   </button>
