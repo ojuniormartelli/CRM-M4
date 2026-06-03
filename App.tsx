@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from './types';
+import { User, Task } from './types';
 import { ICONS } from './constants';
 import { supabase, getSupabaseConfig, isSupabaseConfigured, diagnoseSupabaseError } from './lib/supabase';
 import Login from './components/Login';
@@ -54,6 +54,8 @@ const App: React.FC = () => {
   });
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [activePipelineId, setActivePipelineId] = useState<string>('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
@@ -177,6 +179,33 @@ const App: React.FC = () => {
     }
   }, [appData.pipelines]);
 
+  // --- Clean up old erroneous "Lead Perdido" tasks from the database ---
+  useEffect(() => {
+    if (resolvedWorkspaceId && authInitialized) {
+      const runDBCleanup = async () => {
+        try {
+          // Delete legacy erroneously-created automated follow-ups for lost leads in m4_tasks
+          const { error, count } = await supabase
+            .from('m4_tasks')
+            .delete({ count: 'exact' })
+            .eq('workspace_id', resolvedWorkspaceId)
+            .ilike('title', 'Follow-up: Lead Perdido%');
+            
+          if (error) {
+            console.error('[Cleanup] Error deleting old Lead Perdido tasks:', error);
+          } else if (count && count > 0) {
+            console.log(`[Cleanup] Successfully removed ${count} legacy "Lead Perdido" tasks from the database.`);
+            // Invalidate/refetch active tasks list to update UI
+            appData.setTasks(appData.tasks.filter((t: any) => !t.title?.toLowerCase().includes('lead perdido')));
+          }
+        } catch (e) {
+          console.error('[Cleanup] Error in active database tasks correction:', e);
+        }
+      };
+      runDBCleanup();
+    }
+  }, [resolvedWorkspaceId, authInitialized]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -185,7 +214,7 @@ const App: React.FC = () => {
   const handleStatusChange = async (
     leadId: string,
     status: 'won' | 'lost' | 'active',
-    extraData?: { reason?: string }
+    extraData?: { reason?: string; stageId?: string; next_action?: string; next_action_date?: string | null }
   ) => {
     const lead = appData.leads.find((l) => l.id === leadId);
     if (!lead) return;
@@ -252,37 +281,173 @@ const App: React.FC = () => {
           if (wonStage) {
             targetStageId = wonStage.id;
           }
+        } else if (status === 'active') {
+          if (extraData?.stageId) {
+            targetStageId = extraData.stageId;
+          } else if (pipeline && pipeline.stages && pipeline.stages.length > 0) {
+            targetStageId = pipeline.stages[0].id;
+          }
         }
       }
 
-      await leadService.updateStatus(leadId, status, workspaceId, targetStageId);
-      appData.setLeads(appData.leads.map((l) => (l.id === leadId ? { 
-        ...l, 
+      // Consolidates update payload to include cleared actions, custom fields, and business notes pre-filled
+      const updatePayload: any = {
         status,
-        ...(targetStageId ? { stage_id: targetStageId, stage: targetStageId } : {})
-      } : l)));
-      if (status === 'won') {
-        const updatedLeadWithNewStage = {
-          ...lead,
-          status,
-          ...(targetStageId ? { stage_id: targetStageId, stage: targetStageId } : {})
+        next_action: status === 'lost' ? '' : (extraData?.next_action !== undefined ? extraData.next_action : lead.next_action),
+        next_action_date: status === 'lost' ? null : (extraData?.next_action_date !== undefined ? extraData.next_action_date : lead.next_action_date),
+      };
+
+      if (targetStageId) {
+        updatePayload.stage_id = targetStageId;
+        updatePayload.stage = targetStageId;
+      }
+
+      if (status === 'lost') {
+        const existingCustomFields = lead.custom_fields || {};
+        updatePayload.custom_fields = {
+          ...existingCustomFields,
+          loss_reason: extraData?.reason || 'Não informado',
+          lost_at: new Date().toISOString()
         };
-        await automationService.convertLeadToClient(updatedLeadWithNewStage, workspaceId);
+
+        let newNotes = lead.business_notes || '';
+        if (extraData?.reason) {
+          const lossNote = `\n[Perda em ${new Date().toLocaleDateString('pt-BR')}]: Motivo da perda: ${extraData.reason}`;
+          if (!newNotes.includes(lossNote)) {
+            newNotes = newNotes + lossNote;
+          }
+        }
+        updatePayload.business_notes = newNotes;
+      } else if (status === 'active') {
+        const existingCustomFields = lead.custom_fields || {};
+        updatePayload.custom_fields = {
+          ...existingCustomFields,
+          reactivated_at: new Date().toISOString(),
+          reactivation_reason: extraData?.reason || 'Não informado',
+          loss_reason: null,
+          lost_at: null
+        };
+
+        let newNotes = lead.business_notes || '';
+        const reactNote = `\n[Reativação em ${new Date().toLocaleDateString('pt-BR')}]: Motivo: ${extraData?.reason || 'Não informado'}`;
+        if (!newNotes.includes(reactNote)) {
+          newNotes = newNotes + reactNote;
+        }
+        updatePayload.business_notes = newNotes;
+      }
+
+      const updatedLead = await leadService.update(leadId, updatePayload, workspaceId);
+
+      appData.setLeads(appData.leads.map((l) => (l.id === leadId ? updatedLead : l)));
+
+      if (status === 'won') {
+        const createdClient = await automationService.convertLeadToClient(updatedLead, workspaceId);
         const clientsData = await clientService.getAll(workspaceId);
         appData.setClients(clientsData);
+        if (createdClient && createdClient.id) {
+          setSelectedClientId(createdClient.id);
+          setActiveTab('clients');
+        }
       } else if (status === 'lost') {
-        const followUpTask = {
-          title: `Follow-up: Lead Perdido - ${lead.company_id}`,
-          description: `Motivo da perda: ${extraData?.reason || 'Nao informado'}`,
-          type: 'call' as const,
-          priority: 'Baixa',
-          status: 'Pendente',
-          lead_id: lead.id,
-          company_id: lead.company_id,
-          due_date: new Date(Date.now() + 90 * 86400000).toISOString(),
+        // Clear/complete future follow-up pending tasks for this lead so they are marked completed/cancelled
+        await supabase
+          .from('m4_tasks')
+          .update({ status: 'Concluído' })
+          .eq('lead_id', leadId)
+          .eq('workspace_id', workspaceId)
+          .neq('status', 'Concluído');
+
+        const updatedTasksState = appData.tasks.map((t) => {
+          if (t.lead_id === leadId && t.status !== 'Concluído') {
+            return { ...t, status: 'Concluído' };
+          }
+          return t;
+        });
+        appData.setTasks(updatedTasksState);
+
+        // Check if a loss_record already exists for this lead to prevent duplicates
+        const { data: existingRecords } = await supabase
+          .from('m4_interactions')
+          .select('id')
+          .eq('lead_id', leadId)
+          .eq('type', 'loss_record')
+          .order('created_at', { ascending: false });
+
+        if (existingRecords && existingRecords.length > 0) {
+          await supabase
+            .from('m4_interactions')
+            .update({
+              note: `Motivo: ${extraData?.reason || 'Não informado'}`,
+              content: `Motivo da perda: ${extraData?.reason || 'Não informado'}`,
+              created_at: new Date().toISOString()
+            })
+            .eq('id', existingRecords[0].id);
+        } else {
+          // Put a terminal interaction record in m4_interactions table for Lead Lost history
+          const lossInteraction = {
+            workspace_id: workspaceId,
+            lead_id: leadId,
+            type: 'loss_record',
+            title: 'Lead Perdido',
+            note: `Motivo: ${extraData?.reason || 'Não informado'}`,
+            content: `Motivo da perda: ${extraData?.reason || 'Não informado'}`,
+            success: false,
+            created_at: new Date().toISOString()
+          };
+
+          const { error: actError } = await supabase
+            .from('m4_interactions')
+            .insert([lossInteraction]);
+
+          if (actError) {
+            console.error('Erro ao salvar historico de perda do lead:', actError);
+          }
+        }
+      } else if (status === 'active') {
+        // Register reactivation record in m4_interactions
+        const reactInteraction = {
+          workspace_id: workspaceId,
+          lead_id: leadId,
+          type: 'reactivation_record',
+          title: 'Lead Reativado',
+          note: `Motivo: ${extraData?.reason || 'Não informado'}${extraData?.next_action ? ` | Próxima Ação: ${extraData.next_action}` : ''}`,
+          content: `Motivo da reativação: ${extraData?.reason || 'Não informado'}${extraData?.next_action ? `\nPróxima Ação: ${extraData.next_action}` : ''}`,
+          success: true,
+          created_at: new Date().toISOString()
         };
-        const newTask = await taskService.create(followUpTask, workspaceId);
-        appData.setTasks([...appData.tasks, newTask]);
+
+        const { error: actError } = await supabase
+          .from('m4_interactions')
+          .insert([reactInteraction]);
+
+        if (actError) {
+          console.error('Erro ao salvar historico de reativacao do lead:', actError);
+        }
+
+        // Create the task if next_action and next_action_date are specified
+        if (extraData?.next_action && extraData?.next_action_date) {
+          const newTask = {
+            workspace_id: workspaceId,
+            lead_id: leadId,
+            title: `Follow-up: ${extraData.next_action}`,
+            description: `Ação definida na reativação do lead: ${extraData.reason || 'Sem observações'}`,
+            type: 'task',
+            status: 'Pendente',
+            due_date: extraData.next_action_date,
+            created_at: new Date().toISOString()
+          };
+
+          const { data: taskData, error: taskError } = await supabase
+            .from('m4_tasks')
+            .insert([newTask])
+            .select();
+
+          if (taskError) {
+            console.error('Erro ao criar tarefa de proxima acao:', taskError);
+          } else if (taskData && taskData.length > 0) {
+            appData.setTasks([taskData[0] as Task, ...appData.tasks]);
+          }
+        }
       }
     } catch (err: any) {
       console.error('Erro ao alterar status do lead:', err);
@@ -467,6 +632,10 @@ const App: React.FC = () => {
           resolvedWorkspaceId={resolvedWorkspaceId}
           posts={appData.posts}
           campaigns={appData.campaigns}
+          selectedClientId={selectedClientId}
+          setSelectedClientId={setSelectedClientId}
+          selectedLeadId={selectedLeadId}
+          setSelectedLeadId={setSelectedLeadId}
         />
       </main>
     </div>

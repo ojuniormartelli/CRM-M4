@@ -105,6 +105,7 @@ export interface Lead {
   value: number;
   business_notes: string;
   service_type?: string;
+  services?: string[];
   proposed_ticket?: number;
   next_action?: string;
   next_action_date?: string;

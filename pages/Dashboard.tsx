@@ -27,9 +27,12 @@ interface DashboardProps {
   currentUser: User | null;
   setActiveTab: (tab: string) => void;
   workspaceId: string;
+  clients?: any[];
+  setSelectedClientId?: (id: string | null) => void;
+  setSelectedLeadId?: (id: string | null) => void;
 }
 
-const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
+const StatCard = ({ title, value, change, icon: Icon, color, tooltip }: any) => {
   const changeNum = typeof change === 'string' ? parseFloat(change.replace('%', '')) : change;
   const isPositive = typeof change === 'string' ? (change.startsWith('+') || changeNum > 0) : changeNum > 0;
   const isNeutral = change === '0%' || change === '—' || changeNum === 0;
@@ -41,30 +44,53 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
       : 'text-red-600 dark:text-red-400';
 
   return (
-    <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow relative group">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-muted-foreground text-sm font-medium mb-1">{title}</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-muted-foreground text-xs sm:text-sm font-semibold truncate">{title}</p>
+            {tooltip && (
+              <span className="cursor-help text-slate-400 hover:text-slate-600 text-[10px] sm:text-xs flex items-center justify-center border border-slate-200 dark:border-slate-800 rounded-full w-3.5 h-3.5 italic font-serif" title={tooltip}>
+                i
+              </span>
+            )}
+          </div>
           <h3 className="text-2xl font-bold text-foreground">{value}</h3>
           <p className={`text-xs mt-2 flex items-center gap-1 ${textColor}`}>
             {!isNeutral && (isPositive ? '▲' : '▼')} {change} vs mês anterior
           </p>
         </div>
-        <div className={`p-3 rounded-xl bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400`}>
+        <div className={`p-3 rounded-xl bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400 shrink-0`}>
           <Icon />
         </div>
       </div>
+      {tooltip && (
+        <div className="absolute z-10 bottom-[85%] left-1/2 transform -translate-x-1/2 mb-2 w-52 p-3 bg-slate-950 text-white dark:bg-slate-900 text-[10px] font-semibold rounded-xl shadow-xl border border-slate-800 hover:border-slate-700 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-200 leading-normal font-sans">
+          {tooltip}
+        </div>
+      )}
     </div>
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipelines, currentUser, setActiveTab }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  leads, 
+  transactions, 
+  tasks, 
+  pipelines, 
+  currentUser, 
+  setActiveTab,
+  clients,
+  setSelectedClientId,
+  setSelectedLeadId
+}) => {
   const [forecast, setForecast] = useState<{ predictedRevenue: number; confidence: number } | null>(null);
   const [isForecasting, setIsForecasting] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
     return localStorage.getItem('m4_selected_pipeline_id');
   });
   const [currentGoal, setCurrentGoal] = useState<Goal | null>(null);
+  const [operationalClients, setOperationalClients] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCurrentGoal = async () => {
@@ -81,6 +107,24 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
       }
     };
     fetchCurrentGoal();
+  }, [currentUser]);
+
+  useEffect(() => {
+    const fetchOperationalClients = async () => {
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId) return;
+      try {
+        const { data, error } = await supabase
+          .from('m4_clients')
+          .select('*')
+          .eq('workspace_id', workspaceId);
+        if (error) throw error;
+        setOperationalClients(data || []);
+      } catch (err) {
+        console.error('Erro ao buscar clientes para o churn rate:', err);
+      }
+    };
+    fetchOperationalClients();
   }, [currentUser]);
 
   const handlePipelineSelect = (id: string | null) => {
@@ -119,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
   const metrics = useMemo(() => metricsUtils.calculateMetrics(filteredLeads, tasks, filteredPipelines), [filteredLeads, tasks, filteredPipelines]);
   const comparison = useMemo(() => metricsUtils.getMonthlyComparison(filteredLeads, filteredPipelines), [filteredLeads, filteredPipelines]);
   const velocityScore = useMemo(() => metricsUtils.getVelocityScore(filteredLeads, filteredPipelines), [filteredLeads, filteredPipelines]);
-  const churnRate = useMemo(() => metricsUtils.getChurnRate(filteredLeads, filteredPipelines), [filteredLeads, filteredPipelines]);
+  const churnRate = useMemo(() => metricsUtils.getChurnRate(operationalClients), [operationalClients]);
 
   const formatChange = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(0)}%`;
 
@@ -185,7 +229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
         <StatCard title="Fechado (Mês)" value={`R$ ${metrics.closedRevenue.toLocaleString()}`} change={formatChange(comparison.revenueChange)} icon={ICONS.Plus} color="emerald" />
         <StatCard title="Taxa Conversão" value={`${metrics.conversionRate.toFixed(1)}%`} change="0%" icon={ICONS.Automation} color="amber" />
         <StatCard title="Velocity" value={`${velocityScore} dias`} change="—" icon={ICONS.Clock} color="purple" />
-        <StatCard title="Churn Rate" value={`${churnRate.toFixed(1)}%`} change="—" icon={ICONS.X} color="red" />
+        <StatCard title="Churn Rate" value={`${churnRate.toFixed(1)}%`} change="—" icon={ICONS.X} color="red" tooltip="Churn = clientes cancelados / (ativos + cancelados)" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -197,6 +241,9 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, transactions, tasks, pipel
             currentUser={currentUser}
             setActiveTab={setActiveTab}
             onFilterChange={(mode) => useCRMStore.getState().setFilterMode(mode)}
+            clients={clients}
+            setSelectedClientId={setSelectedClientId}
+            setSelectedLeadId={setSelectedLeadId}
           />
         </div>
         <div>

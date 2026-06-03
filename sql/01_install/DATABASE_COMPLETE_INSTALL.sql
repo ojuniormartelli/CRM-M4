@@ -311,6 +311,8 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     next_action_date DATE,
     responsible_id UUID REFERENCES public.m4_users(id) ON DELETE SET NULL,
     last_activity_at TIMESTAMPTZ DEFAULT now(),
+    service_type TEXT,
+    services JSONB DEFAULT '[]'::jsonb,
     custom_fields JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),

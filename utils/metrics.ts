@@ -89,9 +89,24 @@ export const metricsUtils = {
   },
 
   // NOVA: Churn Rate
-  getChurnRate: (leads: Lead[], pipelines: Pipeline[]) => {
-    const wonLeads = leads.filter(l => metricsUtils.isWonLead(l, pipelines));
-    const lostLeads = leads.filter(l => metricsUtils.isLostLead(l, pipelines));
+  getChurnRate: (clientsOrLeads: any[], pipelines?: Pipeline[]) => {
+    if (!clientsOrLeads || clientsOrLeads.length === 0) return 0;
+
+    // Check if we are receiving operational clients list
+    const isClientList = clientsOrLeads.some(item => 'company_id' in item || 'services' in item || item.status === 'active' || item.status === 'churned' || item.status === 'paused');
+    
+    if (isClientList) {
+      const activeCount = clientsOrLeads.filter(c => c.status === 'active').length;
+      const churnedCount = clientsOrLeads.filter(c => c.status === 'churned').length;
+      const denominator = activeCount + churnedCount;
+      if (denominator === 0) return 0;
+      return (churnedCount / denominator) * 100;
+    }
+
+    // Fallback/Legacy: calculate Churn as sales lost conversion rate
+    if (!pipelines) return 0;
+    const wonLeads = clientsOrLeads.filter(l => metricsUtils.isWonLead(l, pipelines));
+    const lostLeads = clientsOrLeads.filter(l => metricsUtils.isLostLead(l, pipelines));
     const totalClosed = wonLeads.length + lostLeads.length;
 
     if (totalClosed === 0) return 0;

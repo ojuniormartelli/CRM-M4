@@ -152,22 +152,22 @@ const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div className={containerClass}>
             <button
-              onClick={() => setActiveTab('clients_overview')}
+              onClick={() => setActiveTab('clients')}
               className={`${commonClass} ${
-                activeTab === 'clients_overview'
+                activeTab === 'clients'
                   ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
                   : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
-              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-              Visão Geral
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Clientes
             </button>
             <button
               onClick={() => setActiveTab('companies')}
               className={`${commonClass} ${
                 activeTab === 'companies'
                   ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-650 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -178,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={`${commonClass} ${
                 activeTab === 'contacts'
                   ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
@@ -280,7 +280,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'my_day', icon: CheckCircle2, label: 'Meu Dia' },
         { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
-        { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
+        { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients' },
       ]
     },
     {
@@ -357,7 +357,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   label={item.label}
                   isActive={
                     item.id === 'sales' ? (activeTab === 'sales' || activeTab === 'sales_overview') :
-                    item.id === 'clients_group' ? (activeTab === 'companies' || activeTab === 'contacts' || activeTab === 'clients_overview') :
+                    item.id === 'operacao' ? (activeTab === 'companies' || activeTab === 'contacts' || activeTab === 'clients' || activeTab === 'clients_overview') :
                     activeTab === item.id
                   }
                   hasSubItems={item.hasSubItems}

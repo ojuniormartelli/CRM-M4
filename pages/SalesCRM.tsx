@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service, FunnelStatus } from '../types';
+import { Pipeline, PipelineStage, Lead, Interaction, Company, Contact, User, LeadTemperature, Task, FormTemplate, FormResponse, Priority, TaskStatus, Service, FunnelStatus, M4Client } from '../types';
 import { FinanceBankAccount } from '../types/finance';
 import { ICONS } from '../constants';
 import { mappers } from '../lib/mappers';
@@ -9,6 +9,7 @@ import { formatPhoneBR, formatCNPJ } from '../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiService';
 import { leadService } from '../services/leadService';
+import { clientService } from '../services/clientService';
 import { metricsUtils } from '../utils/metrics';
 import { funnelUtils } from '../utils/funnel';
 import { useCRMStore } from '../lib/store';
@@ -40,6 +41,10 @@ interface SalesCRMProps {
   renderOnlyModal?: boolean;
   setActiveTab: (tab: string) => void;
   workspaceId: string;
+  clients?: M4Client[];
+  setClients?: React.Dispatch<React.SetStateAction<M4Client[]>>;
+  selectedLeadId?: string | null;
+  setSelectedLeadId?: (id: string | null) => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -56,6 +61,132 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; d
         </div>
       </button>
       {isOpen && <div className="px-6 pb-6 animate-in fade-in slide-in-from-top-2 duration-300">{children}</div>}
+    </div>
+  );
+};
+
+interface MultiSelectServicesProps {
+  selectedServices: string[];
+  onChange: (services: string[]) => void;
+  servicesList: { id: string; name: string; default_price?: number }[];
+  placeholder?: string;
+}
+
+const MultiSelectServices: React.FC<MultiSelectServicesProps> = ({
+  selectedServices = [],
+  onChange,
+  servicesList = [],
+  placeholder = "Selecione os serviços..."
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleService = (serviceName: string) => {
+    let updated: string[];
+    if (selectedServices.includes(serviceName)) {
+      updated = selectedServices.filter(s => s !== serviceName);
+    } else {
+      updated = [...selectedServices, serviceName];
+    }
+    onChange(updated);
+  };
+
+  const handleRemove = (e: React.MouseEvent, serviceName: string) => {
+    e.stopPropagation();
+    onChange(selectedServices.filter(s => s !== serviceName));
+  };
+
+  const filteredServices = servicesList.filter(s =>
+    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full min-h-[48px] p-2.5 bg-muted rounded-2xl border-none font-bold text-foreground flex flex-wrap gap-1.5 items-center cursor-pointer select-none relative"
+      >
+        {selectedServices.length === 0 ? (
+          <span className="text-muted-foreground text-xs ml-2">{placeholder}</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {selectedServices.map((serviceName, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] uppercase font-black tracking-normal px-2.5 py-1 rounded-xl shadow-xs"
+              >
+                {serviceName}
+                <button
+                  type="button"
+                  onClick={(e) => handleRemove(e, serviceName)}
+                  className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-all cursor-pointer"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="ml-auto pr-1">
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-xl z-[300] overflow-hidden max-h-[300px] flex flex-col">
+          <div className="p-2.5 border-b border-border shrink-0">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar serviço..."
+              className="w-full p-2.5 bg-muted rounded-xl border-none text-xs font-bold text-foreground focus:outline-none"
+            />
+          </div>
+          <div className="overflow-y-auto p-1 py-1.5 space-y-0.5 scrollbar-none">
+            {filteredServices.length === 0 ? (
+              <p className="text-[10px] font-black text-muted-foreground uppercase py-4 text-center">Nenhum serviço encontrado</p>
+            ) : (
+              filteredServices.map((service) => {
+                const isSelected = selectedServices.includes(service.name);
+                return (
+                  <div
+                    key={service.id}
+                    onClick={() => toggleService(service.name)}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-all select-none text-xs font-bold uppercase tracking-tight ${
+                      isSelected ? 'text-primary bg-primary/5' : 'text-foreground'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      className="rounded text-primary focus:ring-primary w-4 h-4 pointer-events-none border-border"
+                    />
+                    <span>{service.name}</span>
+                    {service.default_price && service.default_price > 0 && (
+                      <span className="ml-auto text-[10px] text-muted-foreground font-medium">
+                        R$ {service.default_price.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -154,11 +285,339 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   setIsModalOpen: setExternalIsModalOpen,
   renderOnlyModal = false,
   setActiveTab,
-  workspaceId
+  workspaceId,
+  clients = [],
+  setClients,
+  selectedLeadId,
+  setSelectedLeadId
 }) => {
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  // Sync selectedLead and selectedLeadId
+  useEffect(() => {
+    if (selectedLeadId && leads.length > 0) {
+      const match = leads.find(l => l.id === selectedLeadId);
+      if (match) {
+        setSelectedLead(match);
+      }
+    }
+  }, [selectedLeadId, leads]);
+
+  useEffect(() => {
+    if (selectedLead === null && selectedLeadId && setSelectedLeadId) {
+      setSelectedLeadId(null);
+    }
+  }, [selectedLead, selectedLeadId, setSelectedLeadId]);
+
+  // --- AUTOMACAO ONBOARDING -> OPERACAO ---
+  const [onboardingConversion, setOnboardingConversion] = useState<{
+    isOpen: boolean;
+    lead: Lead;
+    targetStageId: string;
+    company_name: string;
+    cnpj: string;
+    status: 'active' | 'paused' | 'churned';
+    contract_start_date: string;
+    monthly_value: number;
+    services: string[];
+    manager_id: string;
+    company_id: string;
+    contact_id: string;
+    contact_name: string;
+    contact_email: string;
+    contact_whatsapp: string;
+    contact_instagram: string;
+    notes: string;
+  } | null>(null);
+
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    isOpen: boolean;
+    lead: Lead;
+    targetStageId: string;
+    existingClient: any;
+    reason: string;
+  } | null>(null);
+
+  // Check duplicity logic
+  const checkDuplicity = async (lead: Lead) => {
+    if (!workspaceId) return null;
+    
+    // 1. check duplicate by lead_id
+    const { data: byLead, error: errLead } = await supabase
+      .from('m4_clients')
+      .select('*, company:m4_companies(*)')
+      .eq('lead_id', lead.id)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+      
+    if (byLead) {
+      return { client: byLead, reason: `Já existe um cliente operacional vinculado a este lead comercial: ${byLead.company_name} (ID: ${byLead.id}).` };
+    }
+    
+    // 2. check duplicate by company_id
+    if (lead.company_id) {
+      const { data: byCompany, error: errComp } = await supabase
+        .from('m4_clients')
+        .select('*, company:m4_companies(*)')
+        .eq('company_id', lead.company_id)
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .maybeSingle();
+        
+      if (byCompany) {
+        return { client: byCompany, reason: `Já existe um cliente operacional vinculado a esta mesma empresa parceira: ${byCompany.company_name} (ID: ${byCompany.id}).` };
+      }
+    }
+    
+    // 3. check duplicate by CNPJ
+    const cnpjToCheck = (lead.company_cnpj || (lead as any).cnpj || '').replace(/\D/g, '');
+    if (cnpjToCheck) {
+      const { data: allClients, error: errAll } = await supabase
+        .from('m4_clients')
+        .select('*, company:m4_companies(*)')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null);
+        
+      if (allClients) {
+        const found = allClients.find(c => {
+          const clientCnpj = (c.company?.cnpj || '').replace(/\D/g, '');
+          return clientCnpj === cnpjToCheck;
+        });
+        if (found) {
+          return { client: found, reason: `Já existe um cliente operacional com o mesmo CNPJ (${lead.company_cnpj || (lead as any).cnpj}) cadastrado: ${found.company_name} (ID: ${found.id}).` };
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Helper case-insensitive, accent-insensitive
+  const isOnboardingConcluidoStage = (stageName?: string) => {
+    if (!stageName) return false;
+    const normalized = stageName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    return normalized === 'onboarding concluido' || normalized === 'onboarding concluído';
+  };
+
+  const handleStageTransitionCheck = async (lead: Lead, targetStageId: string, isFromDragAndDrop: boolean, originalStageId: string) => {
+    const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
+    if (!targetStage) return false;
+
+    if (isOnboardingConcluidoStage(targetStage.name)) {
+      setIsSyncing(true);
+      try {
+        const duplicityResult = await checkDuplicity(lead);
+        if (duplicityResult) {
+          setDuplicateWarning({
+            isOpen: true,
+            lead,
+            targetStageId,
+            existingClient: duplicityResult.client,
+            reason: duplicityResult.reason
+          });
+          setIsSyncing(false);
+          return true; // we handled this!
+        } else {
+          // Pre-fill fields
+          // Prefill services
+          let leadServices: string[] = [];
+          if (Array.isArray(lead.services) && lead.services.length > 0) {
+            leadServices = [...lead.services];
+          } else if (lead.service_type) {
+            leadServices.push(lead.service_type);
+          }
+
+          setOnboardingConversion({
+            isOpen: true,
+            lead,
+            targetStageId,
+            company_name: lead.company_name || 'Sem empresa',
+            cnpj: lead.company_cnpj || (lead as any).cnpj || '',
+            status: 'active',
+            contract_start_date: new Date().toISOString().split('T')[0],
+            monthly_value: lead.proposed_ticket || lead.value || 0,
+            services: leadServices,
+            manager_id: lead.responsible_id || currentUser?.id || '',
+            company_id: lead.company_id || '',
+            contact_id: lead.contact_id || '',
+            contact_name: lead.contact_name || 'Sem nome',
+            contact_email: lead.contact_email || lead.email || '',
+            contact_whatsapp: lead.contact_whatsapp || lead.whatsapp || '',
+            contact_instagram: lead.contact_instagram || '',
+            notes: lead.business_notes || lead.notes || ''
+          });
+          setIsSyncing(false);
+          return true; // we handled this!
+        }
+      } catch (err) {
+        console.error("Erro na verificação de transição de onboarding:", err);
+        showToast("Erro ao processar transição de onboarding", "error");
+        setIsSyncing(false);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const handleCancelConversion = () => {
+    setOnboardingConversion(null);
+    showToast("Conversão de onboarding cancelada pelo usuário.", "warning");
+  };
+
+  const handleCloseDuplicateWarning = () => {
+    setDuplicateWarning(null);
+  };
+
+  const handleOpenExistingClient = () => {
+    setDuplicateWarning(null);
+    setActiveTab('clients');
+    showToast("Navegando para a página operacional existente.", "success");
+  };
+
+  const handleSaveConversion = async (andOpenPage: boolean) => {
+    if (!onboardingConversion) return;
+    if (!onboardingConversion.company_name) {
+      showToast("O nome fantasia do cliente é obrigatório.", "error");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // 1. Create or update company
+      let finalCompanyId = onboardingConversion.company_id;
+      if (!finalCompanyId) {
+        const { data: newComp, error: errNewComp } = await supabase
+          .from('m4_companies')
+          .insert([
+            mappers.company({
+              name: onboardingConversion.company_name,
+              cnpj: onboardingConversion.cnpj,
+              whatsapp: onboardingConversion.contact_whatsapp,
+              email: onboardingConversion.contact_email,
+              instagram: onboardingConversion.contact_instagram,
+              notes: onboardingConversion.notes
+            }, workspaceId)
+          ])
+          .select()
+          .single();
+        if (errNewComp) throw errNewComp;
+        if (newComp) finalCompanyId = newComp.id;
+      } else {
+        const { error: errUpdateComp } = await supabase
+          .from('m4_companies')
+          .update({
+            name: onboardingConversion.company_name,
+            cnpj: onboardingConversion.cnpj,
+            whatsapp: onboardingConversion.contact_whatsapp,
+            email: onboardingConversion.contact_email,
+            instagram: onboardingConversion.contact_instagram,
+            notes: onboardingConversion.notes
+          })
+          .eq('id', finalCompanyId);
+        if (errUpdateComp) throw errUpdateComp;
+      }
+
+      // 2. Create or update contact
+      let finalContactId = onboardingConversion.contact_id;
+      const contactPayload = {
+        name: onboardingConversion.contact_name || 'Sem nome',
+        email: onboardingConversion.contact_email,
+        whatsapp: onboardingConversion.contact_whatsapp.replace(/\D/g, ''),
+        instagram: onboardingConversion.contact_instagram,
+        notes: onboardingConversion.notes,
+        is_primary: true,
+        company_id: finalCompanyId
+      };
+      
+      if (!finalContactId) {
+        const { data: newCont, error: errNewCont } = await supabase
+          .from('m4_contacts')
+          .insert([
+            mappers.contact(contactPayload, workspaceId)
+          ])
+          .select()
+          .single();
+        if (errNewCont) throw errNewCont;
+        if (newCont) finalContactId = newCont.id;
+      } else {
+        const { error: errUpdateCont } = await supabase
+          .from('m4_contacts')
+          .update(mappers.contact(contactPayload, workspaceId))
+          .eq('id', finalContactId);
+        if (errUpdateCont) throw errUpdateCont;
+      }
+
+      // 3. Mark lead as won and update its stage and relationships
+      const updatedLead = await leadService.update(onboardingConversion.lead.id, {
+        stage: onboardingConversion.targetStageId,
+        company_id: finalCompanyId || undefined,
+        contact_id: finalContactId || undefined,
+        company_name: onboardingConversion.company_name,
+        company_cnpj: onboardingConversion.cnpj,
+        contact_name: onboardingConversion.contact_name,
+        contact_email: onboardingConversion.contact_email,
+        contact_whatsapp: onboardingConversion.contact_whatsapp,
+        contact_instagram: onboardingConversion.contact_instagram,
+        business_notes: onboardingConversion.notes,
+        status: 'won' as any
+      }, workspaceId);
+
+      // Log interaction
+      if (currentUser) {
+        const interactionTask = {
+          title: `Onboarding concluído - Cliente criado`,
+          description: `Onboarding finalizado com sucesso. O cliente operacional ${onboardingConversion.company_name} foi criado no sistema.`,
+          type: 'Outro' as const,
+          status: 'Concluído',
+          task_type: 'commercial' as const,
+          lead_id: onboardingConversion.lead.id,
+          company_id: finalCompanyId,
+          interaction_success: true,
+          due_date: new Date().toISOString()
+        };
+        const taskPayload = mappers.task(interactionTask, workspaceId);
+        await supabase.from('m4_tasks').insert([taskPayload]);
+      }
+
+      // 4. Create the operational client
+      const clientPayload: Partial<M4Client> = {
+        lead_id: onboardingConversion.lead.id,
+        company_id: finalCompanyId || undefined,
+        company_name: onboardingConversion.company_name,
+        status: onboardingConversion.status,
+        contract_start_date: onboardingConversion.contract_start_date,
+        monthly_value: onboardingConversion.monthly_value,
+        services: onboardingConversion.services,
+        manager_id: onboardingConversion.manager_id || undefined,
+      };
+      
+      await clientService.create(clientPayload, workspaceId);
+
+      // 5. Update local state
+      if (setClients) {
+        const latestClients = await clientService.getAll(workspaceId);
+        setClients(latestClients);
+      }
+      
+      const latestLeads = await leadService.getAll(workspaceId);
+      setLeads(latestLeads);
+
+      showToast(`Cliente operacional ${onboardingConversion.company_name} criado com sucesso!`, "success");
+      setOnboardingConversion(null);
+      
+      if (andOpenPage) {
+        setActiveTab('clients');
+      }
+    } catch (error: any) {
+      console.error(error);
+      showToast(error.message || "Erro ao criar cliente operacional.", "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [activeTab360, setActiveTab360] = useState<'history' | 'tasks' | 'questionnaires' | 'products'>('history');
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([]);
   const [formResponses, setFormResponses] = useState<FormResponse[]>([]);
@@ -298,12 +757,12 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           activityData.forEach(act => {
             combined.push({
               id: act.id,
-              title: act.title,
-              description: act.content,
+              title: act.title || 'Interação',
+              description: act.content || act.note || '',
               type: act.type as any,
               status: 'Concluído',
               created_at: act.created_at,
-              interaction_success: true,
+              interaction_success: act.success !== false,
               task_type: 'commercial'
             } as any);
           });
@@ -437,12 +896,21 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [wonData, setWonData] = useState({
     monthly_value: 0,
     service_type: '',
+    services: [] as string[],
     start_date: new Date().toISOString().split('T')[0],
     bank_account_id: ''
   });
   const [lostData, setLostData] = useState({
     reason: '',
     notes: ''
+  });
+  const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
+  const [showReactivateSuccess, setShowReactivateSuccess] = useState(false);
+  const [reactivateData, setReactivateData] = useState({
+    reason: '',
+    stageId: '',
+    next_action: '',
+    next_action_date: ''
   });
   
   const [newLead, setNewLead] = useState<Partial<Lead>>({
@@ -466,6 +934,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     value: 0,
     business_notes: '',
     service_type: '',
+    services: [] as string[],
     campaign: '',
     responsible_id: currentUser?.id || '',
     status: 'active'
@@ -859,6 +1328,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       value: 0,
       business_notes: '',
       service_type: '',
+      services: [],
       campaign: '',
       responsible_id: currentUser?.id || '',
       status: 'active'
@@ -916,6 +1386,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         value: 0,
         business_notes: '',
         service_type: '',
+        services: [],
         campaign: '',
         responsible_id: currentUser?.id || '',
         status: 'active'
@@ -937,8 +1408,33 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     e.preventDefault();
     const leadId = e.dataTransfer.getData('leadId');
     if (leadId) {
+      const lead = leads.find(l => l.id === leadId);
+      if (!lead) return;
+      const originalStageId = lead.stage;
+
       const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
       const targetStatus = targetStage?.status || 'active';
+
+      // Intercept movement to ONBOARDING CONCLUIDO
+      const handled = await handleStageTransitionCheck(lead, targetStageId, true, originalStageId);
+      if (handled) {
+        setDraggedLeadId(null);
+        return;
+      }
+
+      // Intercept movement from lost to active stage
+      if (lead.status === 'lost' && targetStatus !== FunnelStatus.LOST) {
+        setSelectedLead(lead);
+        setReactivateData({
+          reason: '',
+          stageId: targetStageId,
+          next_action: '',
+          next_action_date: ''
+        });
+        setIsReactivateModalOpen(true);
+        setDraggedLeadId(null);
+        return;
+      }
 
       // Otimista: atualiza UI primeiro
       const originalLeads = [...leads];
@@ -960,11 +1456,29 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const handleMoveToStage = async (lead: Lead, targetStageId: string) => {
     if (!targetStageId || targetStageId === lead.stage) return;
 
+    const originalStageId = lead.stage;
     const targetStage = activePipeline.stages.find(s => s.id === targetStageId);
     if (!targetStage) return;
 
+    // Intercept movement to ONBOARDING CONCLUIDO
+    const handled = await handleStageTransitionCheck(lead, targetStageId, false, originalStageId);
+    if (handled) return;
+
     const targetStatus = targetStage.status;
     const targetStageName = targetStage.name;
+
+    // Intercept movement from lost to active stage
+    if (lead.status === 'lost' && targetStatus !== FunnelStatus.LOST) {
+      setSelectedLead(lead);
+      setReactivateData({
+        reason: '',
+        stageId: targetStageId,
+        next_action: '',
+        next_action_date: ''
+      });
+      setIsReactivateModalOpen(true);
+      return;
+    }
 
     setIsSyncing(true);
     try {
@@ -1100,6 +1614,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const showLostConfirm = (lead: Lead) => {
     // Para Perda, primeiro abrimos o modal de motivo que já existe
     setSelectedLead(lead);
+    setLostData({
+      reason: String(lead.custom_fields?.loss_reason || ''),
+      notes: ''
+    });
     setIsLostModalOpen(true);
   };
 
@@ -1200,7 +1718,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     let filtered = leads;
     if (filterMode === 'my_day') {
       const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today);
+      filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today && funnelUtils.isLeadActive(l, pipelines));
     }
 
     // Apply sorting
@@ -1277,6 +1795,48 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     setIsSyncing(true);
     try {
       await onStatusChange(selectedLead.id, 'lost', lostData);
+
+      // Create or update a local interaction record for instant UX update on the timeline
+      setInteractions(prev => {
+        const hasLossRecord = prev.some(item => (item.type as string) === 'loss_record');
+        if (hasLossRecord) {
+          return prev.map(item => {
+            if ((item.type as string) === 'loss_record') {
+              return {
+                ...item,
+                description: `Motivo da perda: ${lostData.reason || 'Não informado'}`,
+                created_at: new Date().toISOString()
+              };
+            }
+            return item;
+          });
+        } else {
+          const lossTimelineItem = {
+            id: 'loss-' + Date.now(),
+            title: 'Lead Perdido',
+            description: `Motivo da perda: ${lostData.reason || 'Não informado'}`,
+            type: 'loss_record',
+            status: 'Concluído',
+            created_at: new Date().toISOString(),
+            interaction_success: false,
+            task_type: 'commercial'
+          };
+          return [lossTimelineItem as any, ...prev];
+        }
+      });
+
+      // Update selectedLead locally with the loss reason & lost status so the loss banner shows immediately
+      const updatedLead = {
+        ...selectedLead,
+        status: 'lost' as const,
+        custom_fields: {
+          ...(selectedLead.custom_fields || {}),
+          loss_reason: lostData.reason || 'Não informado',
+          lost_at: new Date().toISOString()
+        }
+      };
+      setSelectedLead(updatedLead);
+
       setShowLostSuccess(true);
       showToast('Negócio marcado como PERDIDO. Analise os motivos para melhorar.');
       setTimeout(() => {
@@ -1287,6 +1847,76 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     } catch (error: any) {
       console.error(error);
       showToast(error.message || 'Erro ao marcar perda', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleReactivateConfirm = async () => {
+    if (!selectedLead) return;
+    setIsSyncing(true);
+    try {
+      const targetStageId = reactivateData.stageId || activePipeline.stages[0]?.id || '';
+      
+      await onStatusChange(selectedLead.id, 'active', {
+        reason: reactivateData.reason,
+        stageId: targetStageId,
+        next_action: reactivateData.next_action || undefined,
+        next_action_date: reactivateData.next_action_date ? new Date(reactivateData.next_action_date).toISOString() : null
+      });
+
+      // Insert reactivation record locally to update timeline immediately
+      const reactTimelineItem = {
+        id: 'react-' + Date.now(),
+        title: 'Lead Reativado',
+        description: `Motivo da reativação: ${reactivateData.reason || 'Não informado'}${reactivateData.next_action ? ` | Próxima Ação: ${reactivateData.next_action}` : ''}`,
+        type: 'reactivation_record',
+        status: 'Concluído',
+        created_at: new Date().toISOString(),
+        interaction_success: true,
+        task_type: 'commercial'
+      };
+
+      setInteractions(prev => [reactTimelineItem as any, ...prev]);
+
+      // If next action is specified, prepend local task to interactions state for direct visibility
+      if (reactivateData.next_action && reactivateData.next_action_date) {
+        const localTask = {
+          id: 'task-' + Date.now(),
+          title: `Follow-up: ${reactivateData.next_action}`,
+          description: `Ação definida na reativação do lead: ${reactivateData.reason || 'Sem observações'}`,
+          type: 'task',
+          status: 'Pendente',
+          due_date: new Date(reactivateData.next_action_date).toISOString(),
+          created_at: new Date().toISOString()
+        };
+        setInteractions(prev => [localTask as any, ...prev]);
+      }
+
+      // Update selectedLead locally so changes are immediately displayed in the 360-view
+      const updatedLead = {
+        ...selectedLead,
+        status: 'active' as const,
+        stage: targetStageId,
+        custom_fields: {
+          ...(selectedLead.custom_fields || {}),
+          reactivated_at: new Date().toISOString(),
+          reactivation_reason: reactivateData.reason || 'Não informado',
+          loss_reason: null,
+          lost_at: null
+        }
+      };
+      setSelectedLead(updatedLead);
+
+      setShowReactivateSuccess(true);
+      showToast('Negócio REATIVADO com sucesso e movido de volta para o funil.');
+      setTimeout(() => {
+        setIsReactivateModalOpen(false);
+        setShowReactivateSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error(error);
+      showToast(error.message || 'Erro ao reativar o lead', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -1517,8 +2147,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Serviço</label>
-                      <input value={newLead.service_type} onChange={e => setNewLead({...newLead, service_type: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Gestão de Tráfego" />
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Serviços / Produtos</label>
+                      <MultiSelectServices
+                        selectedServices={newLead.services || []}
+                        onChange={(selected) => {
+                          let calculatedValue = 0;
+                          selected.forEach(srvName => {
+                            const foundSrv = services.find(s => s.name === srvName);
+                            if (foundSrv) calculatedValue += foundSrv.default_price || 0;
+                          });
+                          
+                          setNewLead({
+                            ...newLead,
+                            services: selected,
+                            value: calculatedValue > 0 ? calculatedValue : newLead.value
+                          });
+                        }}
+                        servicesList={services}
+                        placeholder="Selecione um ou mais serviços..."
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -2200,24 +2847,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Serviço</label>
-                      <select 
-                        value={newLead.service_type} 
-                        onChange={e => {
-                          const selectedService = services.find(s => s.name === e.target.value);
-                          setNewLead({
-                            ...newLead, 
-                            service_type: e.target.value,
-                            value: selectedService ? selectedService.default_price : newLead.value
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Serviços / Produtos</label>
+                      <MultiSelectServices
+                        selectedServices={newLead.services || []}
+                        onChange={(selected) => {
+                          let calculatedValue = 0;
+                          selected.forEach(srvName => {
+                            const foundSrv = services.find(s => s.name === srvName);
+                            if (foundSrv) calculatedValue += foundSrv.default_price || 0;
                           });
-                        }} 
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                      >
-                        <option value="">Selecione um serviço...</option>
-                        {services.map(service => (
-                          <option key={service.id} value={service.name}>{service.name}</option>
-                        ))}
-                      </select>
+                          
+                          setNewLead({
+                            ...newLead,
+                            services: selected,
+                            value: calculatedValue > 0 ? calculatedValue : newLead.value
+                          });
+                        }}
+                        servicesList={services}
+                        placeholder="Selecione um ou mais serviços..."
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Interno</label>
@@ -2313,14 +2961,32 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   onClick={() => showLostConfirm(selectedLead)}
                   className="px-4 py-2.5 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
                 >
-                  Marcar Perda
+                  {selectedLead.status === 'lost' ? 'Editar Motivo' : 'Marcar Perda'}
                 </button>
+                {selectedLead.status === 'lost' && (
+                  <button 
+                    onClick={() => {
+                      setReactivateData({
+                        reason: '',
+                        stageId: activePipeline.stages[0]?.id || '',
+                        next_action: '',
+                        next_action_date: ''
+                      });
+                      setIsReactivateModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Reativar Lead
+                  </button>
+                )}
                 <button 
                   onClick={() => {
                     setWonData({
                       ...wonData,
                       monthly_value: selectedLead.proposed_ticket || selectedLead.value || 0,
-                      service_type: selectedLead.service_type || ''
+                      service_type: selectedLead.service_type || '',
+                      services: selectedLead.services || (selectedLead.service_type ? [selectedLead.service_type] : [])
                     });
                     setIsWonModalOpen(true);
                   }}
@@ -2384,6 +3050,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
               onStageClick={(stageId) => handleMoveToStage(selectedLead, stageId)}
               isUpdating={isSyncing}
             />
+
+            {/* Negócio Perdido Banner */}
+            {selectedLead.status === 'lost' && (
+              <div className="mx-10 mt-6 p-5 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300 shrink-0">
+                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-700 dark:text-rose-400">Status do Negócio: Perdido</span>
+                  <p className="text-sm font-bold text-foreground leading-snug">
+                    Motivo da perda: <span className="font-medium text-muted-foreground">{String(selectedLead.custom_fields?.loss_reason || 'Não informado')}</span>
+                  </p>
+                  {selectedLead.custom_fields?.lost_at && (
+                    <p className="text-[9px] font-black text-muted-foreground/80 uppercase tracking-widest leading-none">
+                      Registrado em: {new Date(String(selectedLead.custom_fields.lost_at)).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Main Content 360 */}
             <div className="flex-1 flex overflow-hidden">
               {/* Sidebar Esquerda */}
@@ -2396,9 +3081,23 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Valor</span>
                           <span className="text-sm font-black text-foreground">R$ {Number(selectedLead.value || 0).toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Serviço</span>
-                          <span className="text-sm font-bold text-foreground">{selectedLead.service_type || '–'}</span>
+                        <div className="flex flex-col gap-1.5 py-1">
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">Serviço / Produto</span>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {Array.isArray(selectedLead.services) && selectedLead.services.length > 0 ? (
+                              selectedLead.services.map((srv, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md">
+                                  {srv}
+                                </span>
+                              ))
+                            ) : selectedLead.service_type ? (
+                              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md">
+                                {selectedLead.service_type}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground font-medium">—</span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Previsão</span>
@@ -2439,24 +3138,25 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
-                          <select 
-                            value={editLead.service_type || ''} 
-                            onChange={e => {
-                              const selectedService = services.find(s => s.name === e.target.value);
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Serviços / Produtos</label>
+                          <MultiSelectServices
+                            selectedServices={editLead.services || []}
+                            onChange={(selected) => {
+                              let calculatedValue = 0;
+                              selected.forEach(srvName => {
+                                const foundSrv = services.find(s => s.name === srvName);
+                                if (foundSrv) calculatedValue += foundSrv.default_price || 0;
+                              });
+
                               setEditLead({
-                                ...editLead, 
-                                service_type: e.target.value,
-                                value: selectedService ? selectedService.default_price : editLead.value
+                                ...editLead,
+                                services: selected,
+                                value: calculatedValue > 0 ? calculatedValue : editLead.value
                               });
                             }}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          >
-                            <option value="">Selecione um serviço</option>
-                            {services.map(service => (
-                              <option key={service.id} value={service.name}>{service.name}</option>
-                            ))}
-                          </select>
+                            servicesList={services}
+                            placeholder="Selecione serviços..."
+                          />
                         </div>
                         <div>
                           <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Campanha</label>
@@ -2929,26 +3629,38 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         ) : (
                           interactions.map((interaction) => (
                             <div key={interaction.id} className="flex gap-6 relative">
-                              <div className={`w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border ${!interaction.interaction_success ? 'opacity-60' : ''}`}>
+                              <div className={`w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border ${!interaction.interaction_success && (interaction.type as string) !== 'loss_record' && (interaction.type as string) !== 'lead_lost' && (interaction.type as string) !== 'reactivation_record' ? 'opacity-60' : ''}`}>
                                 {interaction.type === 'E-mail' ? <ICONS.Mail width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Ligação' ? <ICONS.Phone width="18" height="18" className="text-primary" /> :
                                  interaction.type === 'Reunião' ? <Users width="18" height="18" className="text-amber-500" /> :
                                  interaction.type === 'ai_insight' ? <ICONS.Automation width="18" height="18" className="text-indigo-500" /> :
+                                 (interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? <AlertCircle width="18" height="18" className="text-rose-600" /> :
+                                 (interaction.type as string) === 'reactivation_record' ? <CheckCircle2 width="18" height="18" className="text-emerald-600" /> :
                                  <MessageSquare width="18" height="18" className="text-muted-foreground" />}
                               </div>
-                              <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${!interaction.interaction_success ? 'border-destructive/20' : ''}`}>
+                              <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? 'border-rose-200 dark:border-rose-950/40 bg-rose-50/5 dark:bg-rose-950/5' : (interaction.type as string) === 'reactivation_record' ? 'border-emerald-200 dark:border-emerald-950/40 bg-emerald-50/5 dark:bg-emerald-950/5' : !interaction.interaction_success ? 'border-destructive/20' : ''}`}>
                                 <div className="flex justify-between items-start mb-3">
                                   <div className="flex items-center gap-3">
                                     <h5 className="text-sm font-black text-foreground uppercase tracking-tight">
-                                      {interaction.type}
+                                      {(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? 'Perda Comercial' : (interaction.type as string) === 'reactivation_record' ? 'Reativação Comercial' : interaction.type}
                                     </h5>
-                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                      interaction.interaction_success 
-                                        ? 'bg-emerald-500/10 text-emerald-600' 
-                                        : 'bg-destructive/10 text-destructive'
-                                    }`}>
-                                      {interaction.interaction_success ? 'Sucesso' : 'Sem Resposta'}
-                                    </span>
+                                    {(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600">
+                                        Perda Registrada
+                                      </span>
+                                    ) : (interaction.type as string) === 'reactivation_record' ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600">
+                                        Lead Reativado
+                                      </span>
+                                    ) : (
+                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                        interaction.interaction_success 
+                                          ? 'bg-emerald-500/10 text-emerald-600' 
+                                          : 'bg-destructive/10 text-destructive'
+                                      }`}>
+                                        {interaction.interaction_success ? 'Sucesso' : 'Sem Resposta'}
+                                      </span>
+                                    )}
                                     {interaction.status === 'Pendente' && (
                                       <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600">
                                         Agendado
@@ -2960,7 +3672,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                                   </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground font-medium leading-relaxed whitespace-pre-wrap">
-                                  {interaction.interaction_note || interaction.description}
+                                  {String(interaction.interaction_note || interaction.description || 'Nenhum detalhe informado.').trim()}
                                 </p>
                               </div>
                             </div>
@@ -3190,24 +3902,26 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Tipo de Serviço</label>
-                    <select 
-                      value={wonData.service_type}
-                      onChange={e => {
-                        const selectedService = services.find(s => s.name === e.target.value);
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Serviços / Produtos</label>
+                    <MultiSelectServices
+                      selectedServices={wonData.services || []}
+                      onChange={(selected) => {
+                        let calculatedValue = 0;
+                        selected.forEach(srvName => {
+                          const foundSrv = services.find(s => s.name === srvName);
+                          if (foundSrv) calculatedValue += foundSrv.default_price || 0;
+                        });
+
                         setWonData({
-                          ...wonData, 
-                          service_type: e.target.value,
-                          monthly_value: selectedService ? selectedService.default_price : wonData.monthly_value
+                          ...wonData,
+                          services: selected,
+                          service_type: selected.length > 0 ? selected[0] : '',
+                          monthly_value: calculatedValue > 0 ? calculatedValue : wonData.monthly_value
                         });
                       }}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                    >
-                      <option value="">Selecione um serviço...</option>
-                      {services.map(service => (
-                        <option key={service.id} value={service.name}>{service.name}</option>
-                      ))}
-                    </select>
+                      servicesList={services}
+                      placeholder="Selecione um ou mais serviços..."
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Conta Bancária (Destino)</label>
@@ -3281,6 +3995,88 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   className="flex-1 py-4 bg-destructive text-destructive-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-destructive/90 transition-all"
                 >
                   {isSyncing ? "PROCESSANDO..." : "CONFIRMAR PERDA"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isReactivateModalOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
+            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
+              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Reativar Lead</h3>
+              <button onClick={() => setIsReactivateModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
+              {showReactivateSuccess ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                  </div>
+                  <h4 className="text-xl font-black text-foreground mb-2 uppercase">Lead Reativado!</h4>
+                  <p className="text-sm text-muted-foreground font-bold">O lead foi reativado e retornado para o funil comercial.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Motivo da Reativação</label>
+                    <textarea 
+                      required
+                      placeholder="Descreva o motivo da reativação (ex: Voltou a responder, solicitou nova proposta)..."
+                      value={reactivateData.reason}
+                      onChange={e => setReactivateData({...reactivateData, reason: e.target.value})}
+                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[100px] resize-none text-sm placeholder:text-muted-foreground/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Etapa de Retorno no Funil</label>
+                    <select
+                      value={reactivateData.stageId}
+                      onChange={e => setReactivateData({...reactivateData, stageId: e.target.value})}
+                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground cursor-pointer text-sm"
+                    >
+                      {activePipeline.stages.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="border-t border-border/60 pt-4 mt-2 space-y-4">
+                    <span className="text-[10px] font-black text-muted-foreground/80 uppercase tracking-widest block mb-1">Agendar Próxima Ação (Opcional)</span>
+                    <div>
+                      <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest mb-1 block">O que precisa ser feito?</label>
+                      <input 
+                        placeholder="Ex: Enviar proposta atualizada, ligar para fechar..."
+                        value={reactivateData.next_action || ''}
+                        onChange={e => setReactivateData({...reactivateData, next_action: e.target.value})}
+                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest mb-1 block">Data/Hora Limite</label>
+                      <input 
+                        type="datetime-local"
+                        value={reactivateData.next_action_date || ''}
+                        onChange={e => setReactivateData({...reactivateData, next_action_date: e.target.value})}
+                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!showReactivateSuccess && (
+              <div className="p-10 pt-0 shrink-0 flex gap-4">
+                <button onClick={() => setIsReactivateModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
+                <button 
+                  onClick={handleReactivateConfirm}
+                  disabled={isSyncing || !reactivateData.reason.trim()}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-emerald-550 transition-all"
+                >
+                  {isSyncing ? "PROCESSANDO..." : "REATIVAR E SALVAR"}
                 </button>
               </div>
             )}
@@ -3865,6 +4661,328 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal / Tela de Confirmação para Criação Assistida de Cliente Comercial */}
+      {onboardingConversion && onboardingConversion.isOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-card w-full max-w-4xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95 my-8 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 md:p-8 border-b border-border flex justify-between items-center bg-card shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
+                  <Sparkles className="text-primary animate-pulse" width={24} height={24} />
+                  Conversão Assistida: Onboarding para Operação
+                </h3>
+                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">
+                  Revise os dados operacionais antes de persistir a criação do cliente comercial
+                </p>
+              </div>
+              <button 
+                onClick={handleCancelConversion} 
+                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all active:scale-95"
+              >
+                <X width="20" height="20" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <div className="p-8 md:p-10 overflow-y-auto flex-1 space-y-8 min-h-0">
+               {/* Identification & Core Details */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Section Title */}
+                 <div className="md:col-span-2">
+                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
+                     1. Identificação Operacional
+                   </h4>
+                 </div>
+                 
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Nome Fantasia do Cliente <span className="text-destructive">*</span>
+                   </label>
+                   <input
+                     type="text"
+                     value={onboardingConversion.company_name}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, company_name: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="Nome Fantasia / Nome Comercial"
+                     required
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     CPF/CNPJ
+                   </label>
+                   <input
+                     type="text"
+                     value={onboardingConversion.cnpj}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, cnpj: formatCNPJ(e.target.value) })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="XX.XXX.XXX/XXXX-XX"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Status Inicial
+                   </label>
+                   <select
+                     value={onboardingConversion.status}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, status: e.target.value as any })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                   >
+                     <option value="active">🟢 Ativo (Em Operação)</option>
+                     <option value="paused">🟡 Pausado / Suspenso</option>
+                     <option value="churned">🔴 Cancelado / Churned</option>
+                   </select>
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Data de Início do Contrato
+                   </label>
+                   <input
+                     type="date"
+                     value={onboardingConversion.contract_start_date}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contract_start_date: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                   />
+                 </div>
+               </div>
+
+               {/* Contacts & Relations */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                 <div className="md:col-span-2">
+                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
+                     2. Contatos & Representante Principal
+                   </h4>
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Nome do Contato Principal
+                   </label>
+                   <input
+                     type="text"
+                     value={onboardingConversion.contact_name}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_name: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="Nome do cliente/interlocutor"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Email de Contrato
+                   </label>
+                   <input
+                     type="email"
+                     value={onboardingConversion.contact_email}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_email: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="financeiro@empresa.com"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Telefone / WhatsApp Comercial
+                   </label>
+                   <input
+                     type="text"
+                     value={onboardingConversion.contact_whatsapp}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_whatsapp: formatPhoneBR(e.target.value) })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="(XX) XXXXX-XXXX"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Instagram / Link Relevante
+                   </label>
+                   <input
+                     type="text"
+                     value={onboardingConversion.contact_instagram}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_instagram: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                     placeholder="@empresa"
+                   />
+                 </div>
+               </div>
+
+               {/* Commercial & Contract Terms */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                 <div className="md:col-span-2">
+                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
+                     3. Condições Comerciais & Financeiras
+                   </h4>
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Valor Mensal (Fee / Retentor)
+                   </label>
+                   <div className="relative">
+                     <span className="absolute left-4 top-3 text-xs font-bold text-muted-foreground uppercase">R$</span>
+                     <input
+                       type="number"
+                       step="0.01"
+                       value={onboardingConversion.monthly_value}
+                       onChange={(e) => setOnboardingConversion({ ...onboardingConversion, monthly_value: parseFloat(e.target.value) || 0 })}
+                       className="w-full bg-muted border border-border focus:border-primary rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none transition-all"
+                       placeholder="2500.00"
+                     />
+                   </div>
+                 </div>
+
+                 <div>
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Gestor / Owner da Conta
+                   </label>
+                   <select
+                     value={onboardingConversion.manager_id}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, manager_id: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
+                   >
+                     <option value="">Selecione um gestor interno</option>
+                     {users.map(u => (
+                       <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                     ))}
+                   </select>
+                 </div>
+
+                 <div className="md:col-span-2">
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Serviços & Planos Habilitados
+                   </label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                     {services.map(s => {
+                       const isChecked = onboardingConversion.services.includes(s.name);
+                       return (
+                         <label 
+                           key={s.id} 
+                           className={`flex items-center gap-3 p-4 border rounded-2xl cursor-pointer hover:bg-muted/50 transition-all select-none ${
+                             isChecked ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'
+                           }`}
+                         >
+                           <input
+                             type="checkbox"
+                             checked={isChecked}
+                             onChange={() => {
+                               const updatedServices = isChecked
+                                 ? onboardingConversion.services.filter(item => item !== s.name)
+                                 : [...onboardingConversion.services, s.name];
+                               setOnboardingConversion({ ...onboardingConversion, services: updatedServices });
+                             }}
+                             className="rounded text-primary focus:ring-primary w-4 h-4"
+                           />
+                           <div>
+                             <p className="text-xs font-black text-foreground uppercase tracking-tight">{s.name}</p>
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase">R$ {s.default_price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                           </div>
+                         </label>
+                       );
+                     })}
+                   </div>
+                 </div>
+
+                 <div className="md:col-span-2">
+                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                     Observações Comerciais & Onboarding
+                   </label>
+                   <textarea
+                     value={onboardingConversion.notes}
+                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, notes: e.target.value })}
+                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all h-24 resize-none"
+                     placeholder="Descreva detalhes específicos coletados no onboarding que ajudarão no sucesso do cliente..."
+                   />
+                 </div>
+               </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 md:p-8 border-t border-border flex flex-col sm:flex-row gap-4 justify-between bg-card shrink-0">
+              <button
+                onClick={handleCancelConversion}
+                className="px-6 py-3 bg-muted text-muted-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all active:scale-95"
+              >
+                Cancelar Conversão
+              </button>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSaveConversion(false)}
+                  className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Salvar Cliente
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => handleSaveConversion(true)}
+                  className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                >
+                  <Sparkles width={14} height={14} />
+                  Salvar e Abrir Página do Cliente
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Alerta de Duplicidade Preventiva */}
+      {duplicateWarning && duplicateWarning.isOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
+            <div className="p-8 border-b border-border flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center shrink-0">
+                  <AlertCircle width={20} height={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Cliente Já Vinculado</h3>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Duplicidade Preventiva</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCloseDuplicateWarning}
+                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all active:scale-95"
+              >
+                <X width={16} height={16} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-4">
+              <p className="text-sm font-medium text-foreground leading-relaxed">
+                {duplicateWarning.reason}
+              </p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Para garantir a integridade do banco de dados, o CRM bloqueia a criação de múltiplos clientes operacionais para a mesma conta.
+              </p>
+            </div>
+
+            <div className="p-6 md:p-8 border-t border-border flex flex-col sm:flex-row gap-3 justify-end bg-card">
+              <button
+                onClick={handleCloseDuplicateWarning}
+                className="px-6 py-3 bg-muted text-muted-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all active:scale-95"
+              >
+                Voltar para Funil
+              </button>
+              <button
+                onClick={handleOpenExistingClient}
+                className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+              >
+                <Maximize2 width={14} height={14} />
+                Abrir Cliente Existente
+              </button>
             </div>
           </div>
         </div>

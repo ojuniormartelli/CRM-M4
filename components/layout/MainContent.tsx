@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase';
 import { mappers } from '../../lib/mappers';
 import Dashboard from '../../pages/Dashboard';
 import MyDay from '../../pages/MyDay';
-import ClientsOverview from '../../pages/ClientsOverview';
 import SalesOverview from '../../pages/SalesOverview';
 import EmailModule from '../../pages/EmailModule';
 import SalesCRM from '../../pages/SalesCRM';
@@ -67,6 +66,10 @@ interface MainContentProps {
   resolvedWorkspaceId: string | null;
   posts: any[];
   campaigns: any[];
+  selectedClientId?: string | null;
+  setSelectedClientId?: (id: string | null) => void;
+  selectedLeadId?: string | null;
+  setSelectedLeadId?: (id: string | null) => void;
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -111,7 +114,11 @@ const MainContent: React.FC<MainContentProps> = ({
   setCurrentUser,
   resolvedWorkspaceId,
   posts,
-  campaigns
+  campaigns,
+  selectedClientId,
+  setSelectedClientId,
+  selectedLeadId,
+  setSelectedLeadId
 }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8 scroll-smooth mt-16 md:mt-20 lg:mt-0 transition-all">
@@ -124,6 +131,9 @@ const MainContent: React.FC<MainContentProps> = ({
           currentUser={currentUser} 
           setActiveTab={setActiveTab}
           workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
+          clients={clients}
+          setSelectedClientId={setSelectedClientId}
+          setSelectedLeadId={setSelectedLeadId}
         />
       )}
       {activeTab === 'my_day' && (
@@ -143,15 +153,7 @@ const MainContent: React.FC<MainContentProps> = ({
           }}
         />
       )}
-      {activeTab === 'clients_overview' && (
-        <ClientsOverview 
-          companies={companies} 
-          contacts={contacts} 
-          setActiveTab={setActiveTab}
-          onNewCompany={() => setShowNewCompanyModal(true)}
-          onNewContact={() => setShowNewContactModal(true)}
-        />
-      )}
+
       {activeTab === 'sales_overview' && (
         <SalesOverview 
           leads={leads} 
@@ -189,6 +191,10 @@ const MainContent: React.FC<MainContentProps> = ({
           bankAccounts={bankAccounts}
           setActiveTab={setActiveTab}
           workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
+          clients={clients}
+          setClients={setClients}
+          selectedLeadId={selectedLeadId}
+          setSelectedLeadId={setSelectedLeadId}
         />
       )}
       {(activeTab === 'companies' || showNewCompanyModal) && (
@@ -219,7 +225,25 @@ const MainContent: React.FC<MainContentProps> = ({
       {activeTab === 'enrichment' && <DataEnrichment pipelines={pipelines} onImportComplete={() => setActiveTab('sales')} currentUser={currentUser} />}
       {activeTab === 'meeting_forms' && <MeetingForms leads={leads} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {activeTab === 'collaboration' && <Collaboration posts={posts as any} setPosts={posts as any} currentUser={currentUser} />}
-      {activeTab === 'clients' && <Clients clients={clients} setClients={setClients} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
+      {(activeTab === 'clients' || activeTab === 'clients_overview') && (
+        <Clients 
+          clients={clients} 
+          setClients={setClients} 
+          currentUser={currentUser} 
+          workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''}
+          tasks={tasks}
+          setTasks={setTasks}
+          companies={companies}
+          setCompanies={setCompanies}
+          contacts={contacts}
+          setContacts={setContacts}
+          services={services}
+          selectedClientId={selectedClientId}
+          setSelectedClientId={setSelectedClientId}
+          onNewCompany={() => setShowNewCompanyModal(true)}
+          onNewContact={() => setShowNewContactModal(true)}
+        />
+      )}
       {activeTab === 'projects' && <Projects projects={projects} setProjects={setProjects} tasks={tasks} setTasks={setTasks} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}
       {activeTab === 'client_accounts' && <ClientAccounts leads={leads} tasks={tasks} transactions={transactions} clientAccounts={clientAccounts} setClientAccounts={setClientAccounts} companies={companies} services={services} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId} />}
       {activeTab === 'tasks' && <Tasks tasks={tasks} setTasks={setTasks} currentUser={currentUser} workspaceId={currentUser?.workspace_id || resolvedWorkspaceId || ''} />}

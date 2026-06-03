@@ -370,6 +370,7 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     contact_notes TEXT,
     business_notes TEXT,
     service_type TEXT,
+    services JSONB DEFAULT '[]'::jsonb,
     campaign TEXT,
     proposed_ticket DECIMAL(12, 2) DEFAULT 0,
     closing_forecast DATE,
@@ -1348,6 +1349,7 @@ CREATE TABLE IF NOT EXISTS public.m4_leads (
     value DECIMAL(12, 2) DEFAULT 0,
     business_notes TEXT,
     service_type TEXT,
+    services JSONB DEFAULT '[]'::jsonb,
     proposed_ticket DECIMAL(12, 2) DEFAULT 0,
     temperature TEXT DEFAULT 'Frio',
     probability INTEGER DEFAULT 0,
@@ -1844,6 +1846,7 @@ BEGIN
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS contact_notes TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS business_notes TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS service_type TEXT;
+    ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS services JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS campaign TEXT;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS proposed_ticket DECIMAL(12, 2) DEFAULT 0;
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS closing_forecast DATE;

@@ -54,7 +54,18 @@ export const taskService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Task[];
+      const tasks = data as Task[];
+      
+      // Filter out any legacy automatic "Lead Perdido" tasks so they do not pollute the active workspace tasks
+      return tasks.filter(t => {
+        const titleLower = (t.title || '').toLowerCase();
+        const descLower = (t.description || '').toLowerCase();
+        
+        const isBadLostTask = titleLower.includes('lead perdido') && 
+          (descLower.includes('motivo da perda') || t.type === 'call' || titleLower.includes('follow-up'));
+          
+        return !isBadLostTask;
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'm4_tasks');
       return [];

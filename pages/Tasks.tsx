@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ICONS } from '../constants';
+import { AlertCircle, Clock, Calendar as LucideCalendar, CheckCircle2 } from 'lucide-react';
 import { Task, TaskStatus, Priority, User, Company, Contact, TaskComment, TaskAttachment, TaskTimeEntry, Lead, M4Client } from '../types';
 import { mappers } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
@@ -800,12 +801,38 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              {filteredTasks.length > 0 ? filteredTasks.map((task) => (
+            {(() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const getTaskDateStr = (t: Task) => {
+                if (!t.due_date) return '';
+                return t.due_date.split('T')[0];
+              };
+
+              const overdue: Task[] = [];
+              const todayTasks: Task[] = [];
+              const upcoming: Task[] = [];
+              const completed: Task[] = [];
+
+              filteredTasks.forEach(task => {
+                if (task.status === 'Concluído' || task.status === TaskStatus.DONE) {
+                  completed.push(task);
+                } else {
+                  const dStr = getTaskDateStr(task);
+                  if (dStr < todayStr) {
+                    overdue.push(task);
+                  } else if (dStr === todayStr) {
+                    todayTasks.push(task);
+                  } else {
+                    upcoming.push(task);
+                  }
+                }
+              });
+
+              const renderTaskItem = (task: Task) => (
                 <div 
                   key={task.id} 
                   onClick={() => openViewModal(task)}
-                  className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer"
+                  className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-xs flex items-center justify-between group hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-6">
                     <button 
@@ -813,35 +840,35 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                         e.stopPropagation();
                         handleToggleStatus(task);
                       }}
-                      className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 hover:border-blue-400'}`}
+                      className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-zinc-200 text-white' : 'border-zinc-200 hover:border-blue-400'}`}
                     >
                       {task.status === TaskStatus.DONE && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
                     </button>
                     <div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h4 className={`font-black text-slate-900 dark:text-white text-lg ${task.status === TaskStatus.DONE ? 'line-through opacity-50' : ''}`}>{task.title}</h4>
-                        <span className={`px-3 py-1 border rounded-lg text-[9px] font-black uppercase tracking-widest ${getTaskTypeBadge(task.task_type)}`}>
+                        <span className={`px-2.5 py-0.5 border rounded-lg text-[9px] font-black uppercase tracking-widest ${getTaskTypeBadge(task.task_type)}`}>
                           {getTaskTypeLabel(task.task_type)}
                         </span>
                         {task.lead_id && (
-                          <span className="px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                          <span className="px-2.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
                             <ICONS.Sales width="10" height="10" />
                             Lead: {leads.find(l => l.id === task.lead_id)?.contact_name || 'Lead'}
                           </span>
                         )}
                         {task.client_id && (
-                          <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                          <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
                             <ICONS.Clients width="10" height="10" />
                             Cliente: {clients.find(c => c.id === task.client_id)?.company_name || 'Cliente'}
                           </span>
                         )}
                         {task.company_id && !task.lead_id && !task.client_id && (
-                          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                          <span className="px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
                             {companies.find(c => c.id === task.company_id)?.name || 'Empresa'}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-1">
+                      <div className="flex items-center gap-4 mt-1.5 flex-wrap">
                         <div className="flex items-center gap-1.5">
                           <div className={`w-1.5 h-1.5 rounded-full ${
                             task.priority === Priority.URGENT ? 'bg-red-500' :
@@ -853,7 +880,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                         </div>
                         <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                          <ICONS.Calendar width="12" height="12" /> {new Date(task.due_date).toLocaleDateString()}
+                          <LucideCalendar className="w-3.5 h-3.5" /> {new Date(task.due_date).toLocaleDateString()}
                         </span>
                         <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
                         <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{task.type}</span>
@@ -874,38 +901,144 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button 
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         confirmDelete(task);
                       }}
-                      className="p-3 bg-slate-50 dark:bg-slate-800 text-destructive rounded-xl hover:bg-destructive/10 transition-all"
+                      className="p-3 bg-slate-50 dark:bg-slate-800 text-destructive rounded-xl hover:bg-destructive/10 transition-all cursor-pointer"
                       title="Excluir Tarefa"
                     >
-                      <ICONS.Trash width="20" height="20" />
+                      <ICONS.Trash width="18" height="18" />
                     </button>
                     <button 
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         openViewModal(task);
                         setIsEditing(true);
                       }}
-                      className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+                      className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer"
                     >
                       <ICONS.Settings width="18" height="18" />
                     </button>
                   </div>
                 </div>
-              )) : (
-                <div className="py-20 text-center space-y-4">
-                  <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-700 mx-auto">
-                    <ICONS.Tasks width="40" height="40" />
+              );
+
+              return (
+                <div className="space-y-12">
+                  {/* Clean Execution Header Tracker */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-5 bg-red-50/65 dark:bg-red-950/20 border border-red-100/40 dark:border-red-900/10 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-red-600/70 tracking-widest">Atrasadas</p>
+                        <p className="text-2xl font-black text-red-600 dark:text-red-400 mt-1">{overdue.length}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-red-100/50 dark:bg-red-900/30">
+                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                      </div>
+                    </div>
+                    <div className="p-5 bg-amber-50/65 dark:bg-amber-950/20 border border-amber-100/40 dark:border-amber-900/10 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-amber-600/70 tracking-widest">Hoje</p>
+                        <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{todayTasks.length}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-amber-100/50 dark:bg-amber-900/30">
+                        <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                      </div>
+                    </div>
+                    <div className="p-5 bg-blue-50/65 dark:bg-blue-950/20 border border-blue-100/40 dark:border-blue-900/10 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-blue-600/70 tracking-widest">Breves / Próximas</p>
+                        <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{upcoming.length}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-blue-100/50 dark:bg-blue-900/30">
+                        <LucideCalendar className="w-5 h-5 text-blue-500 shrink-0" />
+                      </div>
+                    </div>
+                    <div className="p-5 bg-emerald-50/65 dark:bg-emerald-950/10 border border-emerald-100/40 dark:border-emerald-900/10 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-emerald-600/70 tracking-widest">Concluídas</p>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{completed.length}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-emerald-100/50 dark:bg-emerald-900/30">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Nenhuma tarefa encontrada</p>
+
+                  {filteredTasks.length === 0 ? (
+                    <div className="py-20 text-center space-y-4">
+                      <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-700 mx-auto">
+                        <ICONS.Tasks width="40" height="40" />
+                      </div>
+                      <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Nenhuma tarefa encontrada</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+                      {/* 1. OVERDUE SECTION */}
+                      {overdue.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Atrasadas e Pendentes ({overdue.length})</h3>
+                          </div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {overdue.map(renderTaskItem)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 2. TODAY SECTION */}
+                      {(todayTasks.length > 0 || (overdue.length === 0 && upcoming.length === 0 && completed.length === 0)) && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Vencendo Hoje ({todayTasks.length})</h3>
+                          </div>
+                          {todayTasks.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-4">
+                              {todayTasks.map(renderTaskItem)}
+                            </div>
+                          ) : (
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider py-4 px-6 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-100/50 dark:border-slate-800/50 rounded-2xl">Não há tarefas para hoje!</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 3. UPCOMING SECTION */}
+                      {upcoming.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Próximas Atividades ({upcoming.length})</h3>
+                          </div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {upcoming.map(renderTaskItem)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 4. COMPLETED SECTION */}
+                      {completed.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Concluídas ({completed.length})</h3>
+                          </div>
+                          <div className="grid grid-cols-1 gap-4 opacity-75 hover:opacity-100 transition-opacity">
+                            {completed.map(renderTaskItem)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </>
         )}
 

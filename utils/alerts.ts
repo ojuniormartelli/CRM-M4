@@ -4,15 +4,21 @@ import { metricsUtils } from './metrics';
 export interface AlertItem {
   id: string;
   type: 'task' | 'meeting' | 'lead_followup' | 'deal_closing' | 'inactive_lead' | 'hot_lead';
-  title: string;
-  description: string;
-  date: string;
+  title: string;          // Main title: Related lead/client name or "Sem vínculo"
+  subtitle: string;       // Subtitle: Task/Event title
+  description: string;    // Description
+  date: string;           // Formatted date
   dueDateStr?: string;
   priority: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
-  status: 'atrasado' | 'hoje' | 'breve' | 'este_mes';
+  status: 'atrasado' | 'hoje' | 'esta_semana' | 'proxima_semana' | 'futuro';
   daysOverdue?: number;
-  linkTab: 'tasks' | 'sales';
+  linkTab: 'tasks' | 'sales' | 'clients';  // Link tab
   meta?: any;
+  // New rich context fields:
+  module: 'Comercial' | 'Onboarding' | 'Operação';
+  responsibleName: string;
+  dateTimeStr: string;
+  entityId?: string;      // Related lead or client ID
 }
 
 // Helper to adjust Monday-based start of calendar week
@@ -21,7 +27,7 @@ const getStartOfWeek = (d: Date): Date => {
   const day = result.getDay();
   const diff = result.getDate() - day + (day === 0 ? -6 : 1);
   result.setDate(diff);
-  result.setHours(12, 0, 0, 0);
+  result.setHours(0, 0, 0, 0);
   return result;
 };
 
@@ -29,19 +35,14 @@ const getEndOfWeek = (d: Date): Date => {
   const start = getStartOfWeek(d);
   const result = new Date(start);
   result.setDate(result.getDate() + 6);
-  result.setHours(12, 0, 0, 0);
+  result.setHours(23, 59, 59, 999);
   return result;
-};
-
-const isSameMonthAndYear = (d1: Date, d2: Date): boolean => {
-  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth();
 };
 
 // Handing YYYY-MM-DD, DD/MM/YYYY or full ISO strings to avoid UTC offset bugs
 const parseToMiddayLocal = (dateStr: string | null | undefined): Date | null => {
   if (!dateStr) return null;
   
-  // 1. Check if format is YYYY-MM-DD...
   const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/;
   const matchYmd = dateStr.match(yyyymmddRegex);
   if (matchYmd) {
@@ -51,7 +52,6 @@ const parseToMiddayLocal = (dateStr: string | null | undefined): Date | null => 
     return new Date(year, month, day, 12, 0, 0, 0);
   }
   
-  // 2. Check if format is DD/MM/YYYY...
   const ddmmyyyyRegex = /^(\d{2})[-/](\d{2})[-/](\d{4})(?:[ ]|$)?/;
   const matchDmy = dateStr.match(ddmmyyyyRegex);
   if (matchDmy) {
@@ -61,7 +61,6 @@ const parseToMiddayLocal = (dateStr: string | null | undefined): Date | null => 
     return new Date(year, month, day, 12, 0, 0, 0);
   }
   
-  // 3. Fallback to standard javascript Date parsing
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   d.setHours(12, 0, 0, 0);
@@ -69,42 +68,50 @@ const parseToMiddayLocal = (dateStr: string | null | undefined): Date | null => 
 };
 
 const calculateDaysDiff = (d1: Date, d2: Date): number => {
-  const t1 = new Date(d1).setHours(12, 0, 0, 0);
-  const t2 = new Date(d2).setHours(12, 0, 0, 0);
+  const t1 = new Date(d1).setHours(0, 0, 0, 0);
+  const t2 = new Date(d2).setHours(0, 0, 0, 0);
   return Math.round((t2 - t1) / (1000 * 60 * 60 * 24));
 };
 
 const formatDateToReadable = (date: Date): string => {
-  // Return format DD/MM/YYYY
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 };
 
-const classifyDate = (itemDate: Date, today: Date): 'atrasado' | 'hoje' | 'breve' | 'este_mes' | 'futuro' => {
-  const todayMid = new Date(today);
-  todayMid.setHours(12, 0, 0, 0);
+const classifyIntoFourWindows = (itemDate: Date, today: Date): 'atrasado' | 'hoje' | 'esta_semana' | 'proxima_semana' | 'futuro' => {
+  const todayClean = new Date(today);
+  todayClean.setHours(0, 0, 0, 0);
   
-  const diffDays = calculateDaysDiff(todayMid, itemDate);
+  const itemClean = new Date(itemDate);
+  itemClean.setHours(0, 0, 0, 0);
+  
+  const diffDays = calculateDaysDiff(todayClean, itemClean);
   
   if (diffDays < 0) {
     return 'atrasado';
   } else if (diffDays === 0) {
     return 'hoje';
   } else {
-    const startOfWeek = getStartOfWeek(todayMid);
-    const endOfWeek = getEndOfWeek(todayMid);
+    const endOfWeek = getEndOfWeek(todayClean);
     
-    const isInCurrentWeek = itemDate >= startOfWeek && itemDate <= endOfWeek;
-    const isWithin7Days = diffDays <= 7;
-    
-    if (isInCurrentWeek || isWithin7Days) {
-      return 'breve';
+    // Within the current calendar week, after today
+    if (itemClean <= endOfWeek) {
+      return 'esta_semana';
     }
     
-    if (isSameMonthAndYear(itemDate, todayMid)) {
-      return 'este_mes';
+    // Bounds of next week
+    const nextWeekStart = new Date(endOfWeek);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 1);
+    nextWeekStart.setHours(0, 0, 0, 0);
+    
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+    nextWeekEnd.setHours(23, 59, 59, 999);
+    
+    if (itemClean >= nextWeekStart && itemClean <= nextWeekEnd) {
+      return 'proxima_semana';
     }
     
     return 'futuro';
@@ -112,7 +119,6 @@ const classifyDate = (itemDate: Date, today: Date): 'atrasado' | 'hoje' | 'breve
 };
 
 export const alertsUtils = {
-  // Legacy function support
   getHotLeadsWithoutAction: (leads: Lead[], pipelines: Pipeline[]) => {
     const today = new Date().toISOString().split('T')[0];
     return leads.filter(l => 
@@ -160,18 +166,28 @@ export const alertsUtils = {
     });
   },
 
-  // NEW Global Unified Alerts engine
-  getUserAlerts: (leads: Lead[], tasks: Task[], pipelines: Pipeline[], currentUser: User | null) => {
-    const diarios: AlertItem[] = [];
-    const semanais: AlertItem[] = [];
-    const mensais: AlertItem[] = [];
+  // Time-segmented Unified Alerts engine (Hoje, Esta Semana, Próxima Semana, Geral/Atrasados)
+  getUserAlerts: (
+    leads: Lead[], 
+    tasks: Task[], 
+    pipelines: Pipeline[], 
+    currentUser: User | null, 
+    clients?: any[], 
+    users?: User[]
+  ) => {
+    const hoje: AlertItem[] = [];
+    const estaSemana: AlertItem[] = [];
+    const proximaSemana: AlertItem[] = [];
+    const geralAtrasados: AlertItem[] = [];
     
-    if (!currentUser) return { diarios, semanais, mensais };
+    if (!currentUser) return { hoje, estaSemana, proximaSemana, geralAtrasados };
     
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
+    const safeClients = clients || [];
+    const safeUsers = users || [];
     
-    // 1. Process tasks & meetings (including currentUser's assigned and non-assigned operational tasks)
+    // 1. Process tasks & meetings
     const userPendingTasks = tasks.filter(t => 
       (t.assigned_to === currentUser.id || !t.assigned_to) && 
       t.status !== 'Concluído'
@@ -182,33 +198,80 @@ export const alertsUtils = {
       const dueDate = parseToMiddayLocal(t.due_date);
       if (!dueDate) return;
       
-      const classification = classifyDate(dueDate, today);
-      if (classification === 'futuro') return;
-      
+      const classification = classifyIntoFourWindows(dueDate, today);
       const isMeeting = t.type === 'meeting' || t.type === 'call' || t.type === 'Reunião' || t.type === 'Ligação';
       
+      // Determine related entity
+      let title = 'Sem vínculo';
+      let linkTab: 'tasks' | 'sales' | 'clients' = 'tasks';
+      let entityId: string | undefined = undefined;
+      let module: 'Comercial' | 'Onboarding' | 'Operação' = 'Operação';
+      
+      if (t.client_id) {
+        const client = safeClients.find(c => c.id === t.client_id);
+        if (client) {
+          title = client.company_name;
+          linkTab = 'clients';
+          entityId = client.id;
+        }
+        module = (t.task_type as string) === 'onboarding' || t.tags?.toLowerCase().includes('onboarding') ? 'Onboarding' : 'Operação';
+      } else if (t.lead_id) {
+        const lead = leads.find(l => l.id === t.lead_id);
+        if (lead) {
+          title = lead.company_name || lead.contact_name || 'Lead sem nome';
+          linkTab = 'sales';
+          entityId = lead.id;
+        }
+        module = 'Comercial';
+      }
+      
+      // Determine responsible name
+      let responsibleName = 'Não atribuído';
+      if (t.assigned_to) {
+        const user = safeUsers.find(u => u.id === t.assigned_to);
+        if (user) {
+          responsibleName = user.name;
+        } else if (t.assigned_to === currentUser.id) {
+          responsibleName = currentUser.name || 'Eu';
+        }
+      }
+      
+      // Pretty date and hour
+      let dateTimeStr = formatDateToReadable(dueDate);
+      try {
+        const dt = new Date(t.due_date);
+        if (!isNaN(dt.getTime())) {
+          dateTimeStr = dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        }
+      } catch (e) {}
+
       const alert: AlertItem = {
         id: `task-${t.id}`,
         type: isMeeting ? 'meeting' : 'task',
-        title: t.title,
+        title: title,
+        subtitle: t.title,
         description: t.description || (isMeeting ? 'Reunião ou compromisso agendado.' : 'Tarefa pendente de execução.'),
         date: formatDateToReadable(dueDate),
         dueDateStr: t.due_date,
         priority: (t.priority as any) || 'Média',
-        status: classification,
+        status: classification === 'futuro' ? 'proxima_semana' : classification,
         daysOverdue: classification === 'atrasado' ? Math.max(1, calculateDaysDiff(dueDate, today)) : undefined,
-        linkTab: 'tasks',
-        meta: { id: t.id }
+        linkTab: linkTab,
+        meta: { id: t.id },
+        module,
+        responsibleName,
+        dateTimeStr,
+        entityId
       };
       
-      if (classification === 'atrasado' || classification === 'hoje') {
-        diarios.push(alert);
-      }
-      if (classification === 'hoje' || classification === 'breve') {
-        semanais.push(alert);
-      }
-      if (classification === 'hoje' || classification === 'breve' || classification === 'este_mes') {
-        mensais.push(alert);
+      if (classification === 'atrasado') {
+        geralAtrasados.push(alert);
+      } else if (classification === 'hoje') {
+        hoje.push(alert);
+      } else if (classification === 'esta_semana') {
+        estaSemana.push(alert);
+      } else if (classification === 'proxima_semana' || classification === 'futuro') {
+        proximaSemana.push(alert);
       }
     });
     
@@ -223,36 +286,48 @@ export const alertsUtils = {
       const actionDate = parseToMiddayLocal(l.next_action_date);
       if (!actionDate) return;
       
-      const classification = classifyDate(actionDate, today);
-      if (classification === 'futuro') return;
+      const classification = classifyIntoFourWindows(actionDate, today);
       
+      // Pretty date and hour
+      let dateTimeStr = formatDateToReadable(actionDate);
+      try {
+        const dt = new Date(l.next_action_date);
+        if (!isNaN(dt.getTime())) {
+          dateTimeStr = dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        }
+      } catch (e) {}
+
       const alert: AlertItem = {
         id: `lead-followup-${l.id}`,
         type: 'lead_followup',
-        title: `Follow-up: ${l.company_name}`,
+        title: l.company_name || l.contact_name || 'Lead sem nome',
+        subtitle: `Follow-up comercial: ${l.next_action || 'Entrar em contato'}`,
         description: l.next_action || 'Entrar em contato com o lead para dar andamento.',
         date: formatDateToReadable(actionDate),
         dueDateStr: l.next_action_date,
         priority: l.temperature === 'Quente' ? 'Alta' : 'Média',
-        status: classification,
+        status: classification === 'futuro' ? 'proxima_semana' : classification,
         daysOverdue: classification === 'atrasado' ? Math.max(1, calculateDaysDiff(actionDate, today)) : undefined,
         linkTab: 'sales',
-        meta: { id: l.id, contactName: l.contact_name }
+        meta: { id: l.id, contactName: l.contact_name },
+        module: 'Comercial',
+        responsibleName: l.responsible_name || currentUser.name || 'Eu',
+        dateTimeStr,
+        entityId: l.id
       };
       
-      if (classification === 'atrasado' || classification === 'hoje') {
-        diarios.push(alert);
-      }
-      if (classification === 'hoje' || classification === 'breve') {
-        semanais.push(alert);
-      }
-      if (classification === 'hoje' || classification === 'breve' || classification === 'este_mes') {
-        mensais.push(alert);
+      if (classification === 'atrasado') {
+        geralAtrasados.push(alert);
+      } else if (classification === 'hoje') {
+        hoje.push(alert);
+      } else if (classification === 'esta_semana') {
+        estaSemana.push(alert);
+      } else if (classification === 'proxima_semana' || classification === 'futuro') {
+        proximaSemana.push(alert);
       }
     });
     
-    // 3. Process special alerts
-    // 3a. User's hot leads without an action scheduled for today (Daily)
+    // 3a. User's hot leads without scheduled action today -> Put in Hoje
     const userHotLeadsNoAction = leads.filter(l =>
       l.responsible_id === currentUser.id &&
       l.temperature === 'Quente' &&
@@ -261,43 +336,64 @@ export const alertsUtils = {
     );
     
     userHotLeadsNoAction.forEach(l => {
-      diarios.push({
+      hoje.push({
         id: `hot-lead-${l.id}`,
         type: 'hot_lead',
-        title: `Lead Quente sem Ação: ${l.company_name}`,
+        title: l.company_name || l.contact_name || 'Lead sem nome',
+        subtitle: 'Lead Quente sem ação programada',
         description: 'Este lead está qualificado como Quente, mas não possui nova ação programada para hoje.',
         date: 'Hoje',
         priority: 'Alta',
         status: 'hoje',
         linkTab: 'sales',
-        meta: { id: l.id }
+        meta: { id: l.id },
+        module: 'Comercial',
+        responsibleName: l.responsible_name || currentUser.name || 'Eu',
+        dateTimeStr: 'Hoje',
+        entityId: l.id
       });
     });
     
-    // 3b. User's deals closing soon with high probability (Weekly)
+    // 3b. User's deals closing soon -> Map to classified group
     const userClosingSoon = leads.filter(l => {
       if (l.responsible_id !== currentUser.id || !l.closing_forecast || !metricsUtils.isActiveLead(l, pipelines)) return false;
       const forecastDate = parseToMiddayLocal(l.closing_forecast);
       if (!forecastDate) return false;
-      const classification = classifyDate(forecastDate, today);
-      return (l.probability || 0) > 70 && (classification === 'hoje' || classification === 'breve');
+      const classification = classifyIntoFourWindows(forecastDate, today);
+      return (l.probability || 0) > 70 && classification !== 'atrasado';
     });
     
     userClosingSoon.forEach(l => {
-      semanais.push({
+      const forecastDate = parseToMiddayLocal(l.closing_forecast!)!;
+      const classification = classifyIntoFourWindows(forecastDate, today);
+      
+      const alert: AlertItem = {
         id: `deal-closing-${l.id}`,
         type: 'deal_closing',
-        title: `Fechamento Próximo: ${l.company_name}`,
-        description: `Negócio com probabilidade alta (${l.probability}%) e previsão de fechamento de R$ ${Number(l.value || 0).toLocaleString()} para os próximos dias.`,
-        date: l.closing_forecast ? formatDateToReadable(parseToMiddayLocal(l.closing_forecast)!) : 'Breve',
+        title: l.company_name || l.contact_name || 'Lead sem nome',
+        subtitle: `Previsão de fechamento: R$ ${Number(l.value || 0).toLocaleString()} (Probabilidade ${l.probability || 0}%)`,
+        description: `Negócio com probabilidade alta e previsão de fechamento para os próximos dias no valor de R$ ${Number(l.value || 0).toLocaleString()}.`,
+        date: formatDateToReadable(forecastDate),
         priority: 'Urgente',
-        status: 'breve',
+        status: classification === 'futuro' ? 'proxima_semana' : classification,
         linkTab: 'sales',
-        meta: { id: l.id }
-      });
+        meta: { id: l.id },
+        module: 'Comercial',
+        responsibleName: l.responsible_name || currentUser.name || 'Eu',
+        dateTimeStr: formatDateToReadable(forecastDate),
+        entityId: l.id
+      };
+
+      if (classification === 'hoje') {
+        hoje.push(alert);
+      } else if (classification === 'esta_semana') {
+        estaSemana.push(alert);
+      } else if (classification === 'proxima_semana' || classification === 'futuro') {
+        proximaSemana.push(alert);
+      }
     });
     
-    // 3c. User's inactive leads > 30 days (Monthly/Strategic)
+    // 3c. User's inactive leads > 30 days -> Put in Geral/Atrasados
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 30);
     
@@ -308,16 +404,21 @@ export const alertsUtils = {
     });
     
     userInactiveLeads.forEach(l => {
-      mensais.push({
+      geralAtrasados.push({
         id: `inactive-lead-${l.id}`,
         type: 'inactive_lead',
-        title: `Reativação Pendente: ${l.company_name}`,
+        title: l.company_name || l.contact_name || 'Lead sem nome',
+        subtitle: 'Reativação: Mais de 30 dias inativo',
         description: 'Sem histórico de interações registradas no CRM há mais de 30 dias. Readeqüe o contato comercial.',
-        date: 'Este Mês',
+        date: 'Pendente',
         priority: 'Média',
-        status: 'este_mes',
+        status: 'atrasado',
         linkTab: 'sales',
-        meta: { id: l.id }
+        meta: { id: l.id },
+        module: 'Comercial',
+        responsibleName: l.responsible_name || currentUser.name || 'Eu',
+        dateTimeStr: 'Há mais de 30 dias',
+        entityId: l.id
       });
     });
     
@@ -325,16 +426,11 @@ export const alertsUtils = {
     const sortAlerts = (list: AlertItem[]) => {
       const priorityWeights = { 'Urgente': 4, 'Alta': 3, 'Média': 2, 'Baixa': 1 };
       return list.sort((a, b) => {
-        // First order by overdue status
-        if (a.status === 'atrasado' && b.status !== 'atrasado') return -1;
-        if (a.status !== 'atrasado' && b.status === 'atrasado') return 1;
-        
-        // Then by priority
-        const weightA = priorityWeights[a.priority] || 2;
-        const weightB = priorityWeights[b.priority] || 2;
-        if (weightB !== weightA) return weightB - weightA;
-        
-        // Finally, sort chronologically if dates are stored
+        if (a.priority !== b.priority) {
+          const weightA = priorityWeights[a.priority] || 2;
+          const weightB = priorityWeights[b.priority] || 2;
+          return weightB - weightA;
+        }
         if (a.dueDateStr && b.dueDateStr) {
           return new Date(a.dueDateStr).getTime() - new Date(b.dueDateStr).getTime();
         }
@@ -343,9 +439,11 @@ export const alertsUtils = {
     };
     
     return {
-      diarios: sortAlerts(diarios),
-      semanais: sortAlerts(semanais),
-      mensais: sortAlerts(mensais)
+      hoje: sortAlerts(hoje),
+      estaSemana: sortAlerts(estaSemana),
+      proximaSemana: sortAlerts(proximaSemana),
+      geralAtrasados: sortAlerts(geralAtrasados)
     };
   }
 };
+

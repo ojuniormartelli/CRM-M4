@@ -543,7 +543,9 @@ export const automationService = {
         status: 'active',
         contract_start_date: new Date().toISOString().split('T')[0],
         monthly_value: lead.value,
-        services: lead.service_type ? [lead.service_type] : [],
+        services: Array.isArray(lead.services) && lead.services.length > 0 
+          ? lead.services 
+          : (lead.service_type ? [lead.service_type] : []),
         manager_id: lead.responsible_id || null,
       }, workspaceId);
 

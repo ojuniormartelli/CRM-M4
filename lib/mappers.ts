@@ -97,7 +97,13 @@ export const mappers = {
     if (data.business_notes !== undefined || (data as any).notes !== undefined) {
       payload.business_notes = cleanText(data.business_notes || (data as any).notes);
     }
-    if (data.service_type !== undefined) payload.service_type = cleanText(data.service_type);
+    if (data.services !== undefined) {
+      payload.services = data.services || [];
+      payload.service_type = (data.services && data.services.length > 0) ? cleanText(data.services[0]) : '';
+    } else if (data.service_type !== undefined) {
+      payload.service_type = cleanText(data.service_type);
+      payload.services = data.service_type ? [cleanText(data.service_type)] : [];
+    }
     if (data.proposed_ticket !== undefined) payload.proposed_ticket = toNumber(data.proposed_ticket);
     if (data.temperature !== undefined) payload.temperature = data.temperature || 'Frio';
     if (data.probability !== undefined) payload.probability = toNumber(data.probability);
@@ -153,6 +159,7 @@ export const mappers = {
       value: toNumber(dbLead.value),
       business_notes: dbLead.business_notes || dbLead.notes || '',
       service_type: dbLead.service_type || '',
+      services: Array.isArray(dbLead.services) ? dbLead.services : (dbLead.service_type ? [dbLead.service_type] : []),
       proposed_ticket: toNumber(dbLead.proposed_ticket),
       temperature: dbLead.temperature || 'Frio',
       probability: toNumber(dbLead.probability),
