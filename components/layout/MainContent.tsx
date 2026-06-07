@@ -240,6 +240,7 @@ const MainContent: React.FC<MainContentProps> = ({
           services={services}
           selectedClientId={selectedClientId}
           setSelectedClientId={setSelectedClientId}
+          activeTab={activeTab}
           onNewCompany={() => setShowNewCompanyModal(true)}
           onNewContact={() => setShowNewContactModal(true)}
         />

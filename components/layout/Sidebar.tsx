@@ -23,6 +23,8 @@ interface SidebarProps {
   currentUser: any;
   deferredPrompt: any;
   handleInstallClick: () => void;
+  clients?: any[];
+  setSelectedClientId?: (id: string | null) => void;
 }
 
 const SidebarItem = ({ id, icon: Icon, label, hasSubItems, isExpanded, onToggle, isActive, overviewId, isSidebarOpen, setActiveTab }: any) => (
@@ -69,11 +71,38 @@ const Sidebar: React.FC<SidebarProps> = ({
   settings,
   currentUser,
   deferredPrompt,
-  handleInstallClick
+  handleInstallClick,
+  clients = [],
+  setSelectedClientId
 }) => {
   const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
   const [hoverTimeout, setHoverTimeout] = React.useState<NodeJS.Timeout|null>(null);
   const [flyoutTop, setFlyoutTop] = React.useState<number>(0);
+
+  const [recentClientItems, setRecentClientItems] = React.useState<any[]>([]);
+
+  const loadRecentClients = React.useCallback(() => {
+    if (!clients || clients.length === 0) return;
+    try {
+      const recentsJSON = localStorage.getItem('m4_recent_clients');
+      const recentIds: string[] = recentsJSON ? JSON.parse(recentsJSON) : [];
+      const loaded = recentIds
+        .map(id => clients.find(c => c.id === id))
+        .filter(Boolean);
+      setRecentClientItems(loaded);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [clients]);
+
+  React.useEffect(() => {
+    loadRecentClients();
+    const handleRecentsChange = () => loadRecentClients();
+    window.addEventListener('m4_recent_clients_changed', handleRecentsChange);
+    return () => {
+      window.removeEventListener('m4_recent_clients_changed', handleRecentsChange);
+    };
+  }, [loadRecentClients]);
 
   const handleMouseEnter = (id: string, e: React.MouseEvent) => {
     if (isSidebarOpen) return;
@@ -152,7 +181,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div className={containerClass}>
             <button
-              onClick={() => setActiveTab('clients')}
+              onClick={() => {
+                if (setSelectedClientId) setSelectedClientId(null);
+                setActiveTab('clients_overview');
+              }}
+              className={`${commonClass} ${
+                activeTab === 'clients_overview'
+                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients_overview' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Resumo / Visão Geral
+            </button>
+            <button
+              onClick={() => {
+                if (setSelectedClientId) setSelectedClientId(null);
+                setActiveTab('clients');
+              }}
               className={`${commonClass} ${
                 activeTab === 'clients'
                   ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
@@ -160,32 +206,31 @@ const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'clients' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-              Clientes
+              Clientes Ativos
             </button>
-            <button
-              onClick={() => setActiveTab('companies')}
-              className={`${commonClass} ${
-                activeTab === 'companies'
-                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-650 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-              Empresas
-            </button>
-            <button
-              onClick={() => setActiveTab('contacts')}
-              className={`${commonClass} ${
-                activeTab === 'contacts'
-                  ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
-                  : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-              Contatos
-            </button>
+
+            {recentClientItems.length > 0 && isSidebarOpen && (
+              <div className="pt-3 pb-1 pl-2 mt-2 border-t border-slate-100 dark:border-slate-800/40 animate-in fade-in duration-300">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2 block mb-1">Recentes</span>
+                <div className="space-y-1">
+                  {recentClientItems.map(client => (
+                    <button
+                      key={client.id}
+                      onClick={() => {
+                        if (setSelectedClientId) setSelectedClientId(client.id);
+                        setActiveTab('clients');
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-550 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-slate-850 flex items-center gap-2 group transition-all"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+                      <span className="truncate flex-1">{client.company_name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        );
+        );;;
       case 'finance_group':
         return (
           <div className={containerClass}>
@@ -267,6 +312,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               </>
             )}
+            <div className="pt-2 pb-1 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-100 dark:border-slate-800/40 mt-2">Bases de Apoio</div>
+            <button onClick={() => setActiveTab('companies')} className={`${commonClass} ${activeTab === 'companies' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'companies' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Banco de Empresas
+            </button>
+            <button onClick={() => setActiveTab('contacts')} className={`${commonClass} ${activeTab === 'contacts' ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'contacts' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+              Banco de Contatos
+            </button>
           </div>
         );
       default:
@@ -280,7 +334,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'my_day', icon: CheckCircle2, label: 'Meu Dia' },
         { id: 'comercial', icon: ICONS.Sales, label: 'Comercial', hasSubItems: true, menuKey: 'sales', overviewId: 'sales_overview' },
-        { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients' },
+        { id: 'operacao', icon: ICONS.Tasks, label: 'Operação', hasSubItems: true, menuKey: 'clients', overviewId: 'clients_overview' },
       ]
     },
     {
@@ -288,7 +342,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'meeting_forms', icon: ICONS.Form, label: 'Sondagem & Reunião' },
         { id: 'goal_settings', icon: ICONS.Target, label: 'Metas de Vendas' },
-        { id: 'client_accounts', icon: ICONS.Clients, label: 'Contas Ativas' },
         { id: 'tasks', icon: ICONS.Tasks, label: 'Minhas Tarefas' },
         { id: 'projects', icon: ICONS.Projects, label: 'Projetos & Squads' },
       ]
@@ -357,7 +410,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   label={item.label}
                   isActive={
                     item.id === 'sales' ? (activeTab === 'sales' || activeTab === 'sales_overview') :
-                    item.id === 'operacao' ? (activeTab === 'companies' || activeTab === 'contacts' || activeTab === 'clients' || activeTab === 'clients_overview') :
+                    item.id === 'operacao' ? (activeTab === 'clients' || activeTab === 'clients_overview') :
+                    item.id === 'settings_group' ? (activeTab.startsWith('settings_') || activeTab === 'settings' || activeTab === 'companies' || activeTab === 'contacts') :
                     activeTab === item.id
                   }
                   hasSubItems={item.hasSubItems}

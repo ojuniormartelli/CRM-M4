@@ -18,6 +18,7 @@ import { LeadSkeleton } from '../components/Skeleton';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
 import Toast, { ToastType } from '../components/Toast';
 import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban, Maximize2, Minimize2 } from 'lucide-react';
+import { ClientServiceContract, servicesUtils } from '../utils/services';
 
 interface SalesCRMProps {
   pipelines: Pipeline[];
@@ -45,6 +46,7 @@ interface SalesCRMProps {
   setClients?: React.Dispatch<React.SetStateAction<M4Client[]>>;
   selectedLeadId?: string | null;
   setSelectedLeadId?: (id: string | null) => void;
+  setSelectedClientId?: (id: string | null) => void;
 }
 
 const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
@@ -264,6 +266,24 @@ const PipelineProgress = ({
   );
 };
 
+const isRecurrentService = (name: string): boolean => {
+  const nameL = name.toLowerCase();
+  return (
+    nameL.includes('tráfego') ||
+    nameL.includes('gestão') ||
+    nameL.includes('mensal') ||
+    nameL.includes('retentor') ||
+    nameL.includes('recorrente') ||
+    nameL.includes('ads') ||
+    nameL.includes('social') ||
+    nameL.includes('suporte') ||
+    nameL.includes('squad') ||
+    nameL.includes('assessoria') ||
+    nameL.includes('seo') ||
+    nameL.includes('feed')
+  );
+};
+
 const SalesCRM: React.FC<SalesCRMProps> = ({ 
   pipelines, 
   setPipelines,
@@ -289,7 +309,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   clients = [],
   setClients,
   selectedLeadId,
-  setSelectedLeadId
+  setSelectedLeadId,
+  setSelectedClientId
 }) => {
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
@@ -330,6 +351,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     contact_whatsapp: string;
     contact_instagram: string;
     notes: string;
+    services_configs?: ClientServiceContract[];
   } | null>(null);
 
   const [duplicateWarning, setDuplicateWarning] = useState<{
@@ -430,6 +452,36 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             leadServices.push(lead.service_type);
           }
 
+          // Pre-fill initial service configurations
+          const initialConfigs: ClientServiceContract[] = leadServices.map(srvName => {
+            const matchedCatalog = services.find(s => s.name?.toLowerCase() === srvName?.toLowerCase());
+            const defaultPrice = matchedCatalog ? Number(matchedCatalog.default_price) : 0;
+            const recurrent = isRecurrentService(srvName);
+            return {
+              name: srvName,
+              price: defaultPrice,
+              billing_type: recurrent ? 'recorrente' : 'parcelado',
+              installments: recurrent ? 1 : 3,
+              installment_value: recurrent ? 0 : Math.round((defaultPrice / 3) * 100) / 100,
+              include_in_monthly: true,
+              active: true,
+              base_price: defaultPrice,
+              custom_price: undefined,
+              use_custom_price: false
+            };
+          });
+
+          // Calculate initial totals
+          const initialRecurrentSum = initialConfigs
+            .filter(c => c.billing_type === 'recorrente')
+            .reduce((acc, c) => acc + c.price, 0);
+
+          const initialInstallmentSum = initialConfigs
+            .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+            .reduce((acc, c) => acc + (c.installments && c.installments > 0 ? (c.price / c.installments) : 0), 0);
+
+          const calculatedValue = initialRecurrentSum + initialInstallmentSum;
+
           setOnboardingConversion({
             isOpen: true,
             lead,
@@ -438,7 +490,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             cnpj: lead.company_cnpj || (lead as any).cnpj || '',
             status: 'active',
             contract_start_date: new Date().toISOString().split('T')[0],
-            monthly_value: lead.proposed_ticket || lead.value || 0,
+            monthly_value: calculatedValue > 0 ? calculatedValue : (lead.proposed_ticket || lead.value || 0),
             services: leadServices,
             manager_id: lead.responsible_id || currentUser?.id || '',
             company_id: lead.company_id || '',
@@ -447,7 +499,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             contact_email: lead.contact_email || lead.email || '',
             contact_whatsapp: lead.contact_whatsapp || lead.whatsapp || '',
             contact_instagram: lead.contact_instagram || '',
-            notes: lead.business_notes || lead.notes || ''
+            notes: lead.business_notes || lead.notes || '',
+            services_configs: initialConfigs
           });
           setIsSyncing(false);
           return true; // we handled this!
@@ -475,6 +528,40 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setDuplicateWarning(null);
     setActiveTab('clients');
     showToast("Navegando para a página operacional existente.", "success");
+  };
+
+  const updateServicesConfigsAndCalculations = (newConfigs: ClientServiceContract[]) => {
+    if (!onboardingConversion) return;
+    
+    const processedConfigs = newConfigs.map(c => {
+      const bPrice = c.base_price !== undefined ? c.base_price : c.price;
+      const effectivePrice = c.use_custom_price && c.custom_price !== undefined ? c.custom_price : bPrice;
+      const installmentVal = c.billing_type === 'parcelado' ? Number((effectivePrice / (c.installments || 1)).toFixed(2)) : 0;
+      return {
+        ...c,
+        base_price: bPrice,
+        price: effectivePrice,
+        installment_value: installmentVal
+      };
+    });
+
+    const recurrentTotal = processedConfigs
+      .filter(c => c.billing_type === 'recorrente')
+      .reduce((sum, c) => sum + (c.price || 0), 0);
+
+    const installmentTotal = processedConfigs
+      .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+      .reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+
+    const totalCurrentValue = recurrentTotal + installmentTotal;
+    const serviceNames = processedConfigs.map(c => c.name);
+
+    setOnboardingConversion({
+      ...onboardingConversion,
+      services_configs: processedConfigs,
+      services: serviceNames,
+      monthly_value: Number(totalCurrentValue.toFixed(2))
+    });
   };
 
   const handleSaveConversion = async (andOpenPage: boolean) => {
@@ -583,6 +670,23 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       }
 
       // 4. Create the operational client
+      const serialized = onboardingConversion.services_configs
+        ? servicesUtils.serializeClientServices(onboardingConversion.services_configs.map(c => ({
+            name: c.name,
+            price: c.price,
+            active: true,
+            billing_type: c.billing_type,
+            installments: c.installments,
+            installment_value: c.installment_value,
+            include_in_monthly: c.include_in_monthly,
+            remaining_installments: c.installments,
+            paid_installments: 0,
+            base_price: c.base_price,
+            custom_price: c.custom_price,
+            use_custom_price: c.use_custom_price
+          })))
+        : onboardingConversion.services;
+
       const clientPayload: Partial<M4Client> = {
         lead_id: onboardingConversion.lead.id,
         company_id: finalCompanyId || undefined,
@@ -590,11 +694,11 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         status: onboardingConversion.status,
         contract_start_date: onboardingConversion.contract_start_date,
         monthly_value: onboardingConversion.monthly_value,
-        services: onboardingConversion.services,
+        services: serialized,
         manager_id: onboardingConversion.manager_id || undefined,
       };
       
-      await clientService.create(clientPayload, workspaceId);
+      const createdClient = await clientService.create(clientPayload, workspaceId);
 
       // 5. Update local state
       if (setClients) {
@@ -609,6 +713,22 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       setOnboardingConversion(null);
       
       if (andOpenPage) {
+        if (createdClient && createdClient.id && setSelectedClientId) {
+          setSelectedClientId(createdClient.id);
+          
+          // Also store in recents!
+          try {
+            const recentsJSON = localStorage.getItem('m4_recent_clients');
+            let recents: string[] = recentsJSON ? JSON.parse(recentsJSON) : [];
+            recents = recents.filter(id => id !== createdClient.id);
+            recents.unshift(createdClient.id);
+            recents = recents.slice(0, 3);
+            localStorage.setItem('m4_recent_clients', JSON.stringify(recents));
+            window.dispatchEvent(new Event('m4_recent_clients_changed'));
+          } catch (e) {
+            console.error('Failed to update recent clients:', e);
+          }
+        }
         setActiveTab('clients');
       }
     } catch (error: any) {
@@ -1621,6 +1741,18 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     setIsLostModalOpen(true);
   };
 
+  const showWonConfirm = (lead: Lead) => {
+    setSelectedLead(lead);
+    setWonData({
+      monthly_value: Number(lead.value) || 0,
+      service_type: '',
+      services: [],
+      start_date: new Date().toISOString().split('T')[0],
+      bank_account_id: ''
+    });
+    setIsWonModalOpen(true);
+  };
+
   const handleEnrichSingleLead = async (lead: Lead) => {
     setIsEnriching(true);
     try {
@@ -2123,190 +2255,43 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Valor Estimado</label>
-                        <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="R$ 0,00" />
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Valor Estimado (R$)</label>
+                        <input type="number" value={newLead.value || 0} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="0" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Previsão de Fechamento</label>
-                        <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" />
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Campanha / Origem</label>
+                        <input value={newLead.campaign || ''} onChange={e => setNewLead({...newLead, campaign: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Tráfego Ads" />
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Interno</label>
-                      <select 
-                        value={newLead.responsible_id} 
-                        onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                      >
-                        <option value="">Selecione o Responsável</option>
-                        {users.map(u => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Serviços / Produtos</label>
-                      <MultiSelectServices
-                        selectedServices={newLead.services || []}
-                        onChange={(selected) => {
-                          let calculatedValue = 0;
-                          selected.forEach(srvName => {
-                            const foundSrv = services.find(s => s.name === srvName);
-                            if (foundSrv) calculatedValue += foundSrv.default_price || 0;
-                          });
-                          
-                          setNewLead({
-                            ...newLead,
-                            services: selected,
-                            value: calculatedValue > 0 ? calculatedValue : newLead.value
-                          });
-                        }}
-                        servicesList={services}
-                        placeholder="Selecione um ou mais serviços..."
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Campanha</label>
-                      <input value={newLead.campaign} onChange={e => setNewLead({...newLead, campaign: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Black Friday 2024" />
+                    <div className="grid grid-cols-1 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Comercial</label>
+                        <select 
+                          value={newLead.responsible_id || ''} 
+                          onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
+                          className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground cursor-pointer"
+                        >
+                          <option value="">Selecione o Responsável</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Notas do Negócio</label>
-                      <textarea value={newLead.business_notes} onChange={e => setNewLead({...newLead, business_notes: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[120px] resize-none" placeholder="Detalhes adicionais..." />
+                      <textarea value={newLead.business_notes || ''} onChange={e => setNewLead({...newLead, business_notes: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground h-24" placeholder="Algum detalhe relevante sobre a negociação..." />
                     </div>
-                  </div>
-                </div>
 
-                <div className="p-10 pt-0 shrink-0 flex gap-4">
-                  <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all cursor-pointer">Cancelar</button>
-                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all shadow-none disabled:opacity-50 cursor-pointer pointer-events-auto">
-                    {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {isCompanyModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/80 z-[9999] flex items-center justify-center p-4">
-            <div className="bg-card rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-lg border border-border overflow-hidden pointer-events-auto relative z-[10000]">
-              <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-                <h3 className="text-2xl font-black text-foreground uppercase">Nova Empresa</h3>
-                <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                  <ICONS.Plus className="rotate-45" />
-                </button>
-              </div>
-              <form onSubmit={handleCreateCompany} className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-                      <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: M4 Marketing" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">CNPJ</label>
-                      <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="00.000.000/0000-00" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cidade</label>
-                      <input value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: São Paulo" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado</label>
-                      <input value={newCompany.state} onChange={e => setNewCompany({...newCompany, state: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: SP" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                      <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Energia Solar" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website</label>
-                      <input value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="https://..." />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail da Empresa</label>
-                      <input type="email" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="contato@empresa.com" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                      <input value={newCompany.whatsapp} onChange={e => setNewCompany({...newCompany, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
-                      <input value={newCompany.instagram} onChange={e => setNewCompany({...newCompany, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
-                    </div>
                   </div>
                 </div>
-                <div className="p-10 pt-0 shrink-0 flex gap-4">
-                  <button type="button" onClick={() => setIsCompanyModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
-                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all shadow-none disabled:opacity-50">
-                    {isSyncing ? 'SALVANDO...' : 'CADASTRAR EMPRESA'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {isContactModalOpen && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-            <div className="bg-card w-full max-w-xl rounded-[3rem] shadow-lg border border-border overflow-hidden animate-in zoom-in duration-300 pointer-events-auto relative z-[10000]">
-              <div className="p-10 pb-6 flex justify-between items-center border-b border-border">
-                <div>
-                  <h3 className="text-2xl font-black text-foreground tracking-tight uppercase">Novo Contato</h3>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Informações do Relacionamento</p>
-                </div>
-                <button onClick={() => setIsContactModalOpen(false)} className="p-3 hover:bg-muted rounded-2xl transition-colors">
-                  <ICONS.X className="text-muted-foreground" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateContact} className="p-10 space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome</label>
-                    <input required value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Nome completo" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                    <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Diretor Comercial" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail</label>
-                    <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="email@exemplo.com" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
-                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setIsContactModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs">Cancelar</button>
-                  <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 shadow-none">
-                    {isSyncing ? "SALVANDO..." : "SALVAR CONTATO"}
+                <div className="p-10 border-t border-border flex gap-4 justify-end bg-card shrink-0">
+                  <button type="button" onClick={handleCloseModal} className="px-6 py-4 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-muted/80 transition-all">Cancelar</button>
+                  <button type="submit" disabled={isSyncing} className="px-6 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2">
+                    {isSyncing ? <ICONS.RefreshCw className="animate-spin" width="16" height="16" /> : <ICONS.Plus width="16" height="16" />}
+                    CRIAR NEGÓCIO
                   </button>
                 </div>
               </form>
@@ -2317,1364 +2302,445 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
     );
   }
 
+  // Calculate high-level pipeline metrics
+  const activeLeads = leads.filter(l => funnelUtils.isLeadActive(l, pipelines) && (!l.pipeline_id || l.pipeline_id === activePipeline.id));
+  const totalValueInActiveStages = activeLeads.reduce((sum, l) => sum + (Number(l.value) || 0), 0);
+  const staleLeadsCount = activeLeads.filter(l => isStale(l)).length;
+  
+  const totalFinishedLeads = leads.filter(l => (!l.pipeline_id || l.pipeline_id === activePipeline.id) && (l.status === 'won' || l.status === 'lost'));
+  const winRatePercent = totalFinishedLeads.length === 0 ? 0 : Math.round((leads.filter(l => (!l.pipeline_id || l.pipeline_id === activePipeline.id) && l.status === 'won').length / totalFinishedLeads.length) * 100);
+
+  // Simple local states for layout and quick filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [temperatureFilter, setTemperatureFilter] = useState<'all' | 'Quente' | 'Morno' | 'Frio'>('all');
+
+  const filteredLocalLeads = React.useMemo(() => {
+    let result = leads;
+    if (searchTerm.trim() !== '') {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(l => 
+        (l.company_name || '').toLowerCase().includes(q) ||
+        (l.name || '').toLowerCase().includes(q) ||
+        (l.company_niche || '').toLowerCase().includes(q) ||
+        (l.responsible_name || '').toLowerCase().includes(q)
+      );
+    }
+    if (temperatureFilter !== 'all') {
+      result = result.filter(l => l.temperature === temperatureFilter);
+    }
+    return result;
+  }, [leads, searchTerm, temperatureFilter]);
+
+  const localLeadsByStage = React.useMemo(() => {
+    let filtered = filteredLocalLeads;
+    if (filterMode === 'my_day') {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(l => l.next_action_date && l.next_action_date <= today && funnelUtils.isLeadActive(l, pipelines));
+    }
+    return funnelUtils.groupLeadsByStage(filtered, activePipeline);
+  }, [filteredLocalLeads, activePipeline, filterMode, pipelines]);
+
+  const getLocalLeadsByStage = (stageId: string) => localLeadsByStage[stageId] || [];
+
+  const handleOpenNewLeadModal = () => {
+    setNewLead({
+      company_name: '', company_cnpj: '', company_city: '', company_state: '', company_niche: '', company_website: '',
+      company_email: '', company_whatsapp: '', company_instagram: '', contact_name: '', contact_role: '', contact_email: '',
+      contact_whatsapp: '', contact_instagram: '', contact_notes: '', pipeline_id: activePipelineId, 
+      stage: activePipeline?.stages?.[0]?.id || '', value: 0, business_notes: '', service_type: '', services: [], campaign: '',
+      responsible_id: currentUser?.id || '', status: 'active'
+    });
+    setIsModalOpen(true);
+  };
+
   return (
-    <div className="flex flex-col h-full overflow-hidden relative animate-in fade-in duration-1000">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 md:gap-6 mb-6 md:mb-10 shrink-0">
-        <div className="flex items-center gap-4 md:gap-6 w-full lg:w-auto">
-          <div className="flex-1 lg:flex-none">
-            <div className="flex items-center gap-2 md:gap-3">
-              <button 
-                onClick={() => setIsPipelineModalOpen(true)}
-                className="flex items-center gap-2 md:gap-3 group text-left min-w-0"
-                title="Trocar Pipeline"
-              >
-                <h2 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors truncate">{activePipeline.name}</h2>
-                <ICONS.ChevronDown className="text-muted-foreground group-hover:text-primary transition-colors w-5 h-5 md:w-6 md:h-6 shrink-0" />
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setEditingPipeline(activePipeline);
-                  setIsStageConfigModalOpen(true);
-                }}
-                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-all ml-2"
-                title="Configurar Etapas e Automações"
-              >
-                <ICONS.Settings width="20" height="20" />
-              </button>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Nuvem Sincronizada</p>
-              <div className="w-1 h-1 rounded-full bg-border"></div>
-              <p className="text-primary font-bold text-xs uppercase tracking-widest">{leads.filter(l => funnelUtils.resolveLeadStatus(l, funnelUtils.resolveLeadStage(l, pipelines)) === FunnelStatus.WON).length} Ganhos este mês</p>
-            </div>
-          </div>
+    <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-501">
+      {/* 1. Header Toolbar */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 shrink-0">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Pipeline de Vendas</h2>
+          <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">
+            Gestão Comercial • {activePipeline.name}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
-          {viewMode === 'kanban' && (
-            <div className="flex bg-muted p-1 rounded-xl">
-              <button 
-                onClick={() => setCardDensity('normal')}
-                className={`p-2 rounded-lg transition-all ${cardDensity === 'normal' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
-                title="Visualização Detalhada"
-              >
-                <Maximize2 width="16" height="16" />
-              </button>
-              <button 
-                onClick={() => setCardDensity('compact')}
-                className={`p-2 rounded-lg transition-all ${cardDensity === 'compact' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
-                title="Visualização Compacta"
-              >
-                <Minimize2 width="16" height="16" />
-              </button>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Pipeline Switcher selector */}
+          <button 
+            type="button"
+            onClick={() => setIsPipelineModalOpen(true)}
+            className="flex items-center gap-2.5 px-5 py-3.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+          >
+            📂 FUNIL: {activePipeline.name} <ICONS.ChevronRight className="rotate-90 w-4 h-4 text-muted-foreground" />
+          </button>
 
-          <div className="flex bg-muted p-1 rounded-xl">
-            <button 
+          {/* Kanban vs List display toggles */}
+          <div className="flex items-center bg-muted/60 p-1.5 rounded-2xl border border-border/40">
+            <button
               onClick={() => setViewMode('kanban')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`p-2.5 rounded-xl transition-all ${viewMode === 'kanban' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
               title="Visualização em Kanban"
             >
-              <LayoutGrid width="16" height="16" />
+              <LayoutGrid width="14" height="14" />
             </button>
-            <button 
+            <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`p-2.5 rounded-xl transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-slate-500 hover:text-foreground'}`}
               title="Visualização em Lista"
             >
-              <List width="16" height="16" />
+              <List width="14" height="14" />
             </button>
           </div>
 
-          <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3 bg-primary text-primary-foreground rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm hover:opacity-90 shadow-lg shadow-primary/20 transition-all ml-auto lg:ml-0">
-            <ICONS.Plus className="w-4 h-4 md:w-5 md:h-5" /> 
-            <span className="hidden xs:inline">NOVO NEGÓCIO</span>
-            <span className="xs:hidden">NOVO</span>
+          <button 
+            onClick={handleOpenNewLeadModal}
+            className="flex items-center gap-2 px-5 py-3.5 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all shadow-md shadow-primary/20"
+          >
+            <ICONS.Plus width="14" height="14" /> Novo Negócio
           </button>
         </div>
       </div>
 
-      {isPipelineModalOpen && (
-        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-zoom-in-95">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-foreground uppercase">Selecionar Pipeline</h3>
-              <button onClick={() => setIsPipelineModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              {pipelines.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setActivePipelineId(p.id);
-                    setIsPipelineModalOpen(false);
-                  }}
-                  className={`w-full p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${activePipelineId === p.id ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 bg-muted/30'}`}
-                >
-                  <div>
-                    <p className={`font-black uppercase text-xs tracking-widest ${activePipelineId === p.id ? 'text-primary' : 'text-muted-foreground'}`}>Pipeline</p>
-                    <p className="font-bold text-foreground mt-1">{p.name}</p>
-                  </div>
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${activePipelineId === p.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card group-hover:border-primary/50'}`}>
-                    {activePipelineId === p.id && <div className="w-2 h-2 bg-primary-foreground rounded-full"></div>}
-                  </div>
-                </button>
-              ))}
-
-              <button
-                onClick={() => {
-                  setActiveTab('settings_pipelines');
-                  setIsPipelineModalOpen(false);
-                }}
-                className="w-full p-6 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/10 text-center transition-all group"
-              >
-                <div className="flex items-center justify-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-                  <ICONS.Plus width="16" height="16" />
-                  <span className="text-xs font-black uppercase tracking-widest">Gerenciar ou Criar Novo Funil</span>
-                </div>
-              </button>
-            </div>
+      {/* 2. Top Funnel Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8 shrink-0">
+        <div className="p-5 bg-card border border-border rounded-3xl shadow-sm">
+          <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Negócios Ativos</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-foreground">{activeLeads.length}</span>
+            <span className="text-xs text-muted-foreground font-bold uppercase">leads</span>
           </div>
         </div>
-      )}
+        <div className="p-5 bg-card border border-border rounded-3xl shadow-sm">
+          <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Volume Financeiro Estimado</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-primary">R$ {totalValueInActiveStages.toLocaleString('pt-BR')}</span>
+          </div>
+        </div>
+        <div className="p-5 bg-card border border-border rounded-3xl shadow-sm">
+          <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block">Estagnados (&gt; 5 Dias)</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-rose-500">{staleLeadsCount}</span>
+            <span className="text-xs text-rose-400 font-bold uppercase">leads</span>
+          </div>
+        </div>
+        <div className="p-5 bg-card border border-border rounded-3xl shadow-sm">
+          <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Taxa de Conversão</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-green-600 dark:text-green-400">{winRatePercent}%</span>
+            <span className="text-xs text-muted-foreground font-bold uppercase">win-rate</span>
+          </div>
+        </div>
+      </div>
 
+      {/* 3. Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center mb-6 shrink-0 bg-muted/20 p-4 rounded-2xl border border-border/50">
+        <div className="flex flex-1 max-w-md items-center gap-3 bg-card border border-border px-4 py-2.5 rounded-xl">
+          <ICONS.Search className="text-muted-foreground w-4 h-4" />
+          <input 
+            type="text" 
+            placeholder="Buscar por empresa, contato ou nicho..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-transparent border-none text-xs font-bold text-foreground focus:outline-none placeholder-muted-foreground"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Temperatura:</span>
+          {['all', 'Quente', 'Morno', 'Frio'].map(t => (
+            <button
+              key={t}
+              onClick={() => setTemperatureFilter(t as any)}
+              className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg border transition-all ${
+                temperatureFilter === t 
+                  ? 'bg-primary border-primary text-primary-foreground' 
+                  : 'bg-card border-border hover:bg-muted text-muted-foreground'
+              }`}
+            >
+              {t === 'all' ? 'TUDO' : t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Main CRM Content View */}
       {viewMode === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-none relative">
-          {leadsHiddenByFilter && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center p-6 bg-background/50 backdrop-blur-[2px]">
-              <div className="bg-card p-8 rounded-3xl border-2 border-primary shadow-2xl max-w-md text-center animate-in zoom-in duration-500">
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
-                  <ICONS.Clock width="32" height="32" />
-                </div>
-                <h3 className="text-xl font-black text-foreground uppercase mb-3">Filtro Ativo!</h3>
-                <p className="text-muted-foreground font-bold leading-relaxed mb-8">
-                  Você possui <span className="text-primary">{totalLeadsInPipeline} leads ativos</span> neste pipeline, mas nenhum aparece porque o filtro <span className="bg-primary/10 px-2 py-1 rounded-lg text-primary italic">"Meu Dia"</span> está selecionado e eles não possuem ações para hoje.
-                </p>
-                <button 
-                  onClick={() => setFilterMode('all')}
-                  className="w-full py-5 bg-primary text-primary-foreground rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-primary/20"
+        <div className="flex-1 overflow-x-auto pb-6 -mx-6 px-6 scrollbar-none relative">
+          <div className="flex gap-5 h-full min-w-max pb-4">
+            {activePipeline.stages.map(stage => {
+              const stageLeads = getLocalLeadsByStage(stage.id);
+              const stageValue = stageLeads.reduce((sum, l) => sum + (Number(l.value) || 0), 0);
+              
+              return (
+                <div 
+                  key={stage.id}
+                  onDragOver={(e) => onDragOver(e)}
+                  onDrop={(e) => onDrop(e, stage.id)}
+                  style={{ width: `${columnWidth || 290}px` }}
+                  className={`flex flex-col bg-muted/25 rounded-[2rem] border transition-all p-3 shrink-0 ${
+                    draggedLeadId ? 'border-primary/20 bg-primary/5 border-dashed' : 'border-border/40'
+                  }`}
                 >
-                  Ver Todos os Leads
-                </button>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex gap-4 h-full min-w-max">
-            {activePipeline.stages.map((stage) => (
-              <div 
-                key={stage.id} 
-                onDragOver={onDragOver} 
-                onDrop={(e) => onDrop(e, stage.id)}
-                style={{ width: `${columnWidth || 300}px` }}
-                className={`flex flex-col bg-muted/30 rounded-3xl border transition-all duration-500 p-2 shrink-0 ${draggedLeadId ? 'border-primary border-dashed bg-primary/10' : 'border-border/40'}`}
-              >
-                <div className="p-4 flex justify-between items-center bg-card/60 rounded-2xl border-b border-border/50 mb-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
-                    <h3 className="font-black text-foreground text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
-                    <div className="w-5 h-5 bg-primary/10 text-primary rounded-lg flex items-center justify-center" title="Automações Ativas">
-                      <ICONS.Automation width="12" height="12" />
+                  {/* Column Header */}
+                  <div className="p-4 bg-card rounded-2xl border border-border/50 mb-4 shadow-sm flex justify-between items-center shrink-0">
+                    <div>
+                      <h3 className="font-black text-foreground text-[10px] uppercase tracking-wider">{stage.name}</h3>
+                      <p className="text-[9px] font-black text-muted-foreground mt-0.5">R$ {stageValue.toLocaleString('pt-BR')}</p>
                     </div>
+                    <span className="bg-foreground dark:bg-muted px-2.5 py-0.5 rounded-full text-[9px] font-black text-background dark:text-foreground">
+                      {stageLeads.length}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <span className="bg-foreground dark:bg-muted px-2 py-0.5 rounded-full text-[9px] font-black text-background dark:text-foreground">{getLeadsByStage(stage.id).length}</span>
-                    <p className="text-[9px] font-black text-muted-foreground mt-0.5">R$ {calculateStageTotal(stage.id).toLocaleString()}</p>
+
+                  {/* Cards Container */}
+                  <div className="flex-1 space-y-4 overflow-y-auto max-h-[calc(100vh-340px)] scrollbar-none pb-4">
+                    {stageLeads.length === 0 ? (
+                      <div className="h-24 border border-dashed border-border/60 rounded-2xl flex items-center justify-center text-center p-4">
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-relaxed">Arraste negócios aqui</span>
+                      </div>
+                    ) : (
+                      stageLeads.map(lead => {
+                        const isLeadStale = isStale(lead);
+                        return (
+                          <div
+                            key={lead.id}
+                            draggable
+                            onDragStart={(e) => onDragStart(e, lead.id)}
+                            onClick={() => setSelectedLead(lead)}
+                            className={`p-4 bg-card rounded-2xl border hover:border-primary shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-all hover:-translate-y-0.5 relative group ${
+                              isLeadStale ? 'border-amber-400 bg-amber-50/10' : 'border-border'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <span className="px-2 py-0.5 bg-primary/10 border border-primary/20 text-[8px] font-black uppercase text-primary rounded-md truncate max-w-[120px]">
+                                {lead.company_niche || 'Geral'}
+                              </span>
+                              {lead.temperature === 'Quente' && (
+                                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Lead Quente!" />
+                              )}
+                            </div>
+
+                            <h4 className="text-xs font-black text-foreground group-hover:text-primary transition-colors truncate">{lead.company_name || 'Sem Empresa'}</h4>
+                            <p className="text-[9px] font-bold text-muted-foreground tracking-wider mb-3 truncate">{lead.contact_name || lead.name || 'Contato Indefinido'}</p>
+
+                            <div className="flex items-center justify-between border-t border-border/50 pt-3 pt-3 mt-3 text-[10px] font-black text-foreground">
+                              <span>R$ {Number(lead.value).toLocaleString('pt-BR')}</span>
+                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
+                                  className="p-1 bg-muted rounded-md text-muted-foreground hover:text-foreground"
+                                  title="Mover anterior"
+                                >
+                                  <ICONS.ChevronLeft className="w-3 h-3" />
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'next'); }}
+                                  className="p-1 bg-muted rounded-md text-muted-foreground hover:text-foreground"
+                                  title="Mover posterior"
+                                >
+                                  <ICONS.ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
-
-                <div className="p-2 space-y-5 overflow-y-auto flex-1 max-h-[calc(100vh-340px)] scrollbar-none pb-6">
-                  {isLoadingLeads ? (
-                    <>
-                      <LeadSkeleton />
-                      <LeadSkeleton />
-                      <LeadSkeleton />
-                    </>
-                  ) : (
-                    getLeadsByStage(stage.id).map((lead) => (
-                    <div 
-                      key={lead.id} 
-                      draggable
-                      onDragStart={(e) => onDragStart(e, lead.id)}
-                      onClick={() => setSelectedLead(lead)}
-                      className={`bg-card rounded-2xl border shadow-sm transition-all cursor-grab active:cursor-grabbing group hover:shadow-xl hover:-translate-y-1 ${isStale(lead) ? 'border-destructive/30 bg-destructive/5' : 'border-border hover:border-primary'} ${cardDensity === 'compact' ? 'p-3' : 'p-5'}`}
-                    >
-                      <div className={`flex justify-between items-start ${cardDensity === 'compact' ? 'mb-1.5' : 'mb-3'}`}>
-                        <span className={`uppercase tracking-[0.15em] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 inline-block max-w-full break-words ${cardDensity === 'compact' ? 'text-[8px]' : 'text-[9px]'}`}>
-                          {lead.company_niche || lead.niche || 'Sem Nicho'}
-                        </span>
-                        {isStale(lead) && (
-                          <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" title="Negócio parado!"></div>
-                        )}
-                      </div>
-                      
-                      <h4 className={`font-black text-foreground group-hover:text-primary transition-colors truncate ${cardDensity === 'compact' ? 'text-sm mb-0' : 'text-lg mb-0.5'}`}>
-                        {lead.company?.name || lead.company_name || (lead.responsible_id ? '' : lead.contact_name) || 'Novo Negócio'}
-                      </h4>
-                      
-                      <p className={`font-bold text-muted-foreground uppercase tracking-widest truncate ${cardDensity === 'compact' ? 'text-[8px] mb-2' : 'text-[10px] mb-4'}`}>
-                        {lead.responsible_id ? lead.name : (lead.responsible_name || 'Contato não informado')}
-                      </p>
-
-                      <div className="flex items-center gap-2 mb-3">
-                        {lead.contact_whatsapp && (
-                          <div className="p-1.5 bg-green-500/10 text-green-600 rounded-lg" title={formatPhoneBR(lead.contact_whatsapp)}>
-                            <ICONS.Phone width={12} height={12} />
-                          </div>
-                        )}
-                        {lead.contact_instagram && (
-                          <div className="p-1.5 bg-pink-500/10 text-pink-600 rounded-lg" title={lead.contact_instagram}>
-                            <ICONS.Instagram width={12} height={12} />
-                          </div>
-                        )}
-                        {lead.company_instagram && (
-                          <div className="p-1.5 bg-purple-500/10 text-purple-600 rounded-lg" title={`Empresa: ${lead.company_instagram}`}>
-                            <ICONS.Building width={12} height={12} />
-                          </div>
-                        )}
-                      </div>
-
-                      {cardDensity === 'normal' && (
-                        <>
-                          {lead.next_action && (
-                            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20">
-                              <ICONS.Clock width="12" height="12" />
-                              <p className="text-[10px] font-black uppercase truncate">{lead.next_action}</p>
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground font-bold mb-6 line-clamp-2">{lead.notes}</p>
-                          
-                          <div className="flex items-center gap-3 mb-6">
-                            <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                              lead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' :
-                              lead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
-                              'bg-muted text-muted-foreground'
-                            }`}>
-                              {lead.temperature || 'Frio'}
-                            </div>
-                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{lead.probability || 0}% Prob.</div>
-                          </div>
-                        </>
-                      )}
-
-                      <div className={`flex justify-between items-center border-t border-border/50 ${cardDensity === 'compact' ? 'pt-3 mt-2' : 'pt-6'}`}>
-                        <div className={`font-black text-foreground ${cardDensity === 'compact' ? 'text-xs' : 'text-base'}`}>
-                          R$ {Number(lead.value).toLocaleString()}
-                        </div>
-                        {cardDensity === 'normal' && (
-                          <div className="flex items-center gap-1">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
-                              className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
-                              title="Mover para etapa anterior"
-                            >
-                              <ICONS.ArrowRight className="rotate-180" width="14" height="14" />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'next'); }}
-                              className="p-1.5 bg-muted text-muted-foreground hover:text-primary rounded-lg transition-colors"
-                              title="Mover para próxima etapa"
-                            >
-                              <ICONS.ArrowRight width="14" height="14" />
-                            </button>
-                          </div>
-                        )}
-                        <img src={`https://i.pravatar.cc/120?u=${lead.id}`} className={`${cardDensity === 'compact' ? 'w-6 h-6' : 'w-9 h-9'} rounded-2xl border-2 border-card shadow-xl`} alt="Owner" />
-                      </div>
-                    </div>
-                  )))}
-                  <button onClick={() => setIsModalOpen(true)} className="w-full py-6 border-2 border-dashed border-border rounded-[2rem] text-muted-foreground/50 text-[11px] font-black uppercase tracking-[0.2em] hover:border-primary hover:text-primary hover:bg-card transition-all">+ NOVO LEAD</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto pb-10 scrollbar-none space-y-10">
-          {activePipeline.stages.map((stage) => {
-            const stageLeads = getLeadsByStage(stage.id);
-            if (stageLeads.length === 0) return null;
-
-            return (
-              <div key={stage.id} className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STAGE_COLORS.find(c => c.value === (stage.color || 'blue'))?.hex }}></div>
-                  <h3 className="font-black text-foreground text-[12px] uppercase tracking-[0.2em]">{stage.name}</h3>
-                  <span className="bg-muted px-3 py-1 rounded-full text-[10px] font-black text-muted-foreground">
-                    {stageLeads.length} {stageLeads.length === 1 ? 'Lead' : 'Leads'}
-                  </span>
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest ml-auto">
-                    Total: R$ {calculateStageTotal(stage.id).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="bg-card rounded-[2.5rem] border border-border overflow-hidden shadow-sm">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-muted/30 border-b border-border">
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Empresa</th>
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Contato</th>
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nicho</th>
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Valor</th>
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</th>
-                        <th className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stageLeads.map((lead) => (
-                        <tr 
-                          key={lead.id} 
-                          onClick={() => setSelectedLead(lead)}
-                          className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer group"
-                        >
-                          <td className="p-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black">
-                                {(lead.company?.name || lead.company_name)?.charAt(0) || lead.contact_name?.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-bold text-foreground group-hover:text-primary transition-colors">{lead.company?.name || lead.company_name || 'Sem Nome'}</p>
-                                <p className="text-[10px] text-muted-foreground font-medium">{lead.company_website || 'Sem website'}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            <p className="text-sm font-bold text-foreground">{lead.name}</p>
-                            <p className="text-[10px] text-muted-foreground font-medium">{lead.email}</p>
-                          </td>
-                          <td className="p-6">
-                            <span className="px-3 py-1 bg-muted rounded-full text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                              {lead.company_niche || lead.niche || 'Sem Nicho'}
-                            </span>
-                          </td>
-                          <td className="p-6">
-                            <p className="text-sm font-black text-foreground">R$ {Number(lead.value).toLocaleString()}</p>
-                          </td>
-                          <td className="p-6">
-                            <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                              lead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600' :
-                              lead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
-                              'bg-muted text-muted-foreground'
-                            }`}>
-                              {lead.temperature || 'Frio'}
-                            </div>
-                          </td>
-                          <td className="p-6 text-right">
-                            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-primary">
-                              <ICONS.ArrowRight width="16" height="16" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto bg-card border border-border rounded-3xl shadow-sm">
+          {activeLeads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Nenhum negócio ativo registrado</span>
+            </div>
+          ) : (
+            <div className="min-w-full overflow-x-auto">
+              <table className="min-w-full divide-y divide-border text-left">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="px-6 py-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Empresa</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Contato</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Estágio</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Valor</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Temperatura</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredLocalLeads.map(l => (
+                    <tr 
+                      key={l.id} 
+                      onClick={() => setSelectedLead(l)}
+                      className="hover:bg-muted/15 cursor-pointer transition-colors"
+                    >
+                      <td className="px-6 py-4 font-black text-xs text-foreground uppercase">{l.company_name}</td>
+                      <td className="px-6 py-4 text-xs font-semibold text-muted-foreground">{l.contact_name || l.name || '-'}</td>
+                      <td className="px-6 py-4 text-xs font-black uppercase text-primary">
+                        {activePipeline.stages.find(s => s.id === l.stage)?.name || 'Outro'}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-black text-foreground">R$ {Number(l.value || 0).toLocaleString('pt-BR')}</td>
+                      <td className="px-6 py-4 text-xs">
+                        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                          l.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600' : l.temperature === 'Morno' ? 'bg-blue-500/10 text-blue-600' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {l.temperature || 'Frio'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[1.5rem] md:rounded-[2.5rem] w-full max-w-2xl h-full md:h-auto md:max-h-[85vh] flex flex-col shadow-lg border border-border animate-zoom-in-95 overflow-hidden">
-            <div className="flex justify-between items-center p-6 md:p-10 pb-0 shrink-0 gap-4">
-              <h3 className="text-xl md:text-2xl font-black text-foreground uppercase tracking-tight truncate min-w-0">Novo Negócio</h3>
-              <button onClick={handleCloseModal} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
-                <ICONS.Plus className="rotate-45 w-5 h-5 md:w-6 md:h-6" />
+      {/* 5. slide-over Lead 360 detailed timeline */}
+      {selectedLead && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex justify-end pointer-events-auto">
+          <div className="bg-card w-full max-w-3xl h-full border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-border flex justify-between items-center shrink-0 bg-card">
+              <div>
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight truncate max-w-[400px]">
+                  {selectedLead.company_name || 'Sem Empresa'}
+                </h3>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                  Ficha do Lead • {selectedLead.contact_name || 'Contato Indefinido'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedLead(null)}
+                className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/85 transition-all"
+              >
+                <ICONS.Plus className="rotate-45" />
               </button>
             </div>
-            <form onSubmit={handleCreateLead} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 scrollbar-none">
-                
-                {/* Seção 1 - DADOS DA EMPRESA PROSPECTADA */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                      <ICONS.Database width="16" height="16" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Dados da Empresa Prospectada</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-                      <input required value={newLead.company_name} onChange={e => setNewLead({...newLead, company_name: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: M4 Marketing" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">CNPJ</label>
-                      <input value={newLead.company_cnpj} onChange={e => setNewLead({...newLead, company_cnpj: formatCNPJ(e.target.value)})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="00.000.000/0000-00" />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cidade</label>
-                      <input value={newLead.company_city} onChange={e => setNewLead({...newLead, company_city: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: São Paulo" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Estado</label>
-                      <input value={newLead.company_state} onChange={e => setNewLead({...newLead, company_state: e.target.value.toUpperCase()})} maxLength={2} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: SP" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Segmento / Nicho</label>
-                      <input value={newLead.company_niche} onChange={e => setNewLead({...newLead, company_niche: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: Energia Solar" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Website</label>
-                      <input value={newLead.company_website} onChange={e => setNewLead({...newLead, company_website: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="https://..." />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail da Empresa</label>
-                      <input type="email" value={newLead.company_email} onChange={e => setNewLead({...newLead, company_email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="contato@empresa.com" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp (Empresa)</label>
-                      <input value={newLead.company_whatsapp} onChange={e => setNewLead({...newLead, company_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="(00) 00000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Empresa)</label>
-                      <input value={newLead.company_instagram} onChange={e => setNewLead({...newLead, company_instagram: e.target.value})} className="w-full p-3 md:p-4 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-foreground focus:ring-2 focus:ring-primary/20 transition-all" placeholder="@usuario" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seção 2 - CONTATO / DECISOR */}
-                <div className="bg-muted/50 p-4 md:p-8 rounded-2xl md:rounded-[32px] space-y-4 md:space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                      <ICONS.User width="16" height="16" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Contato / Decisor</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Contato</label>
-                      <input required value={newLead.contact_name} onChange={e => setNewLead({...newLead, contact_name: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Nome do contato" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                      <input value={newLead.contact_role} onChange={e => setNewLead({...newLead, contact_role: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Ex: Diretor Comercial" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp (Contato)</label>
-                      <input value={newLead.contact_whatsapp} onChange={e => setNewLead({...newLead, contact_whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="(00) 00000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram (Contato)</label>
-                      <input value={newLead.contact_instagram} onChange={e => setNewLead({...newLead, contact_instagram: e.target.value})} className="w-full p-3 md:p-4 bg-card rounded-xl md:rounded-2xl border-none font-bold text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="@usuario" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Notas do Contato</label>
-                    <textarea value={newLead.contact_notes} onChange={e => setNewLead({...newLead, contact_notes: e.target.value})} className="w-full p-4 bg-card rounded-2xl border-none font-bold text-foreground shadow-sm h-24" placeholder="Observações sobre o contato..." />
-                  </div>
-                </div>
-
-                {/* Seção 3 - DADOS DO NEGÓCIO */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                      <ICONS.Collaboration width="16" height="16" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Dados do Negócio</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Pipeline</label>
-                      <select 
-                        value={newLead.pipeline_id} 
-                        onChange={e => {
-                          const pId = e.target.value;
-                          const pipeline = pipelines.find(p => p.id === pId);
-                          setNewLead({
-                            ...newLead, 
-                            pipeline_id: pId,
-                            stage: pipeline?.stages[0].id || ''
-                          });
-                        }} 
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
+            {/* Slider Workspace Container */}
+            <div className="flex-1 overflow-y-auto flex divide-x divide-border">
+              {/* Left Panel: general details & operation triggers */}
+              <div className="w-1/2 p-6 space-y-6 overflow-y-auto">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Detalhes Operacionais</h4>
+                  <div className="bg-muted/20 p-4 rounded-2xl border border-divider/50 space-y-3.5">
+                    <div>
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Estágio</span>
+                      <select
+                        value={selectedLead.stage}
+                        onChange={e => handleMoveToStage(selectedLead, e.target.value)}
+                        className="w-full bg-transparent border-0 p-0 text-xs font-black text-foreground uppercase select-none mt-1 focus:outline-none"
                       >
-                        {pipelines.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                        {activePipeline.stages.map(s => (
+                          <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
                         ))}
                       </select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Etapa Inicial</label>
-                      <select 
-                        value={newLead.stage} 
-                        onChange={e => setNewLead({...newLead, stage: e.target.value})} 
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                      >
-                        <option value="">Primeira Etapa</option>
-                        {pipelines.find(p => p.id === (newLead.pipeline_id || activePipelineId))?.stages.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                    <div>
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Valor do Negócio</span>
+                      <span className="text-sm font-black text-foreground block mt-0.5">R$ {Number(selectedLead.value).toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Nomenclatura / Nicho</span>
+                      <span className="text-xs font-bold text-foreground block mt-0.5">{selectedLead.company_niche || '-'}</span>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Valor Estimado</label>
-                      <input type="number" value={newLead.value === 0 ? '' : newLead.value} onChange={e => setNewLead({...newLead, value: parseFloat(e.target.value) || 0})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="R$ 0,00" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Previsão de Fechamento</label>
-                      <input type="date" value={newLead.closing_forecast} onChange={e => setNewLead({...newLead, closing_forecast: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Serviços / Produtos</label>
-                      <MultiSelectServices
-                        selectedServices={newLead.services || []}
-                        onChange={(selected) => {
-                          let calculatedValue = 0;
-                          selected.forEach(srvName => {
-                            const foundSrv = services.find(s => s.name === srvName);
-                            if (foundSrv) calculatedValue += foundSrv.default_price || 0;
-                          });
-                          
-                          setNewLead({
-                            ...newLead,
-                            services: selected,
-                            value: calculatedValue > 0 ? calculatedValue : newLead.value
-                          });
-                        }}
-                        servicesList={services}
-                        placeholder="Selecione um ou mais serviços..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Interno</label>
-                      <select 
-                        value={newLead.responsible_id} 
-                        onChange={e => setNewLead({...newLead, responsible_id: e.target.value})} 
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                      >
-                        <option value="">Selecione o Responsável</option>
-                        {users.map(u => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Notas da Negociação</label>
-                    <textarea value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[120px] resize-none" placeholder="Detalhes adicionais sobre a negociação..." />
-                  </div>
-                </div>
-              </div>
-
-               <div className="p-10 pt-0 shrink-0 flex gap-4">
-                 <button type="button" onClick={handleCloseModal} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-muted/80 transition-all cursor-pointer">Cancelar</button>
-                 <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer pointer-events-auto">
-                   {isSyncing ? 'SINCRONIZANDO...' : 'CRIAR NEGÓCIO'}
-                 </button>
-               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedLead && (
-        <div className="fixed inset-0 bg-background/60 z-[999] flex justify-center items-center p-4 md:p-10">
-          <div className="w-full max-w-7xl bg-background h-full max-h-[95vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-zoom-in-95 border border-border/50 pointer-events-auto relative z-10">
-            {/* Header 360 */}
-            <div className="px-10 py-6 bg-card border-b border-border flex flex-col gap-4 shrink-0">
-              {/* Top Row: Title, Identifier and System controls */}
-              <div className="flex items-center justify-between gap-4 w-full overflow-hidden">
-                <div className="flex items-center gap-4 min-w-0">
-                  {/* Lead Initial identifier */}
-                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-lg shadow-lg shrink-0">
-                    {(selectedLead.company?.name || selectedLead.company_name || selectedLead.contact_name)?.charAt(0) || 'L'}
-                  </div>
-                  
-                  <h3 className="text-lg md:text-xl font-black text-foreground tracking-tight uppercase truncate">
-                    {selectedLead.company_name || selectedLead.company?.name || 'Sem Empresa'} 
-                    {selectedLead.contact_name && (selectedLead.company_name || selectedLead.company?.name) !== selectedLead.contact_name && (
-                      <span className="text-muted-foreground font-bold"> • {selectedLead.contact_name}</span>
-                    )}
-                  </h3>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button 
-                    onClick={() => showDeleteConfirm(selectedLead)}
-                    className="p-2.5 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive/10 transition-all"
-                    title="Excluir Lead"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  
-                  <button 
-                    onClick={() => setSelectedLead(null)}
-                    className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all font-black"
-                    title="Fechar"
-                  >
-                    <ICONS.X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Bottom Row: Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2 w-full">
-                <div className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 mr-1 ${
-                  selectedLead.status === 'won' ? 'bg-emerald-100 text-emerald-600' :
-                  selectedLead.status === 'lost' ? 'bg-red-100 text-red-600' :
-                  'bg-primary/10 text-primary'
-                }`}>
-                  {selectedLead.status === 'won' ? 'Ganho' : selectedLead.status === 'lost' ? 'Perdido' : 'Em Aberto'}
-                </div>
-
-                <button 
-                  onClick={() => showArchiveConfirm(selectedLead)}
-                  className="px-4 py-2.5 bg-muted text-muted-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all flex items-center gap-2"
-                >
-                  <Archive className="w-4 h-4" />
-                  Arquivar
-                </button>
-                <button 
-                  onClick={() => showLostConfirm(selectedLead)}
-                  className="px-4 py-2.5 bg-card border border-destructive/30 text-destructive rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 transition-all"
-                >
-                  {selectedLead.status === 'lost' ? 'Editar Motivo' : 'Marcar Perda'}
-                </button>
-                {selectedLead.status === 'lost' && (
-                  <button 
-                    onClick={() => {
-                      setReactivateData({
-                        reason: '',
-                        stageId: activePipeline.stages[0]?.id || '',
-                        next_action: '',
-                        next_action_date: ''
-                      });
-                      setIsReactivateModalOpen(true);
-                    }}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Reativar Lead
-                  </button>
-                )}
-                <button 
-                  onClick={() => {
-                    setWonData({
-                      ...wonData,
-                      monthly_value: selectedLead.proposed_ticket || selectedLead.value || 0,
-                      service_type: selectedLead.service_type || '',
-                      services: selectedLead.services || (selectedLead.service_type ? [selectedLead.service_type] : [])
-                    });
-                    setIsWonModalOpen(true);
-                  }}
-                  className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all"
-                >
-                  Marcar Venda
-                </button>
-                <button 
-                  onClick={() => {
-                    setNewTaskData({
-                      ...newTaskData,
-                      title: `Ligar para ${selectedLead.contact_name}`,
-                      type: 'call',
-                      task_type: 'commercial'
-                    });
-                    setIsNewTaskModalOpen(true);
-                  }}
-                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all"
-                >
-                  Agendar Contato
-                </button>
-
-                <div className="w-px h-6 bg-border mx-1" />
-
-                <button 
-                  onClick={() => {
-                    setIsEditing(true);
-                    setEditLead({ ...selectedLead });
-                  }}
-                  className={`p-2.5 rounded-xl transition-all ${isEditing ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                  title="Editar Lead"
-                >
-                  <Edit className="w-5 h-5" />
-                </button>
-
-                <button 
-                  onClick={() => handleAIScore(selectedLead)}
-                  disabled={isAIScoring}
-                  className="p-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50"
-                  title="Score com IA"
-                >
-                  <Brain className={`w-5 h-5 ${isAIScoring ? 'animate-pulse' : ''}`} />
-                </button>
-
-                <button 
-                  onClick={() => handleEnrichSingleLead(selectedLead)}
-                  disabled={isEnriching}
-                  className="p-2.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-100 transition-all disabled:opacity-50"
-                  title="Enriquecer com IA"
-                >
-                  <Sparkles className={`w-5 h-5 ${isEnriching ? 'animate-pulse' : ''}`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Pipeline Progress */}
-            <PipelineProgress 
-              stages={activePipeline.stages} 
-              currentStageId={activePipeline.stages.some(s => s.id === selectedLead.stage) ? selectedLead.stage : activePipeline.stages[0]?.id} 
-              onMove={(direction) => handleMoveLeadStage(selectedLead, direction)}
-              onStageClick={(stageId) => handleMoveToStage(selectedLead, stageId)}
-              isUpdating={isSyncing}
-            />
-
-            {/* Negócio Perdido Banner */}
-            {selectedLead.status === 'lost' && (
-              <div className="mx-10 mt-6 p-5 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300 shrink-0">
-                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-700 dark:text-rose-400">Status do Negócio: Perdido</span>
-                  <p className="text-sm font-bold text-foreground leading-snug">
-                    Motivo da perda: <span className="font-medium text-muted-foreground">{String(selectedLead.custom_fields?.loss_reason || 'Não informado')}</span>
-                  </p>
-                  {selectedLead.custom_fields?.lost_at && (
-                    <p className="text-[9px] font-black text-muted-foreground/80 uppercase tracking-widest leading-none">
-                      Registrado em: {new Date(String(selectedLead.custom_fields.lost_at)).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Main Content 360 */}
-            <div className="flex-1 flex overflow-hidden">
-              {/* Sidebar Esquerda */}
-              <div className="w-full md:w-80 border-r border-border overflow-y-auto bg-card/50 scrollbar-none shrink-0">
-                <CollapsibleSection title="Negociação" defaultOpen={true}>
-                  <div className="space-y-4">
-                    {!isEditing ? (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Valor</span>
-                          <span className="text-sm font-black text-foreground">R$ {Number(selectedLead.value || 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex flex-col gap-1.5 py-1">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">Serviço / Produto</span>
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {Array.isArray(selectedLead.services) && selectedLead.services.length > 0 ? (
-                              selectedLead.services.map((srv, idx) => (
-                                <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md">
-                                  {srv}
-                                </span>
-                              ))
-                            ) : selectedLead.service_type ? (
-                              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase rounded-md">
-                                {selectedLead.service_type}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground font-medium">—</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Previsão</span>
-                          <span className="text-sm font-bold text-foreground">{selectedLead.closing_forecast || '–'}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Temperatura</span>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                            selectedLead.temperature === 'Quente' ? 'bg-orange-500/10 text-orange-600' :
-                            selectedLead.temperature === 'Morno' ? 'bg-primary/10 text-primary' :
-                            'bg-muted text-muted-foreground'
-                          }`}>{selectedLead.temperature || 'Frio'}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Probabilidade</span>
-                          <span className="text-sm font-bold text-foreground">{selectedLead.probability || 0}%</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Responsável</span>
-                          <span className="text-sm font-bold text-primary">{selectedLead.responsible_name || '–'}</span>
-                        </div>
-                        <div className="pt-4 border-t border-border">
-                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Notas da Negociação</span>
-                          <p className="text-xs text-muted-foreground leading-relaxed italic">
-                            {selectedLead.notes || 'Nenhuma observação...'}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Valor</label>
-                          <input 
-                            type="number" 
-                            value={editLead.value || 0} 
-                            onChange={e => setEditLead({...editLead, value: Number(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Serviços / Produtos</label>
-                          <MultiSelectServices
-                            selectedServices={editLead.services || []}
-                            onChange={(selected) => {
-                              let calculatedValue = 0;
-                              selected.forEach(srvName => {
-                                const foundSrv = services.find(s => s.name === srvName);
-                                if (foundSrv) calculatedValue += foundSrv.default_price || 0;
-                              });
-
-                              setEditLead({
-                                ...editLead,
-                                services: selected,
-                                value: calculatedValue > 0 ? calculatedValue : editLead.value
-                              });
-                            }}
-                            servicesList={services}
-                            placeholder="Selecione serviços..."
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Campanha</label>
-                          <input 
-                            type="text" 
-                            value={editLead.campaign || ''} 
-                            onChange={e => setEditLead({...editLead, campaign: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="Origem/Campanha"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Previsão</label>
-                          <input 
-                            type="date" 
-                            value={editLead.closing_forecast || ''} 
-                            onChange={e => setEditLead({...editLead, closing_forecast: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Temperatura</label>
-                          <select 
-                            value={editLead.temperature || 'Frio'} 
-                            onChange={e => setEditLead({...editLead, temperature: e.target.value as any})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          >
-                            <option value="Frio">Frio</option>
-                            <option value="Morno">Morno</option>
-                            <option value="Quente">Quente</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Probabilidade (%)</label>
-                          <input 
-                            type="number" 
-                            value={editLead.probability || 0} 
-                            onChange={e => setEditLead({...editLead, probability: Number(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Responsável Interno</label>
-                          <select 
-                            value={editLead.responsible_id || ''} 
-                            onChange={e => {
-                              const user = users.find(u => u.id === e.target.value);
-                              setEditLead({
-                                ...editLead, 
-                                responsible_id: e.target.value,
-                                responsible_name: user?.name || ''
-                              });
-                            }}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          >
-                            <option value="">Selecione o Responsável</option>
-                            {users.map(u => (
-                              <option key={u.id} value={u.id}>{u.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Notas da Negociação</label>
-                          <textarea 
-                            value={editLead.notes || ''} 
-                            onChange={e => setEditLead({...editLead, notes: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold min-h-[100px] text-foreground"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Contato / Decisor" defaultOpen={true}>
-                  <div className="space-y-4">
-                    {!isEditing ? (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nome</p>
-                          <p className="text-xs font-bold text-foreground">
-                            {selectedLead.contact_name || '–'}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Cargo</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.contact_role || '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">E-mail</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.contact_email || '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Telefone / WhatsApp</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">
-                              {selectedLead.contact_whatsapp ? formatPhoneBR(selectedLead.contact_whatsapp) : '–'}
-                            </p>
-                            {selectedLead.contact_whatsapp && (
-                              <button 
-                                onClick={() => window.open(`https://wa.me/55${selectedLead.contact_whatsapp?.replace(/\D/g, '')}`, '_blank')}
-                                className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
-                                title="Conversar no WhatsApp"
-                              >
-                                <MessageSquare width="12" height="12" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Instagram</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">{selectedLead.contact_instagram || '–'}</p>
-                            {selectedLead.contact_instagram && (
-                              <button 
-                                onClick={() => window.open(`https://instagram.com/${selectedLead.contact_instagram.replace('@', '')}`, '_blank')}
-                                className="p-1.5 bg-pink-500 text-white rounded-lg hover:opacity-90 transition-all"
-                                title="Ver Instagram"
-                              >
-                                <Instagram width="12" height="12" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Nome do Contato</label>
-                          <input 
-                            value={editLead.contact_name || ''} 
-                            onChange={e => setEditLead({...editLead, contact_name: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="Nome do decisor"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Cargo</label>
-                          <input 
-                            value={editLead.contact_role || ''} 
-                            onChange={e => setEditLead({...editLead, contact_role: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">E-mail</label>
-                          <input 
-                            type="email"
-                            value={editLead.contact_email || ''} 
-                            onChange={e => setEditLead({...editLead, contact_email: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Telefone / WhatsApp</label>
-                          <input 
-                            value={editLead.contact_whatsapp || ''} 
-                            onChange={e => setEditLead({...editLead, contact_whatsapp: formatPhoneBR(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram</label>
-                          <input 
-                            value={editLead.contact_instagram || ''} 
-                            onChange={e => setEditLead({...editLead, contact_instagram: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="@usuario"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Empresa" defaultOpen={true}>
-                  <div className="space-y-4">
-                    {!isEditing ? (
-                      <>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nome</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.company_name}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">CNPJ</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.company_cnpj || '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Site</p>
-                          <a href={selectedLead.company_website} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline truncate block">{selectedLead.company_website || '–'}</a>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Segmento</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.company_niche || '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Cidade/Estado</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.company_city ? `${selectedLead.company_city}${selectedLead.company_state ? `/${selectedLead.company_state}` : ''}` : '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">E-mail da Empresa</p>
-                          <p className="text-xs font-bold text-foreground">{selectedLead.company_email || '–'}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Telefone / WhatsApp da Empresa</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">
-                              {selectedLead.company_whatsapp ? formatPhoneBR(selectedLead.company_whatsapp) : '–'}
-                            </p>
-                            {selectedLead.company_whatsapp && (
-                              <button 
-                                onClick={() => window.open(`https://wa.me/55${selectedLead.company_whatsapp?.replace(/\D/g, '')}`, '_blank')}
-                                className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
-                                title="Conversar no WhatsApp"
-                              >
-                                <MessageSquare width="12" height="12" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Instagram da Empresa</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-foreground">{selectedLead.company_instagram || '–'}</p>
-                            {selectedLead.company_instagram && (
-                              <button 
-                                onClick={() => window.open(`https://instagram.com/${selectedLead.company_instagram.replace('@', '')}`, '_blank')}
-                                className="p-1.5 bg-pink-500 text-white rounded-lg hover:opacity-90 transition-all"
-                                title="Ver Instagram da Empresa"
-                              >
-                                <Instagram width="12" height="12" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Nome da Empresa</label>
-                          <input 
-                            value={editLead.company_name || ''} 
-                            onChange={e => setEditLead({...editLead, company_name: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">CNPJ</label>
-                          <input 
-                            value={editLead.company_cnpj || ''} 
-                            onChange={e => setEditLead({...editLead, company_cnpj: formatCNPJ(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Site</label>
-                          <input 
-                            value={editLead.company_website || ''} 
-                            onChange={e => setEditLead({...editLead, company_website: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Segmento</label>
-                          <input 
-                            value={editLead.company_niche || ''} 
-                            onChange={e => setEditLead({...editLead, company_niche: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
-                            <input 
-                              value={editLead.company_city || ''} 
-                              onChange={e => setEditLead({...editLead, company_city: e.target.value})}
-                              className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Estado</label>
-                            <input 
-                              value={editLead.company_state || ''} 
-                              onChange={e => setEditLead({...editLead, company_state: e.target.value})}
-                              className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                              maxLength={2}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">E-mail da Empresa</label>
-                          <input 
-                            type="email"
-                            value={editLead.company_email || ''} 
-                            onChange={e => setEditLead({...editLead, company_email: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Telefone / WhatsApp da Empresa</label>
-                          <input 
-                            value={editLead.company_whatsapp || ''} 
-                            onChange={e => setEditLead({...editLead, company_whatsapp: formatPhoneBR(e.target.value)})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Instagram da Empresa</label>
-                          <input 
-                            value={editLead.company_instagram || ''} 
-                            onChange={e => setEditLead({...editLead, company_instagram: e.target.value})}
-                            className="w-full p-3 bg-muted rounded-xl border-none text-xs font-bold text-foreground"
-                            placeholder="@usuario"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleSection>
-              </div>
-
-              {/* Área Central com Abas */}
-              <div className="flex-1 flex flex-col bg-background overflow-hidden">
-                {/* Tab Header */}
-                <div className="flex px-10 bg-card border-b border-border shrink-0">
-                  {[
-                    { id: 'history', label: 'Histórico', icon: ICONS.Clock },
-                    { id: 'tasks', label: 'Tarefas', icon: List },
-                    { id: 'questionnaires', label: 'Questionários', icon: FileText },
-                    { id: 'products', label: 'Produtos', icon: Package }
-                  ].map(tab => (
+                {/* Operations triggers panel */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Ações Comerciais</h4>
+                  <div className="flex flex-col gap-2.5">
                     <button
-                      key={tab.id}
-                      onClick={() => setActiveTab360(tab.id as any)}
-                      className={`flex items-center gap-2 px-6 py-5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
-                        activeTab360 === tab.id 
-                          ? 'border-primary text-primary' 
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      onClick={() => handleStageTransitionCheck(selectedLead, 'Onboarding', false, selectedLead.stage)}
+                      className="w-full py-3.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
+                    >
+                      🚀 Concluir Onboarding
+                    </button>
+                    <button
+                      onClick={() => showWonConfirm(selectedLead)}
+                      className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
+                    >
+                      🏅 Ganhar Negócio
+                    </button>
+                    <button
+                      onClick={() => showLostConfirm(selectedLead)}
+                      className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
+                    >
+                      💀 Perder Negócio
+                    </button>
+                    <button
+                      onClick={() => handleEnrichSingleLead(selectedLead)}
+                      className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                    >
+                      ⚡️ Enriquecer com IA
+                    </button>
+                    <button
+                      onClick={() => showDeleteConfirm(selectedLead)}
+                      className="w-full py-3 bg-muted text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
+                    >
+                      🗑️ Excluir Lead
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Panel: timeline interactive activities */}
+              <div className="w-1/2 flex flex-col overflow-hidden bg-muted/10 h-full">
+                {/* Interactions timeline Header Tabs */}
+                <div className="flex border-b border-border shrink-0 bg-card">
+                  {['history', 'tasks'].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab360(tab as any)}
+                      className={`flex-1 py-4 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                        activeTab360 === tab ? 'text-primary border-b-2 border-primary bg-muted/20' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <tab.icon width="14" height="14" />
-                      {tab.label}
+                      {tab === 'history' ? 'Timeline' : 'Tarefas'}
                     </button>
                   ))}
                 </div>
 
-                {/* Tab Content */}
-                <div className="flex-1 overflow-y-auto p-10 scrollbar-none">
+                {/* Tab content workspace scroll area */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {activeTab360 === 'history' && (
-                    <div className="space-y-8">
-                      {/* Interaction Actions */}
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Histórico de Atividades</h4>
+                    <div className="space-y-5">
+                      {/* Interaction registration note form */}
+                      <div className="p-4 bg-card rounded-2xl shadow-sm border border-border flex flex-col gap-3">
+                        <textarea
+                          placeholder="Registrar anotação de contato..."
+                          value={interactionNote}
+                          onChange={e => setInteractionNote(e.target.value)}
+                          className="w-full bg-muted rounded-xl p-3 text-xs font-medium focus:outline-none placeholder-muted-foreground min-h-[70px] resize-none"
+                        />
                         <button
-                          onClick={() => setShowInteractionForm(!showInteractionForm)}
-                          className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                            showInteractionForm 
-                              ? 'bg-muted text-muted-foreground hover:bg-muted/80' 
-                              : 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 hover:scale-105 active:scale-95'
-                          }`}
+                          onClick={handleRegisterInteraction}
+                          disabled={isRegisteringInteraction}
+                          className="px-4 py-2 bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all self-end"
                         >
-                          {showInteractionForm ? (
-                            <><X className="w-3 h-3" /> Cancelar</>
-                          ) : (
-                            <><Plus className="w-3 h-3" /> Registrar Interação</>
-                          )}
+                          Registrar
                         </button>
                       </div>
 
-                      {/* Registrar Interação Form */}
-                      {showInteractionForm && (
-                        <div className="p-8 bg-card rounded-3xl border-2 border-primary/20 shadow-xl animate-in zoom-in-95 duration-300">
-                          <h5 className="text-[10px] font-black text-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                            <ICONS.Plus className="w-3 h-3 text-primary" /> Nova Interação
-                          </h5>
-                          
-                          <div className="space-y-6">
-                            <textarea
-                              value={interactionNote}
-                              onChange={(e) => setInteractionNote(e.target.value)}
-                              placeholder="O que foi conversado com o lead?"
-                              className="w-full p-5 bg-muted/50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all min-h-[120px] resize-none text-foreground"
-                            />
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Canal</label>
-                                <div className="flex flex-wrap gap-2">
-                                  {['WhatsApp', 'Ligação', 'E-mail', 'Reunião', 'Outro'].map((type) => (
-                                    <button
-                                      key={type}
-                                      onClick={() => setInteractionType(type as any)}
-                                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                        interactionType === type 
-                                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                      }`}
-                                    >
-                                      {type}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Resultado</label>
-                                <div className="flex flex-wrap gap-2">
-                                  {(['Envio de mensagem', 'Sucesso', 'Não atendeu'] as const).map((res) => (
-                                    <button
-                                      key={res}
-                                      onClick={() => setInteractionResult(res)}
-                                      className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                        interactionResult === res 
-                                          ? res === 'Não atendeu' ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20' : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                      }`}
-                                    >
-                                      {res} {res === 'Sucesso' ? '✅' : res === 'Não atendeu' ? '❌' : '📩'}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <button
-                              onClick={handleRegisterInteraction}
-                              disabled={isRegisteringInteraction || !interactionNote.trim()}
-                              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                            >
-                              {isRegisteringInteraction ? (
-                                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                              ) : (
-                                <>SALVAR INTERAÇÃO</>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* AI Summary */}
-                      <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10">
-                        <div className="flex justify-between items-center mb-4">
-                          <h5 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                            <ICONS.Automation width="14" height="14" /> Resumo IA
-                          </h5>
-                          <button 
-                            onClick={() => handleAISummary(interactions)}
-                            disabled={isSummarizing}
-                            className="text-[10px] font-black text-primary hover:underline disabled:opacity-50"
-                          >
-                            {isSummarizing ? 'Gerando...' : 'Atualizar'}
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-medium leading-relaxed italic">
-                          {aiSummary || "Gere um resumo das interações para uma visão rápida do negócio."}
-                        </p>
-                      </div>
-
-                      {/* Interactions Timeline */}
-                      <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                      {/* Chronological events loop */}
+                      <div className="space-y-3.5">
                         {interactions.length === 0 ? (
-                          <div className="flex gap-6 relative">
-                            <div className="w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border">
-                              <ICONS.Clock className="w-5 h-5 text-muted-foreground/50" />
-                            </div>
-                            <div className="flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm">
-                              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Nenhuma interação registrada ainda.</p>
-                            </div>
+                          <div className="text-center p-8">
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sem interações registradas</span>
                           </div>
                         ) : (
-                          interactions.map((interaction) => (
-                            <div key={interaction.id} className="flex gap-6 relative">
-                              <div className={`w-12 h-12 rounded-2xl bg-card flex items-center justify-center z-10 shadow-sm border border-border ${!interaction.interaction_success && (interaction.type as string) !== 'loss_record' && (interaction.type as string) !== 'lead_lost' && (interaction.type as string) !== 'reactivation_record' ? 'opacity-60' : ''}`}>
-                                {interaction.type === 'E-mail' ? <ICONS.Mail width="18" height="18" className="text-primary" /> :
-                                 interaction.type === 'Ligação' ? <ICONS.Phone width="18" height="18" className="text-primary" /> :
-                                 interaction.type === 'Reunião' ? <Users width="18" height="18" className="text-amber-500" /> :
-                                 interaction.type === 'ai_insight' ? <ICONS.Automation width="18" height="18" className="text-indigo-500" /> :
-                                 (interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? <AlertCircle width="18" height="18" className="text-rose-600" /> :
-                                 (interaction.type as string) === 'reactivation_record' ? <CheckCircle2 width="18" height="18" className="text-emerald-600" /> :
-                                 <MessageSquare width="18" height="18" className="text-muted-foreground" />}
+                          interactions.map(item => (
+                            <div key={item.id} className="p-3.5 bg-card border border-border rounded-xl shadow-xs">
+                              <div className="flex justify-between items-start gap-2">
+                                <span className="text-[9px] font-black uppercase text-primary tracking-widest">{item.title}</span>
+                                <span className="text-[9px] font-bold text-muted-foreground">{item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</span>
                               </div>
-                              <div className={`flex-1 bg-card p-6 rounded-2xl border border-border shadow-sm ${(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? 'border-rose-200 dark:border-rose-950/40 bg-rose-50/5 dark:bg-rose-950/5' : (interaction.type as string) === 'reactivation_record' ? 'border-emerald-200 dark:border-emerald-950/40 bg-emerald-50/5 dark:bg-emerald-950/5' : !interaction.interaction_success ? 'border-destructive/20' : ''}`}>
-                                <div className="flex justify-between items-start mb-3">
-                                  <div className="flex items-center gap-3">
-                                    <h5 className="text-sm font-black text-foreground uppercase tracking-tight">
-                                      {(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? 'Perda Comercial' : (interaction.type as string) === 'reactivation_record' ? 'Reativação Comercial' : interaction.type}
-                                    </h5>
-                                    {(interaction.type as string) === 'loss_record' || (interaction.type as string) === 'lead_lost' ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600">
-                                        Perda Registrada
-                                      </span>
-                                    ) : (interaction.type as string) === 'reactivation_record' ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600">
-                                        Lead Reativado
-                                      </span>
-                                    ) : (
-                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                        interaction.interaction_success 
-                                          ? 'bg-emerald-500/10 text-emerald-600' 
-                                          : 'bg-destructive/10 text-destructive'
-                                      }`}>
-                                        {interaction.interaction_success ? 'Sucesso' : 'Sem Resposta'}
-                                      </span>
-                                    )}
-                                    {interaction.status === 'Pendente' && (
-                                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600">
-                                        Agendado
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span className="text-[10px] font-black text-muted-foreground uppercase">
-                                    {new Date(interaction.created_at).toLocaleString()}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground font-medium leading-relaxed whitespace-pre-wrap">
-                                  {String(interaction.interaction_note || interaction.description || 'Nenhum detalhe informado.').trim()}
-                                </p>
-                              </div>
+                              <p className="text-[11px] font-medium text-foreground mt-2 leading-relaxed">{item.description}</p>
                             </div>
                           ))
                         )}
@@ -3683,982 +2749,67 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                   )}
 
                   {activeTab360 === 'tasks' && (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center mb-6">
-                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Tarefas do Lead</h4>
-                        <button 
-                          onClick={() => setIsNewTaskModalOpen(true)}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/90 transition-all"
-                        >
-                          + Nova Tarefa
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {tasks.filter(t => t.lead_id === selectedLead.id).length === 0 ? (
-                          <div className="p-10 text-center bg-card rounded-2xl border border-dashed border-border">
-                            <List className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-sm font-bold text-muted-foreground">Nenhuma tarefa vinculada a este lead.</p>
-                          </div>
-                        ) : (
-                          tasks.filter(t => t.lead_id === selectedLead.id).map(task => (
-                            <div key={task.id} className="p-6 bg-card rounded-2xl border border-border shadow-sm flex items-center gap-4 group hover:border-primary/50 transition-all">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                task.status === TaskStatus.DONE ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
-                              }`}>
-                                {task.type === 'call' ? <ICONS.Phone width="18" height="18" /> :
-                                 task.type === 'meeting' ? <ICONS.Calendar width="18" height="18" /> :
-                                 <List width="18" height="18" />}
-                              </div>
-                              <div className="flex-1">
-                                <h5 className="text-sm font-black text-foreground uppercase tracking-tight">{task.title}</h5>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                                  {new Date(task.due_date).toLocaleString()} • {task.priority}
-                                </p>
-                              </div>
-                              <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                task.status === TaskStatus.DONE ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
-                              }`}>
-                                {task.status}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab360 === 'questionnaires' && (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center mb-6">
-                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Questionários de Qualificação</h4>
-                        <button 
-                          onClick={() => {
-                            if (formTemplates.length > 0) {
-                              setSelectedTemplate(formTemplates[0]);
-                              setIsExecutingForm(true);
-                              setCurrentQuestionIndex(0);
-                              setFormAnswers({});
-                            } else {
-                              showToast("Nenhum modelo de formulário encontrado. Crie um na aba 'Sondagem'.", "info");
-                            }
-                          }}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/90 transition-all"
-                        >
-                          + Novo Questionário
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {formResponses.length === 0 ? (
-                          <div className="p-10 text-center bg-card rounded-2xl border border-dashed border-border">
-                            <ICONS.Form className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-sm font-bold text-muted-foreground">Nenhum questionário respondido para este lead.</p>
-                          </div>
-                        ) : (
-                          formResponses.map(response => {
-                            const template = formTemplates.find(t => t.id === response.form_id);
-                            return (
-                              <div key={response.id} className="p-6 bg-card rounded-2xl border border-border shadow-sm flex items-center gap-4 group hover:border-primary/50 transition-all">
-                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                  <ICONS.Form width="18" height="18" />
-                                </div>
-                                <div className="flex-1">
-                                  <h5 className="text-sm font-black text-foreground uppercase tracking-tight">
-                                    {template?.title || 'Formulário Removido'}
-                                  </h5>
-                                  <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                                    Respondido em {new Date(response.created_at).toLocaleString()} • {response.answers.length} respostas
-                                  </p>
-                                </div>
-                                <button className="p-2 text-muted-foreground/50 hover:text-primary transition-colors">
-                                  <ICONS.Eye width="20" height="20" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab360 === 'products' && (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center mb-6">
-                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Produtos e Serviços</h4>
-                        <button 
-                          onClick={() => setIsLinkingProduct(true)}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/90 transition-all"
-                        >
-                          + Vincular Produto
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {mockLeadProducts.length === 0 ? (
-                          <div className="p-10 text-center bg-card rounded-2xl border border-dashed border-border">
-                            <Package className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-sm font-bold text-muted-foreground">Nenhum produto vinculado a este lead.</p>
-                          </div>
-                        ) : (
-                          mockLeadProducts.map(product => (
-                            <div key={product.id} className="p-6 bg-card rounded-2xl border border-border shadow-sm flex items-center gap-4 group hover:border-primary/50 transition-all">
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                <Package width="18" height="18" />
-                              </div>
-                              <div className="flex-1">
-                                <h5 className="text-sm font-black text-foreground uppercase tracking-tight">{product.name}</h5>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{product.type} • {product.price}</p>
-                              </div>
-                              <button 
-                                onClick={() => setMockLeadProducts(mockLeadProducts.filter(p => p.id !== product.id))}
-                                className="p-2 text-muted-foreground/50 hover:text-destructive transition-colors"
-                              >
-                                <ICONS.Trash width="18" height="18" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            {/* Footer */}
-            <div className="p-10 bg-card border-t border-border flex gap-4 shrink-0">
-              {!isEditing ? (
-                <button 
-                  onClick={() => setSelectedLead(null)}
-                  className="flex-1 py-5 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-muted/80"
-                >
-                  FECHAR
-                </button>
-              ) : (
-                <>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditLead({ ...selectedLead });
-                    }}
-                    className="flex-1 py-5 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-muted/80"
-                  >
-                    CANCELAR
-                  </button>
-                  <button 
-                    onClick={handleUpdateLead}
-                    disabled={isSyncing}
-                    className="flex-1 py-5 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
-                  >
-                    {isSyncing ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isWonModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
-            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
-              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Configurar Nova Conta</h3>
-              <button onClick={() => setIsWonModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              {showWonSuccess ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
-                  <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                    <CheckCircle2 className="w-10 h-10 text-primary" />
-                  </div>
-                  <h4 className="text-xl font-black text-foreground mb-2 uppercase">Venda Confirmada!</h4>
-                  <p className="text-sm text-muted-foreground font-bold">Parabéns pela venda! O lead agora é um cliente.</p>
-                  <p className="text-[10px] text-muted-foreground/70 font-black uppercase mt-4 tracking-widest">A conta ativa e o onboarding foram criados.</p>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Data de Início</label>
-                    <input 
-                      type="date" 
-                      value={wonData.start_date}
-                      onChange={e => setWonData({...wonData, start_date: e.target.value})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Valor Mensal (Fee)</label>
-                    <input 
-                      type="number" 
-                      placeholder="0,00"
-                      value={wonData.monthly_value === 0 ? '' : wonData.monthly_value}
-                      onChange={e => setWonData({...wonData, monthly_value: parseFloat(e.target.value) || 0})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Serviços / Produtos</label>
-                    <MultiSelectServices
-                      selectedServices={wonData.services || []}
-                      onChange={(selected) => {
-                        let calculatedValue = 0;
-                        selected.forEach(srvName => {
-                          const foundSrv = services.find(s => s.name === srvName);
-                          if (foundSrv) calculatedValue += foundSrv.default_price || 0;
-                        });
-
-                        setWonData({
-                          ...wonData,
-                          services: selected,
-                          service_type: selected.length > 0 ? selected[0] : '',
-                          monthly_value: calculatedValue > 0 ? calculatedValue : wonData.monthly_value
-                        });
-                      }}
-                      servicesList={services}
-                      placeholder="Selecione um ou mais serviços..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Conta Bancária (Destino)</label>
-                    <select 
-                      value={wonData.bank_account_id}
-                      onChange={e => setWonData({...wonData, bank_account_id: e.target.value})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground appearance-none"
-                    >
-                      <option value="">Selecione uma conta...</option>
-                      {bankAccounts.map(account => (
-                        <option key={account.id} value={account.id}>{account.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-            {!showWonSuccess && (
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button onClick={() => setIsWonModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button 
-                  onClick={handleWonConfirm}
-                  disabled={isSyncing}
-                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:opacity-90 transition-all"
-                >
-                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR FECHAMENTO"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isLostModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
-            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
-              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Marcar Perda</h3>
-              <button onClick={() => setIsLostModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              {showLostSuccess ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
-                  <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
-                    <AlertCircle className="w-10 h-10 text-destructive" />
-                  </div>
-                  <h4 className="text-xl font-black text-foreground mb-2 uppercase">Lead Perdido</h4>
-                  <p className="text-sm text-muted-foreground font-bold">O status do lead foi atualizado para perdido.</p>
-                  <p className="text-[10px] text-muted-foreground/70 font-black uppercase mt-4 tracking-widest">Uma tarefa de follow-up foi agendada para o futuro.</p>
-                </div>
-              ) : (
-                <div>
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Motivo da Perda</label>
-                  <textarea 
-                    placeholder="Descreva o motivo pelo qual o negócio foi perdido..."
-                    value={lostData.reason}
-                    onChange={e => setLostData({...lostData, reason: e.target.value})}
-                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[120px] resize-none"
-                  />
-                </div>
-              )}
-            </div>
-            {!showLostSuccess && (
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button onClick={() => setIsLostModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button 
-                  onClick={handleLostConfirm}
-                  disabled={isSyncing}
-                  className="flex-1 py-4 bg-destructive text-destructive-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-destructive/90 transition-all"
-                >
-                  {isSyncing ? "PROCESSANDO..." : "CONFIRMAR PERDA"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isReactivateModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border">
-            <div className="p-10 pb-0 shrink-0 flex justify-between items-center gap-4">
-              <h3 className="text-xl font-black text-foreground uppercase truncate min-w-0">Reativar Lead</h3>
-              <button onClick={() => setIsReactivateModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all shrink-0">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-              {showReactivateSuccess ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in duration-500">
-                  <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-                  </div>
-                  <h4 className="text-xl font-black text-foreground mb-2 uppercase">Lead Reativado!</h4>
-                  <p className="text-sm text-muted-foreground font-bold">O lead foi reativado e retornado para o funil comercial.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Motivo da Reativação</label>
-                    <textarea 
-                      required
-                      placeholder="Descreva o motivo da reativação (ex: Voltou a responder, solicitou nova proposta)..."
-                      value={reactivateData.reason}
-                      onChange={e => setReactivateData({...reactivateData, reason: e.target.value})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[100px] resize-none text-sm placeholder:text-muted-foreground/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Etapa de Retorno no Funil</label>
-                    <select
-                      value={reactivateData.stageId}
-                      onChange={e => setReactivateData({...reactivateData, stageId: e.target.value})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground cursor-pointer text-sm"
-                    >
-                      {activePipeline.stages.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="border-t border-border/60 pt-4 mt-2 space-y-4">
-                    <span className="text-[10px] font-black text-muted-foreground/80 uppercase tracking-widest block mb-1">Agendar Próxima Ação (Opcional)</span>
-                    <div>
-                      <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest mb-1 block">O que precisa ser feito?</label>
-                      <input 
-                        placeholder="Ex: Enviar proposta atualizada, ligar para fechar..."
-                        value={reactivateData.next_action || ''}
-                        onChange={e => setReactivateData({...reactivateData, next_action: e.target.value})}
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest mb-1 block">Data/Hora Limite</label>
-                      <input 
-                        type="datetime-local"
-                        value={reactivateData.next_action_date || ''}
-                        onChange={e => setReactivateData({...reactivateData, next_action_date: e.target.value})}
-                        className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            {!showReactivateSuccess && (
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button onClick={() => setIsReactivateModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button 
-                  onClick={handleReactivateConfirm}
-                  disabled={isSyncing || !reactivateData.reason.trim()}
-                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-emerald-550 transition-all"
-                >
-                  {isSyncing ? "PROCESSANDO..." : "REATIVAR E SALVAR"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isNewTaskModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border pointer-events-auto relative z-[10000]">
-            <div className="p-10 pb-0 shrink-0">
-              <h3 className="text-xl font-black text-foreground mb-6 uppercase">Nova Tarefa</h3>
-            </div>
-            <form onSubmit={handleCreateTask} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-4 scrollbar-none">
-                <div>
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Título</label>
-                  <input 
-                    required
-                    placeholder="Ex: Enviar proposta comercial"
-                    value={newTaskData.title}
-                    onChange={e => setNewTaskData({...newTaskData, title: e.target.value})}
-                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Data/Hora</label>
-                    <input 
-                      type="datetime-local"
-                      required
-                      value={newTaskData.due_date}
-                      onChange={e => setNewTaskData({...newTaskData, due_date: e.target.value})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Prioridade</label>
-                    <select 
-                      value={newTaskData.priority}
-                      onChange={e => setNewTaskData({...newTaskData, priority: e.target.value as any})}
-                      className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground"
-                    >
-                      <option value="Baixa">Baixa</option>
-                      <option value="Média">Média</option>
-                      <option value="Alta">Alta</option>
-                      <option value="Urgente">Urgente</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Tipo</label>
-                  <select 
-                    value={newTaskData.type}
-                    onChange={e => setNewTaskData({...newTaskData, type: e.target.value as any})}
-                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground"
-                  >
-                    <option value="task">Tarefa</option>
-                    <option value="call">Ligação</option>
-                    <option value="meeting">Reunião</option>
-                    <option value="email">E-mail</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Descrição</label>
-                  <textarea 
-                    placeholder="Detalhes da tarefa..."
-                    value={newTaskData.description}
-                    onChange={e => setNewTaskData({...newTaskData, description: e.target.value})}
-                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground min-h-[100px] resize-none"
-                  />
-                </div>
-              </div>
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => setIsNewTaskModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button 
-                  type="submit"
-                  disabled={isSyncing}
-                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-primary/90 transition-all"
-                >
-                  {isSyncing ? "CRIANDO..." : "CRIAR TAREFA"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {isCompanyModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border pointer-events-auto relative z-[10000]">
-            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-              <h3 className="text-2xl font-black text-foreground uppercase">Nova Empresa</h3>
-              <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateCompany} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-                  <input required value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: M4 Marketing" />
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">CNPJ</label>
-                    <input value={newCompany.cnpj} onChange={e => setNewCompany({...newCompany, cnpj: formatCNPJ(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="00.000.000/0000-00" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Segmento</label>
-                    <input value={newCompany.segment} onChange={e => setNewCompany({...newCompany, segment: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Tecnologia" />
-                  </div>
-                </div>
-
-                <div className="space-y-4 p-6 bg-muted/50 rounded-3xl border border-border">
-                  <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Contato Principal (Opcional)</p>
-                    <button 
-                      type="button"
-                      onClick={() => setContactMode(contactMode === 'select' ? 'create' : 'select')}
-                      className="text-[10px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest flex items-center gap-2 transition-colors"
-                    >
-                      {contactMode === 'select' ? '+ Novo Contato' : 'Selecionar Existente'}
-                    </button>
-                  </div>
-
-                  {contactMode === 'select' ? (
-                    <div className="relative">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Buscar Contato</label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <input 
-                            value={contactSearch} 
-                            onChange={e => {
-                              setContactSearch(e.target.value);
-                              setShowContactDropdown(true);
-                            }} 
-                            onFocus={() => setShowContactDropdown(true)}
-                            className="w-full p-4 bg-card rounded-2xl border border-border font-bold text-foreground placeholder:text-muted-foreground/50" 
-                            placeholder="Digite nome, e-mail ou telefone..." 
-                          />
-                          {showContactDropdown && contactSearch && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-2xl shadow-2xl border border-border z-[110] max-h-60 overflow-y-auto scrollbar-none">
-                              {contacts.filter(c => 
-                                c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                                c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                                c.whatsapp?.includes(contactSearch)
-                              ).length > 0 ? (
-                                contacts.filter(c => 
-                                  c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                                  c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                                  c.whatsapp?.includes(contactSearch)
-                                ).map(c => (
-                                  <button
-                                    key={c.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedContactId(c.id);
-                                      setContactSearch(c.name);
-                                      setShowContactDropdown(false);
-                                    }}
-                                    className="w-full p-4 text-left hover:bg-muted flex items-center justify-between group"
-                                  >
-                                    <div>
-                                      <p className="font-bold text-foreground">{c.name}</p>
-                          <p className="text-[10px] font-bold text-muted-foreground">{c.email} • {c.whatsapp}</p>
-                                    </div>
-                                    {selectedContactId === c.id && <ICONS.Check className="text-primary" width="16" height="16" />}
-                                  </button>
-                                ))
-                              ) : (
-                                <div className="p-4 text-center text-muted-foreground text-xs font-bold">Nenhum contato encontrado</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 bg-muted/30 p-6 rounded-2xl border border-border">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome</label>
-                          <input value={primaryContact.name} onChange={e => setPrimaryContact({...primaryContact, name: e.target.value})} className="w-full p-3 bg-card rounded-xl border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/50" placeholder="Nome do contato" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                          <input value={primaryContact.role} onChange={e => setPrimaryContact({...primaryContact, role: e.target.value})} className="w-full p-3 bg-card rounded-xl border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/50" placeholder="Ex: CEO" />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail</label>
-                        <input type="email" value={primaryContact.email} onChange={e => setPrimaryContact({...primaryContact, email: e.target.value})} className="w-full p-3 bg-card rounded-xl border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/50" placeholder="email@contato.com" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                        <input value={primaryContact.whatsapp} onChange={e => setPrimaryContact({...primaryContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-3 bg-card rounded-xl border border-border text-sm font-bold text-foreground placeholder:text-muted-foreground/50" placeholder="(00) 00000-0000" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => setIsCompanyModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-primary/90 transition-all">
-                  {isSyncing ? "SALVANDO..." : "SALVAR EMPRESA"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isContactModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-xl max-h-[90vh] flex flex-col shadow-lg animate-zoom-in-95 border border-border pointer-events-auto relative z-[10000]">
-            <div className="flex justify-between items-center p-10 pb-0 shrink-0">
-              <h3 className="text-2xl font-black text-foreground uppercase">Novo Contato</h3>
-              <button onClick={() => setIsContactModalOpen(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateContact} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-none">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Nome Completo</label>
-                    <input required value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: João Silva" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cargo</label>
-                    <input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: CEO" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail</label>
-                    <input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="joao@empresa.com" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                    <input value={newContact.whatsapp} onChange={e => setNewContact({...newContact, whatsapp: formatPhoneBR(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="(00) 00000-0000" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Instagram</label>
-                    <input value={newContact.instagram} onChange={e => setNewContact({...newContact, instagram: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="@usuario" />
-                  </div>
-                </div>
-              </div>
-              <div className="p-10 pt-0 shrink-0 flex gap-4">
-                <button type="button" onClick={() => setIsContactModalOpen(false)} className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black uppercase text-xs hover:bg-muted/80 transition-all">Cancelar</button>
-                <button type="submit" disabled={isSyncing} className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase text-xs disabled:opacity-50 hover:bg-primary/90 transition-all">
-                  {isSyncing ? "SALVANDO..." : "SALVAR CONTATO"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isStageConfigModalOpen && editingPipeline && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-6">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-2xl shadow-lg border border-border overflow-hidden animate-zoom-in-95 pointer-events-auto relative z-[10000]">
-            <div className="px-10 py-8 border-b border-border flex justify-between items-center">
-              <h3 className="text-xl font-black text-foreground uppercase tracking-widest">
-                CONFIGURAR FUNIL
-              </h3>
-              <button onClick={() => setIsStageConfigModalOpen(false)} className="text-muted-foreground hover:text-destructive transition-colors">
-                <ICONS.X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSavePipeline} className="p-10 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-none">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Nome do Funil</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={editingPipeline.name || ''}
-                    onChange={e => setEditingPipeline({ ...editingPipeline, name: e.target.value })}
-                    className="w-full p-4 bg-muted rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
-                    placeholder="Ex: Funil de Vendas Principal"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Largura das Colunas (Kanban)</label>
-                  <div className="flex items-center gap-4 bg-muted p-4 rounded-2xl border border-border/10">
-                    <input 
-                      type="range" 
-                      min="240" 
-                      max="450" 
-                      value={columnWidth || 300} 
-                      onChange={(e) => setColumnWidth(Number(e.target.value))} 
-                      className="flex-1 h-1 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
-                    <span className="text-xs font-black text-foreground min-w-[50px] text-right font-mono">{(columnWidth || 300)}px</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest">Etapas do Funil</label>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      const newStage = { id: Math.random().toString(), name: '', status: FunnelStatus.INTERMEDIATE };
-                      setEditingPipeline({
-                        ...editingPipeline,
-                        stages: [...(editingPipeline.stages || []), newStage]
-                      });
-                    }}
-                    className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:text-primary/80 transition-colors"
-                  >
-                    <ICONS.Plus size={14} /> ADICIONAR ETAPA
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {editingPipeline.stages?.map((stage, idx) => (
-                    <div key={stage.id} className="flex gap-3 items-start p-4 bg-muted rounded-2xl border border-border">
-                      <div className="w-8 h-8 flex items-center justify-center bg-card rounded-xl text-xs font-black text-muted-foreground border border-border mt-2">
-                        {idx + 1}
-                      </div>
-                      <div className="flex flex-col gap-1 mt-2">
-                        <button 
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => {
-                            const newStages = [...(editingPipeline.stages || [])];
-                            [newStages[idx - 1], newStages[idx]] = [newStages[idx], newStages[idx - 1]];
-                            setEditingPipeline({ ...editingPipeline, stages: newStages });
-                          }}
-                          className="p-1 text-muted-foreground hover:text-primary disabled:opacity-30 transition-colors"
-                        >
-                          <ICONS.ChevronDown className="rotate-180" size={14} />
-                        </button>
-                        <button 
-                          type="button"
-                          disabled={idx === (editingPipeline.stages?.length || 0) - 1}
-                          onClick={() => {
-                            const newStages = [...(editingPipeline.stages || [])];
-                            [newStages[idx + 1], newStages[idx]] = [newStages[idx], newStages[idx + 1]];
-                            setEditingPipeline({ ...editingPipeline, stages: newStages });
-                          }}
-                          className="p-1 text-muted-foreground hover:text-primary disabled:opacity-30 transition-colors"
-                        >
-                          <ICONS.ChevronDown size={14} />
-                        </button>
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        <input 
-                          type="text" 
-                          required
-                          value={stage.name}
-                          onChange={e => {
-                            const newStages = [...(editingPipeline.stages || [])];
-                            newStages[idx] = { ...stage, name: e.target.value };
-                            setEditingPipeline({ ...editingPipeline, stages: newStages });
-                          }}
-                          className="w-full p-3 bg-card rounded-xl border-none font-bold outline-none focus:ring-2 focus:ring-primary/20 text-foreground text-sm"
-                          placeholder="Nome da etapa"
+                    <div className="space-y-4">
+                      {/* Task adder form */}
+                      <div className="p-4 bg-card rounded-2xl border border-border shadow-xs flex flex-col gap-3">
+                        <input
+                          placeholder="Nova tarefa de follow-up..."
+                          value={newTaskData.title || ''}
+                          onChange={e => setNewTaskData({...newTaskData, title: e.target.value})}
+                          className="w-full bg-muted rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
                         />
-                        <div className="flex gap-2">
-                          {Object.values(FunnelStatus).map(status => (
-                            <button
-                              key={status}
-                              type="button"
-                              onClick={() => {
-                                const newStages = [...(editingPipeline.stages || [])];
-                                newStages[idx] = { ...stage, status };
-                                setEditingPipeline({ ...editingPipeline, stages: newStages });
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                stage.status === status 
-                                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10' 
-                                  : 'bg-card text-muted-foreground hover:text-foreground border border-border'
-                              }`}
-                            >
-                              {status}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const newStages = editingPipeline.stages?.filter((_, i) => i !== idx);
-                          setEditingPipeline({ ...editingPipeline, stages: newStages });
-                        }}
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all mt-2"
-                      >
-                        <ICONS.Trash size={18} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsStageConfigModalOpen(false)}
-                  className="flex-1 py-4 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-muted/80 transition-all"
-                >
-                  CANCELAR
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50"
-                >
-                  {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Confirmação Unificado */}
-      <ConfirmDangerModal
-        isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmModal.action}
-        title={confirmModal.title}
-        description={confirmModal.description}
-        impactItems={confirmModal.impactItems}
-        confirmLabel={confirmModal.confirmLabel}
-        variant={confirmModal.variant}
-        isLoading={isSaving}
-      />
-
-      <Toast 
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
-      />
-
-      {isExecutingForm && selectedTemplate && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-2xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
-            <div className="p-8 border-b border-border flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-black text-foreground uppercase tracking-tight">{selectedTemplate.title}</h3>
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Sondagem em tempo real</p>
-              </div>
-              <button onClick={() => setIsExecutingForm(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                <ICONS.X width="20" height="20" />
-              </button>
-            </div>
-
-            <div className="p-10">
-              <div className="mb-10">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest">
-                    Pergunta {currentQuestionIndex + 1} de {selectedTemplate.questions.length}
-                  </span>
-                  <div className="flex gap-1">
-                    {selectedTemplate.questions.map((_, i) => (
-                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === currentQuestionIndex ? 'bg-primary' : 'bg-muted'}`}></div>
-                    ))}
-                  </div>
-                </div>
-                
-                <h4 className="text-lg font-black text-foreground mb-6">
-                  {selectedTemplate.questions[currentQuestionIndex].type === 'script' ? 'Roteiro de Abordagem' : selectedTemplate.questions[currentQuestionIndex].label}
-                  {selectedTemplate.questions[currentQuestionIndex].required && <span className="text-destructive ml-1">*</span>}
-                </h4>
-
-                <div className="animate-in slide-in-from-right-4 duration-300">
-                  {selectedTemplate.questions[currentQuestionIndex].type === 'script' && (
-                    <div className="p-6 bg-primary/5 border border-primary/10 rounded-2xl">
-                      <p className="text-muted-foreground text-base font-medium leading-relaxed whitespace-pre-wrap italic">
-                        "{selectedTemplate.questions[currentQuestionIndex].label}"
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedTemplate.questions[currentQuestionIndex].type === 'text' && (
-                    <input 
-                      type="text"
-                      value={formAnswers[selectedTemplate.questions[currentQuestionIndex].id] || ''}
-                      onChange={(e) => handleFormAnswer(selectedTemplate.questions[currentQuestionIndex].id, e.target.value)}
-                      className="w-full p-4 bg-muted border border-border rounded-xl font-bold text-base outline-none focus:bg-card focus:ring-4 focus:ring-primary/10 transition-all text-foreground"
-                      placeholder="Digite a resposta..."
-                    />
-                  )}
-
-                  {selectedTemplate.questions[currentQuestionIndex].type === 'long_text' && (
-                    <textarea 
-                      value={formAnswers[selectedTemplate.questions[currentQuestionIndex].id] || ''}
-                      onChange={(e) => handleFormAnswer(selectedTemplate.questions[currentQuestionIndex].id, e.target.value)}
-                      className="w-full p-4 bg-muted border border-border rounded-xl font-bold text-base outline-none focus:bg-card focus:ring-4 focus:ring-primary/10 transition-all min-h-[120px] text-foreground"
-                      placeholder="Digite a resposta detalhada..."
-                    />
-                  )}
-
-                  {selectedTemplate.questions[currentQuestionIndex].type === 'multiple_choice' && (
-                    <div className="grid grid-cols-1 gap-3">
-                      {selectedTemplate.questions[currentQuestionIndex].options?.map((opt, i) => (
                         <button
-                          key={i}
-                          onClick={() => handleFormAnswer(selectedTemplate.questions[currentQuestionIndex].id, opt)}
-                          className={`w-full p-4 text-left rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-between ${
-                            formAnswers[selectedTemplate.questions[currentQuestionIndex].id] === opt 
-                            ? 'border-primary bg-primary/10 text-primary' 
-                            : 'border-muted bg-muted text-muted-foreground hover:border-border'
-                          }`}
+                          onClick={handleCreateTask}
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-wider self-end"
                         >
-                          {opt}
-                          {formAnswers[selectedTemplate.questions[currentQuestionIndex].id] === opt && <div className="w-3 h-3 bg-primary rounded-full border-2 border-background"></div>}
+                          Adicionar
                         </button>
-                      ))}
+                      </div>
+
+                      {/* Global list of tasks */}
+                      <div className="space-y-2">
+                        {tasks.filter(t => t.lead_id === selectedLead.id).length === 0 ? (
+                          <div className="text-center p-8">
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sem tarefas pendentes</span>
+                          </div>
+                        ) : (
+                          tasks.filter(t => t.lead_id === selectedLead.id).map(t => (
+                            <div key={t.id} className="p-3.5 bg-card border border-border rounded-xl flex justify-between items-center shadow-xs">
+                              <span className="text-xs font-semibold text-foreground">{t.title}</span>
+                              <span className="text-[9px] font-black uppercase bg-muted/80 px-2 py-0.5 rounded text-muted-foreground">{t.status}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-
-              <div className="flex gap-4">
-                {currentQuestionIndex > 0 && (
-                  <button 
-                    onClick={() => setCurrentQuestionIndex(currentQuestionIndex - 1)}
-                    className="px-6 py-4 bg-muted text-muted-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-muted/80 transition-all"
-                  >
-                    Anterior
-                  </button>
-                )}
-                <button 
-                  onClick={nextQuestion}
-                  disabled={selectedTemplate.questions[currentQuestionIndex].required && !formAnswers[selectedTemplate.questions[currentQuestionIndex].id]}
-                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50"
-                >
-                  {currentQuestionIndex === selectedTemplate.questions.length - 1 ? (isSavingForm ? 'Salvando...' : 'Finalizar') : 'Próxima'}
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {isLinkingProduct && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-md rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
-            <div className="p-8 border-b border-border flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Vincular Produto</h3>
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Selecione um item do catálogo</p>
-              </div>
-              <button onClick={() => setIsLinkingProduct(false)} className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all">
-                <ICONS.X width="20" height="20" />
+      {/* 6. Pipelines selection popup */}
+      {isPipelineModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 border border-border shadow-2xl animate-zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Alterar Pipeline</h3>
+              <button onClick={() => setIsPipelineModalOpen(false)} className="p-2.5 bg-muted text-muted-foreground rounded-xl">
+                <ICONS.Plus className="rotate-45" />
               </button>
             </div>
-
-            <div className="p-8 space-y-3">
-              {[
-                { id: '3', name: 'Consultoria Estratégica', type: 'Projeto', price: 'R$ 5.000,00' },
-                { id: '4', name: 'Social Media', type: 'Recorrente', price: 'R$ 1.800,00/mês' },
-                { id: '5', name: 'Landing Page High-End', type: 'Projeto', price: 'R$ 3.200,00' }
-              ].map(product => (
+            <div className="space-y-2">
+              {pipelines.map(p => (
                 <button
-                  key={product.id}
-                  onClick={() => {
-                    setMockLeadProducts([...mockLeadProducts, product]);
-                    setIsLinkingProduct(false);
-                  }}
-                  className="w-full p-4 text-left bg-muted rounded-2xl border border-transparent hover:border-primary transition-all group"
+                  key={p.id}
+                  onClick={() => { setActivePipelineId?.(p.id); setIsPipelineModalOpen(false); }}
+                  className={`w-full p-4.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                    activePipelineId === p.id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground'
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                      <Package width="18" height="18" />
-                    </div>
-                    <div>
-                      <h5 className="text-sm font-black text-foreground uppercase tracking-tight">{product.name}</h5>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{product.type} • {product.price}</p>
-                    </div>
-                  </div>
+                  <span className="text-xs font-black uppercase tracking-wider">{p.name}</span>
                 </button>
               ))}
             </div>
@@ -4666,323 +2817,466 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
         </div>
       )}
 
-      {/* Modal / Tela de Confirmação para Criação Assistida de Cliente Comercial */}
-      {onboardingConversion && onboardingConversion.isOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card w-full max-w-4xl rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95 my-8 max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="p-6 md:p-8 border-b border-border flex justify-between items-center bg-card shrink-0">
-              <div>
-                <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
-                  <Sparkles className="text-primary animate-pulse" width={24} height={24} />
-                  Conversão Assistida: Onboarding para Operação
-                </h3>
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">
-                  Revise os dados operacionais antes de persistir a criação do cliente comercial
-                </p>
+      {/* 7. Configure pipeline stages popup */}
+      {isStageConfigModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-lg rounded-[2.5rem] p-8 border border-border shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Estágios do Funil</h3>
+              <button onClick={() => setIsStageConfigModalOpen(false)} className="p-2.5 bg-muted rounded-xl">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">Gerencie os estágios e ordens de pipeline comercial ativos.</p>
+              {activePipeline.stages.map(s => (
+                <div key={s.id} className="p-4 bg-muted/20 border border-border rounded-xl flex justify-between items-center">
+                  <span className="text-xs font-black uppercase text-foreground">{s.name}</span>
+                  <span className="text-[9px] font-black uppercase bg-muted px-2 py-0.5 rounded text-muted-foreground">{s.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Won state popup */}
+      {isWonModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 border border-border shadow-2xl">
+            <h3 className="text-lg font-black text-foreground uppercase tracking-tight mb-2">🎉 Negócio Ganho!</h3>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-6">Confirme o valor financeiro consolidado mensal do cliente.</p>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase block">Valor Final (Retentor Mensal Fee)</label>
+                <input 
+                  type="number" 
+                  value={wonData.monthly_value || ''} 
+                  onChange={e => setWonData({...wonData, monthly_value: Number(e.target.value)})}
+                  className="w-full bg-muted rounded-xl p-3 text-sm font-bold text-foreground focus:outline-none"
+                  placeholder="0.00"
+                />
               </div>
-              <button 
-                onClick={handleCancelConversion} 
-                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all active:scale-95"
-              >
-                <X width="20" height="20" />
-              </button>
             </div>
-
-            {/* Scrollable Form Body */}
-            <div className="p-8 md:p-10 overflow-y-auto flex-1 space-y-8 min-h-0">
-               {/* Identification & Core Details */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* Section Title */}
-                 <div className="md:col-span-2">
-                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
-                     1. Identificação Operacional
-                   </h4>
-                 </div>
-                 
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Nome Fantasia do Cliente <span className="text-destructive">*</span>
-                   </label>
-                   <input
-                     type="text"
-                     value={onboardingConversion.company_name}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, company_name: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="Nome Fantasia / Nome Comercial"
-                     required
-                   />
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     CPF/CNPJ
-                   </label>
-                   <input
-                     type="text"
-                     value={onboardingConversion.cnpj}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, cnpj: formatCNPJ(e.target.value) })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="XX.XXX.XXX/XXXX-XX"
-                   />
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Status Inicial
-                   </label>
-                   <select
-                     value={onboardingConversion.status}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, status: e.target.value as any })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                   >
-                     <option value="active">🟢 Ativo (Em Operação)</option>
-                     <option value="paused">🟡 Pausado / Suspenso</option>
-                     <option value="churned">🔴 Cancelado / Churned</option>
-                   </select>
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Data de Início do Contrato
-                   </label>
-                   <input
-                     type="date"
-                     value={onboardingConversion.contract_start_date}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contract_start_date: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                   />
-                 </div>
-               </div>
-
-               {/* Contacts & Relations */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
-                 <div className="md:col-span-2">
-                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
-                     2. Contatos & Representante Principal
-                   </h4>
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Nome do Contato Principal
-                   </label>
-                   <input
-                     type="text"
-                     value={onboardingConversion.contact_name}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_name: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="Nome do cliente/interlocutor"
-                   />
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Email de Contrato
-                   </label>
-                   <input
-                     type="email"
-                     value={onboardingConversion.contact_email}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_email: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="financeiro@empresa.com"
-                   />
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Telefone / WhatsApp Comercial
-                   </label>
-                   <input
-                     type="text"
-                     value={onboardingConversion.contact_whatsapp}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_whatsapp: formatPhoneBR(e.target.value) })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="(XX) XXXXX-XXXX"
-                   />
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Instagram / Link Relevante
-                   </label>
-                   <input
-                     type="text"
-                     value={onboardingConversion.contact_instagram}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, contact_instagram: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                     placeholder="@empresa"
-                   />
-                 </div>
-               </div>
-
-               {/* Commercial & Contract Terms */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
-                 <div className="md:col-span-2">
-                   <h4 className="text-xs font-black text-foreground uppercase tracking-widest border-l-2 border-primary pl-2 mb-4">
-                     3. Condições Comerciais & Financeiras
-                   </h4>
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Valor Mensal (Fee / Retentor)
-                   </label>
-                   <div className="relative">
-                     <span className="absolute left-4 top-3 text-xs font-bold text-muted-foreground uppercase">R$</span>
-                     <input
-                       type="number"
-                       step="0.01"
-                       value={onboardingConversion.monthly_value}
-                       onChange={(e) => setOnboardingConversion({ ...onboardingConversion, monthly_value: parseFloat(e.target.value) || 0 })}
-                       className="w-full bg-muted border border-border focus:border-primary rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none transition-all"
-                       placeholder="2500.00"
-                     />
-                   </div>
-                 </div>
-
-                 <div>
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Gestor / Owner da Conta
-                   </label>
-                   <select
-                     value={onboardingConversion.manager_id}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, manager_id: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all"
-                   >
-                     <option value="">Selecione um gestor interno</option>
-                     {users.map(u => (
-                       <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                     ))}
-                   </select>
-                 </div>
-
-                 <div className="md:col-span-2">
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Serviços & Planos Habilitados
-                   </label>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                     {services.map(s => {
-                       const isChecked = onboardingConversion.services.includes(s.name);
-                       return (
-                         <label 
-                           key={s.id} 
-                           className={`flex items-center gap-3 p-4 border rounded-2xl cursor-pointer hover:bg-muted/50 transition-all select-none ${
-                             isChecked ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'
-                           }`}
-                         >
-                           <input
-                             type="checkbox"
-                             checked={isChecked}
-                             onChange={() => {
-                               const updatedServices = isChecked
-                                 ? onboardingConversion.services.filter(item => item !== s.name)
-                                 : [...onboardingConversion.services, s.name];
-                               setOnboardingConversion({ ...onboardingConversion, services: updatedServices });
-                             }}
-                             className="rounded text-primary focus:ring-primary w-4 h-4"
-                           />
-                           <div>
-                             <p className="text-xs font-black text-foreground uppercase tracking-tight">{s.name}</p>
-                             <p className="text-[10px] font-bold text-muted-foreground uppercase">R$ {s.default_price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                           </div>
-                         </label>
-                       );
-                     })}
-                   </div>
-                 </div>
-
-                 <div className="md:col-span-2">
-                   <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                     Observações Comerciais & Onboarding
-                   </label>
-                   <textarea
-                     value={onboardingConversion.notes}
-                     onChange={(e) => setOnboardingConversion({ ...onboardingConversion, notes: e.target.value })}
-                     className="w-full bg-muted border border-border focus:border-primary rounded-xl px-4 py-3 text-sm focus:outline-none transition-all h-24 resize-none"
-                     placeholder="Descreva detalhes específicos coletados no onboarding que ajudarão no sucesso do cliente..."
-                   />
-                 </div>
-               </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setIsWonModalOpen(false)} className="px-5 py-3.5 bg-muted text-muted-foreground rounded-xl text-xs font-black uppercase">Cancelar</button>
+              <button onClick={handleWonConfirm} className="px-5 py-3.5 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase hover:bg-emerald-600">Salvar Ganhos</button>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Footer Actions */}
-            <div className="p-6 md:p-8 border-t border-border flex flex-col sm:flex-row gap-4 justify-between bg-card shrink-0">
-              <button
-                onClick={handleCancelConversion}
-                className="px-6 py-3 bg-muted text-muted-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all active:scale-95"
-              >
-                Cancelar Conversão
-              </button>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleSaveConversion(false)}
-                  className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all active:scale-95"
+      {/* 9. Lost state popup */}
+      {isLostModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 border border-border shadow-2xl">
+            <h3 className="text-lg font-black text-foreground uppercase tracking-tight mb-2">💀 Negócio Perdido</h3>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-6">Informe o motivo comercial para fins de métricas.</p>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase block">Motivo</label>
+                <select 
+                  value={lostData.reason || ''} 
+                  onChange={e => setLostData({...lostData, reason: e.target.value})}
+                  className="w-full bg-muted rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
                 >
-                  Salvar Cliente
-                </button>
+                  <option value="">Selecione o Motivo</option>
+                  <option value="Preço alto">Preço alto</option>
+                  <option value="Sem fit / perfil">Sem fit / perfil</option>
+                  <option value="Decidiu fazer interno">Decidiu fazer interno</option>
+                  <option value="Sem retorno do decisor">Sem retorno do decisor</option>
+                  <option value="Outro">Outro motivo</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setIsLostModalOpen(false)} className="px-5 py-3.5 bg-muted text-muted-foreground rounded-xl text-xs font-black uppercase">Cancelar</button>
+              <button onClick={handleLostConfirm} className="px-5 py-3.5 bg-rose-500 text-white rounded-xl text-xs font-black uppercase hover:bg-rose-600">Salvar Feedback</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. Reactor status popup */}
+      {isReactivateModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 border border-border shadow-2xl">
+            <h3 className="text-lg font-black text-foreground uppercase tracking-tight mb-2">⚡️ Reativar Lead</h3>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-6">Mover este lead novamente para as colunas ativas.</p>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase block">Motivo da Reativação</label>
+                <textarea 
+                  value={reactivateData.reason || ''} 
+                  onChange={e => setReactivateData({...reactivateData, reason: e.target.value})}
+                  className="w-full bg-muted rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none h-20 resize-none animate-in fade-in"
+                  placeholder="Por que decidiu retomar o contato?"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setIsReactivateModalOpen(false)} className="px-5 py-3.5 bg-muted text-muted-foreground rounded-xl text-xs font-black uppercase">Cancelar</button>
+              <button onClick={handleReactivateConfirm} className="px-5 py-3.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase hover:opacity-90">Reativar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. Active Onboarding Conversion Modal */}
+      {onboardingConversion && onboardingConversion.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl border border-border overflow-hidden">
+            <div className="flex justify-between items-center p-8 border-b border-border shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Onboarding de Operação</h3>
+                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mt-0.5">Associação de Planos e Serviços Contratados</p>
+              </div>
+              <button onClick={handleCancelConversion} className="p-2.5 bg-muted rounded-xl hover:bg-muted/80 transition-all">
+                <ICONS.Plus className="rotate-45" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                <button
-                  type="button"
-                  onClick={() => handleSaveConversion(true)}
-                  className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                >
-                  <Sparkles width={14} height={14} />
-                  Salvar e Abrir Página do Cliente
-                </button>
+                {/* SEÇÃO A — RESUMO DO CLIENTE (COLUNA ESQUERDA) */}
+                <div className="lg:col-span-5 space-y-6 lg:border-r lg:border-border lg:pr-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center">
+                      <ICONS.Sales width="16" height="16" />
+                    </div>
+                    <h4 className="text-xs font-black text-rose-500 uppercase tracking-wider">Seção A — Resumo do Cliente</h4>
+                  </div>
+                  
+                  {/* Lead Information Card */}
+                  <div className="p-6 bg-muted/20 border border-border rounded-3xl space-y-4 shadow-sm">
+                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Confirmação de Cadastro</span>
+
+                    <div className="space-y-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Nome Fantasia / Empresa</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.company_name}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, company_name: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Nome da Empresa"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">CNPJ</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.cnpj || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, cnpj: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="00.000.000/0000-00"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Contato Principal</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.contact_name}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_name: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Nome do Contato Principal"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-35">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">WhatsApp / Celular</label>
+                          <input
+                            type="text"
+                            value={onboardingConversion.contact_whatsapp}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_whatsapp: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="(00) 00000-0000"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Instagram</label>
+                          <input
+                            type="text"
+                            value={onboardingConversion.contact_instagram}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_instagram: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="@user"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">E-mail</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.contact_email}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_email: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="email@empresa.com"
+                        />
+                      </div>
+
+                      {onboardingConversion.lead.company_niche && (
+                        <div className="p-3 bg-card border border-border/65 rounded-xl">
+                          <span className="text-[9px] font-black text-muted-foreground uppercase block">Nicho / Setor Comercial</span>
+                          <span className="text-xs font-bold text-primary mt-1 block">{onboardingConversion.lead.company_niche}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Observações do comercial */}
+                  <div className="space-y-1 bg-muted/10 p-5 border border-border rounded-3xl">
+                    <label className="text-[10px] font-black text-primary uppercase tracking-widest pl-1 block">Observações do Comercial/Escopo</label>
+                    <textarea
+                      value={onboardingConversion.notes || ''}
+                      onChange={e => setOnboardingConversion({ ...onboardingConversion, notes: e.target.value })}
+                      className="w-full bg-card border border-border rounded-2xl p-3 text-xs font-medium focus:outline-none placeholder-muted-foreground h-28 resize-none text-foreground mt-1.5"
+                      placeholder="Instruções comerciais ou termos adicionais do Onboarding..."
+                    />
+                  </div>
+                </div>
+
+                {/* SEÇÕES B & C — CONFIGURAÇÕES FINANCEIRAS & OPERACIONAIS (COLUNA DIREITA) */}
+                <div className="lg:col-span-7 space-y-6">
+                  
+                  {/* Seção B — Serviços e condições financeiras */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                        <LayoutGrid width="16" height="16" />
+                      </div>
+                      <h4 className="text-xs font-black text-primary uppercase tracking-wider">Seção B — Serviços e Condições Financeiras</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mt-1.5">
+                      {services.map(s => {
+                        const isChecked = (onboardingConversion.services_configs || []).some(item => item.name === s.name);
+                        return (
+                          <label 
+                            key={s.id || s.name} 
+                            className={`flex items-center gap-3 p-4 border rounded-2xl cursor-pointer hover:bg-muted/50 transition-all select-none ${
+                              isChecked ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/20"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                let updatedConfigs = onboardingConversion.services_configs || [];
+                                if (isChecked) {
+                                  updatedConfigs = updatedConfigs.filter(item => item.name !== s.name);
+                                } else {
+                                  const recurrent = isRecurrentService(s.name);
+                                  const base_price_val = Number(s.default_price) || 0;
+                                  updatedConfigs = [
+                                    ...updatedConfigs,
+                                    {
+                                      name: s.name,
+                                      price: base_price_val,
+                                      billing_type: recurrent ? "recorrente" : "parcelado",
+                                      installments: recurrent ? 1 : 3,
+                                      installment_value: recurrent ? 0 : Math.round((base_price_val / 3) * 100) / 100,
+                                      include_in_monthly: true,
+                                      active: true,
+                                      base_price: base_price_val,
+                                      custom_price: undefined,
+                                      use_custom_price: false
+                                    }
+                                  ];
+                                }
+                                updateServicesConfigsAndCalculations(updatedConfigs);
+                              }}
+                              className="rounded text-primary focus:ring-primary w-4 h-4"
+                            />
+                            <div>
+                              <p className="text-xs font-black text-foreground uppercase tracking-tight leading-none mb-1">{s.name}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">R$ {s.default_price?.toLocaleString('pt-BR') || '0,00'}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Advanced Settings for Custom Pricing */}
+                  {onboardingConversion.services_configs && onboardingConversion.services_configs.length > 0 && (
+                    <div className="space-y-4 p-5 bg-muted/25 rounded-3xl border border-border/60">
+                      <h5 className="text-[10px] font-black text-foreground uppercase tracking-wider mb-2">Configuração Avançada de Preços</h5>
+                      
+                      <div className="space-y-3">
+                        {onboardingConversion.services_configs.map((config, idx) => {
+                          const isRecurrent = config.billing_type === 'recorrente';
+                          return (
+                            <div key={config.name + idx} className="p-4 bg-card border border-border rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-4 shadow-sm">
+                              <div className="space-y-1">
+                                <span className="text-xs font-black text-foreground uppercase tracking-tight">{config.name}</span>
+                                <div className="flex gap-2 mt-1.5 text-[9px] font-black">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newConfigs = [...onboardingConversion.services_configs!];
+                                      newConfigs[idx] = { ...config, billing_type: 'recorrente', installments: 1, installment_value: 0 };
+                                      updateServicesConfigsAndCalculations(newConfigs);
+                                    }}
+                                    className={`px-2 py-1 rounded-lg ${isRecurrent ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground'}`}
+                                  >
+                                    🔁 RECORRENTE
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newConfigs = [...onboardingConversion.services_configs!];
+                                      newConfigs[idx] = { ...config, billing_type: 'parcelado', installments: 3, installment_value: Math.round((config.price / 3) * 100) / 100 };
+                                      updateServicesConfigsAndCalculations(newConfigs);
+                                    }}
+                                    className={`px-2 py-1 rounded-lg ${!isRecurrent ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-muted text-muted-foreground'}`}
+                                  >
+                                    📅 PARCELADO
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <div className="w-28 space-y-1">
+                                  <span className="text-[9px] font-black uppercase text-muted-foreground block">Preço Acordado (R$)</span>
+                                  <input
+                                    type="number"
+                                    value={config.price || ''}
+                                    onChange={e => {
+                                      const val = Number(e.target.value);
+                                      const newConfigs = [...onboardingConversion.services_configs!];
+                                      newConfigs[idx] = {
+                                        ...config,
+                                        price: val,
+                                        custom_price: val,
+                                        use_custom_price: true,
+                                        installment_value: config.billing_type === 'parcelado' ? Math.round((val / (config.installments || 3)) * 100) / 100 : 0
+                                      };
+                                      updateServicesConfigsAndCalculations(newConfigs);
+                                    }}
+                                    className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
+                                    placeholder="0"
+                                  />
+                                </div>
+                                {!isRecurrent && (
+                                  <div className="w-20 space-y-1">
+                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Parcelas</span>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={config.installments || 3}
+                                      onChange={e => {
+                                        const val = Math.max(1, Number(e.target.value));
+                                        const newConfigs = [...onboardingConversion.services_configs!];
+                                        newConfigs[idx] = {
+                                          ...config,
+                                          installments: val,
+                                          installment_value: Math.round((config.price / val) * 100) / 100
+                                        };
+                                        updateServicesConfigsAndCalculations(newConfigs);
+                                      }}
+                                      className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Seção C — Resumo Financeiro Consolidado */}
+                      {(() => {
+                        const recSum = onboardingConversion.services_configs!
+                          .filter(c => c.billing_type === 'recorrente')
+                          .reduce((sum, c) => sum + (c.price || 0), 0);
+
+                        const insSum = onboardingConversion.services_configs!
+                          .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+                          .reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+
+                        const totCurrent = recSum + insSum;
+
+                        return (
+                          <div className="space-y-4 pt-1">
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Seção C — Resumo Financeiro Consolidado</span>
+                            <div className="p-5 bg-primary/5 rounded-2xl border border-primary/20 space-y-3">
+                              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase">
+                                <span>Mensal Recorrente (Recorrência)</span>
+                                <span className="text-foreground">R$ {recSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase border-b border-border pb-2">
+                                <span>Parcelas Ativas Projetadas</span>
+                                <span className="text-foreground">R$ {insSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline pt-1">
+                                <span className="text-xs font-black text-foreground uppercase tracking-tight">Mensalidade Atual Estimada</span>
+                                <span className="text-lg font-black text-primary">R$ {totCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Parâmetros Operacionais */}
+                  <div className="grid grid-cols-2 gap-4 p-5 bg-muted/15 rounded-3xl border border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Início das Operações</label>
+                      <input
+                        type="date"
+                        value={onboardingConversion.contract_start_date}
+                        onChange={e => setOnboardingConversion({ ...onboardingConversion, contract_start_date: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Gestor de Sucesso (CS/Operação)</label>
+                      <select
+                        value={onboardingConversion.manager_id || ''}
+                        onChange={e => setOnboardingConversion({ ...onboardingConversion, manager_id: e.target.value })}
+                        className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground cursor-pointer focus:outline-none"
+                      >
+                        <option value="">Selecione um Gestor</option>
+                        {users.map(u => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-border flex justify-between bg-card items-center shrink-0">
+              <button onClick={handleCancelConversion} className="px-5 py-3 bg-muted text-muted-foreground rounded-xl text-xs font-black uppercase">Cancelar</button>
+              <div className="flex gap-3">
+                <button onClick={() => handleSaveConversion(false)} className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase transition-all">Apenas Salvar</button>
+                <button onClick={() => handleSaveConversion(true)} className="px-5 py-3 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase hover:opacity-90 transition-all shadow-md shadow-primary/10">Salvar e Abrir Cliente</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de Alerta de Duplicidade Preventiva */}
+      {/* 12. Duplicate Warning Modal */}
       {duplicateWarning && duplicateWarning.isOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-lg border border-border overflow-hidden animate-zoom-in-95">
-            <div className="p-8 border-b border-border flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center shrink-0">
-                  <AlertCircle width={20} height={20} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Cliente Já Vinculado</h3>
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Duplicidade Preventiva</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleCloseDuplicateWarning}
-                className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all active:scale-95"
-              >
-                <X width={16} height={16} />
-              </button>
-            </div>
-
-            <div className="p-8 space-y-4">
-              <p className="text-sm font-medium text-foreground leading-relaxed">
-                {duplicateWarning.reason}
-              </p>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Para garantir a integridade do banco de dados, o CRM bloqueia a criação de múltiplos clientes operacionais para a mesma conta.
-              </p>
-            </div>
-
-            <div className="p-6 md:p-8 border-t border-border flex flex-col sm:flex-row gap-3 justify-end bg-card">
-              <button
-                onClick={handleCloseDuplicateWarning}
-                className="px-6 py-3 bg-muted text-muted-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-muted/80 transition-all active:scale-95"
-              >
-                Voltar para Funil
-              </button>
-              <button
-                onClick={handleOpenExistingClient}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-              >
-                <Maximize2 width={14} height={14} />
-                Abrir Cliente Existente
-              </button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 border border-border shadow-2xl">
+            <h3 className="text-lg font-black text-foreground uppercase tracking-tight mb-2">⚠️ Cliente Já Registrado</h3>
+            <p className="text-xs text-muted-foreground font-semibold leading-relaxed mb-6">{duplicateWarning.reason}</p>
+            <div className="flex gap-3 justify-end leading-none">
+              <button onClick={handleCloseDuplicateWarning} className="px-5 py-3.5 bg-muted text-muted-foreground rounded-xl text-xs font-black uppercase">Fechar</button>
+              <button onClick={handleOpenExistingClient} className="px-5 py-3.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase hover:opacity-90">Abrir Cliente Existente</button>
             </div>
           </div>
         </div>

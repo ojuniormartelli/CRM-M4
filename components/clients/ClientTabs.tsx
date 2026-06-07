@@ -18,13 +18,13 @@ interface ClientTabsProps {
 
 export const ClientTabs: React.FC<ClientTabsProps> = ({ activeTab, onChangeTab }) => {
   const tabs = [
-    { id: 'summary' as const, label: 'Resumo', icon: LayoutDashboard },
-    { id: 'tasks' as const, label: 'Tarefas', icon: CheckSquare },
-    { id: 'routines' as const, label: 'Rotinas', icon: Clock },
-    { id: 'meetings' as const, label: 'Reuniões & Histórico', icon: Activity },
-    { id: 'services' as const, label: 'Serviços', icon: Briefcase },
+    { id: 'summary' as const, label: 'Visão geral', icon: LayoutDashboard },
+    { id: 'tasks' as const, label: 'Entregas', icon: CheckSquare },
+    { id: 'services' as const, label: 'Financeiro', icon: Briefcase },
     { id: 'contacts' as const, label: 'Contatos', icon: Users },
-    { id: 'notes' as const, label: 'Observações / Handoff', icon: FileText },
+    { id: 'notes' as const, label: 'Histórico', icon: FileText },
+    { id: 'meetings' as const, label: 'Calls / Reuniões', icon: Activity },
+    { id: 'routines' as const, label: 'Rotinas', icon: Clock },
   ];
 
   return (

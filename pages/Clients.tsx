@@ -42,6 +42,7 @@ interface ClientsProps {
   services: any[];
   selectedClientId?: string | null;
   setSelectedClientId?: (id: string | null) => void;
+  activeTab?: string;
   onNewCompany?: () => void;
   onNewContact?: () => void;
 }
@@ -60,6 +61,7 @@ const Clients: React.FC<ClientsProps> = ({
   services,
   selectedClientId,
   setSelectedClientId,
+  activeTab,
   onNewCompany,
   onNewContact
 }) => {
@@ -67,20 +69,34 @@ const Clients: React.FC<ClientsProps> = ({
   const [view, setView] = useState<'overview' | 'list' | 'detail'>('overview');
   const [previousView, setPreviousView] = useState<'overview' | 'list'>('overview');
 
-  // Synchronize external changes of selectedClientId (e.g. from onboarding redirection)
+  // Synchronize external changes of selectedClientId or activeTab
   React.useEffect(() => {
     if (selectedClientId) {
       setView('detail');
-    } else {
-      setView(prev => prev === 'detail' ? 'overview' : prev);
+    } else if (activeTab === 'clients_overview') {
+      setView('overview');
+    } else if (activeTab === 'clients') {
+      setView('list');
     }
-  }, [selectedClientId]);
+  }, [selectedClientId, activeTab]);
 
   // Action helper to select a client and save previous view
   const handleSelectClient = (clientId: string) => {
     setPreviousView(view === 'detail' ? 'overview' : (view as 'overview' | 'list'));
     setSelectedClientId?.(clientId);
     setView('detail');
+    
+    try {
+      const recentsJSON = localStorage.getItem('m4_recent_clients');
+      let recents: string[] = recentsJSON ? JSON.parse(recentsJSON) : [];
+      recents = recents.filter(id => id !== clientId);
+      recents.unshift(clientId);
+      recents = recents.slice(0, 3);
+      localStorage.setItem('m4_recent_clients', JSON.stringify(recents));
+      window.dispatchEvent(new Event('m4_recent_clients_changed'));
+    } catch (e) {
+      console.error('Failed to update recent clients:', e);
+    }
   };
 
   // Action helper to handle back navigation with state preservation
@@ -514,33 +530,8 @@ const Clients: React.FC<ClientsProps> = ({
           </div>
         </div>
 
-        {/* Dashboard / Portfolio Toggle bar & Action button */}
+        {/* Actions Section */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-150/40 dark:border-slate-700/30">
-            <button
-              onClick={() => { setPreviousView('overview'); setView('overview'); }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer ${
-                view === 'overview'
-                  ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              Painel
-            </button>
-            <button
-              onClick={() => { setPreviousView('overview'); setView('list'); }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer ${
-                view === 'list'
-                  ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              Carteira
-            </button>
-          </div>
-
           <button
             onClick={handleOpenImportModal}
             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer shadow-sm hover:shadow-md"
@@ -919,52 +910,84 @@ const Clients: React.FC<ClientsProps> = ({
             {filteredClients.map((client) => {
               const clientTasks = tasks.filter(t => t.client_id === client.id && t.status !== 'Concluído' && !t.is_recurring);
               return (
-                <div key={client.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group relative">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      {client.company_name.charAt(0)}
+                <div key={client.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between h-full min-h-[350px]">
+                  <div>
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0">
+                        {client.company_name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-black text-slate-900 dark:text-white text-lg truncate" title={client.company_name}>{client.company_name}</h4>
+                        <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest truncate">
+                          {client.status === 'churned' ? 'Ex-Cliente / Churn' : 'Cliente Ativo'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-black text-slate-900 dark:text-white text-lg">{client.company_name}</h4>
-                      <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest">
-                        {client.status === 'churned' ? 'Ex-Cliente / Churn' : 'Cliente Ativo'}
-                      </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs">
+                        <span className="font-black uppercase tracking-widest text-[10px]">Ticket MRR</span>
+                        <span className="font-black text-slate-900 dark:text-white">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.monthly_value || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs">
+                        <span className="font-black uppercase tracking-widest text-[10px]">Data Inicial</span>
+                        <span className="font-bold text-slate-850 dark:text-slate-350">
+                          {client.contract_start_date ? format(new Date(client.contract_start_date), 'dd/MM/yyyy') : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs h-6">
+                        <span className="font-black uppercase tracking-widest text-[10px]">Demandas Ativas</span>
+                        {clientTasks.length > 0 ? (
+                          <span className="font-black text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg text-[10px]">
+                            {clientTasks.length} pendentes
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-550 text-[10px] font-bold">
+                            Nenhuma pauta
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {(() => {
+                          const parsedServices = servicesUtils.parseClientServices(client.services, services);
+                          if (parsedServices.length === 0) {
+                            return (
+                              <span className="text-slate-450 dark:text-slate-500 text-[10px] font-medium italic">
+                                Nenhum serviço contratado
+                              </span>
+                            );
+                          }
+                          const visibleServices = parsedServices.slice(0, 2);
+                          const hasMore = parsedServices.length > 2;
+                          return (
+                            <>
+                              {visibleServices.map((srv, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest truncate max-w-[110px] block"
+                                  title={srv.name}
+                                >
+                                  {srv.name}
+                                </span>
+                              ))}
+                              {hasMore && (
+                                <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+                                  +{parsedServices.length - 2} serv.
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs">
-                      <span className="font-black uppercase tracking-widest text-[10px]">Ticket MRR</span>
-                      <span className="font-black text-slate-900 dark:text-white">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.monthly_value || 0)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs">
-                      <span className="font-black uppercase tracking-widest text-[10px]">Data Inicial</span>
-                      <span className="font-bold text-slate-850 dark:text-slate-350">
-                        {client.contract_start_date ? format(new Date(client.contract_start_date), 'dd/MM/yyyy') : 'N/A'}
-                      </span>
-                    </div>
-                    {clientTasks.length > 0 && (
-                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-450 text-xs">
-                        <span className="font-black uppercase tracking-widest text-[10px]">Demandas Ativas</span>
-                        <span className="font-black text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg text-[10px]">
-                          {clientTasks.length} pendentes
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 mt-4">
-                      {client.services?.map((service, idx) => (
-                        <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                          {service}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-slate-800">
+                  <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-slate-800 mt-6">
                     <div className="flex gap-2">
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
+                      <span className={`text-[9.5px] font-black uppercase px-3 py-1 rounded-full ${
                         client.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 
                         client.status === 'paused' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
                         'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
@@ -974,27 +997,12 @@ const Clients: React.FC<ClientsProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-3">
-                      {client.status !== 'churned' && (
-                        <button 
-                          onClick={() => handleArchive(client)}
-                          disabled={isProcessing === client.id}
-                          className="text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest hover:underline disabled:opacity-50 cursor-pointer"
-                        >
-                          Arquivar
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleDelete(client)}
-                        disabled={isProcessing === client.id}
-                        className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest hover:underline disabled:opacity-50 cursor-pointer"
-                      >
-                        Excluir
-                      </button>
                       <button 
                         onClick={() => handleSelectClient(client.id)}
-                        className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest hover:underline cursor-pointer"
+                        className="text-blue-600 dark:text-blue-400 text-[11px] font-black uppercase tracking-widest hover:underline cursor-pointer flex items-center gap-1 group/btn"
                       >
                         Ver Operação
+                        <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
                   </div>

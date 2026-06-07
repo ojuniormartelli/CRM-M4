@@ -91,6 +91,24 @@ const isServiceContracted = (serviceCategoryName: string, clientServices: string
   });
 };
 
+const isServiceRecurrentLocal = (name: string): boolean => {
+  const nameL = name.toLowerCase();
+  return (
+    nameL.includes('tráfego') ||
+    nameL.includes('gestão') ||
+    nameL.includes('mensal') ||
+    nameL.includes('retentor') ||
+    nameL.includes('recorrente') ||
+    nameL.includes('ads') ||
+    nameL.includes('social') ||
+    nameL.includes('suporte') ||
+    nameL.includes('squad') ||
+    nameL.includes('assessoria') ||
+    nameL.includes('seo') ||
+    nameL.includes('feed')
+  );
+};
+
 export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
   activeClient,
   services,
@@ -185,9 +203,15 @@ export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
     }
 
     const price = Number(newServicePrice) || 0;
+    const recurrent = isServiceRecurrentLocal(newServiceName);
+    
     setEditingContracts(prev => [...prev, {
       name: newServiceName,
       price,
+      billing_type: recurrent ? 'recorrente' : 'parcelado',
+      installments: recurrent ? 1 : 3,
+      installment_value: recurrent ? 0 : Math.round((price / 3) * 100) / 100,
+      include_in_monthly: true,
       active: true
     }]);
 
@@ -200,7 +224,14 @@ export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
     setIsSaving(true);
     try {
       const serialized = servicesUtils.serializeClientServices(editingContracts);
-      const totalMRR = editingContracts.reduce((acc, c) => acc + c.price, 0);
+      
+      const recTotal = editingContracts
+        .filter(c => c.billing_type === 'recorrente')
+        .reduce((sum, c) => sum + (c.price || 0), 0);
+      const insTotal = editingContracts
+        .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+        .reduce((sum, c) => sum + (c.installment_value || (c.price / (c.installments || 1))), 0);
+      const totalMRR = Number((recTotal + insTotal).toFixed(2));
 
       const { error } = await supabase
         .from('m4_clients')
@@ -281,44 +312,176 @@ export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
           {/* List of services in edit status */}
           <div className="space-y-3">
             {editingContracts.length > 0 ? (
-              editingContracts.map((srv, index) => (
-                <div key={srv.name + index} className="p-4 bg-white dark:bg-slate-950 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 shadow-3xs border border-slate-100 dark:border-slate-850">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-905 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
-                      <Briefcase className="w-5 h-5" />
+              editingContracts.map((srv, index) => {
+                const isRecurrent = srv.billing_type === 'recorrente';
+                return (
+                  <div key={srv.name + index} className="p-4 bg-white dark:bg-slate-950 rounded-2xl flex flex-col xl:flex-row justify-between xl:items-center gap-4 shadow-3xs border border-slate-100 dark:border-slate-850">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-50 dark:bg-blue-905 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
+                        <Briefcase className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Canal</span>
+                        <strong className="text-sm font-black text-slate-900 dark:text-white block">{srv.name}</strong>
+                        
+                        {/* Selector toggle */}
+                        <div className="flex gap-2 mt-1 font-sans">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingContracts(prev => prev.map((item, idx) => {
+                                if (idx === index) {
+                                  return {
+                                    ...item,
+                                    billing_type: 'recorrente',
+                                    installments: 1,
+                                    installment_value: 0
+                                  };
+                                }
+                                return item;
+                              }));
+                            }}
+                            className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md transition-all ${
+                              isRecurrent
+                                ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/30'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                            }`}
+                          >
+                            🔁 Recorrente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingContracts(prev => prev.map((item, idx) => {
+                                if (idx === index) {
+                                  return {
+                                    ...item,
+                                    billing_type: 'parcelado',
+                                    installments: 3,
+                                    installment_value: Math.round((item.price / 3) * 100) / 100
+                                  };
+                                }
+                                return item;
+                              }));
+                            }}
+                            className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md transition-all ${
+                              !isRecurrent
+                                ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                            }`}
+                          >
+                            📅 Parcelado
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Canal</span>
-                      <strong className="text-sm font-black text-slate-900 dark:text-white">{srv.name}</strong>
+
+                    <div className="flex flex-wrap items-center gap-4 self-end xl:self-auto">
+                      {/* Price input */}
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-black uppercase text-slate-400 block">
+                          {isRecurrent ? 'Mensalidade (R$)' : 'Valor Total (R$)'}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-xs font-black text-slate-400">R$</span>
+                          <input 
+                            type="number"
+                            step="10"
+                            min="0"
+                            value={srv.price}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0;
+                              setEditingContracts(prev => prev.map((item, idx) => {
+                                if (idx === index) {
+                                  return {
+                                    ...item,
+                                    price: val,
+                                    installment_value: item.billing_type === 'parcelado' ? (item.installments && item.installments > 0 ? Number((val / item.installments).toFixed(2)) : 0) : 0
+                                  };
+                                }
+                                return item;
+                              }));
+                            }}
+                            className="pl-8 pr-1.5 py-1.5 w-28 bg-slate-50 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white focus:outline-none"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      {!isRecurrent && (
+                        <>
+                          {/* Installments selector */}
+                          <div className="space-y-0.5 w-16">
+                            <label className="text-[9px] font-black uppercase text-slate-400 block">Parcelas</label>
+                            <select
+                              value={srv.installments || 3}
+                              onChange={(e) => {
+                                const count = parseInt(e.target.value) || 1;
+                                setEditingContracts(prev => prev.map((item, idx) => {
+                                  if (idx === index) {
+                                    return {
+                                      ...item,
+                                      installments: count,
+                                      installment_value: Number((item.price / count).toFixed(2))
+                                    };
+                                  }
+                                  return item;
+                                }));
+                              }}
+                              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs font-extrabold text-slate-900 dark:text-white focus:outline-none"
+                            >
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map(n => (
+                                <option key={n} value={n}>{n}x</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Installment value read-only indicator */}
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] font-black uppercase text-slate-400 block">Vl. Parcela</span>
+                            <span className="text-xs font-black text-amber-600 block pt-1.5 whitespace-nowrap">
+                              R$ {(srv.installment_value || (srv.price / (srv.installments || 1))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* Include in monthly checkbox */}
+                          <div className="flex items-center gap-1.5 pt-4">
+                            <input
+                              type="checkbox"
+                              id={`inc-monthly-tab-${index}`}
+                              checked={srv.include_in_monthly !== false}
+                              onChange={(e) => {
+                                setEditingContracts(prev => prev.map((item, idx) => {
+                                  if (idx === index) {
+                                    return {
+                                      ...item,
+                                      include_in_monthly: e.target.checked
+                                    };
+                                  }
+                                  return item;
+                                }));
+                              }}
+                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 border-slate-300"
+                            />
+                            <label htmlFor={`inc-monthly-tab-${index}`} className="text-[9px] font-black text-slate-400 uppercase tracking-wider cursor-pointer select-none">
+                              Mensalidade
+                            </label>
+                          </div>
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveEditingContract(index)}
+                        className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all cursor-pointer self-end xl:self-auto"
+                        title="Remover serviço"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 self-end sm:self-auto">
-                    {/* Manual price input */}
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs font-black text-slate-400">R$</span>
-                      <input 
-                        type="number"
-                        step="10"
-                        min="0"
-                        value={srv.price}
-                        onChange={(e) => handlePriceChange(index, Number(e.target.value) || 0)}
-                        className="pl-8 pr-3 py-2 w-32 bg-slate-50 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-xl text-xs font-extrabold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveEditingContract(index)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all cursor-pointer"
-                      title="Remover serviço"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="py-6 text-center text-slate-400 text-xs italic">
                 Nenhum serviço vinculado no momento. Adicione um abaixo.
@@ -378,14 +541,28 @@ export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
           {/* Form Actions Footer */}
           <div className="pt-3 border-t border-slate-100 dark:border-slate-850 flex justify-between items-center">
             {/* Dynamic visual total MRR calculator feedback */}
-            <div>
-              <span className="text-[10px] font-black uppercase text-slate-405 tracking-widest block">Novo MRR Consolidado</span>
-              <strong className="text-sm font-black text-blue-600 dark:text-blue-400">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  editingContracts.reduce((acc, c) => acc + c.price, 0)
-                )}
-              </strong>
-            </div>
+            {(() => {
+              const recSum = editingContracts
+                .filter(c => c.billing_type === 'recorrente')
+                .reduce((sum, c) => sum + (c.price || 0), 0);
+              const insSum = editingContracts
+                .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+                .reduce((sum, c) => sum + (srv => srv.installment_value || (srv.price / (srv.installments || 1)))(c), 0);
+              const totalVal = recSum + insSum;
+              return (
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-405 tracking-widest block">Novo Saldo Mensal Consolidado</span>
+                  <strong className="text-sm font-black text-blue-600 dark:text-blue-400">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalVal)}
+                  </strong>
+                  {insSum > 0 && (
+                    <span className="text-[9px] text-slate-400 block font-medium">
+                      R$ {recSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} base + R$ {insSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em parcelas
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="flex gap-2">
               <button

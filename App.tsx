@@ -580,6 +580,8 @@ const App: React.FC = () => {
         pipelines={appData.pipelines}
         activePipelineId={activePipelineId}
         setActivePipelineId={setActivePipelineId}
+        clients={appData.clients}
+        setSelectedClientId={setSelectedClientId}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <Header

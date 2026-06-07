@@ -35,6 +35,18 @@ export const ClientSummaryTab: React.FC<ClientSummaryTabProps> = ({
   users,
   onShowToast,
 }) => {
+  // Parse service configurations
+  const parsedServices = servicesUtils.parseClientServices(activeClient.services || []);
+  const recurrentServicesSum = parsedServices
+    .filter(s => s.billing_type === 'recorrente' && s.active)
+    .reduce((sum, s) => sum + (s.price || 0), 0);
+
+  const installmentServicesActive = parsedServices
+    .filter(s => s.billing_type === 'parcelado' && s.include_in_monthly && s.active);
+
+  const installmentsSum = installmentServicesActive
+    .reduce((sum, s) => sum + (s.installment_value || (s.price / (s.installments || 1))), 0);
+
   // Precalculate state indicators
   const clientTasks = tasks.filter(t => t.client_id === activeClient.id && t.task_type === 'operational');
   const finishedTasks = clientTasks.filter(t => t.status === 'Concluído');
@@ -133,13 +145,19 @@ export const ClientSummaryTab: React.FC<ClientSummaryTabProps> = ({
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block">Ticket MRR</span>
+            <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block">Mensalidade Consolidada</span>
             <span className="text-lg font-black text-slate-950 dark:text-white block mt-0.5">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(activeClient.monthly_value || 0)}
             </span>
-            <span className="text-[10px] text-slate-400 italic font-medium">
-              Faturado mensalmente
-            </span>
+            {installmentsSum > 0 ? (
+              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tight block mt-1">
+                R$ {recurrentServicesSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} recorrente + R$ {installmentsSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} parcelas
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic font-medium">
+                Faturado mensalmente (100% Recorrente)
+              </span>
+            )}
           </div>
         </div>
 
