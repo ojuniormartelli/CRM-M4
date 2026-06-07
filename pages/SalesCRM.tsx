@@ -17,7 +17,7 @@ import { leadSchema } from '../lib/validation';
 import { LeadSkeleton } from '../components/Skeleton';
 import ConfirmDangerModal from '../components/ConfirmDangerModal';
 import Toast, { ToastType } from '../components/Toast';
-import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban, Maximize2, Minimize2 } from 'lucide-react';
+import { LayoutGrid, SortAsc, SortDesc, Trash2, X, Edit, Plus, Clock, ArrowRight, ChevronDown, MessageSquare, Calendar, List, FileText, Package, CheckCircle2, AlertCircle, Sparkles, Brain, Linkedin, Instagram, Phone, Mail, Users, Archive, Ban, Maximize2, Minimize2, Briefcase, Globe, MapPin, Percent } from 'lucide-react';
 import { ClientServiceContract, servicesUtils } from '../utils/services';
 
 interface SalesCRMProps {
@@ -352,6 +352,25 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     contact_instagram: string;
     notes: string;
     services_configs?: ClientServiceContract[];
+    company_city?: string;
+    company_state?: string;
+    company_niche?: string;
+    company_website?: string;
+    company_email?: string;
+    company_instagram?: string;
+    company_linkedin?: string;
+    company_whatsapp?: string;
+    contact_role?: string;
+    contact_linkedin?: string;
+    contact_notes?: string;
+    value?: number;
+    proposed_ticket?: number;
+    source?: string;
+    campaign?: string;
+    closing_forecast?: string;
+    temperature?: string;
+    probability?: number;
+    custom_fields?: Record<string, any>;
   } | null>(null);
 
   const [duplicateWarning, setDuplicateWarning] = useState<{
@@ -500,7 +519,29 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             contact_whatsapp: lead.contact_whatsapp || lead.whatsapp || '',
             contact_instagram: lead.contact_instagram || '',
             notes: lead.business_notes || lead.notes || '',
-            services_configs: initialConfigs
+            services_configs: initialConfigs,
+            // Extra company fields
+            company_city: lead.company_city || '',
+            company_state: lead.company_state || '',
+            company_niche: lead.company_niche || '',
+            company_website: lead.company_website || '',
+            company_email: lead.company_email || '',
+            company_instagram: lead.company_instagram || '',
+            company_linkedin: lead.company_linkedin || '',
+            company_whatsapp: lead.company_whatsapp || '',
+            // Extra contact fields
+            contact_role: lead.contact_role || '',
+            contact_linkedin: lead.contact_linkedin || '',
+            contact_notes: lead.contact_notes || '',
+            // Deal business fields
+            value: lead.value || 0,
+            proposed_ticket: lead.proposed_ticket || 0,
+            source: lead.source || '',
+            campaign: lead.campaign || '',
+            closing_forecast: lead.closing_forecast || '',
+            temperature: lead.temperature || 'Frio',
+            probability: lead.probability || 0,
+            custom_fields: lead.custom_fields || {}
           });
           setIsSyncing(false);
           return true; // we handled this!
@@ -582,10 +623,13 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             mappers.company({
               name: onboardingConversion.company_name,
               cnpj: onboardingConversion.cnpj,
-              whatsapp: onboardingConversion.contact_whatsapp,
-              email: onboardingConversion.contact_email,
-              instagram: onboardingConversion.contact_instagram,
-              notes: onboardingConversion.notes
+              whatsapp: onboardingConversion.company_whatsapp || onboardingConversion.contact_whatsapp,
+              email: onboardingConversion.company_email || onboardingConversion.contact_email,
+              instagram: onboardingConversion.company_instagram,
+              notes: onboardingConversion.notes,
+              website: onboardingConversion.company_website,
+              city: onboardingConversion.company_city,
+              state: onboardingConversion.company_state
             }, workspaceId)
           ])
           .select()
@@ -595,14 +639,17 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       } else {
         const { error: errUpdateComp } = await supabase
           .from('m4_companies')
-          .update({
+          .update(mappers.company({
             name: onboardingConversion.company_name,
             cnpj: onboardingConversion.cnpj,
-            whatsapp: onboardingConversion.contact_whatsapp,
-            email: onboardingConversion.contact_email,
-            instagram: onboardingConversion.contact_instagram,
-            notes: onboardingConversion.notes
-          })
+            whatsapp: onboardingConversion.company_whatsapp || onboardingConversion.contact_whatsapp,
+            email: onboardingConversion.company_email || onboardingConversion.contact_email,
+            instagram: onboardingConversion.company_instagram,
+            notes: onboardingConversion.notes,
+            website: onboardingConversion.company_website,
+            city: onboardingConversion.company_city,
+            state: onboardingConversion.company_state
+          }, workspaceId))
           .eq('id', finalCompanyId);
         if (errUpdateComp) throw errUpdateComp;
       }
@@ -614,7 +661,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         email: onboardingConversion.contact_email,
         whatsapp: onboardingConversion.contact_whatsapp.replace(/\D/g, ''),
         instagram: onboardingConversion.contact_instagram,
-        notes: onboardingConversion.notes,
+        role: onboardingConversion.contact_role,
+        linkedin: onboardingConversion.contact_linkedin,
+        notes: onboardingConversion.contact_notes || onboardingConversion.notes,
         is_primary: true,
         company_id: finalCompanyId
       };
@@ -644,11 +693,30 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         contact_id: finalContactId || undefined,
         company_name: onboardingConversion.company_name,
         company_cnpj: onboardingConversion.cnpj,
+        company_city: onboardingConversion.company_city,
+        company_state: onboardingConversion.company_state,
+        company_niche: onboardingConversion.company_niche,
+        company_website: onboardingConversion.company_website,
+        company_email: onboardingConversion.company_email,
+        company_instagram: onboardingConversion.company_instagram,
+        company_linkedin: onboardingConversion.company_linkedin,
+        company_whatsapp: onboardingConversion.company_whatsapp,
         contact_name: onboardingConversion.contact_name,
+        contact_role: onboardingConversion.contact_role,
         contact_email: onboardingConversion.contact_email,
-        contact_whatsapp: onboardingConversion.contact_whatsapp,
         contact_instagram: onboardingConversion.contact_instagram,
+        contact_linkedin: onboardingConversion.contact_linkedin,
+        contact_whatsapp: onboardingConversion.contact_whatsapp,
+        contact_notes: onboardingConversion.contact_notes,
+        value: onboardingConversion.value,
+        proposed_ticket: onboardingConversion.proposed_ticket,
+        source: onboardingConversion.source,
+        campaign: onboardingConversion.campaign,
+        closing_forecast: onboardingConversion.closing_forecast || undefined,
+        temperature: onboardingConversion.temperature as LeadTemperature,
+        probability: onboardingConversion.probability,
         business_notes: onboardingConversion.notes,
+        custom_fields: onboardingConversion.custom_fields,
         status: 'won' as any
       }, workspaceId);
 
@@ -944,6 +1012,68 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editLead, setEditLead] = useState<Partial<Lead>>({});
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editLeadData, setEditLeadData] = useState<Partial<Lead>>({});
+
+  useEffect(() => {
+    if (selectedLead) {
+      setEditLeadData({
+        company_name: selectedLead.company_name || '',
+        company_cnpj: selectedLead.company_cnpj || '',
+        company_city: selectedLead.company_city || '',
+        company_state: selectedLead.company_state || '',
+        company_niche: selectedLead.company_niche || '',
+        company_website: selectedLead.company_website || '',
+        company_email: selectedLead.company_email || '',
+        company_instagram: selectedLead.company_instagram || '',
+        company_linkedin: selectedLead.company_linkedin || '',
+        company_whatsapp: selectedLead.company_whatsapp || '',
+        contact_name: selectedLead.contact_name || '',
+        contact_role: selectedLead.contact_role || '',
+        contact_email: selectedLead.contact_email || '',
+        contact_instagram: selectedLead.contact_instagram || '',
+        contact_linkedin: selectedLead.contact_linkedin || '',
+        contact_whatsapp: selectedLead.contact_whatsapp || '',
+        contact_notes: selectedLead.contact_notes || '',
+        value: selectedLead.value || 0,
+        proposed_ticket: selectedLead.proposed_ticket || 0,
+        source: selectedLead.source || '',
+        campaign: selectedLead.campaign || '',
+        responsible_id: selectedLead.responsible_id || '',
+        closing_forecast: selectedLead.closing_forecast || '',
+        temperature: selectedLead.temperature || LeadTemperature.COLD,
+        probability: selectedLead.probability || 0,
+        business_notes: selectedLead.business_notes || '',
+        custom_fields: selectedLead.custom_fields || {},
+      });
+      setIsEditingLead(false);
+    } else {
+      setIsEditingLead(false);
+    }
+  }, [selectedLead]);
+
+  const handleSaveLeadDetails = async () => {
+    if (!selectedLead) return;
+    setIsSyncing(true);
+    try {
+      const resName = users.find(u => u.id === editLeadData.responsible_id)?.name || '';
+      const updateData = {
+        ...editLeadData,
+        responsible_name: resName || undefined,
+      };
+
+      const updatedLead = await leadService.update(selectedLead.id, updateData, workspaceId);
+      setLeads(prevLeads => prevLeads.map(l => l.id === selectedLead.id ? updatedLead : l));
+      setSelectedLead(updatedLead);
+      setIsEditingLead(false);
+      showToast('Dados cadastrais do lead atualizados com sucesso!');
+    } catch (error: any) {
+      console.error('Error updating lead details:', error);
+      showToast(error.message || 'Erro ao atualizar dados do lead', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [internalIsModalOpen, setInternalIsModalOpen] = useState(false);
   const isModalOpen = externalIsModalOpen !== undefined ? externalIsModalOpen : internalIsModalOpen;
@@ -2600,195 +2730,765 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       )}
 
       {/* 5. slide-over Lead 360 detailed timeline */}
-      {selectedLead && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex justify-end pointer-events-auto">
-          <div className="bg-card w-full max-w-3xl h-full border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
-            {/* Drawer Header */}
-            <div className="p-6 border-b border-border flex justify-between items-center shrink-0 bg-card">
-              <div>
-                <h3 className="text-xl font-black text-foreground uppercase tracking-tight truncate max-w-[400px]">
-                  {selectedLead.company_name || 'Sem Empresa'}
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                  Ficha do Lead • {selectedLead.contact_name || 'Contato Indefinido'}
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedLead(null)}
-                className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/85 transition-all"
-              >
-                <ICONS.Plus className="rotate-45" />
-              </button>
-            </div>
+      {selectedLead && (() => {
+        // Safe interactive helper within drawer scope
+        const renderField = (
+          icon: React.ReactNode, 
+          label: string, 
+          value: string | number | undefined, 
+          placeholder: string, 
+          linkType?: 'email' | 'phone' | 'url' | 'instagram' | 'linkedin'
+        ) => {
+          const isValueFilled = value !== undefined && value !== null && String(value).trim() !== '' && String(value).trim() !== '0';
+          const displayVal = isValueFilled ? String(value) : placeholder;
 
-            {/* Slider Workspace Container */}
-            <div className="flex-1 overflow-y-auto flex divide-x divide-border">
-              {/* Left Panel: general details & operation triggers */}
-              <div className="w-1/2 p-6 space-y-6 overflow-y-auto">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Detalhes Operacionais</h4>
-                  <div className="bg-muted/20 p-4 rounded-2xl border border-divider/50 space-y-3.5">
-                    <div>
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Estágio</span>
+          let renderValue = <span className="text-xs font-bold break-all text-foreground/90">{displayVal}</span>;
+
+          if (isValueFilled && linkType) {
+            if (linkType === 'email') {
+              renderValue = <a href={`mailto:${displayVal}`} className="text-xs font-bold break-all text-blue-600 dark:text-blue-400 hover:underline">{displayVal}</a>;
+            } else if (linkType === 'phone') {
+              renderValue = <a href={`https://wa.me/${displayVal.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs font-bold break-all text-emerald-605 dark:text-emerald-405 hover:underline">{formatPhoneBR(displayVal)}</a>;
+            } else if (linkType === 'url') {
+              const fullUrl = displayVal.startsWith('http') ? displayVal : `https://${displayVal}`;
+              renderValue = <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold break-all text-blue-600 dark:text-blue-400 hover:underline">{displayVal}</a>;
+            } else if (linkType === 'instagram') {
+              const handle = displayVal.replace('@', '');
+              renderValue = <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer" className="text-xs font-bold break-all text-pink-600 dark:text-pink-400 hover:underline">{displayVal.startsWith('@') ? displayVal : `@${displayVal}`}</a>;
+            } else if (linkType === 'linkedin') {
+              const handle = displayVal.includes('linkedin.com') ? displayVal : `https://linkedin.com/in/${displayVal}`;
+              const fullLnk = handle.startsWith('http') ? handle : `https://${handle}`;
+              renderValue = <a href={fullLnk} target="_blank" rel="noopener noreferrer" className="text-xs font-bold break-all text-blue-600 dark:text-blue-400 hover:underline">{displayVal}</a>;
+            }
+          }
+
+          return (
+            <div className={`p-3 rounded-2xl border transition-all ${isValueFilled ? 'bg-muted/12 border-border/40 hover:bg-muted/20' : 'bg-muted/5 border-dashed border-border/20 opacity-55'}`}>
+              <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest block mb-1">{label}</span>
+              <div className="flex items-start gap-1.5">
+                {icon && <span className={`shrink-0 mt-0.5 ${isValueFilled ? 'text-primary' : 'text-muted-foreground/30'}`}>{icon}</span>}
+                <div className="flex-1 min-w-0 pr-1">
+                  {renderValue}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const customFieldsKeysList = selectedLead.custom_fields ? Object.keys(selectedLead.custom_fields).filter(k => k !== 'loss_reason') : [];
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex justify-end pointer-events-auto">
+            <div className="bg-card w-full max-w-4xl h-full border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-border flex justify-between items-center shrink-0 bg-card">
+                <div>
+                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight truncate max-w-[450px]">
+                    {selectedLead.company_name || 'Sem Empresa'}
+                  </h3>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                    Ficha do Lead • {selectedLead.contact_name || 'Contato Indefinido'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedLead(null)}
+                  className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/85 transition-all cursor-pointer"
+                >
+                  <ICONS.Plus className="rotate-45 w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Slider Workspace Container: Split Left (Block A Card Data) and Right (Block B Operations) */}
+              <div className="flex-1 overflow-hidden flex divide-x divide-border">
+                {/* ----------------- LEFT PANEL: Block A - Complete Data ----------------- */}
+                <div className="w-1/2 h-full flex flex-col overflow-hidden bg-card">
+                  {/* Sub-Header for Left Block A */}
+                  <div className="p-4 border-b border-border bg-muted/10 shrink-0 flex justify-between items-center bg-card">
+                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.12em]">A. Cadastro & Comercial</span>
+                    {!isEditingLead ? (
+                      <button 
+                        onClick={() => setIsEditingLead(true)}
+                        className="text-[9.5px] font-black uppercase text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer bg-blue-500/5 px-2.5 py-1.5 rounded-xl border border-blue-500/10"
+                      >
+                        <Edit className="w-3 h-3" />
+                        Editar Dados
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => setIsEditingLead(false)}
+                        className="text-[9.5px] font-black uppercase text-rose-600 dark:text-rose-400 hover:underline cursor-pointer bg-rose-500/5 px-2.5 py-1.5 rounded-xl border border-rose-500/10"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Scrollable Data Area */}
+                  <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                    {!isEditingLead ? (
+                      /* ===================== VIEW MODE ===================== */
+                      <div className="space-y-6 pb-6">
+                        {/* Section A.1: Dados da Empresa */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1 cursor-default">
+                            <Package className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">1. Dados da Empresa</h5>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {renderField(<Package className="w-3.5 h-3.5 text-foreground/50" />, 'Empresa', selectedLead.company_name, 'Sem Razão Social')}
+                            {renderField(<Package className="w-3.5 h-3.5 text-foreground/50" />, 'Nome Fantasia', selectedLead.custom_fields?.nome_fantasia !== undefined ? String(selectedLead.custom_fields.nome_fantasia) : undefined, 'Não preenchido')}
+                            {renderField(<FileText className="w-3.5 h-3.5 text-foreground/50" />, 'CNPJ', selectedLead.company_cnpj || (selectedLead as any).cnpj, 'Sem CNPJ')}
+                            {renderField(<LayoutGrid className="w-3.5 h-3.5 text-foreground/50" />, 'Nicho / Segmento', selectedLead.company_niche || (selectedLead as any).niche, 'Sem segmento')}
+                            {renderField(<MapPin className="w-3.5 h-3.5 text-foreground/50" />, 'Cidade / UF', selectedLead.company_city && selectedLead.company_state ? `${selectedLead.company_city} - ${selectedLead.company_state}` : (selectedLead.company_city || selectedLead.company_state || undefined), 'Sem localização')}
+                            {renderField(<Globe className="w-3.5 h-3.5 text-foreground/50" />, 'Website', selectedLead.company_website || (selectedLead as any).website, 'Sem site', 'url')}
+                            {renderField(<Phone className="w-3.5 h-3.5 text-foreground/50" />, 'WhatsApp Empresa', selectedLead.company_whatsapp, 'Sem WhatsApp', 'phone')}
+                            {renderField(<Mail className="w-3.5 h-3.5 text-foreground/50" />, 'E-mail Comercial', selectedLead.company_email || (selectedLead as any).email, 'Sem e-mail', 'email')}
+                            {renderField(<Instagram className="w-3.5 h-3.5 text-foreground/50" />, 'Instagram Empresa', selectedLead.company_instagram, 'Sem Instagram', 'instagram')}
+                            {renderField(<Linkedin className="w-3.5 h-3.5 text-foreground/50" />, 'LinkedIn Empresa', selectedLead.company_linkedin, 'Sem LinkedIn', 'linkedin')}
+                          </div>
+                          {/* Corporate Notes */}
+                          <div className="p-3 bg-muted/5 border border-border/30 rounded-2xl">
+                            <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Notas Comerciais da Empresa</span>
+                            {selectedLead.business_notes || (selectedLead as any).notes ? (
+                              <p className="text-xs font-semibold text-foreground/90 whitespace-pre-wrap leading-relaxed">{selectedLead.business_notes || (selectedLead as any).notes}</p>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50 italic">Nenhuma anotação registrada</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Section A.2: Dados do Contato */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1 cursor-default">
+                            <Users className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">2. Dados do Contato Principal</h5>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {renderField(<Users className="w-3.5 h-3.5 text-foreground/50" />, 'Contato principal', selectedLead.contact_name || selectedLead.name, 'Contato indefinido')}
+                            {renderField(<Briefcase className="w-3.5 h-3.5 text-foreground/50" />, 'Cargo / Função', selectedLead.contact_role, 'Sem cargo')}
+                            {renderField(<Phone className="w-3.5 h-3.5 text-foreground/50" />, 'WhatsApp Contato', selectedLead.contact_whatsapp || selectedLead.whatsapp, 'Sem WhatsApp', 'phone')}
+                            {renderField(<Mail className="w-3.5 h-3.5 text-foreground/50" />, 'E-mail Contato', selectedLead.contact_email || selectedLead.email, 'Sem e-mail', 'email')}
+                            {renderField(<Instagram className="w-3.5 h-3.5 text-foreground/50" />, 'Instagram Contato', selectedLead.contact_instagram, 'Sem Instagram', 'instagram')}
+                            {renderField(<Linkedin className="w-3.5 h-3.5 text-foreground/50" />, 'LinkedIn Contato', selectedLead.contact_linkedin, 'Sem LinkedIn', 'linkedin')}
+                          </div>
+                          {/* Contact Notes */}
+                          {selectedLead.contact_notes && (
+                            <div className="p-3 bg-muted/5 border border-border/40 rounded-2xl">
+                              <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Observações do Contato</span>
+                              <p className="text-xs font-semibold text-foreground/90 whitespace-pre-wrap leading-relaxed">{selectedLead.contact_notes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section A.3: Dados Comerciais / Marketing */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1 cursor-default">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">3. Negócio & Operação</h5>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {renderField(
+                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
+                              'Valor do Negócio', 
+                              selectedLead.value ? `R$ ${Number(selectedLead.value).toLocaleString('pt-BR')}` : undefined, 
+                              'Não definido'
+                            )}
+                            {renderField(
+                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
+                              'Ticket Proposto', 
+                              selectedLead.proposed_ticket ? `R$ ${Number(selectedLead.proposed_ticket).toLocaleString('pt-BR')}` : undefined, 
+                              'Não definido'
+                            )}
+                            {renderField(<ArrowRight className="w-3.5 h-3.5 text-foreground/50" />, 'Origem do Lead', selectedLead.source, 'Busca Orgânica')}
+                            {renderField(<Sparkles className="w-3.5 h-3.5 text-foreground/50" />, 'Campanha', selectedLead.campaign, 'Sem campanha')}
+                            {renderField(<Calendar className="w-3.5 h-3.5 text-foreground/50" />, 'Previsão de Fechamento', selectedLead.closing_forecast, 'Sem prazo acordado')}
+                            {renderField(
+                              <Clock className="w-3.5 h-3.5 text-foreground/50" />, 
+                              'Temperatura', 
+                              selectedLead.temperature, 
+                              'Frio'
+                            )}
+                            {renderField(
+                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
+                              'Probabilidade %', 
+                              selectedLead.probability ? `${selectedLead.probability}%` : undefined, 
+                              'Sem probabilidade'
+                            )}
+                            {renderField(
+                              <Users className="w-3.5 h-3.5 text-foreground/50" />, 
+                              'Responsável Comercial', 
+                              selectedLead.responsible_name || users.find(u => u.id === selectedLead.responsible_id)?.name, 
+                              'Nenhum responsável'
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Section A.4: Campos Complementares / Importados */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1 cursor-default">
+                            <Sparkles className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">4. Campos Dinâmicos / Importados</h5>
+                          </div>
+                          {customFieldsKeysList.length === 0 ? (
+                            <p className="text-[10px] font-bold text-muted-foreground/60 italic p-3 text-center border border-dashed border-border/20 rounded-2xl bg-muted/5">
+                              Nenhum campo adicional encontrado. Campos extras oriundos de planilhas ou enrichments do AI aparecerão aqui.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2.5">
+                              {customFieldsKeysList.map(key => (
+                                <div key={key}>
+                                  {renderField(
+                                    <Sparkles className="w-3.5 h-3.5 text-foreground/50" />, 
+                                    key.replace(/_/g, ' ').toUpperCase(), 
+                                    String(selectedLead.custom_fields?.[key] || ''), 
+                                    'Sem dados'
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* ===================== FULL EDIT MODE ===================== */
+                      <div className="space-y-6 pb-6">
+                        {/* Edit Section 1: Empresa */}
+                        <div className="space-y-4 bg-muted/10 p-4 border border-border/60 rounded-3xl">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1.5 non-interactive">
+                            <Package className="w-4 h-4 text-primary animate-pulse" />
+                            <h5 className="text-[10px] font-black text-foreground uppercase tracking-widest font-sans">1. Dados da Empresa</h5>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Nome / Razão Social</label>
+                            <input 
+                              type="text" 
+                              value={editLeadData.company_name || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, company_name: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                              placeholder="Razão Social"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">CNPJ</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_cnpj || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_cnpj: formatCNPJ(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="00.000.000/0000-00"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Nicho / Segmento</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_niche || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_niche: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Segmento de mercado"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Cidade</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_city || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_city: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Cidade"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Estado (UF)</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_state || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_state: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="UF"
+                                maxLength={2}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Website / URL</label>
+                            <input 
+                              type="text" 
+                              value={editLeadData.company_website || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, company_website: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                              placeholder="https://empresa.com"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">WhatsApp Empresa</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_whatsapp || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_whatsapp: formatPhoneBR(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="(00) 00000-0000"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">E-mail Comercial</label>
+                              <input 
+                                type="email" 
+                                value={editLeadData.company_email || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_email: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="contato@empresa.com"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Instagram Empresa</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_instagram || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_instagram: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="@empresa"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">LinkedIn Empresa</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.company_linkedin || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, company_linkedin: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="linkedin.com/company/nome"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Observações da Empresa</label>
+                            <textarea 
+                              value={editLeadData.business_notes || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, business_notes: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-semibold text-xs text-foreground focus:outline-none min-h-[75px]"
+                              placeholder="Notas de prospecção comercial da empresa..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* Edit Section 2: Contato */}
+                        <div className="space-y-4 bg-muted/10 p-4 border border-border/60 rounded-3xl">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1.5 non-interactive">
+                            <Users className="w-4 h-4 text-primary" />
+                            <h5 className="text-[10px] font-black text-foreground uppercase tracking-widest font-sans">2. Dados do Contato Principal</h5>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Nome do Contato</label>
+                            <input 
+                              type="text" 
+                              value={editLeadData.contact_name || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, contact_name: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                              placeholder="Nome do decisor / representante"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Cargo / Função</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.contact_role || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, contact_role: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Cargo"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">WhatsApp Contato</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.contact_whatsapp || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, contact_whatsapp: formatPhoneBR(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="(00) 00000-0000"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">E-mail Contato</label>
+                              <input 
+                                type="email" 
+                                value={editLeadData.contact_email || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, contact_email: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="email@contato.com"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Instagram Contato</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.contact_instagram || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, contact_instagram: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="@instagram"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">LinkedIn Contato</label>
+                            <input 
+                              type="text" 
+                              value={editLeadData.contact_linkedin || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, contact_linkedin: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                              placeholder="linkedin.com/in/nome"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Anotações do Contato</label>
+                            <textarea 
+                              value={editLeadData.contact_notes || ''} 
+                              onChange={e => setEditLeadData({...editLeadData, contact_notes: e.target.value})}
+                              className="w-full bg-card border border-border p-2.5 rounded-xl font-semibold text-xs text-foreground focus:outline-none min-h-[60px]"
+                              placeholder="Anotações com foco pessoal no contato..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* Edit Section 3: Comercial */}
+                        <div className="space-y-4 bg-muted/10 p-4 border border-border/60 rounded-3xl">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1.5 non-interactive">
+                            <Clock className="w-4 h-4 text-primary" />
+                            <h5 className="text-[10px] font-black text-foreground uppercase tracking-widest font-sans">3. Detalhes Técnicos & Comerciais</h5>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Valor do Negócio (R$)</label>
+                              <input 
+                                type="number" 
+                                value={editLeadData.value || 0} 
+                                onChange={e => setEditLeadData({...editLeadData, value: Number(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Ticket Proposto (R$)</label>
+                              <input 
+                                type="number" 
+                                value={editLeadData.proposed_ticket || 0} 
+                                onChange={e => setEditLeadData({...editLeadData, proposed_ticket: Number(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Origem do Lead</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.source || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, source: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Origem"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">UTM Campanha</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.campaign || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, campaign: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Campanha"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Temperatura</label>
+                              <select 
+                                value={editLeadData.temperature || LeadTemperature.COLD} 
+                                onChange={e => setEditLeadData({...editLeadData, temperature: e.target.value as LeadTemperature})} 
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
+                              >
+                                <option value="Frio">❄️ Frio</option>
+                                <option value="Morno">🔥 Morno</option>
+                                <option value="Quente">🥵 Quente</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Probabilidade (%)</label>
+                              <input 
+                                type="number" 
+                                value={editLeadData.probability || 0} 
+                                onChange={e => setEditLeadData({...editLeadData, probability: Number(e.target.value)})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="0-100"
+                                min={0}
+                                max={100}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Previsão Fechamento</label>
+                              <input 
+                                type="text" 
+                                value={editLeadData.closing_forecast || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, closing_forecast: e.target.value})}
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                placeholder="Previsão"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Responsável</label>
+                              <select 
+                                value={editLeadData.responsible_id || ''} 
+                                onChange={e => setEditLeadData({...editLeadData, responsible_id: e.target.value})} 
+                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
+                              >
+                                <option value="">Sem responsável</option>
+                                {users.map(u => (
+                                  <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Edit Section 4: Dynamic Custom Fields */}
+                        <div className="space-y-4 bg-muted/10 p-4 border border-border/60 rounded-3xl">
+                          <div className="flex items-center gap-1.5 border-b border-border/40 pb-1.5 non-interactive">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                            <h5 className="text-[10px] font-black text-foreground uppercase tracking-widest font-sans">4. Campos Importados / Personalizados</h5>
+                          </div>
+                          {Object.keys(editLeadData.custom_fields || {}).length === 0 ? (
+                            <p className="text-[10px] font-bold text-muted-foreground/60 italic">Nenhum campo personalizado cadastrado neste lead.</p>
+                          ) : (
+                            <div className="space-y-3.5">
+                              {Object.entries(editLeadData.custom_fields || {}).map(([key, val]) => (
+                                <div key={key} className="space-y-1">
+                                  <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">{key.replace(/_/g, ' ').toUpperCase()}</label>
+                                  <input 
+                                    type="text" 
+                                    value={String(val || '')} 
+                                    onChange={e => {
+                                      const nextC = { ...(editLeadData.custom_fields || {}) };
+                                      nextC[key] = e.target.value;
+                                      setEditLeadData({...editLeadData, custom_fields: nextC});
+                                    }}
+                                    className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Actions for Edit Mode */}
+                        <div className="flex gap-2.5 pt-4">
+                          <button
+                            onClick={handleSaveLeadDetails}
+                            disabled={isSyncing}
+                            className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-55 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-xs"
+                          >
+                            {isSyncing ? 'Salvando...' : 'Salvar Ficha'}
+                          </button>
+                          <button
+                            onClick={() => setIsEditingLead(false)}
+                            className="px-5 py-3.5 bg-muted hover:bg-muted/80 text-muted-foreground font-black text-[10px] uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                          >
+                            Descartar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ----------------- RIGHT PANEL: Block B - Operation Central ----------------- */}
+                <div className="w-1/2 h-full flex flex-col overflow-hidden bg-muted/8">
+                  {/* High Intensity Controls Card at the Top of Operation panel */}
+                  <div className="p-5 border-b border-border shrink-0 bg-card space-y-4">
+                    {/* Block Title */}
+                    <div className="flex justify-between items-center cursor-default">
+                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.12em]">B. Central de Operações</span>
+                      <span className="px-2 py-0.5 bg-primary/10 text-primary text-[8px] font-black uppercase tracking-wider rounded-md">Atividade Realtime</span>
+                    </div>
+
+                    {/* Estágio Transition Selector */}
+                    <div className="p-3 bg-muted/12 border border-border/50 rounded-2xl">
+                      <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Mover Estágio Principal</span>
                       <select
                         value={selectedLead.stage}
                         onChange={e => handleMoveToStage(selectedLead, e.target.value)}
-                        className="w-full bg-transparent border-0 p-0 text-xs font-black text-foreground uppercase select-none mt-1 focus:outline-none"
+                        className="w-full bg-card border border-border rounded-xl px-3 py-2 text-xs font-black text-primary uppercase select-none focus:outline-none cursor-pointer"
                       >
                         {activePipeline.stages.map(s => (
                           <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Valor do Negócio</span>
-                      <span className="text-sm font-black text-foreground block mt-0.5">R$ {Number(selectedLead.value).toLocaleString('pt-BR')}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Nomenclatura / Nicho</span>
-                      <span className="text-xs font-bold text-foreground block mt-0.5">{selectedLead.company_niche || '-'}</span>
+
+                    {/* Commercial Operation Triggers panel (win, lose, IA, delete) */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleStageTransitionCheck(selectedLead, 'Onboarding', false, selectedLead.stage)}
+                        className="py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                      >
+                        🚀 Onboarding
+                      </button>
+                      <button
+                        onClick={() => handleEnrichSingleLead(selectedLead)}
+                        className="py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        ⚡️ IA Enrich
+                      </button>
+                      <button
+                        onClick={() => showWonConfirm(selectedLead)}
+                        className="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                      >
+                        🏅 Ganhar
+                      </button>
+                      <button
+                        onClick={() => showLostConfirm(selectedLead)}
+                        className="py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                      >
+                        💀 Perder
+                      </button>
+                      <button
+                        onClick={() => showDeleteConfirm(selectedLead)}
+                        className="col-span-2 py-2 bg-muted text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                      >
+                        🗑️ Excluir Lead / Cancelar Negócio
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                {/* Operations triggers panel */}
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">Ações Comerciais</h4>
-                  <div className="flex flex-col gap-2.5">
-                    <button
-                      onClick={() => handleStageTransitionCheck(selectedLead, 'Onboarding', false, selectedLead.stage)}
-                      className="w-full py-3.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      🚀 Concluir Onboarding
-                    </button>
-                    <button
-                      onClick={() => showWonConfirm(selectedLead)}
-                      className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      🏅 Ganhar Negócio
-                    </button>
-                    <button
-                      onClick={() => showLostConfirm(selectedLead)}
-                      className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      💀 Perder Negócio
-                    </button>
-                    <button
-                      onClick={() => handleEnrichSingleLead(selectedLead)}
-                      className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
-                    >
-                      ⚡️ Enriquecer com IA
-                    </button>
-                    <button
-                      onClick={() => showDeleteConfirm(selectedLead)}
-                      className="w-full py-3 bg-muted text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      🗑️ Excluir Lead
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Panel: timeline interactive activities */}
-              <div className="w-1/2 flex flex-col overflow-hidden bg-muted/10 h-full">
-                {/* Interactions timeline Header Tabs */}
-                <div className="flex border-b border-border shrink-0 bg-card">
-                  {['history', 'tasks'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab360(tab as any)}
-                      className={`flex-1 py-4 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                        activeTab360 === tab ? 'text-primary border-b-2 border-primary bg-muted/20' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {tab === 'history' ? 'Timeline' : 'Tarefas'}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab content workspace scroll area */}
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  {activeTab360 === 'history' && (
-                    <div className="space-y-5">
-                      {/* Interaction registration note form */}
-                      <div className="p-4 bg-card rounded-2xl shadow-sm border border-border flex flex-col gap-3">
-                        <textarea
-                          placeholder="Registrar anotação de contato..."
-                          value={interactionNote}
-                          onChange={e => setInteractionNote(e.target.value)}
-                          className="w-full bg-muted rounded-xl p-3 text-xs font-medium focus:outline-none placeholder-muted-foreground min-h-[70px] resize-none"
-                        />
+                  {/* Tabbed Interactive Area (Timeline vs Tarefas) at the Bottom */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Header Tabs */}
+                    <div className="flex border-b border-border shrink-0 bg-card">
+                      {['history', 'tasks'].map((tab) => (
                         <button
-                          onClick={handleRegisterInteraction}
-                          disabled={isRegisteringInteraction}
-                          className="px-4 py-2 bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all self-end"
+                          key={tab}
+                          onClick={() => setActiveTab360(tab as any)}
+                          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                            activeTab360 === tab ? 'text-primary border-b-2 border-primary bg-muted/15' : 'text-muted-foreground hover:text-foreground'
+                          }`}
                         >
-                          Registrar
+                          {tab === 'history' ? 'Timeline / Histórico' : 'Tarefas Pendentes'}
                         </button>
-                      </div>
+                      ))}
+                    </div>
 
-                      {/* Chronological events loop */}
-                      <div className="space-y-3.5">
-                        {interactions.length === 0 ? (
-                          <div className="text-center p-8">
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sem interações registradas</span>
+                    {/* Content Box with Scroll */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      {activeTab360 === 'history' && (
+                        <div className="space-y-4">
+                          {/* Interaction registration note form */}
+                          <div className="p-3 bg-card rounded-2xl shadow-xs border border-border flex flex-col gap-2.5">
+                            <textarea
+                              placeholder="Registrar anotação de follow-up ou contato..."
+                              value={interactionNote}
+                              onChange={e => setInteractionNote(e.target.value)}
+                              className="w-full bg-muted/60 border border-border/35 rounded-xl p-2.5 text-xs font-semibold focus:outline-none placeholder-muted-foreground/60 min-h-[60px] resize-none"
+                            />
+                            <button
+                              onClick={handleRegisterInteraction}
+                              disabled={isRegisteringInteraction}
+                              className="px-4 py-1.5 bg-primary text-primary-foreground font-black text-[9px] uppercase tracking-wider rounded-lg hover:opacity-90 transition-all self-end cursor-pointer"
+                            >
+                              Registrar Notas
+                            </button>
                           </div>
-                        ) : (
-                          interactions.map(item => (
-                            <div key={item.id} className="p-3.5 bg-card border border-border rounded-xl shadow-xs">
-                              <div className="flex justify-between items-start gap-2">
-                                <span className="text-[9px] font-black uppercase text-primary tracking-widest">{item.title}</span>
-                                <span className="text-[9px] font-bold text-muted-foreground">{item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</span>
+
+                          {/* Chronological events */}
+                          <div className="space-y-2.5">
+                            {interactions.length === 0 ? (
+                              <div className="text-center p-6 border border-dashed border-border/20 rounded-2xl bg-muted/5 cursor-default">
+                                <span className="text-[9px] font-black text-muted-foreground/50 uppercase tracking-widest leading-loose">Sem interações registradas nesta timeline</span>
                               </div>
-                              <p className="text-[11px] font-medium text-foreground mt-2 leading-relaxed">{item.description}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab360 === 'tasks' && (
-                    <div className="space-y-4">
-                      {/* Task adder form */}
-                      <div className="p-4 bg-card rounded-2xl border border-border shadow-xs flex flex-col gap-3">
-                        <input
-                          placeholder="Nova tarefa de follow-up..."
-                          value={newTaskData.title || ''}
-                          onChange={e => setNewTaskData({...newTaskData, title: e.target.value})}
-                          className="w-full bg-muted rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                        />
-                        <button
-                          onClick={handleCreateTask}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-black text-[10px] uppercase tracking-wider self-end"
-                        >
-                          Adicionar
-                        </button>
-                      </div>
-
-                      {/* Global list of tasks */}
-                      <div className="space-y-2">
-                        {tasks.filter(t => t.lead_id === selectedLead.id).length === 0 ? (
-                          <div className="text-center p-8">
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sem tarefas pendentes</span>
+                            ) : (
+                              interactions.map(item => (
+                                <div key={item.id} className="p-3 bg-card border border-border/50 rounded-xl shadow-xs hover:border-primary/30 transition-all">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className="text-[8.5px] font-black uppercase text-primary tracking-widest">{item.title}</span>
+                                    <span className="text-[8px] font-bold text-muted-foreground">{item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</span>
+                                  </div>
+                                  <p className="text-[10.5px] font-semibold text-foreground/85 mt-1.5 leading-relaxed">{item.description}</p>
+                                </div>
+                              ))
+                            )}
                           </div>
-                        ) : (
-                          tasks.filter(t => t.lead_id === selectedLead.id).map(t => (
-                            <div key={t.id} className="p-3.5 bg-card border border-border rounded-xl flex justify-between items-center shadow-xs">
-                              <span className="text-xs font-semibold text-foreground">{t.title}</span>
-                              <span className="text-[9px] font-black uppercase bg-muted/80 px-2 py-0.5 rounded text-muted-foreground">{t.status}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                        </div>
+                      )}
+
+                      {activeTab360 === 'tasks' && (
+                        <div className="space-y-4">
+                          {/* Task adder form */}
+                          <div className="p-3 bg-card rounded-2xl border border-border shadow-xs flex flex-col gap-2.5">
+                            <input
+                              placeholder="Adicionar nova tarefa de follow-up..."
+                              value={newTaskData.title || ''}
+                              onChange={e => setNewTaskData({...newTaskData, title: e.target.value})}
+                              className="w-full bg-muted/60 border border-border/35 rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:outline-none placeholder-muted-foreground/60"
+                            />
+                            <button
+                              onClick={handleCreateTask}
+                              className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg font-black text-[9px] uppercase tracking-wider self-end cursor-pointer"
+                            >
+                              Criar Tarefa
+                            </button>
+                          </div>
+
+                          {/* list of tasks */}
+                          <div className="space-y-2">
+                            {tasks.filter(t => t.lead_id === selectedLead.id).length === 0 ? (
+                              <div className="text-center p-6 border border-dashed border-border/20 rounded-2xl bg-muted/5 cursor-default">
+                                <span className="text-[9px] font-black text-muted-foreground/50 uppercase tracking-widest leading-loose">Nenhuma tarefa pendente</span>
+                              </div>
+                            ) : (
+                              tasks.filter(t => t.lead_id === selectedLead.id).map(t => (
+                                <div key={t.id} className="p-3 bg-card border border-border/50 rounded-xl flex justify-between items-center shadow-xs">
+                                  <span className="text-xs font-semibold text-foreground/85 pr-2">{t.title}</span>
+                                  <span className="text-[8.5px] font-black uppercase bg-muted px-2 py-0.5 rounded text-muted-foreground shrink-0">{t.status}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 6. Pipelines selection popup */}
       {isPipelineModalOpen && (
@@ -2925,7 +3625,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
       {/* 11. Active Onboarding Conversion Modal */}
       {onboardingConversion && onboardingConversion.isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-          <div className="bg-card rounded-[2.5rem] w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-[2.5rem] w-full max-w-7xl max-h-[92vh] flex flex-col shadow-2xl border border-border overflow-hidden">
             <div className="flex justify-between items-center p-8 border-b border-border shrink-0">
               <div>
                 <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Onboarding de Operação</h3>
@@ -2939,33 +3639,51 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
             <div className="flex-1 overflow-y-auto p-8">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* SEÇÃO A — RESUMO DO CLIENTE (COLUNA ESQUERDA) */}
-                <div className="lg:col-span-5 space-y-6 lg:border-r lg:border-border lg:pr-8">
+                {/* SEÇÃO PRINCIPAL — PRÉVIA COMPLETA DE IMPORTAÇÃO (COLUNA ESQUERDA) */}
+                <div className="lg:col-span-6 space-y-6 lg:border-r lg:border-border lg:pr-8 pr-0">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center">
                       <ICONS.Sales width="16" height="16" />
                     </div>
-                    <h4 className="text-xs font-black text-rose-500 uppercase tracking-wider">Seção A — Resumo do Cliente</h4>
+                    <h4 className="text-xs font-black text-rose-500 uppercase tracking-wider">PRÉVIA COMPLETA DA IMPORTAÇÃO DOS DADOS</h4>
                   </div>
                   
-                  {/* Lead Information Card */}
-                  <div className="p-6 bg-muted/20 border border-border rounded-3xl space-y-4 shadow-sm">
-                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">Confirmação de Cadastro</span>
-
-                    <div className="space-y-3.5">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Nome Fantasia / Empresa</label>
+                  {/* 1. Dados da Empresa */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <Briefcase className="w-4 h-4 text-rose-500" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">1. Dados da Empresa</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Razão Social / Empresa</label>
                         <input
                           type="text"
                           value={onboardingConversion.company_name}
                           onChange={e => setOnboardingConversion({ ...onboardingConversion, company_name: e.target.value })}
                           className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                          placeholder="Nome da Empresa"
+                          placeholder="Ex: Minha Empresa LTDA"
+                        />
+                      </div>
+
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Nome Fantasia</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.custom_fields?.nome_fantasia || ''}
+                          onChange={e => {
+                            const newCF = { ...(onboardingConversion.custom_fields || {}) };
+                            newCF.nome_fantasia = e.target.value;
+                            setOnboardingConversion({ ...onboardingConversion, custom_fields: newCF });
+                          }}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Ex: Nome da Loja"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">CNPJ</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">CNPJ</label>
                         <input
                           type="text"
                           value={onboardingConversion.cnpj || ''}
@@ -2976,7 +3694,120 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Contato Principal</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Nicho / Segmento</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.company_niche || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, company_niche: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Ex: E-commerce de Moda"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Cidade</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.company_city || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, company_city: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Cidade"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Estado (UF)</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.company_state || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, company_state: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Ex: SP"
+                        />
+                      </div>
+
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Website</label>
+                        <div className="relative">
+                          <Globe className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground/60" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.company_website || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, company_website: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="www.empresa.com"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">WhatsApp Empresa</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3.5 top-3 w-4 h-4 text-emerald-500/80" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.company_whatsapp || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, company_whatsapp: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="(00) 00000-0000"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">E-mail Comercial</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground/60" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.company_email || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, company_email: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="contato@empresa.com"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Instagram Empresa</label>
+                        <div className="relative">
+                          <Instagram className="absolute left-3.5 top-3 w-4 h-4 text-pink-500/80" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.company_instagram || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, company_instagram: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="@empresa"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">LinkedIn Empresa</label>
+                        <div className="relative">
+                          <Linkedin className="absolute left-3.5 top-3 w-4 h-4 text-blue-500/80" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.company_linkedin || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, company_linkedin: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="linkedin.com/company/..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Dados do Contato Principal */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <Users className="w-4 h-4 text-rose-500" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">2. Dados do Contato Principal</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Nome</label>
                         <input
                           type="text"
                           value={onboardingConversion.contact_name}
@@ -2986,64 +3817,236 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-35">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">WhatsApp / Celular</label>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Cargo / Função</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.contact_role || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_role: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                          placeholder="Ex: Diretor de Marketing"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">WhatsApp Contato</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3.5 top-3 w-4 h-4 text-emerald-500/80" />
                           <input
                             type="text"
                             value={onboardingConversion.contact_whatsapp}
                             onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_whatsapp: e.target.value })}
-                            className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                             placeholder="(00) 00000-0000"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">Instagram</label>
-                          <input
-                            type="text"
-                            value={onboardingConversion.contact_instagram}
-                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_instagram: e.target.value })}
-                            className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                            placeholder="@user"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase block pl-1">E-mail</label>
-                        <input
-                          type="text"
-                          value={onboardingConversion.contact_email}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_email: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                          placeholder="email@empresa.com"
-                        />
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">E-mail Contato</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground/60" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.contact_email}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_email: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="email@contato.com"
+                          />
+                        </div>
                       </div>
 
-                      {onboardingConversion.lead.company_niche && (
-                        <div className="p-3 bg-card border border-border/65 rounded-xl">
-                          <span className="text-[9px] font-black text-muted-foreground uppercase block">Nicho / Setor Comercial</span>
-                          <span className="text-xs font-bold text-primary mt-1 block">{onboardingConversion.lead.company_niche}</span>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Instagram Contato</label>
+                        <div className="relative">
+                          <Instagram className="absolute left-3.5 top-3 w-4 h-4 text-pink-500/80" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.contact_instagram}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_instagram: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="@Instagram"
+                          />
                         </div>
-                      )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">LinkedIn Contato</label>
+                        <div className="relative">
+                          <Linkedin className="absolute left-3.5 top-3 w-4 h-4 text-blue-500/80" />
+                          <input
+                            type="text"
+                            value={onboardingConversion.contact_linkedin || ''}
+                            onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_linkedin: e.target.value })}
+                            className="w-full bg-card border border-border rounded-xl p-3 pl-10 text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                            placeholder="linkedin.com/in/..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Notas do Contato Principal</label>
+                        <textarea
+                          value={onboardingConversion.contact_notes || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contact_notes: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none h-16 resize-none"
+                          placeholder="Notas e recomendações do contato decisor..."
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Observações do comercial */}
-                  <div className="space-y-1 bg-muted/10 p-5 border border-border rounded-3xl">
-                    <label className="text-[10px] font-black text-primary uppercase tracking-widest pl-1 block">Observações do Comercial/Escopo</label>
+                  {/* 3. Negócio & Operação */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <Percent className="w-4 h-4 text-rose-500" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">3. Negócio & Operação</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Valor do Negócio (R$)</label>
+                        <input
+                          type="number"
+                          value={onboardingConversion.value || 0}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, value: Number(e.target.value) })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Ticket Proposto (R$)</label>
+                        <input
+                          type="number"
+                          value={onboardingConversion.proposed_ticket || 0}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, proposed_ticket: Number(e.target.value) })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="Ex: 1500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Origem do Lead</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.source || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, source: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="Ex: Instagram Ads"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Campanha</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.campaign || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, campaign: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="Ex: Black Friday 2026"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Previsão de Fechamento</label>
+                        <input
+                          type="date"
+                          value={onboardingConversion.closing_forecast || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, closing_forecast: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 font-sans">Temperatura</label>
+                        <select
+                          value={onboardingConversion.temperature || 'Frio'}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, temperature: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                        >
+                          <option value="Frio">❄️ Frio</option>
+                          <option value="Morno">🔥 Morno</option>
+                          <option value="Quente">⚡ Quente</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Probabilidade (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={onboardingConversion.probability || 0}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, probability: Number(e.target.value) })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Responsável Comercial</label>
+                        <select
+                          value={onboardingConversion.lead.responsible_id || ''}
+                          disabled={true}
+                          className="w-full bg-muted/20 border border-border/40 rounded-xl p-3 text-xs font-bold text-muted-foreground cursor-not-allowed focus:outline-none"
+                        >
+                          <option value="">
+                            {users.find(u => u.id === onboardingConversion.lead.responsible_id)?.name || 'Sem responsável comercial'}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Campos Dinâmicos / Importados */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <Sparkles className="w-4 h-4 text-rose-500" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">4. Campos Dinâmicos & Importados</h4>
+                    </div>
+
+                    {Object.keys(onboardingConversion.custom_fields || {}).filter(k => k !== 'nome_fantasia' && k !== 'loss_reason').length === 0 ? (
+                      <p className="text-[10px] font-bold text-muted-foreground/60 italic pl-1">Nenhum campo personalizado ou planilha importada cadastrada.</p>
+                    ) : (
+                      <div className="space-y-3.5">
+                        {Object.entries(onboardingConversion.custom_fields || {})
+                          .filter(([k]) => k !== 'nome_fantasia' && k !== 'loss_reason')
+                          .map(([key, val]) => (
+                            <div key={key} className="space-y-1">
+                              <label className="text-[9px] font-black text-muted-foreground uppercase tracking-wider ml-0.5">{key.replace(/_/g, ' ')}</label>
+                              <input 
+                                type="text" 
+                                value={String(val || '')} 
+                                onChange={e => {
+                                  const nextC = { ...(onboardingConversion.custom_fields || {}) };
+                                  nextC[key] = e.target.value;
+                                  setOnboardingConversion({...onboardingConversion, custom_fields: nextC});
+                                }}
+                                className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                              />
+                            </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notas Gerais */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <FileText className="w-4 h-4 text-rose-500" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">Notas & Histórico do Comercial</h4>
+                    </div>
                     <textarea
                       value={onboardingConversion.notes || ''}
                       onChange={e => setOnboardingConversion({ ...onboardingConversion, notes: e.target.value })}
-                      className="w-full bg-card border border-border rounded-2xl p-3 text-xs font-medium focus:outline-none placeholder-muted-foreground h-28 resize-none text-foreground mt-1.5"
-                      placeholder="Instruções comerciais ou termos adicionais do Onboarding..."
+                      className="w-full bg-card border border-border rounded-xl p-3.5 text-xs font-bold text-foreground focus:outline-none placeholder-muted-foreground h-28 resize-none"
+                      placeholder="Histórico e notas gerais de vendas para a operação..."
                     />
                   </div>
                 </div>
 
                 {/* SEÇÕES B & C — CONFIGURAÇÕES FINANCEIRAS & OPERACIONAIS (COLUNA DIREITA) */}
-                <div className="lg:col-span-7 space-y-6">
+                <div className="lg:col-span-6 space-y-6">
                   
                   {/* Seção B — Serviços e condições financeiras */}
                   <div className="space-y-3">
