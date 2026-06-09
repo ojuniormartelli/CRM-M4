@@ -432,7 +432,7 @@ const MeetingForms: React.FC<MeetingFormsProps> = ({ leads, workspaceId }) => {
                 <div key={q.id} className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 relative group">
                   <button 
                     onClick={() => removeQuestion(q.id)}
-                    className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   >
                     <ICONS.X width="16" height="16" />
                   </button>

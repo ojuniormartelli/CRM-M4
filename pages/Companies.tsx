@@ -689,7 +689,7 @@ const Companies: React.FC<CompaniesProps> = ({
                       e.stopPropagation();
                       openEditModal(company);
                     }}
-                    className="p-2 bg-white dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-2 bg-white dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-xl shadow-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                   >
                     <ICONS.Plus className="rotate-45" width="16" height="16" />
                   </button>
@@ -1249,7 +1249,7 @@ const Companies: React.FC<CompaniesProps> = ({
                               <button 
                                 type="button"
                                 onClick={() => openEditContactModal(contact)}
-                                className="absolute top-4 right-4 p-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-blue-600 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                                className="absolute top-4 right-4 p-2 bg-white dark:bg-slate-700 text-slate-400 hover:text-blue-600 rounded-lg shadow-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                               >
                                 <ICONS.Edit width="14" height="14" />
                               </button>

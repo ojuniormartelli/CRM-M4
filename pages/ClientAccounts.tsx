@@ -191,7 +191,8 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse min-w-[800px] md:min-w-full">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
@@ -248,6 +249,7 @@ export default function ClientAccounts({ leads, tasks, transactions, clientAccou
               </tbody>
             </table>
           </div>
+        </div>
         </>
       ) : (
         selectedAccount && (

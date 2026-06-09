@@ -684,7 +684,7 @@ const Clients: React.FC<ClientsProps> = ({
 
                         <button 
                           onClick={() => t.client_id && handleSelectClient(t.client_id)}
-                          className="p-2 bg-slate-50 opacity-0 group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600 text-slate-400 rounded-lg dark:bg-slate-900 transition-all"
+                          className="p-2 bg-slate-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600 text-slate-400 rounded-lg dark:bg-slate-900 transition-all"
                         >
                           <ArrowRight className="w-4 h-4" />
                         </button>

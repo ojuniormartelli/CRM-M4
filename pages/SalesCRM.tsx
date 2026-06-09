@@ -2655,7 +2655,7 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
 
                             <div className="flex items-center justify-between border-t border-border/50 pt-3 pt-3 mt-3 text-[10px] font-black text-foreground">
                               <span>R$ {Number(lead.value).toLocaleString('pt-BR')}</span>
-                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleMoveLeadStage(lead, 'prev'); }}
                                   className="p-1 bg-muted rounded-md text-muted-foreground hover:text-foreground"

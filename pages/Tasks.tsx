@@ -901,7 +901,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="flex items-center gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                     <button 
                       type="button"
                       onClick={(e) => {
@@ -1975,7 +1975,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, setTasks, currentUser, workspaceId
                                   const { error } = await supabase.from('m4_task_attachments').delete().eq('id', file.id);
                                   if (!error) setAttachments(attachments.filter(a => a.id !== file.id));
                                 }}
-                                className="p-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                className="p-2 text-slate-400 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                               >
                                 <ICONS.X width="14" height="14" />
                               </button>
