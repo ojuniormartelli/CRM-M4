@@ -622,9 +622,16 @@ CREATE TABLE IF NOT EXISTS public.m4_fin_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    bank TEXT,
     type fin_bank_account_type DEFAULT 'checking',
-    current_balance NUMERIC DEFAULT 0,
+    initial_balance NUMERIC DEFAULT 0,
+    initial_balance_date DATE DEFAULT CURRENT_DATE,
+    color TEXT,
+    icon TEXT,
     is_active BOOLEAN DEFAULT true,
+    currency TEXT DEFAULT 'BRL',
+    balance NUMERIC DEFAULT 0,
+    current_balance NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -1826,6 +1833,16 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_m4_tasks_deleted_at ON m4_tasks(deleted_at);
     CREATE INDEX IF NOT EXISTS idx_m4_clients_deleted_at ON m4_clients(deleted_at);
     CREATE INDEX IF NOT EXISTS idx_m4_projects_deleted_at ON m4_projects(deleted_at);
+
+    -- 3.2 Correção Schema Contas Bancárias (Colunas Ausentes)
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS bank TEXT;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS initial_balance NUMERIC DEFAULT 0;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS initial_balance_date DATE DEFAULT CURRENT_DATE;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS color TEXT;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS icon TEXT;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'BRL';
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0;
+    ALTER TABLE public.m4_fin_bank_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
     -- 4. Correção Schema Leads (Colunas Ausentes)
     ALTER TABLE m4_leads ADD COLUMN IF NOT EXISTS company_name TEXT;

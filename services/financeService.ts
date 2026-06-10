@@ -73,6 +73,74 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw finalError;
 }
 
+// Cache schema support flags
+let cachedHasBalanceColumn: boolean | null = null;
+
+async function checkBankAccountSchema(): Promise<boolean> {
+  if (cachedHasBalanceColumn !== null) {
+    return cachedHasBalanceColumn;
+  }
+  try {
+    const { error } = await supabase
+      .from('m4_fin_bank_accounts')
+      .select('balance')
+      .limit(1);
+    
+    // 42703 is undefined_column in Postgres
+    if (error && (error.code === '42703' || error.message?.includes('balance'))) {
+      console.warn('[FinanceService] Table m4_fin_bank_accounts lacks "balance" column. Falling back to old schema.');
+      cachedHasBalanceColumn = false;
+    } else {
+      cachedHasBalanceColumn = true;
+    }
+  } catch (err) {
+    console.warn('[FinanceService] Error probing bank accounts schema:', err);
+    cachedHasBalanceColumn = false; // Safe fallback
+  }
+  return cachedHasBalanceColumn;
+}
+
+async function getAccountBalanceFields(accountId: string, workspaceId: string): Promise<{ balance: number; current_balance: number } | null> {
+  const hasBalanceCol = await checkBankAccountSchema();
+  try {
+    const selectStr = hasBalanceCol ? 'balance, current_balance' : 'current_balance';
+    const { data, error } = await supabase
+      .from('m4_fin_bank_accounts')
+      .select(selectStr)
+      .eq('id', accountId)
+      .eq('workspace_id', workspaceId)
+      .single();
+
+    if (error || !data) return null;
+    
+    const current_balance = Number(data.current_balance) || 0;
+    const balance = hasBalanceCol ? (Number(data.balance) || 0) : current_balance;
+    return { balance, current_balance };
+  } catch (err) {
+    console.error('[FinanceService] getAccountBalanceFields failed:', err);
+    return null;
+  }
+}
+
+async function updateAccountBalance(accountId: string, workspaceId: string, newBalance: number): Promise<void> {
+  const hasBalanceCol = await checkBankAccountSchema();
+  const updatePayload: any = { current_balance: newBalance };
+  if (hasBalanceCol) {
+    updatePayload.balance = newBalance;
+  }
+  
+  const { error } = await supabase
+    .from('m4_fin_bank_accounts')
+    .update(updatePayload)
+    .eq('id', accountId)
+    .eq('workspace_id', workspaceId);
+    
+  if (error) {
+    console.error('[FinanceService] updateAccountBalance failed:', error);
+    throw error;
+  }
+}
+
 export const financeService = {
   // --- Transactions ---
   async getTransactions(workspaceId: string, filters?: any): Promise<FinanceTransaction[]> {
@@ -122,27 +190,14 @@ export const financeService = {
 
       // Update balance if created as PAID
       if (result.status === 'paid' && result.bank_account_id) {
-        const { data: account, error: accError } = await supabase
-          .from('m4_fin_bank_accounts')
-          .select('balance, current_balance')
-          .eq('id', result.bank_account_id)
-          .eq('workspace_id', workspaceId)
-          .single();
-        
-        if (!accError && account) {
+        const account = await getAccountBalanceFields(result.bank_account_id, workspaceId);
+        if (account) {
           const amount = Number(result.amount);
           const newBalance = result.type === 'income' 
             ? Number(account.balance) + amount
             : Number(account.balance) - amount;
           
-          await supabase
-            .from('m4_fin_bank_accounts')
-            .update({ 
-              balance: newBalance,
-              current_balance: newBalance
-            })
-            .eq('id', result.bank_account_id)
-            .eq('workspace_id', workspaceId);
+          await updateAccountBalance(result.bank_account_id, workspaceId, newBalance);
         }
       }
 
@@ -212,53 +267,27 @@ export const financeService = {
       if (wasPaid || isPaid) {
         // Revert old effect if it was paid
         if (wasPaid && existing.bank_account_id) {
-          const { data: oldAcc, error: oldAccError } = await supabase
-            .from('m4_fin_bank_accounts')
-            .select('balance, current_balance')
-            .eq('id', existing.bank_account_id)
-            .eq('workspace_id', workspaceId)
-            .single();
-          
-          if (!oldAccError && oldAcc) {
+          const oldAcc = await getAccountBalanceFields(existing.bank_account_id, workspaceId);
+          if (oldAcc) {
             const oldAmount = Number(existing.amount);
             const revertedBalance = existing.type === 'income' 
               ? Number(oldAcc.balance) - oldAmount
               : Number(oldAcc.balance) + oldAmount;
             
-            await supabase
-              .from('m4_fin_bank_accounts')
-              .update({ 
-                balance: revertedBalance,
-                current_balance: revertedBalance
-              })
-              .eq('id', existing.bank_account_id)
-              .eq('workspace_id', workspaceId);
+            await updateAccountBalance(existing.bank_account_id, workspaceId, revertedBalance);
           }
         }
 
         // Apply new effect if it is now paid
         if (isPaid && result.bank_account_id) {
-          const { data: newAcc, error: newAccError } = await supabase
-            .from('m4_fin_bank_accounts')
-            .select('balance, current_balance')
-            .eq('id', result.bank_account_id)
-            .eq('workspace_id', workspaceId)
-            .single();
-          
-          if (!newAccError && newAcc) {
+          const newAcc = await getAccountBalanceFields(result.bank_account_id, workspaceId);
+          if (newAcc) {
             const newAmount = Number(result.amount);
             const appliedBalance = result.type === 'income'
               ? Number(newAcc.balance) + newAmount
               : Number(newAcc.balance) - newAmount;
             
-            await supabase
-              .from('m4_fin_bank_accounts')
-              .update({ 
-                balance: appliedBalance,
-                current_balance: appliedBalance
-              })
-              .eq('id', result.bank_account_id)
-              .eq('workspace_id', workspaceId);
+            await updateAccountBalance(result.bank_account_id, workspaceId, appliedBalance);
           }
         }
       }
@@ -283,27 +312,14 @@ export const financeService = {
 
       if (!fetchError && transaction && transaction.status === 'paid' && transaction.bank_account_id) {
         // Revert balance effect
-        const { data: account, error: accError } = await supabase
-          .from('m4_fin_bank_accounts')
-          .select('balance, current_balance')
-          .eq('id', transaction.bank_account_id)
-          .eq('workspace_id', workspaceId)
-          .single();
-        
-        if (!accError && account) {
+        const account = await getAccountBalanceFields(transaction.bank_account_id, workspaceId);
+        if (account) {
           const amount = Number(transaction.amount);
           const revertedBalance = transaction.type === 'income' 
             ? Number(account.balance) - amount
             : Number(account.balance) + amount;
           
-          await supabase
-            .from('m4_fin_bank_accounts')
-            .update({ 
-              balance: revertedBalance,
-              current_balance: revertedBalance
-            })
-            .eq('id', transaction.bank_account_id)
-            .eq('workspace_id', workspaceId);
+          await updateAccountBalance(transaction.bank_account_id, workspaceId, revertedBalance);
         }
       }
 
@@ -339,7 +355,7 @@ export const financeService = {
       
       return (data || []).map(acc => ({
         ...acc,
-        balance: Number(acc.balance) || 0,
+        balance: Number(acc.balance ?? acc.current_balance) || 0,
         current_balance: Number(acc.current_balance ?? acc.balance) || 0
       }));
     } catch (error) {
@@ -363,7 +379,7 @@ export const financeService = {
       
       return (data || []).map(acc => ({
         ...acc,
-        balance: Number(acc.balance) || 0,
+        balance: Number(acc.balance ?? acc.current_balance) || 0,
         current_balance: Number(acc.current_balance ?? acc.balance) || 0
       }));
     } catch (error) {
@@ -405,8 +421,21 @@ export const financeService = {
   async createBankAccount(workspaceId: string, account: Partial<FinanceBankAccount>): Promise<FinanceBankAccount> {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      const payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
+      const hasBalanceCol = await checkBankAccountSchema();
+      let payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
       console.log('financeService.createBankAccount: Payload:', payload);
+      
+      if (!hasBalanceCol) {
+        // Safe mapping to fallback older schema
+        const { name, type, current_balance, is_active, workspace_id } = payload;
+        payload = {
+          name,
+          type,
+          current_balance: current_balance !== undefined ? current_balance : 0,
+          is_active,
+          workspace_id
+        };
+      }
       
       const { data, error } = await supabase
         .from('m4_fin_bank_accounts')
@@ -420,7 +449,11 @@ export const financeService = {
       }
       
       console.log('financeService.createBankAccount: Success:', data);
-      return data;
+      return {
+        ...data,
+        balance: Number(data.balance ?? data.current_balance) || 0,
+        current_balance: Number(data.current_balance ?? data.balance) || 0
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'm4_fin_bank_accounts');
       throw error;
@@ -430,7 +463,20 @@ export const financeService = {
   async updateBankAccount(id: string, account: Partial<FinanceBankAccount>, workspaceId: string): Promise<FinanceBankAccount> {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
-      const payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
+      const hasBalanceCol = await checkBankAccountSchema();
+      let payload = mappers.bankAccount({ ...account, workspace_id: workspaceId });
+      
+      if (!hasBalanceCol) {
+        const { name, type, current_balance, is_active, workspace_id } = payload;
+        payload = {
+          name,
+          type,
+          current_balance,
+          is_active,
+          workspace_id
+        };
+      }
+
       const { data, error } = await supabase
         .from('m4_fin_bank_accounts')
         .update(payload)
@@ -440,7 +486,11 @@ export const financeService = {
         .single();
 
       if (error) throw error;
-      return data;
+      return {
+        ...data,
+        balance: Number(data.balance ?? data.current_balance) || 0,
+        current_balance: Number(data.current_balance ?? data.balance) || 0
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'm4_fin_bank_accounts');
       throw error;

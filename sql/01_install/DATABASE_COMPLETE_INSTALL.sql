@@ -479,10 +479,18 @@ CREATE TABLE IF NOT EXISTS public.m4_fin_bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id UUID REFERENCES public.m4_workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    bank TEXT,
     type fin_bank_account_type DEFAULT 'checking',
-    current_balance NUMERIC DEFAULT 0,
+    initial_balance NUMERIC DEFAULT 0,
+    initial_balance_date DATE DEFAULT CURRENT_DATE,
+    color TEXT,
+    icon TEXT,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now()
+    currency TEXT DEFAULT 'BRL',
+    balance NUMERIC DEFAULT 0,
+    current_balance NUMERIC DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.m4_fin_transactions (
