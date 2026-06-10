@@ -302,7 +302,15 @@ const App: React.FC = () => {
         updatePayload.stage = targetStageId;
       }
 
-      if (status === 'lost') {
+      if (status === 'won') {
+        const existingCustomFields = lead.custom_fields || {};
+        updatePayload.custom_fields = {
+          ...existingCustomFields,
+          won_at: new Date().toISOString(),
+          lost_at: null,
+          loss_reason: null
+        };
+      } else if (status === 'lost') {
         const existingCustomFields = lead.custom_fields || {};
         updatePayload.custom_fields = {
           ...existingCustomFields,

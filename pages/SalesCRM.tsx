@@ -326,6 +326,32 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     }
   }, [selectedLeadId, leads]);
 
+  // Keep selectedLead in sync with the latest data in the leads stream to avoid stale views
+  useEffect(() => {
+    if (selectedLead) {
+      const latest = leads.find(l => l.id === selectedLead.id);
+      if (latest) {
+        // Only trigger set state if some values have actually mutated to avoid unnecessary renders
+        if (
+          latest.stage !== selectedLead.stage ||
+          latest.status !== selectedLead.status ||
+          latest.value !== selectedLead.value ||
+          latest.pipeline_id !== selectedLead.pipeline_id ||
+          JSON.stringify(latest.custom_fields) !== JSON.stringify(selectedLead.custom_fields) ||
+          latest.company_name !== selectedLead.company_name ||
+          latest.contact_name !== selectedLead.contact_name ||
+          latest.next_action !== selectedLead.next_action ||
+          latest.next_action_date !== selectedLead.next_action_date
+        ) {
+          setSelectedLead(latest);
+        }
+      } else {
+        // Closed if it was deleted
+        setSelectedLead(null);
+      }
+    }
+  }, [leads, selectedLead?.id]);
+
   useEffect(() => {
     if (selectedLead === null && selectedLeadId && setSelectedLeadId) {
       setSelectedLeadId(null);

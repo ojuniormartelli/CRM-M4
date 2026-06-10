@@ -88,6 +88,19 @@ export const taskService = {
       const createdTask = data as Task;
       automationService.processEvent(workspaceId, 'task', 'task_created', {}, createdTask);
       
+      // Se a tarefa foi criada como concluída e está vinculada a um lead, atualiza last_activity_at do lead
+      if (createdTask.status === 'Concluído' && createdTask.lead_id) {
+        try {
+          await supabase
+            .from('m4_leads')
+            .update({ last_activity_at: new Date().toISOString() })
+            .eq('id', createdTask.lead_id)
+            .eq('workspace_id', workspaceId);
+        } catch (err) {
+          console.error('Erro ao atualizar last_activity_at do lead ao criar tarefa concluída:', err);
+        }
+      }
+      
       return createdTask;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'm4_tasks');
@@ -127,6 +140,19 @@ export const taskService = {
             from_status: currentTask.status,
             to_status: updatedTask.status
           }, updatedTask);
+
+          // Se a tarefa foi concluída e está vinculada a um lead, atualiza o last_activity_at do lead
+          if (task.status === 'Concluído' && updatedTask.lead_id) {
+            try {
+              await supabase
+                .from('m4_leads')
+                .update({ last_activity_at: new Date().toISOString() })
+                .eq('id', updatedTask.lead_id)
+                .eq('workspace_id', workspaceId);
+            } catch (err) {
+              console.error('Erro ao atualizar last_activity_at do lead ao concluir tarefa:', err);
+            }
+          }
         }
       }
       

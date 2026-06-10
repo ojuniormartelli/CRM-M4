@@ -91,6 +91,25 @@ const Dashboard: React.FC<DashboardProps> = ({
   });
   const [currentGoal, setCurrentGoal] = useState<Goal | null>(null);
   const [operationalClients, setOperationalClients] = useState<any[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchInteractions = async () => {
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId) return;
+      try {
+        const { data, error } = await supabase
+          .from('m4_interactions')
+          .select('*')
+          .eq('workspace_id', workspaceId);
+        if (error) throw error;
+        setInteractions(data || []);
+      } catch (err) {
+        console.error('Erro ao buscar interações para calculo de velocity:', err);
+      }
+    };
+    fetchInteractions();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchCurrentGoal = async () => {
@@ -162,7 +181,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Use centralized metrics with filtered data
   const metrics = useMemo(() => metricsUtils.calculateMetrics(filteredLeads, tasks, filteredPipelines), [filteredLeads, tasks, filteredPipelines]);
   const comparison = useMemo(() => metricsUtils.getMonthlyComparison(filteredLeads, filteredPipelines), [filteredLeads, filteredPipelines]);
-  const velocityScore = useMemo(() => metricsUtils.getVelocityScore(filteredLeads, filteredPipelines), [filteredLeads, filteredPipelines]);
+  const velocityMetrics = useMemo(() => {
+    return metricsUtils.getDetailedVelocityScore(filteredLeads, filteredPipelines, operationalClients, interactions);
+  }, [filteredLeads, filteredPipelines, operationalClients, interactions]);
   const churnRate = useMemo(() => metricsUtils.getChurnRate(operationalClients), [operationalClients]);
 
   const formatChange = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(0)}%`;
@@ -223,12 +244,27 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <StatCard title="Leads Ativos" value={metrics.activeLeads} change={formatChange(comparison.leadsChange)} icon={ICONS.Sales} color="blue" />
         <StatCard title="Ticket Médio" value={`R$ ${metrics.averageTicket.toLocaleString()}`} change="0%" icon={ICONS.TrendingUp} color="indigo" />
         <StatCard title="Fechado (Mês)" value={`R$ ${metrics.closedRevenue.toLocaleString()}`} change={formatChange(comparison.revenueChange)} icon={ICONS.Plus} color="emerald" />
         <StatCard title="Taxa Conversão" value={`${metrics.conversionRate.toFixed(1)}%`} change="0%" icon={ICONS.Automation} color="amber" />
-        <StatCard title="Velocity" value={`${velocityScore} dias`} change="—" icon={ICONS.Clock} color="purple" />
+        <StatCard 
+          title="Velocity (Ganho)" 
+          value={velocityMetrics.wonDays !== null ? `${velocityMetrics.wonDays} dias` : 'Sem dados'} 
+          change="—" 
+          icon={ICONS.Clock} 
+          color="purple" 
+          tooltip={`Tempo ciclo comercial médio: dias decorridos entre a criação do lead e o fechamento como Ganho (Won). Exclui onboarding e dados inconsistentes.\n\n[Diagnóstico de Auditoria]\n• leads considerados comercial: ${velocityMetrics.audit.totalLeadsParsed - velocityMetrics.audit.excludedNotCommercial}\n• computados (comercial ganho): ${velocityMetrics.wonCount}\n• restaurados retroativamente (backfilled): ${velocityMetrics.audit.backfilledWonCount || 0}\n• excluídos (onboarding/operação): ${velocityMetrics.audit.excludedNotCommercial}\n• excluídos (leads em aberto): ${velocityMetrics.audit.excludedNotTerminal}\n• excluídos (sem won_at ou inconsistência): ${velocityMetrics.audit.excludedInvalidDates + velocityMetrics.audit.excludedNegativeGap}`}
+        />
+        <StatCard 
+          title="Velocity (Perda)" 
+          value={velocityMetrics.lostDays !== null ? `${velocityMetrics.lostDays} dias` : 'Sem dados'} 
+          change="—" 
+          icon={ICONS.Clock} 
+          color="rose" 
+          tooltip={`Tempo ciclo comercial médio: dias decorridos entre a criação do lead e o fechamento como Perdido (Lost). Exclui onboarding e dados inconsistentes.\n\n[Diagnóstico de Auditoria]\n• leads considerados comercial: ${velocityMetrics.audit.totalLeadsParsed - velocityMetrics.audit.excludedNotCommercial}\n• computados (comercial perdido): ${velocityMetrics.lostCount}\n• restaurados retroativamente (backfilled): ${velocityMetrics.audit.backfilledLostCount || 0}\n• excluídos (onboarding/operação): ${velocityMetrics.audit.excludedNotCommercial}\n• excluídos (leads em aberto): ${velocityMetrics.audit.excludedNotTerminal}\n• excluídos (sem lost_at ou inconsistência): ${velocityMetrics.audit.excludedInvalidDates + velocityMetrics.audit.excludedNegativeGap}`}
+        />
         <StatCard title="Churn Rate" value={`${churnRate.toFixed(1)}%`} change="—" icon={ICONS.X} color="red" tooltip="Churn = clientes cancelados / (ativos + cancelados)" />
       </div>
 

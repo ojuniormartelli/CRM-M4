@@ -35,6 +35,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({
   const [visibleCount, setVisibleCount] = useState<number>(5);
   const [users, setUsers] = useState<User[]>([]);
   const [localClients, setLocalClients] = useState<any[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
 
   // Fetch users for responsible name mapping
   React.useEffect(() => {
@@ -42,6 +43,16 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({
       if (data) setUsers(data);
     });
   }, []);
+
+  // Fetch interactions for more accurate inactivity alerts
+  React.useEffect(() => {
+    const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+    if (workspaceId) {
+      supabase.from('m4_interactions').select('*').eq('workspace_id', workspaceId).then(({ data }) => {
+        if (data) setInteractions(data);
+      });
+    }
+  }, [currentUser]);
 
   // Soft fallback for clients
   React.useEffect(() => {
@@ -59,7 +70,8 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({
     pipelines, 
     currentUser, 
     activeClients, 
-    users
+    users,
+    interactions
   );
 
   const getActiveList = (): AlertItem[] => {

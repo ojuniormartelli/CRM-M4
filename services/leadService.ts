@@ -100,6 +100,7 @@ export const leadService = {
       if (fetchError) throw fetchError;
       
       const payload = mappers.lead(lead);
+      payload.last_activity_at = new Date().toISOString();
 
       const { data, error } = await supabase
         .from('m4_leads')
@@ -167,7 +168,7 @@ export const leadService = {
 
       if (fetchError) throw fetchError;
 
-      const updatePayload: any = { status };
+      const updatePayload: any = { status, last_activity_at: new Date().toISOString() };
       if (stageId) {
         updatePayload.stage_id = stageId;
       }

@@ -118,6 +118,90 @@ const classifyIntoFourWindows = (itemDate: Date, today: Date): 'atrasado' | 'hoj
   }
 };
 
+/**
+ * Calculates the most recent relevant commercial activity date of a lead based on:
+ * - lead.last_activity_at
+ * - lead.updated_at
+ * - Related completed/created tasks or meetings
+ * - Related timeline/CRM interactions
+ * 
+ * Returns a Date object representing the most recent relevant activity.
+ */
+export const getLeadLastRelevantActivityAt = (
+  lead: Lead,
+  interactions?: any[],
+  tasks?: Task[],
+  history?: any[],
+  meetings?: any[]
+): Date => {
+  const dates: Date[] = [];
+
+  // 1. From lead itself (last_activity_at and updated_at)
+  if (lead.last_activity_at) {
+    const d = new Date(lead.last_activity_at);
+    if (!isNaN(d.getTime())) dates.push(d);
+  }
+  if ((lead as any).updated_at) {
+    const d = new Date((lead as any).updated_at);
+    if (!isNaN(d.getTime())) dates.push(d);
+  }
+
+  // 2. From tasks linked to this lead (concluded or created)
+  if (tasks && tasks.length > 0) {
+    const leadTasks = tasks.filter(t => t.lead_id === lead.id);
+    leadTasks.forEach(t => {
+      if (t.created_at) {
+        const d = new Date(t.created_at);
+        if (!isNaN(d.getTime())) dates.push(d);
+      }
+      if ((t as any).updated_at) {
+        const d = new Date((t as any).updated_at);
+        if (!isNaN(d.getTime())) dates.push(d);
+      }
+      // Concluded task due date or updated date is highly relevant activity
+      if (t.status === 'Concluído' && t.due_date) {
+        const d = new Date(t.due_date);
+        if (!isNaN(d.getTime())) dates.push(d);
+      }
+    });
+  }
+
+  // 3. From interactions, history, meetings lists (matching lead or client id)
+  const otherLists = [
+    { list: interactions, fields: ['created_at', 'updated_at', 'date'] },
+    { list: history, fields: ['created_at', 'updated_at', 'date'] },
+    { list: meetings, fields: ['created_at', 'date', 'due_date', 'interaction_date'] }
+  ];
+
+  otherLists.forEach(({ list, fields }) => {
+    if (list && list.length > 0) {
+      const matched = list.filter(item => item.lead_id === lead.id || item.client_id === lead.id);
+      matched.forEach(item => {
+        fields.forEach(f => {
+          if (item[f]) {
+            const d = new Date(item[f]);
+            if (!isNaN(d.getTime())) dates.push(d);
+          }
+        });
+      });
+    }
+  });
+
+  // Fallback to lead.created_at ONLY if zero active registers exist.
+  // We prioritize any actual active trace over created_at.
+  if (dates.length === 0 && lead.created_at) {
+    const d = new Date(lead.created_at);
+    if (!isNaN(d.getTime())) dates.push(d);
+  }
+
+  // Absolute fallback
+  if (dates.length === 0) {
+    return new Date();
+  }
+
+  return new Date(Math.max(...dates.map(d => d.getTime())));
+};
+
 export const alertsUtils = {
   getHotLeadsWithoutAction: (leads: Lead[], pipelines: Pipeline[]) => {
     const today = new Date().toISOString().split('T')[0];
@@ -159,9 +243,7 @@ export const alertsUtils = {
 
     return leads.filter(l => {
       if (!metricsUtils.isActiveLead(l, pipelines)) return false;
-      const lastActivity = l.last_activity_at 
-        ? new Date(l.last_activity_at) 
-        : new Date(l.created_at);
+      const lastActivity = getLeadLastRelevantActivityAt(l, [], []);
       return lastActivity < cutoffDate;
     });
   },
@@ -173,7 +255,8 @@ export const alertsUtils = {
     pipelines: Pipeline[], 
     currentUser: User | null, 
     clients?: any[], 
-    users?: User[]
+    users?: User[],
+    interactions?: any[]
   ) => {
     const hoje: AlertItem[] = [];
     const estaSemana: AlertItem[] = [];
@@ -186,6 +269,29 @@ export const alertsUtils = {
     const todayStr = today.toISOString().split('T')[0];
     const safeClients = clients || [];
     const safeUsers = users || [];
+
+    // Helper: Verify if lead is an active commercial sales lead and not an onboarding/ops derived record
+    const isCommercialLead = (l: Lead, pps: Pipeline[]): boolean => {
+      if (l.origin_lead_id) return false;
+      const pipeline = pps.find(p => p.id === l.pipeline_id);
+      if (pipeline) {
+        const nameLower = pipeline.name.toLowerCase();
+        if (
+          nameLower.includes('onboarding') || 
+          nameLower.includes('operação') || 
+          nameLower.includes('operações') || 
+          nameLower.includes('operacao') || 
+          nameLower.includes('operacoes') || 
+          nameLower.includes('pós-venda') || 
+          nameLower.includes('pos-venda') || 
+          nameLower.includes('entrega') || 
+          nameLower.includes('sucesso')
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
     
     // 1. Process tasks & meetings
     const userPendingTasks = tasks.filter(t => 
@@ -278,7 +384,9 @@ export const alertsUtils = {
     // 2. Process Leads follow-up (next_action_date)
     const userActiveLeads = leads.filter(l => 
       l.responsible_id === currentUser.id &&
-      metricsUtils.isActiveLead(l, pipelines)
+      isCommercialLead(l, pipelines) &&
+      metricsUtils.isActiveLead(l, pipelines) &&
+      !safeClients.some(c => (c.company_id && c.company_id === l.company_id) || (c.lead_id && c.lead_id === l.id))
     );
     
     userActiveLeads.forEach(l => {
@@ -330,9 +438,11 @@ export const alertsUtils = {
     // 3a. User's hot leads without scheduled action today -> Put in Hoje
     const userHotLeadsNoAction = leads.filter(l =>
       l.responsible_id === currentUser.id &&
+      isCommercialLead(l, pipelines) &&
       l.temperature === 'Quente' &&
       l.next_action_date !== todayStr &&
-      metricsUtils.isActiveLead(l, pipelines)
+      metricsUtils.isActiveLead(l, pipelines) &&
+      !safeClients.some(c => (c.company_id && c.company_id === l.company_id) || (c.lead_id && c.lead_id === l.id))
     );
     
     userHotLeadsNoAction.forEach(l => {
@@ -356,7 +466,8 @@ export const alertsUtils = {
     
     // 3b. User's deals closing soon -> Map to classified group
     const userClosingSoon = leads.filter(l => {
-      if (l.responsible_id !== currentUser.id || !l.closing_forecast || !metricsUtils.isActiveLead(l, pipelines)) return false;
+      if (l.responsible_id !== currentUser.id || !l.closing_forecast || !isCommercialLead(l, pipelines) || !metricsUtils.isActiveLead(l, pipelines)) return false;
+      if (safeClients.some(c => (c.company_id && c.company_id === l.company_id) || (c.lead_id && c.lead_id === l.id))) return false;
       const forecastDate = parseToMiddayLocal(l.closing_forecast);
       if (!forecastDate) return false;
       const classification = classifyIntoFourWindows(forecastDate, today);
@@ -383,33 +494,36 @@ export const alertsUtils = {
         dateTimeStr: formatDateToReadable(forecastDate),
         entityId: l.id
       };
-
-      if (classification === 'hoje') {
-        hoje.push(alert);
-      } else if (classification === 'esta_semana') {
-        estaSemana.push(alert);
-      } else if (classification === 'proxima_semana' || classification === 'futuro') {
-        proximaSemana.push(alert);
-      }
-    });
-    
-    // 3c. User's inactive leads > 30 days -> Put in Geral/Atrasados
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 30);
-    
-    const userInactiveLeads = leads.filter(l => {
-      if (l.responsible_id !== currentUser.id || !metricsUtils.isActiveLead(l, pipelines)) return false;
-      const lastActivity = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-      return lastActivity < cutoffDate;
-    });
+ 
+       if (classification === 'hoje') {
+         hoje.push(alert);
+       } else if (classification === 'esta_semana') {
+         estaSemana.push(alert);
+       } else if (classification === 'proxima_semana' || classification === 'futuro') {
+         proximaSemana.push(alert);
+       }
+     });
+     
+     // 3c. User's inactive leads > 30 days -> Put in Geral/Atrasados
+     const cutoffDate = new Date();
+     cutoffDate.setDate(cutoffDate.getDate() - 30);
+     
+     const userInactiveLeads = leads.filter(l => {
+       if (l.responsible_id !== currentUser.id || !isCommercialLead(l, pipelines) || !metricsUtils.isActiveLead(l, pipelines)) return false;
+       if (safeClients.some(c => (c.company_id && c.company_id === l.company_id) || (c.lead_id && c.lead_id === l.id))) return false;
+       const lastActivity = getLeadLastRelevantActivityAt(l, interactions, tasks);
+       return lastActivity < cutoffDate;
+     });
     
     userInactiveLeads.forEach(l => {
+      const lastActivity = getLeadLastRelevantActivityAt(l, interactions, tasks);
+      const daysDiff = Math.max(30, Math.floor((new Date().getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)));
       geralAtrasados.push({
         id: `inactive-lead-${l.id}`,
         type: 'inactive_lead',
         title: l.company_name || l.contact_name || 'Lead sem nome',
         subtitle: 'Reativação: Mais de 30 dias inativo',
-        description: 'Sem histórico de interações registradas no CRM há mais de 30 dias. Readeqüe o contato comercial.',
+        description: `Sem histórico de interações registradas no CRM há ${daysDiff} dias. Readeqüe o contato comercial.`,
         date: 'Pendente',
         priority: 'Média',
         status: 'atrasado',
@@ -417,7 +531,7 @@ export const alertsUtils = {
         meta: { id: l.id },
         module: 'Comercial',
         responsibleName: l.responsible_name || currentUser.name || 'Eu',
-        dateTimeStr: 'Há mais de 30 dias',
+        dateTimeStr: `Há ${daysDiff} dias`,
         entityId: l.id
       });
     });
