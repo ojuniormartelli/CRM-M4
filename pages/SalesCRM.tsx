@@ -284,6 +284,204 @@ const isRecurrentService = (name: string): boolean => {
   );
 };
 
+interface LeadFinancialServiceBlockProps {
+  servicesCatalog: Service[];
+  selectedConfigs: ClientServiceContract[];
+  onChange: (newConfigs: ClientServiceContract[]) => void;
+}
+
+const LeadFinancialServiceBlock: React.FC<LeadFinancialServiceBlockProps> = ({
+  servicesCatalog = [],
+  selectedConfigs = [],
+  onChange
+}) => {
+  const handleCheckboxChange = (s: Service) => {
+    const isChecked = selectedConfigs.some(item => item.name === s.name);
+    let updatedConfigs = [...selectedConfigs];
+    
+    if (isChecked) {
+      updatedConfigs = updatedConfigs.filter(item => item.name !== s.name);
+    } else {
+      const recurrent = isRecurrentService(s.name);
+      const base_price_val = Number(s.default_price) || 0;
+      updatedConfigs.push({
+        name: s.name,
+        price: base_price_val,
+        billing_type: recurrent ? "recorrente" : "parcelado",
+        installments: recurrent ? 1 : 3,
+        installment_value: recurrent ? 0 : Math.round((base_price_val / 3) * 105) / 100, // standard calculation
+        include_in_monthly: true,
+        active: true,
+        base_price: base_price_val,
+        custom_price: undefined,
+        use_custom_price: false
+      });
+    }
+    onChange(updatedConfigs);
+  };
+
+  const handleTypeChange = (idx: number, billing_type: 'recorrente' | 'parcelado') => {
+    const newConfigs = [...selectedConfigs];
+    const config = newConfigs[idx];
+    const isRecurrent = billing_type === 'recorrente';
+    newConfigs[idx] = {
+      ...config,
+      billing_type,
+      installments: isRecurrent ? 1 : 3,
+      installment_value: isRecurrent ? 0 : Math.round((config.price / 3) * 100) / 100
+    };
+    onChange(newConfigs);
+  };
+
+  const handlePriceChange = (idx: number, val: number) => {
+    const newConfigs = [...selectedConfigs];
+    const config = newConfigs[idx];
+    newConfigs[idx] = {
+      ...config,
+      price: val,
+      custom_price: val,
+      use_custom_price: true,
+      installment_value: config.billing_type === 'parcelado' ? Math.round((val / (config.installments || 3)) * 100) / 100 : 0
+    };
+    onChange(newConfigs);
+  };
+
+  const handleInstallmentsChange = (idx: number, val: number) => {
+    const newConfigs = [...selectedConfigs];
+    const config = newConfigs[idx];
+    const sanitVal = Math.max(1, val);
+    newConfigs[idx] = {
+      ...config,
+      installments: sanitVal,
+      installment_value: Math.round((config.price / sanitVal) * 100) / 100
+    };
+    onChange(newConfigs);
+  };
+
+  const recSum = selectedConfigs
+    .filter(c => c.billing_type === 'recorrente')
+    .reduce((sum, c) => sum + (c.price || 0), 0);
+
+  const insSum = selectedConfigs
+    .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
+    .reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+
+  const totalMonthly = recSum + insSum;
+
+  return (
+    <div className="space-y-6">
+      {/* Services selector checklists */}
+      <div className="space-y-3 pb-3">
+        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block ml-1">Serviços Propostos</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {servicesCatalog.map(s => {
+            const isChecked = selectedConfigs.some(item => item.name === s.name);
+            return (
+              <label 
+                key={s.id || s.name} 
+                className={`flex items-center gap-3 p-4 border rounded-2xl cursor-pointer hover:bg-muted/50 transition-all select-none ${
+                  isChecked ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/20"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => handleCheckboxChange(s)}
+                  className="rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <p className="text-xs font-black text-foreground uppercase tracking-tight leading-none mb-1">{s.name}</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">R$ {s.default_price?.toLocaleString('pt-BR') || '0,00'}</p>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pricing custom configuration tables */}
+      {selectedConfigs.length > 0 && (
+        <div className="space-y-4 p-5 bg-muted/25 rounded-3xl border border-border/60">
+          <h5 className="text-[10px] font-black text-foreground uppercase tracking-wider mb-2">Configuração Avançada de Preços</h5>
+          
+          <div className="space-y-3">
+            {selectedConfigs.map((config, idx) => {
+              const isRecurrent = config.billing_type === 'recorrente';
+              return (
+                <div key={config.name + idx} className="p-4 bg-card border border-border rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-4 shadow-sm">
+                  <div className="space-y-1">
+                    <span className="text-xs font-black text-foreground uppercase tracking-tight">{config.name}</span>
+                    <div className="flex gap-2 mt-1.5 text-[9px] font-black">
+                      <button
+                        type="button"
+                        onClick={() => handleTypeChange(idx, 'recorrente')}
+                        className={`px-2 py-1 rounded-lg ${isRecurrent ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        🔁 RECORRENTE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTypeChange(idx, 'parcelado')}
+                        className={`px-2 py-1 rounded-lg ${!isRecurrent ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        📅 PARCELADO
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-28 space-y-1">
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Preço Acordado (R$)</span>
+                      <input
+                        type="number"
+                        value={config.price || ''}
+                        onChange={e => handlePriceChange(idx, Number(e.target.value))}
+                        className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
+                        placeholder="0"
+                      />
+                    </div>
+                    {!isRecurrent && (
+                      <div className="w-20 space-y-1">
+                        <span className="text-[9px] font-black uppercase text-muted-foreground block">Parcelas</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={config.installments || 3}
+                          onChange={e => handleInstallmentsChange(idx, Number(e.target.value))}
+                          className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Consolidated financial summary Section C */}
+          <div className="space-y-4 pt-1">
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Seção C — Resumo Financeiro Consolidado</span>
+            <div className="p-5 bg-primary/5 rounded-2xl border border-primary/20 space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase">
+                <span>Mensal Recorrente (Recorrência)</span>
+                <span className="text-foreground">R$ {recSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase border-b border-border pb-2">
+                <span>Parcelas Ativas Projetadas</span>
+                <span className="text-foreground">R$ {insSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-baseline pt-1">
+                <span className="text-xs font-black text-foreground uppercase tracking-tight">Mensalidade Atual Estimada</span>
+                <span className="text-lg font-black text-primary">R$ {totalMonthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SalesCRM: React.FC<SalesCRMProps> = ({ 
   pipelines, 
   setPipelines,
@@ -489,32 +687,48 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           return true; // we handled this!
         } else {
           // Pre-fill fields
-          // Prefill services
-          let leadServices: string[] = [];
-          if (Array.isArray(lead.services) && lead.services.length > 0) {
-            leadServices = [...lead.services];
-          } else if (lead.service_type) {
-            leadServices.push(lead.service_type);
+          // Prefill services with custom configurations
+          let initialConfigs: ClientServiceContract[] = [];
+          if (lead.services && lead.services.length > 0) {
+            initialConfigs = servicesUtils.parseClientServices(lead.services, services);
           }
 
-          // Pre-fill initial service configurations
-          const initialConfigs: ClientServiceContract[] = leadServices.map(srvName => {
-            const matchedCatalog = services.find(s => s.name?.toLowerCase() === srvName?.toLowerCase());
-            const defaultPrice = matchedCatalog ? Number(matchedCatalog.default_price) : 0;
-            const recurrent = isRecurrentService(srvName);
-            return {
-              name: srvName,
-              price: defaultPrice,
-              billing_type: recurrent ? 'recorrente' : 'parcelado',
-              installments: recurrent ? 1 : 3,
-              installment_value: recurrent ? 0 : Math.round((defaultPrice / 3) * 100) / 100,
-              include_in_monthly: true,
-              active: true,
-              base_price: defaultPrice,
-              custom_price: undefined,
-              use_custom_price: false
-            };
-          });
+          if (initialConfigs.length === 0) {
+            let leadServices: string[] = [];
+            if (Array.isArray(lead.services) && lead.services.length > 0) {
+              leadServices = [...lead.services];
+            } else if (lead.service_type) {
+              leadServices.push(lead.service_type);
+            }
+
+            initialConfigs = leadServices.map(srvName => {
+              // Handle JSON or plain string
+              if (srvName && srvName.trim().startsWith('{')) {
+                try {
+                  const p = JSON.parse(srvName);
+                  if (p.name) return p;
+                } catch(e) {}
+              }
+              const matchedCatalog = services.find(s => s.name?.toLowerCase() === srvName?.toLowerCase());
+              const defaultPrice = matchedCatalog ? Number(matchedCatalog.default_price) : 0;
+              const recurrent = isRecurrentService(srvName);
+              return {
+                name: srvName,
+                price: defaultPrice,
+                billing_type: recurrent ? 'recorrente' : 'parcelado',
+                installments: recurrent ? 1 : 3,
+                installment_value: recurrent ? 0 : Math.round((defaultPrice / 3) * 100) / 100,
+                include_in_monthly: true,
+                active: true,
+                base_price: defaultPrice,
+                custom_price: undefined,
+                use_custom_price: false
+              } as ClientServiceContract;
+            });
+          }
+
+          // Build leadServices as names array for legacy fields
+          const leadServices = initialConfigs.map(c => c.name);
 
           // Calculate initial totals
           const initialRecurrentSum = initialConfigs
@@ -560,8 +774,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
             contact_linkedin: lead.contact_linkedin || '',
             contact_notes: lead.contact_notes || '',
             // Deal business fields
-            value: lead.value || 0,
-            proposed_ticket: lead.proposed_ticket || 0,
+            value: calculatedValue > 0 ? calculatedValue : (lead.value || 0),
+            proposed_ticket: calculatedValue > 0 ? calculatedValue : (lead.proposed_ticket || 0),
             source: lead.source || '',
             campaign: lead.campaign || '',
             closing_forecast: lead.closing_forecast || '',
@@ -627,7 +841,9 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       ...onboardingConversion,
       services_configs: processedConfigs,
       services: serviceNames,
-      monthly_value: Number(totalCurrentValue.toFixed(2))
+      monthly_value: Number(totalCurrentValue.toFixed(2)),
+      value: Number(totalCurrentValue.toFixed(2)),
+      proposed_ticket: Number(totalCurrentValue.toFixed(2))
     });
   };
 
@@ -1071,12 +1287,16 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
         probability: selectedLead.probability || 0,
         business_notes: selectedLead.business_notes || '',
         custom_fields: selectedLead.custom_fields || {},
+        services: selectedLead.services || [],
       });
+      const parsed = servicesUtils.parseClientServices(selectedLead.services || [], services);
+      setEditServicesConfigs(parsed);
       setIsEditingLead(false);
     } else {
       setIsEditingLead(false);
+      setEditServicesConfigs([]);
     }
-  }, [selectedLead]);
+  }, [selectedLead, services]);
 
   const handleSaveLeadDetails = async () => {
     if (!selectedLead) return;
@@ -1215,6 +1435,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     responsible_id: currentUser?.id || '',
     status: 'active'
   });
+  const [creationServicesConfigs, setCreationServicesConfigs] = useState<ClientServiceContract[]>([]);
+  const [editServicesConfigs, setEditServicesConfigs] = useState<ClientServiceContract[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
@@ -1585,6 +1807,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setCreationServicesConfigs([]);
     setNewLead({ 
       company_name: '',
       company_cnpj: '',
@@ -1641,6 +1864,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
       const createdLead = await leadService.create(leadData, currentUser?.workspace_id || '');
       setLeads([...leads, createdLead]);
       setIsModalOpen(false);
+      setCreationServicesConfigs([]);
       setNewLead({ 
         company_name: '',
         company_cnpj: '',
@@ -2409,18 +2633,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Valor Estimado (R$)</label>
-                        <input type="number" value={newLead.value || 0} onChange={e => setNewLead({...newLead, value: Number(e.target.value)})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="0" />
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Campanha / Origem</label>
                         <input value={newLead.campaign || ''} onChange={e => setNewLead({...newLead, campaign: e.target.value})} className="w-full p-4 bg-muted rounded-2xl border-none font-bold text-foreground" placeholder="Ex: Tráfego Ads" />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-6">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável Comercial</label>
                         <select 
@@ -2434,6 +2651,26 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    {/* Bloco Unificado de Serviços e Condições Financeiras */}
+                    <div className="border-t border-border/40 pt-6">
+                      <LeadFinancialServiceBlock
+                        servicesCatalog={services}
+                        selectedConfigs={creationServicesConfigs}
+                        onChange={(configs) => {
+                          setCreationServicesConfigs(configs);
+                          const recSum = configs.filter(c => c.billing_type === 'recorrente').reduce((sum, c) => sum + (c.price || 0), 0);
+                          const insSum = configs.filter(c => c.billing_type === 'parcelado' && c.include_in_monthly).reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+                          const total = recSum + insSum;
+                          setNewLead(prev => ({
+                            ...prev,
+                            value: total,
+                            proposed_ticket: total,
+                            services: servicesUtils.serializeClientServices(configs)
+                          }));
+                        }}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -2906,40 +3143,53 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                           )}
                         </div>
 
-                        {/* Section A.3: Dados Comerciais / Marketing */}
+                        {/* Section A.3: Proposta Comercial / Serviços */}
                         <div className="space-y-3">
                           <div className="flex items-center gap-1.5 border-b border-border/40 pb-1 cursor-default">
                             <Clock className="w-3.5 h-3.5 text-primary" />
-                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">3. Negócio & Operação</h5>
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-[0.1em]">3. Proposta & Serviços</h5>
                           </div>
+                          
+                          {/* List of services and consolidated value */}
+                          {(() => {
+                            const configs = servicesUtils.parseClientServices(selectedLead.services || [], services);
+                            const recSum = configs.filter(c => c.billing_type === 'recorrente').reduce((sum, c) => sum + (c.price || 0), 0);
+                            const insSum = configs.filter(c => c.billing_type === 'parcelado' && c.include_in_monthly).reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+                            const total = recSum + insSum;
+
+                            return (
+                              <div className="space-y-2">
+                                {configs.length === 0 ? (
+                                  <p className="text-[10px] font-bold text-muted-foreground/60 italic p-3 text-center border border-dashed border-border/20 rounded-2xl bg-muted/5">
+                                    Nenhum serviço ou proposta financeira unificada configurada para este Lead.
+                                  </p>
+                                ) : (
+                                  <div className="p-3 bg-muted/20 border border-border/50 rounded-2xl space-y-2">
+                                    {configs.map((c, idx) => (
+                                      <div key={idx} className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-foreground max-w-[60%] truncate uppercase text-[10px]">{c.name}</span>
+                                        <div className="text-right">
+                                          <span className="font-black text-foreground">R$ {c.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                          <span className="text-[8px] text-muted-foreground block uppercase font-bold">
+                                            {c.billing_type === 'recorrente' ? '🔁 recorrente' : `📅 parcelado (${c.installments}x)`}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    <div className="pt-2 border-t border-border/40 flex justify-between items-baseline">
+                                      <span className="text-[10px] font-black text-muted-foreground uppercase">Mensalidade Estimada</span>
+                                      <span className="text-sm font-black text-primary">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Remaining meaningful fields */}
                           <div className="grid grid-cols-2 gap-2.5">
-                            {renderField(
-                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
-                              'Valor do Negócio', 
-                              selectedLead.value ? `R$ ${Number(selectedLead.value).toLocaleString('pt-BR')}` : undefined, 
-                              'Não definido'
-                            )}
-                            {renderField(
-                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
-                              'Ticket Proposto', 
-                              selectedLead.proposed_ticket ? `R$ ${Number(selectedLead.proposed_ticket).toLocaleString('pt-BR')}` : undefined, 
-                              'Não definido'
-                            )}
                             {renderField(<ArrowRight className="w-3.5 h-3.5 text-foreground/50" />, 'Origem do Lead', selectedLead.source, 'Busca Orgânica')}
                             {renderField(<Sparkles className="w-3.5 h-3.5 text-foreground/50" />, 'Campanha', selectedLead.campaign, 'Sem campanha')}
-                            {renderField(<Calendar className="w-3.5 h-3.5 text-foreground/50" />, 'Previsão de Fechamento', selectedLead.closing_forecast, 'Sem prazo acordado')}
-                            {renderField(
-                              <Clock className="w-3.5 h-3.5 text-foreground/50" />, 
-                              'Temperatura', 
-                              selectedLead.temperature, 
-                              'Frio'
-                            )}
-                            {renderField(
-                              <Percent className="w-3.5 h-3.5 text-foreground/50" />, 
-                              'Probabilidade %', 
-                              selectedLead.probability ? `${selectedLead.probability}%` : undefined, 
-                              'Sem probabilidade'
-                            )}
                             {renderField(
                               <Users className="w-3.5 h-3.5 text-foreground/50" />, 
                               'Responsável Comercial', 
@@ -3204,27 +3454,24 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                             <h5 className="text-[10px] font-black text-foreground uppercase tracking-widest font-sans">3. Detalhes Técnicos & Comerciais</h5>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Valor do Negócio (R$)</label>
-                              <input 
-                                type="number" 
-                                value={editLeadData.value || 0} 
-                                onChange={e => setEditLeadData({...editLeadData, value: Number(e.target.value)})}
-                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Ticket Proposto (R$)</label>
-                              <input 
-                                type="number" 
-                                value={editLeadData.proposed_ticket || 0} 
-                                onChange={e => setEditLeadData({...editLeadData, proposed_ticket: Number(e.target.value)})}
-                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
-                                placeholder="0.00"
-                              />
-                            </div>
+                          {/* Bloco Unificado de Proposta/Serviços */}
+                          <div className="bg-card p-4 rounded-2xl border border-border/60">
+                            <LeadFinancialServiceBlock
+                              servicesCatalog={services}
+                              selectedConfigs={editServicesConfigs}
+                              onChange={(configs) => {
+                                setEditServicesConfigs(configs);
+                                const recSum = configs.filter(c => c.billing_type === 'recorrente').reduce((sum, c) => sum + (c.price || 0), 0);
+                                const insSum = configs.filter(c => c.billing_type === 'parcelado' && c.include_in_monthly).reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+                                const total = recSum + insSum;
+                                setEditLeadData(prev => ({
+                                  ...prev,
+                                  value: total,
+                                  proposed_ticket: total,
+                                  services: servicesUtils.serializeClientServices(configs)
+                                }));
+                              }}
+                            />
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
@@ -3248,48 +3495,8 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                                 placeholder="Campanha"
                               />
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Temperatura</label>
-                              <select 
-                                value={editLeadData.temperature || LeadTemperature.COLD} 
-                                onChange={e => setEditLeadData({...editLeadData, temperature: e.target.value as LeadTemperature})} 
-                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
-                              >
-                                <option value="Frio">❄️ Frio</option>
-                                <option value="Morno">🔥 Morno</option>
-                                <option value="Quente">🥵 Quente</option>
-                              </select>
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Probabilidade (%)</label>
-                              <input 
-                                type="number" 
-                                value={editLeadData.probability || 0} 
-                                onChange={e => setEditLeadData({...editLeadData, probability: Number(e.target.value)})}
-                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
-                                placeholder="0-100"
-                                min={0}
-                                max={100}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Previsão Fechamento</label>
-                              <input 
-                                type="text" 
-                                value={editLeadData.closing_forecast || ''} 
-                                onChange={e => setEditLeadData({...editLeadData, closing_forecast: e.target.value})}
-                                className="w-full bg-card border border-border p-2.5 rounded-xl font-bold text-xs text-foreground focus:outline-none"
-                                placeholder="Previsão"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Responsável</label>
+                            <div className="col-span-2 space-y-1">
+                              <label className="text-[8.5px] font-black text-muted-foreground uppercase tracking-widest ml-0.5">Responsável Comercial</label>
                               <select 
                                 value={editLeadData.responsible_id || ''} 
                                 onChange={e => setEditLeadData({...editLeadData, responsible_id: e.target.value})} 
@@ -3922,113 +4129,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                     </div>
                   </div>
 
-                  {/* 3. Negócio & Operação */}
-                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-                      <Percent className="w-4 h-4 text-rose-500" />
-                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">3. Negócio & Operação</h4>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3.5">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Valor do Negócio (R$)</label>
-                        <input
-                          type="number"
-                          value={onboardingConversion.value || 0}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, value: Number(e.target.value) })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                          placeholder="0"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Ticket Proposto (R$)</label>
-                        <input
-                          type="number"
-                          value={onboardingConversion.proposed_ticket || 0}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, proposed_ticket: Number(e.target.value) })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                          placeholder="Ex: 1500"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Origem do Lead</label>
-                        <input
-                          type="text"
-                          value={onboardingConversion.source || ''}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, source: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                          placeholder="Ex: Instagram Ads"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Campanha</label>
-                        <input
-                          type="text"
-                          value={onboardingConversion.campaign || ''}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, campaign: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                          placeholder="Ex: Black Friday 2026"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Previsão de Fechamento</label>
-                        <input
-                          type="date"
-                          value={onboardingConversion.closing_forecast || ''}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, closing_forecast: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 font-sans">Temperatura</label>
-                        <select
-                          value={onboardingConversion.temperature || 'Frio'}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, temperature: e.target.value })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none cursor-pointer"
-                        >
-                          <option value="Frio">❄️ Frio</option>
-                          <option value="Morno">🔥 Morno</option>
-                          <option value="Quente">⚡ Quente</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Probabilidade (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={onboardingConversion.probability || 0}
-                          onChange={e => setOnboardingConversion({ ...onboardingConversion, probability: Number(e.target.value) })}
-                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Responsável Comercial</label>
-                        <select
-                          value={onboardingConversion.lead.responsible_id || ''}
-                          disabled={true}
-                          className="w-full bg-muted/20 border border-border/40 rounded-xl p-3 text-xs font-bold text-muted-foreground cursor-not-allowed focus:outline-none"
-                        >
-                          <option value="">
-                            {users.find(u => u.id === onboardingConversion.lead.responsible_id)?.name || 'Sem responsável comercial'}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4. Campos Dinâmicos / Importados */}
+                  {/* 3. Campos Dinâmicos & Importados */}
                   <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b border-border/40">
                       <Sparkles className="w-4 h-4 text-rose-500" />
-                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">4. Campos Dinâmicos & Importados</h4>
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">3. Campos Dinâmicos & Importados</h4>
                     </div>
 
                     {Object.keys(onboardingConversion.custom_fields || {}).filter(k => k !== 'nome_fantasia' && k !== 'loss_reason').length === 0 ? (
@@ -4083,202 +4188,83 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                       <h4 className="text-xs font-black text-primary uppercase tracking-wider">Seção B — Serviços e Condições Financeiras</h4>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mt-1.5">
-                      {services.map(s => {
-                        const isChecked = (onboardingConversion.services_configs || []).some(item => item.name === s.name);
-                        return (
-                          <label 
-                            key={s.id || s.name} 
-                            className={`flex items-center gap-3 p-4 border rounded-2xl cursor-pointer hover:bg-muted/50 transition-all select-none ${
-                              isChecked ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/20"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                let updatedConfigs = onboardingConversion.services_configs || [];
-                                if (isChecked) {
-                                  updatedConfigs = updatedConfigs.filter(item => item.name !== s.name);
-                                } else {
-                                  const recurrent = isRecurrentService(s.name);
-                                  const base_price_val = Number(s.default_price) || 0;
-                                  updatedConfigs = [
-                                    ...updatedConfigs,
-                                    {
-                                      name: s.name,
-                                      price: base_price_val,
-                                      billing_type: recurrent ? "recorrente" : "parcelado",
-                                      installments: recurrent ? 1 : 3,
-                                      installment_value: recurrent ? 0 : Math.round((base_price_val / 3) * 100) / 100,
-                                      include_in_monthly: true,
-                                      active: true,
-                                      base_price: base_price_val,
-                                      custom_price: undefined,
-                                      use_custom_price: false
-                                    }
-                                  ];
-                                }
-                                updateServicesConfigsAndCalculations(updatedConfigs);
-                              }}
-                              className="rounded text-primary focus:ring-primary w-4 h-4"
-                            />
-                            <div>
-                              <p className="text-xs font-black text-foreground uppercase tracking-tight leading-none mb-1">{s.name}</p>
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase">R$ {s.default_price?.toLocaleString('pt-BR') || '0,00'}</p>
-                            </div>
-                          </label>
-                        );
-                      })}
+                    <div className="mt-3">
+                      <LeadFinancialServiceBlock
+                        servicesCatalog={services}
+                        selectedConfigs={onboardingConversion.services_configs || []}
+                        onChange={(configs) => {
+                          updateServicesConfigsAndCalculations(configs);
+                        }}
+                      />
                     </div>
                   </div>
 
-                  {/* Advanced Settings for Custom Pricing */}
-                  {onboardingConversion.services_configs && onboardingConversion.services_configs.length > 0 && (
-                    <div className="space-y-4 p-5 bg-muted/25 rounded-3xl border border-border/60">
-                      <h5 className="text-[10px] font-black text-foreground uppercase tracking-wider mb-2">Configuração Avançada de Preços</h5>
-                      
-                      <div className="space-y-3">
-                        {onboardingConversion.services_configs.map((config, idx) => {
-                          const isRecurrent = config.billing_type === 'recorrente';
-                          return (
-                            <div key={config.name + idx} className="p-4 bg-card border border-border rounded-2xl flex flex-col md:flex-row justify-between md:items-center gap-4 shadow-sm">
-                              <div className="space-y-1">
-                                <span className="text-xs font-black text-foreground uppercase tracking-tight">{config.name}</span>
-                                <div className="flex gap-2 mt-1.5 text-[9px] font-black">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newConfigs = [...onboardingConversion.services_configs!];
-                                      newConfigs[idx] = { ...config, billing_type: 'recorrente', installments: 1, installment_value: 0 };
-                                      updateServicesConfigsAndCalculations(newConfigs);
-                                    }}
-                                    className={`px-2 py-1 rounded-lg ${isRecurrent ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground'}`}
-                                  >
-                                    🔁 RECORRENTE
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newConfigs = [...onboardingConversion.services_configs!];
-                                      newConfigs[idx] = { ...config, billing_type: 'parcelado', installments: 3, installment_value: Math.round((config.price / 3) * 100) / 100 };
-                                      updateServicesConfigsAndCalculations(newConfigs);
-                                    }}
-                                    className={`px-2 py-1 rounded-lg ${!isRecurrent ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-muted text-muted-foreground'}`}
-                                  >
-                                    📅 PARCELADO
-                                  </button>
-                                </div>
-                              </div>
+                  {/* Atribuição & Parâmetros Operacionais */}
+                  <div className="bg-muted/10 p-6 border border-border/60 rounded-[1.8rem] space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                      <LayoutGrid className="w-4 h-4 text-primary" />
+                      <h4 className="text-xs font-black text-foreground uppercase tracking-wider">Vínculo Operacional & Origem Comercial</h4>
+                    </div>
 
-                              <div className="flex items-center gap-3">
-                                <div className="w-28 space-y-1">
-                                  <span className="text-[9px] font-black uppercase text-muted-foreground block">Preço Acordado (R$)</span>
-                                  <input
-                                    type="number"
-                                    value={config.price || ''}
-                                    onChange={e => {
-                                      const val = Number(e.target.value);
-                                      const newConfigs = [...onboardingConversion.services_configs!];
-                                      newConfigs[idx] = {
-                                        ...config,
-                                        price: val,
-                                        custom_price: val,
-                                        use_custom_price: true,
-                                        installment_value: config.billing_type === 'parcelado' ? Math.round((val / (config.installments || 3)) * 100) / 100 : 0
-                                      };
-                                      updateServicesConfigsAndCalculations(newConfigs);
-                                    }}
-                                    className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                {!isRecurrent && (
-                                  <div className="w-20 space-y-1">
-                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Parcelas</span>
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      value={config.installments || 3}
-                                      onChange={e => {
-                                        const val = Math.max(1, Number(e.target.value));
-                                        const newConfigs = [...onboardingConversion.services_configs!];
-                                        newConfigs[idx] = {
-                                          ...config,
-                                          installments: val,
-                                          installment_value: Math.round((config.price / val) * 100) / 100
-                                        };
-                                        updateServicesConfigsAndCalculations(newConfigs);
-                                      }}
-                                      className="w-full bg-muted border-0 rounded-lg p-2 text-xs font-bold text-foreground"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Início das Operações</label>
+                        <input
+                          type="date"
+                          value={onboardingConversion.contract_start_date}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, contract_start_date: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                        />
                       </div>
 
-                      {/* Seção C — Resumo Financeiro Consolidado */}
-                      {(() => {
-                        const recSum = onboardingConversion.services_configs!
-                          .filter(c => c.billing_type === 'recorrente')
-                          .reduce((sum, c) => sum + (c.price || 0), 0);
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Gestor de Sucesso (CS/Operação)</label>
+                        <select
+                          value={onboardingConversion.manager_id || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, manager_id: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground cursor-pointer focus:outline-none"
+                        >
+                          <option value="">Selecione um Gestor</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                        const insSum = onboardingConversion.services_configs!
-                          .filter(c => c.billing_type === 'parcelado' && c.include_in_monthly)
-                          .reduce((sum, c) => sum + (c.installments && c.installments > 0 ? ((c.price || 0) / c.installments) : 0), 0);
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Origem do Lead</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.source || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, source: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="Ex: Instagram Ads"
+                        />
+                      </div>
 
-                        const totCurrent = recSum + insSum;
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Campanha de Origem</label>
+                        <input
+                          type="text"
+                          value={onboardingConversion.campaign || ''}
+                          onChange={e => setOnboardingConversion({ ...onboardingConversion, campaign: e.target.value })}
+                          className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                          placeholder="Ex: Black Friday 2026"
+                        />
+                      </div>
 
-                        return (
-                          <div className="space-y-4 pt-1">
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Seção C — Resumo Financeiro Consolidado</span>
-                            <div className="p-5 bg-primary/5 rounded-2xl border border-primary/20 space-y-3">
-                              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase">
-                                <span>Mensal Recorrente (Recorrência)</span>
-                                <span className="text-foreground">R$ {recSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase border-b border-border pb-2">
-                                <span>Parcelas Ativas Projetadas</span>
-                                <span className="text-foreground">R$ {insSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-baseline pt-1">
-                                <span className="text-xs font-black text-foreground uppercase tracking-tight">Mensalidade Atual Estimada</span>
-                                <span className="text-lg font-black text-primary">R$ {totCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Parâmetros Operacionais */}
-                  <div className="grid grid-cols-2 gap-4 p-5 bg-muted/15 rounded-3xl border border-border/50">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Início das Operações</label>
-                      <input
-                        type="date"
-                        value={onboardingConversion.contract_start_date}
-                        onChange={e => setOnboardingConversion({ ...onboardingConversion, contract_start_date: e.target.value })}
-                        className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase pl-1 block">Gestor de Sucesso (CS/Operação)</label>
-                      <select
-                        value={onboardingConversion.manager_id || ''}
-                        onChange={e => setOnboardingConversion({ ...onboardingConversion, manager_id: e.target.value })}
-                        className="w-full bg-card border border-border rounded-xl p-3 text-xs font-bold text-foreground cursor-pointer focus:outline-none"
-                      >
-                        <option value="">Selecione um Gestor</option>
-                        {users.map(u => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase pl-1">Responsável Comercial (Origem)</label>
+                        <select
+                          value={onboardingConversion.lead.responsible_id || ''}
+                          disabled={true}
+                          className="w-full bg-muted/20 border border-border/40 rounded-xl p-3 text-xs font-bold text-muted-foreground cursor-not-allowed focus:outline-none"
+                        >
+                          <option value="">
+                            {users.find(u => u.id === onboardingConversion.lead.responsible_id)?.name || 'Sem responsável comercial'}
+                          </option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
