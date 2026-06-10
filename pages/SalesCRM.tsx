@@ -1193,7 +1193,8 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
               status: 'Concluído',
               created_at: act.created_at,
               interaction_success: act.success !== false,
-              task_type: 'commercial'
+              task_type: 'commercial',
+              is_legacy_interaction: true
             } as any);
           });
         }
@@ -1331,6 +1332,112 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [interactions, setInteractions] = useState<Task[]>([]);
+  const [selectedInteractiveItem, setSelectedInteractiveItem] = useState<(Task & { is_legacy_interaction?: boolean }) | null>(null);
+
+  const formatDateTimeLocal = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const handleSaveInteractiveItem = async () => {
+    if (!selectedInteractiveItem || !workspaceId) return;
+    setIsSyncing(true);
+    try {
+      if (selectedInteractiveItem.is_legacy_interaction) {
+        const { error } = await supabase
+          .from('m4_interactions')
+          .update({
+            title: selectedInteractiveItem.title,
+            note: selectedInteractiveItem.description,
+            content: selectedInteractiveItem.description,
+            type: selectedInteractiveItem.type,
+            created_at: selectedInteractiveItem.due_date ? new Date(selectedInteractiveItem.due_date).toISOString() : selectedInteractiveItem.created_at
+          })
+          .eq('id', selectedInteractiveItem.id);
+
+        if (error) throw error;
+      } else {
+        const payload = mappers.task({
+          title: selectedInteractiveItem.title,
+          description: selectedInteractiveItem.description,
+          status: selectedInteractiveItem.status,
+          priority: selectedInteractiveItem.priority,
+          type: selectedInteractiveItem.type,
+          due_date: selectedInteractiveItem.due_date ? new Date(selectedInteractiveItem.due_date).toISOString() : null
+        }, workspaceId);
+
+        const { error } = await supabase
+          .from('m4_tasks')
+          .update(payload)
+          .eq('id', selectedInteractiveItem.id);
+
+        if (error) throw error;
+
+        setTasks(prev => prev.map(t => t.id === selectedInteractiveItem.id ? { ...t, ...selectedInteractiveItem } : t));
+      }
+
+      setInteractions(prev => prev.map(item => item.id === selectedInteractiveItem.id ? { ...item, ...selectedInteractiveItem } : item));
+
+      showToast('Atividade atualizada com sucesso');
+      setSelectedInteractiveItem(null);
+    } catch (error: any) {
+      console.error('Error updating activity:', error);
+      showToast(error.message || 'Erro ao atualizar atividade', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteInteractiveItem = async () => {
+    if (!selectedInteractiveItem) return;
+    
+    if (!window.confirm('Tem certeza de que deseja excluir esta atividade permanentemente?')) {
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      if (selectedInteractiveItem.is_legacy_interaction) {
+        const { error } = await supabase
+          .from('m4_interactions')
+          .delete()
+          .eq('id', selectedInteractiveItem.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('m4_tasks')
+          .delete()
+          .eq('id', selectedInteractiveItem.id);
+
+        if (error) throw error;
+
+        setTasks(prev => prev.filter(t => t.id !== selectedInteractiveItem.id));
+      }
+
+      setInteractions(prev => prev.filter(item => item.id !== selectedInteractiveItem.id));
+
+      showToast('Atividade excluída com sucesso');
+      setSelectedInteractiveItem(null);
+    } catch (error: any) {
+      console.error('Error deleting activity:', error);
+      showToast(error.message || 'Erro ao excluir atividade', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const [interactionNote, setInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<Interaction['type']>('WhatsApp');
   const [interactionSuccess, setInteractionSuccess] = useState(true);
@@ -1613,6 +1720,10 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
           setIsWonModalOpen(false);
           return;
         }
+        if (selectedInteractiveItem) {
+          setSelectedInteractiveItem(null);
+          return;
+        }
         if (isNewTaskModalOpen) {
           setIsNewTaskModalOpen(false);
           return;
@@ -1647,6 +1758,7 @@ const SalesCRM: React.FC<SalesCRMProps> = ({
     isLostModalOpen,
     isWonModalOpen,
     isNewTaskModalOpen,
+    selectedInteractiveItem,
     isStageConfigModalOpen,
     isPipelineModalOpen,
     isModalOpen,
@@ -3666,7 +3778,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                               </div>
                             ) : (
                               interactions.map(item => (
-                                <div key={item.id} className="p-3 bg-card border border-border/50 rounded-xl shadow-xs hover:border-primary/30 transition-all">
+                                <div 
+                                  key={item.id} 
+                                  onClick={() => setSelectedInteractiveItem(item)}
+                                  className="p-3 bg-card border border-border/50 rounded-xl shadow-xs hover:border-primary/30 transition-all cursor-pointer hover:bg-muted/15"
+                                >
                                   <div className="flex justify-between items-start gap-2">
                                     <span className="text-[8.5px] font-black uppercase text-primary tracking-widest">{item.title}</span>
                                     <span className="text-[8px] font-bold text-muted-foreground">{item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</span>
@@ -3705,7 +3821,11 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
                               </div>
                             ) : (
                               tasks.filter(t => t.lead_id === selectedLead.id).map(t => (
-                                <div key={t.id} className="p-3 bg-card border border-border/50 rounded-xl flex justify-between items-center shadow-xs">
+                                <div 
+                                  key={t.id} 
+                                  onClick={() => setSelectedInteractiveItem(t)}
+                                  className="p-3 bg-card border border-border/50 rounded-xl flex justify-between items-center shadow-xs cursor-pointer hover:border-primary/30 hover:bg-muted/15 transition-all"
+                                >
                                   <span className="text-xs font-semibold text-foreground/85 pr-2">{t.title}</span>
                                   <span className="text-[8.5px] font-black uppercase bg-muted px-2 py-0.5 rounded text-muted-foreground shrink-0">{t.status}</span>
                                 </div>
@@ -4277,6 +4397,131 @@ Retorne APENAS um objeto JSON válido com: name (nome do contato), company (nome
               <div className="flex gap-3">
                 <button onClick={() => handleSaveConversion(false)} className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase transition-all">Apenas Salvar</button>
                 <button onClick={() => handleSaveConversion(true)} className="px-5 py-3 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase hover:opacity-90 transition-all shadow-md shadow-primary/10">Salvar e Abrir Cliente</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. Atividade popup edit modal */}
+      {selectedInteractiveItem && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-lg rounded-[2.5rem] p-8 border border-border shadow-2xl animate-zoom-in-95 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Editar Atividade / Tarefa</h3>
+              <button 
+                onClick={() => setSelectedInteractiveItem(null)} 
+                className="p-2.5 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Título</label>
+                <input 
+                  type="text" 
+                  value={selectedInteractiveItem.title || ''} 
+                  onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, title: e.target.value})}
+                  className="w-full bg-muted/60 border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none"
+                  placeholder="Título da atividade"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Descrição / Anotação</label>
+                <textarea 
+                  rows={4}
+                  value={selectedInteractiveItem.description || ''} 
+                  onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, description: e.target.value})}
+                  className="w-full bg-muted/60 border border-border rounded-xl p-3 text-xs font-bold text-foreground focus:outline-none resize-none"
+                  placeholder="Conteúdo detalhado..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Tipo</label>
+                  <select 
+                    value={selectedInteractiveItem.type || 'task'} 
+                    onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, type: e.target.value as any})}
+                    className="w-full bg-muted/60 border border-border p-3 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
+                  >
+                    <option value="task">📝 Tarefa / Follow-up</option>
+                    <option value="call">📞 Ligação</option>
+                    <option value="WhatsApp">💬 WhatsApp</option>
+                    <option value="meeting">🤝 Reunião</option>
+                    <option value="email">📧 E-mail</option>
+                    <option value="proposal">📄 Proposta</option>
+                    <option value="other">🔮 Outro</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Prazo / Realização</label>
+                  <input 
+                    type="datetime-local" 
+                    value={formatDateTimeLocal(selectedInteractiveItem.due_date || selectedInteractiveItem.created_at)} 
+                    onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, due_date: e.target.value})}
+                    className="w-full bg-muted/60 border border-border p-3 rounded-xl font-bold text-xs text-foreground focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {!selectedInteractiveItem.is_legacy_interaction && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Status</label>
+                    <select 
+                      value={selectedInteractiveItem.status || 'Pendente'} 
+                      onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, status: e.target.value})}
+                      className="w-full bg-muted/60 border border-border p-3 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
+                    >
+                      <option value="Pendente">⏳ Pendente</option>
+                      <option value="Em Execução">🏃 Em Execução</option>
+                      <option value="Revisão">🧐 Revisão</option>
+                      <option value="Concluído">✅ Concluído</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block ml-0.5">Prioridade</label>
+                    <select 
+                      value={selectedInteractiveItem.priority || Priority.MEDIUM} 
+                      onChange={e => setSelectedInteractiveItem({...selectedInteractiveItem, priority: e.target.value as any})}
+                      className="w-full bg-muted/60 border border-border p-3 rounded-xl font-bold text-xs text-foreground focus:outline-none cursor-pointer"
+                    >
+                      <option value="Baixa">🟢 Baixa</option>
+                      <option value="Média">🟡 Média</option>
+                      <option value="Alta">🟠 Alta</option>
+                      <option value="Urgente">🔴 Urgente</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center gap-3 mt-6 pt-4 border-t border-border shrink-0">
+              <button 
+                onClick={handleDeleteInteractiveItem}
+                className="px-5 py-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" /> Excluir
+              </button>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setSelectedInteractiveItem(null)} 
+                  className="px-5 py-3.5 bg-muted hover:bg-muted/80 text-muted-foreground rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveInteractiveItem}
+                  className="px-5 py-3.5 bg-primary hover:opacity-90 text-primary-foreground rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Salvar
+                </button>
               </div>
             </div>
           </div>

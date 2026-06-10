@@ -12,6 +12,9 @@ export interface ClientServiceContract {
   base_price?: number;
   custom_price?: number;
   use_custom_price?: boolean;
+  due_day?: number;
+  bank_account_id?: string;
+  category_id?: string;
 }
 
 export const servicesUtils = {
@@ -57,7 +60,10 @@ export const servicesUtils = {
               paid_installments: parsed.paid_installments || 0,
               base_price: bPrice,
               custom_price: cPrice,
-              use_custom_price: useCustom
+              use_custom_price: useCustom,
+              due_day: parsed.due_day !== undefined ? Number(parsed.due_day) : undefined,
+              bank_account_id: parsed.bank_account_id || undefined,
+              category_id: parsed.category_id || undefined
             };
           }
         } catch (e) {
@@ -78,7 +84,10 @@ export const servicesUtils = {
         paid_installments: 0,
         base_price: defaultCatalogPrice,
         custom_price: undefined,
-        use_custom_price: false
+        use_custom_price: false,
+        due_day: undefined,
+        bank_account_id: undefined,
+        category_id: undefined
       };
     }).filter(Boolean) as ClientServiceContract[];
   },
@@ -101,7 +110,10 @@ export const servicesUtils = {
       paid_installments: c.paid_installments || 0,
       base_price: c.base_price !== undefined ? Number(c.base_price) : undefined,
       custom_price: c.custom_price !== undefined ? Number(c.custom_price) : undefined,
-      use_custom_price: c.use_custom_price !== undefined ? !!c.use_custom_price : false
+      use_custom_price: c.use_custom_price !== undefined ? !!c.use_custom_price : false,
+      due_day: c.due_day !== undefined ? Number(c.due_day) : undefined,
+      bank_account_id: c.bank_account_id || undefined,
+      category_id: c.category_id || undefined
     }));
   }
 };

@@ -38,8 +38,11 @@ import {
   BarChart3,
   LineChart,
   CreditCard,
-  RefreshCcw
+  RefreshCcw,
+  Calendar,
+  CheckCheck
 } from 'lucide-react';
+import { servicesUtils } from '../utils/services';
 
 // Sub-components
 import FinanceDashboard from '../components/finance/FinanceDashboard';
@@ -82,6 +85,17 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
   const [activeSettingsTab, setActiveSettingsTab] = useState<FinanceSettingsTab>('categories');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Advanced Financial Filter States
+  const [filterPeriod, setFilterPeriod] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [filterAccountId, setFilterAccountId] = useState('all');
+  const [filterCategoryId, setFilterCategoryId] = useState('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(true);
+  const [isSyncingContracts, setIsSyncingContracts] = useState(false);
   
   // Modal States
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
@@ -280,11 +294,251 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
   }, [transactions, bankAccounts]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => 
-      (t.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (t.category?.name?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    );
-  }, [transactions, searchQuery]);
+    let list = [...transactions];
+
+    // 1. Text Search query
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(t => 
+        (t.description?.toLowerCase() || '').includes(q) ||
+        (t.category?.name?.toLowerCase() || '').includes(q) ||
+        (t.bank_account?.name?.toLowerCase() || '').includes(q) ||
+        (t.notes?.toLowerCase() || '').includes(q)
+      );
+    }
+
+    // 2. Type Filter
+    if (filterType !== 'all') {
+      list = list.filter(t => t.type === filterType);
+    }
+
+    // 3. Status Filter
+    if (filterStatus !== 'all') {
+      list = list.filter(t => t.status === filterStatus);
+    }
+
+    // 4. Bank Account Filter
+    if (filterAccountId !== 'all') {
+      list = list.filter(t => t.bank_account_id === filterAccountId);
+    }
+
+    // 5. Category Filter
+    if (filterCategoryId !== 'all') {
+      list = list.filter(t => t.category_id === filterCategoryId);
+    }
+
+    // 6. Time Period Filter
+    const now = new Date();
+    
+    // Clear hours for today comparison
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    if (filterPeriod === 'today') {
+      list = list.filter(t => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + 'T12:00:00');
+        return d >= startOfToday && d <= endOfToday;
+      });
+    } else if (filterPeriod === 'week') {
+      // Find Sunday of this week
+      const currentDay = now.getDay();
+      const startOfWeek = new Date(startOfToday.getTime() - currentDay * 24 * 60 * 60 * 1000);
+      const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+      
+      list = list.filter(t => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + 'T12:00:00');
+        return d >= startOfWeek && d <= endOfWeek;
+      });
+    } else if (filterPeriod === 'month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      list = list.filter(t => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + 'T12:00:00');
+        return d >= startOfMonth && d <= endOfMonth;
+      });
+    } else if (filterPeriod === 'custom') {
+      if (filterStartDate) {
+        const sd = new Date(`${filterStartDate}T00:00:00`);
+        list = list.filter(t => t.due_date ? new Date(t.due_date + 'T12:00:00') >= sd : false);
+      }
+      if (filterEndDate) {
+        const ed = new Date(`${filterEndDate}T23:59:59`);
+        list = list.filter(t => t.due_date ? new Date(t.due_date + 'T12:00:00') <= ed : false);
+      }
+    }
+
+    // Sort newer due dates first
+    return list.sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+  }, [
+    transactions, 
+    searchQuery, 
+    filterType, 
+    filterStatus, 
+    filterAccountId, 
+    filterCategoryId, 
+    filterPeriod, 
+    filterStartDate, 
+    filterEndDate
+  ]);
+
+  const handleSyncContracts = async () => {
+    setIsSyncingContracts(true);
+    try {
+      const workspaceId = currentUser?.workspace_id || localStorage.getItem('m4_crm_workspace_id');
+      if (!workspaceId || !isUUID(workspaceId)) {
+        alert('Workspace ID inválido para sincronização.');
+        return;
+      }
+
+      // 1. Fetch active client accounts (contracts)
+      const { data: activeAccounts, error: accountsErr } = await supabase
+        .from('m4_client_accounts')
+        .select('*, company:m4_companies(name)')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'ativo');
+
+      if (accountsErr) throw accountsErr;
+      if (!activeAccounts || activeAccounts.length === 0) {
+        alert('Nenhum contrato ativo (Contas Contratadas) encontrado no sistema para sincronizar.');
+        return;
+      }
+
+      // 2. Fetch active banks & categories
+      const { data: activeBanks, error: banksErr } = await supabase
+        .from('m4_fin_bank_accounts')
+        .select('*')
+        .eq('is_active', true);
+
+      const { data: activeCats, error: catsErr } = await supabase
+        .from('m4_fin_categories')
+        .select('*')
+        .eq('type', 'income')
+        .eq('is_active', true);
+
+      // 3. Fetch existing transactions to deduplicate
+      const accountIds = activeAccounts.map(a => a.id);
+      const { data: existingTx, error: txError } = await supabase
+        .from('m4_fin_transactions')
+        .select('*')
+        .in('client_account_id', accountIds);
+
+      if (txError) throw txError;
+
+      const listToInsert: any[] = [];
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1; // 1-12
+
+      // Find default category preferably containing "Mensalidade" or "Serviço"
+      const defaultCategory = (activeCats || []).find(c => 
+        c.name.toLowerCase().includes('mensalidade') || 
+        c.name.toLowerCase().includes('serviço') ||
+        c.name.toLowerCase().includes('receita')
+      ) || (activeCats && activeCats.length > 0 ? activeCats[0] : null);
+
+      const defaultBank = activeBanks && activeBanks.length > 0 ? activeBanks[0].id : null;
+
+      // 4. Generate records
+      for (const account of activeAccounts) {
+        const price = Number(account.monthly_value) || 0;
+        if (price <= 0) continue;
+
+        const defaultBankId = defaultBank;
+        const defaultCatId = defaultCategory?.id || null;
+
+        if (account.billing_model === 'recorrente' || !account.billing_model) {
+          const dueDay = account.due_day || 5;
+          const dueMonthStr = String(currentMonth).padStart(2, '0');
+          const dueDateStr = `${currentYear}-${dueMonthStr}-${String(dueDay).padStart(2, '0')}`;
+
+          const alreadyExists = (existingTx || []).some(tx => {
+            if (!tx.due_date) return false;
+            const txDate = new Date(tx.due_date);
+            const txYear = txDate.getFullYear();
+            const txMonth = txDate.getMonth() + 1;
+            return tx.client_account_id === account.id && 
+                   txYear === currentYear &&
+                   txMonth === currentMonth;
+          });
+
+          if (!alreadyExists) {
+            listToInsert.push({
+              workspace_id: workspaceId,
+              description: `${account.company?.name || 'Cliente'} - Mensalidade: ${account.service_name || 'Contrato'}`,
+              amount: price,
+              type: 'income',
+              category_id: defaultCatId,
+              bank_account_id: defaultBankId,
+              status: 'pending',
+              issue_date: today.toISOString().split('T')[0],
+              due_date: dueDateStr,
+              competence_date: dueDateStr,
+              client_account_id: account.id,
+              company_id: account.company_id || null,
+              lead_id: account.lead_id || null,
+              notes: `Sincronização manual automatizada para recebimento de mensalidade.`
+            });
+          }
+        } else if (account.billing_model === 'parcelado') {
+          // In case it's a dynamic schedule, but normally it's recorrente
+          const dueDay = account.due_day || 5;
+          const dueMonthStr = String(currentMonth).padStart(2, '0');
+          const dueDateStr = `${currentYear}-${dueMonthStr}-${String(dueDay).padStart(2, '0')}`;
+
+          const alreadyExists = (existingTx || []).some(tx => {
+            if (!tx.due_date) return false;
+            const txDate = new Date(tx.due_date);
+            const txYear = txDate.getFullYear();
+            const txMonth = txDate.getMonth() + 1;
+            return tx.client_account_id === account.id &&
+                   txYear === currentYear &&
+                   txMonth === currentMonth;
+          });
+
+          if (!alreadyExists) {
+            listToInsert.push({
+              workspace_id: workspaceId,
+              description: `${account.company?.name || 'Cliente'} - Parcela: ${account.service_name || 'Contrato'}`,
+              amount: price,
+              type: 'income',
+              category_id: defaultCatId,
+              bank_account_id: defaultBankId,
+              status: 'pending',
+              issue_date: today.toISOString().split('T')[0],
+              due_date: dueDateStr,
+              competence_date: dueDateStr,
+              client_account_id: account.id,
+              company_id: account.company_id || null,
+              lead_id: account.lead_id || null,
+              notes: `Sincronização manual de parcela contratual.`
+            });
+          }
+        }
+      }
+
+      if (listToInsert.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('m4_fin_transactions')
+          .insert(listToInsert);
+
+        if (insertErr) throw insertErr;
+        alert(`Sucesso! ${listToInsert.length} novos lançamentos foram sincronizados e gerados com sucesso no Organizador Financeiro.`);
+      } else {
+        alert('Todos os contratos de suas Contas Contratadas já estão em dia e sincronizados!');
+      }
+
+      await loadData();
+    } catch (e: any) {
+      console.error('[handleSyncContracts] Error:', e);
+      alert('Erro ao sincronizar contratos: ' + (e.message || 'Erro inesperado'));
+    } finally {
+      setIsSyncingContracts(false);
+    }
+  };
 
   const handleSaveTransaction = async (data: Partial<FinanceTransaction> & { change_reason?: string }) => {
     try {
@@ -623,21 +877,155 @@ const FinanceOrganizador: React.FC<FinanceOrganizadorProps> = ({ currentUser, ac
 
         {activeTab === 'transactions' && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar lançamentos..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all w-80"
-                />
+            <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-3xs">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="relative flex-1 min-w-[280px]">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Pesquisar lançamentos por descrição, observações..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-12 pr-6 py-3 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSyncContracts}
+                    disabled={isSyncingContracts}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all cursor-pointer ${
+                      isSyncingContracts 
+                        ? 'bg-amber-550 cursor-not-allowed text-white/90' 
+                        : 'bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-100 dark:shadow-none'
+                    }`}
+                    title="Gera os lançamentos automáticos de todos os clientes com contratos cadastrados que ainda não foram gerados"
+                  >
+                    <RefreshCcw size={14} className={isSyncingContracts ? 'animate-spin' : ''} />
+                    {isSyncingContracts ? 'Sincronizando...' : '🔄 Sincronizar Contratos'}
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all cursor-pointer ${
+                      showAdvancedFilters 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 border-blue-200 dark:border-blue-800' 
+                        : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-600'
+                    }`}
+                  >
+                    <Filter size={16} />
+                    {showAdvancedFilters ? 'Ocultar Filtros' : 'Filtros Avançados'}
+                  </button>
+                </div>
               </div>
-              <button className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-all">
-                <Filter size={18} />
-                Filtros Avançados
-              </button>
+
+              {/* Advanced Filter Items */}
+              {showAdvancedFilters && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-350">
+                  
+                  {/* Period Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Período de Vencimento</label>
+                    <select
+                      value={filterPeriod}
+                      onChange={(e) => setFilterPeriod(e.target.value as any)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">📅 Todos os Períodos</option>
+                      <option value="today">☀️ Diário (Hoje)</option>
+                      <option value="week">📅 Semanal (Esta Semana)</option>
+                      <option value="month">🗓️ Mensal (Este Mês)</option>
+                      <option value="custom">⚙️ Personalizado (Datas)</option>
+                    </select>
+                  </div>
+
+                  {/* Custom Date Filters */}
+                  {filterPeriod === 'custom' && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Data Inicial</label>
+                        <input
+                          type="date"
+                          value={filterStartDate}
+                          onChange={(e) => setFilterStartDate(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Data Final</label>
+                        <input
+                          type="date"
+                          value={filterEndDate}
+                          onChange={(e) => setFilterEndDate(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Type Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Fluxo Financeiro</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value as any)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">🟢 Todos os Fluxos</option>
+                      <option value="income">📈 Receitas (+)</option>
+                      <option value="expense">📉 Despesas (-)</option>
+                    </select>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status do Lançamento</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value as any)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">🔍 Todos os Status</option>
+                      <option value="paid">✅ Pago / Recebido</option>
+                      <option value="pending">⏳ Pendente</option>
+                      <option value="overdue">🚨 Vencido</option>
+                    </select>
+                  </div>
+
+                  {/* Bank Account Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Conta Bancária</label>
+                    <select
+                      value={filterAccountId}
+                      onChange={(e) => setFilterAccountId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">🏦 Todas as Contas</option>
+                      {bankAccounts.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Categoria</label>
+                    <select
+                      value={filterCategoryId}
+                      onChange={(e) => setFilterCategoryId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">🏷️ Todas as Categorias</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
+              )}
             </div>
             <TransactionList 
               transactions={filteredTransactions} 

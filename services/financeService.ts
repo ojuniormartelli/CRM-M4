@@ -111,10 +111,11 @@ async function getAccountBalanceFields(accountId: string, workspaceId: string): 
       .eq('workspace_id', workspaceId)
       .single();
 
-    if (error || !data) return null;
+    const accountData = data as any;
+    if (error || !accountData) return null;
     
-    const current_balance = Number(data.current_balance) || 0;
-    const balance = hasBalanceCol ? (Number(data.balance) || 0) : current_balance;
+    const current_balance = Number(accountData.current_balance) || 0;
+    const balance = hasBalanceCol ? (Number(accountData.balance) || 0) : current_balance;
     return { balance, current_balance };
   } catch (err) {
     console.error('[FinanceService] getAccountBalanceFields failed:', err);
