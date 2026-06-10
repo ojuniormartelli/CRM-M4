@@ -182,10 +182,147 @@ export const financeService = {
     }
   },
 
+  async backfillClientAccounts(workspaceId: string): Promise<void> {
+    if (!workspaceId || !isUUID(workspaceId)) return;
+    try {
+      const { data: clients, error: clientsErr } = await supabase
+        .from('m4_clients')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .not('services', 'is', null);
+
+      if (clientsErr) throw clientsErr;
+      if (!clients || clients.length === 0) return;
+
+      const { data: existingAccounts, error: accountsErr } = await supabase
+        .from('m4_client_accounts')
+        .select('*')
+        .eq('workspace_id', workspaceId);
+
+      if (accountsErr) throw accountsErr;
+
+      const accountsMap = new Map<string, any>();
+      if (existingAccounts) {
+        for (const acc of existingAccounts) {
+          const key = `${acc.company_id}|${(acc.service_name || '').toLowerCase()}`;
+          accountsMap.set(key, acc);
+        }
+      }
+
+      const toInsert: any[] = [];
+
+      for (const client of clients) {
+        if (!client.services || !Array.isArray(client.services)) continue;
+
+        for (const srv of client.services) {
+          if (!srv) continue;
+          let name = '';
+          let price = 0;
+          let active = true;
+          let billingType: 'recorrente' | 'parcelado' = 'recorrente';
+          let dueDay = 5;
+          let startDate: string | null = null;
+          let notesObj: any = {};
+
+          const trimmed = srv.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (parsed && parsed.name) {
+                name = parsed.name;
+                active = parsed.active !== undefined ? !!parsed.active : true;
+                billingType = parsed.billing_type || 'recorrente';
+                dueDay = parsed.due_day || 5;
+                startDate = parsed.start_date || null;
+                
+                if (billingType === 'recorrente') {
+                  price = Number(parsed.price) || Number(parsed.custom_price) || Number(parsed.base_price) || 0;
+                } else {
+                  price = Number(parsed.installment_value) || Number(parsed.price) || 0;
+                }
+
+                notesObj = {
+                  bank_account_id: parsed.bank_account_id || null,
+                  category_id: parsed.category_id || null,
+                  installments: parsed.installments || 1,
+                  remaining_installments: parsed.remaining_installments !== undefined ? parsed.remaining_installments : (parsed.billing_type === 'parcelado' ? parsed.installments : null),
+                  current_installment: parsed.paid_installments ? parsed.paid_installments + 1 : 1,
+                };
+              }
+            } catch (e) {
+              name = trimmed;
+              price = 0;
+            }
+          } else {
+            name = trimmed;
+            price = 0;
+          }
+
+          if (!name) continue;
+
+          const key = `${client.company_id}|${name.toLowerCase()}`;
+          const existingAcc = accountsMap.get(key);
+
+          const statusVal = active ? 'ativo' : 'cancelado';
+          const payload = {
+            workspace_id: workspaceId,
+            company_id: client.company_id,
+            lead_id: client.lead_id || null,
+            service_name: name,
+            service_type: 'custom',
+            monthly_value: price,
+            due_day: dueDay,
+            status: statusVal,
+            start_date: startDate,
+            billing_model: billingType,
+            notes: JSON.stringify(notesObj),
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingAcc) {
+            const accountNotesStr = JSON.stringify(notesObj);
+            const needsUpdate = 
+              existingAcc.status !== statusVal ||
+              Number(existingAcc.monthly_value) !== price ||
+              existingAcc.due_day !== dueDay ||
+              existingAcc.billing_model !== billingType ||
+              existingAcc.start_date !== startDate ||
+              existingAcc.notes !== accountNotesStr;
+
+            if (needsUpdate) {
+              await supabase
+                .from('m4_client_accounts')
+                .update(payload)
+                .eq('id', existingAcc.id);
+            }
+          } else {
+            toInsert.push({
+              ...payload,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('m4_client_accounts')
+          .insert(toInsert);
+
+        if (insertErr) throw insertErr;
+      }
+    } catch (err) {
+      console.error('[backfillClientAccounts] Error:', err);
+    }
+  },
+
   async syncContracts(workspaceId: string): Promise<{ createdCount: number }> {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
 
     try {
+      // Run backfill for existing client records first to ensure they exist on accounts
+      await financeService.backfillClientAccounts(workspaceId);
+
       // 1. Fetch active client accounts (contracts)
       const { data: activeAccounts, error: accountsErr } = await supabase
         .from('m4_client_accounts')
