@@ -1,6 +1,7 @@
 
 import { supabase } from '../lib/supabase';
 import { mappers, isUUID } from '../lib/mappers';
+import { servicesUtils } from '../utils/services';
 import { 
   FinanceTransaction, 
   FinanceCategory, 
@@ -184,16 +185,31 @@ export const financeService = {
 
   async backfillClientAccounts(workspaceId: string): Promise<void> {
     if (!workspaceId || !isUUID(workspaceId)) return;
+    console.log('[backfillClientAccounts] Starting client accounts backfill for workspace:', workspaceId);
     try {
+      // 1. Fetch clients with services
       const { data: clients, error: clientsErr } = await supabase
         .from('m4_clients')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .not('services', 'is', null);
+        .not('services', 'is', null)
+        .is('deleted_at', null);
 
       if (clientsErr) throw clientsErr;
-      if (!clients || clients.length === 0) return;
+      if (!clients || clients.length === 0) {
+        console.log('[backfillClientAccounts] No clients found with services configuration.');
+        return;
+      }
 
+      // 2. Fetch services catalog for correct default price resolution
+      const { data: servicesCatalog, error: catalogErr } = await supabase
+        .from('m4_services')
+        .select('*');
+      if (catalogErr) {
+        console.warn('[backfillClientAccounts] Error fetching services catalog. Continuing with empty list:', catalogErr);
+      }
+
+      // 3. Fetch existing accounts on m4_client_accounts for workspace
       const { data: existingAccounts, error: accountsErr } = await supabase
         .from('m4_client_accounts')
         .select('*')
@@ -201,6 +217,7 @@ export const financeService = {
 
       if (accountsErr) throw accountsErr;
 
+      // Group accounts by company to track active contract service names
       const accountsMap = new Map<string, any>();
       if (existingAccounts) {
         for (const acc of existingAccounts) {
@@ -210,92 +227,69 @@ export const financeService = {
       }
 
       const toInsert: any[] = [];
+      const activeKeys = new Set<string>(); // Key format: 'company_id|service_name'
 
+      // 4. Process each client and parse contracts
       for (const client of clients) {
+        if (!client.company_id) continue;
         if (!client.services || !Array.isArray(client.services)) continue;
 
-        for (const srv of client.services) {
-          if (!srv) continue;
-          let name = '';
-          let price = 0;
-          let active = true;
-          let billingType: 'recorrente' | 'parcelado' = 'recorrente';
-          let dueDay = 5;
-          let startDate: string | null = null;
-          let notesObj: any = {};
+        const parsedContracts = servicesUtils.parseClientServices(client.services, servicesCatalog || []);
 
-          const trimmed = srv.trim();
-          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (parsed && parsed.name) {
-                name = parsed.name;
-                active = parsed.active !== undefined ? !!parsed.active : true;
-                billingType = parsed.billing_type || 'recorrente';
-                dueDay = parsed.due_day || 5;
-                startDate = parsed.start_date || null;
-                
-                if (billingType === 'recorrente') {
-                  price = Number(parsed.price) || Number(parsed.custom_price) || Number(parsed.base_price) || 0;
-                } else {
-                  price = Number(parsed.installment_value) || Number(parsed.price) || 0;
-                }
+        for (const contract of parsedContracts) {
+          if (!contract || !contract.name) continue;
 
-                notesObj = {
-                  bank_account_id: parsed.bank_account_id || null,
-                  category_id: parsed.category_id || null,
-                  installments: parsed.installments || 1,
-                  remaining_installments: parsed.remaining_installments !== undefined ? parsed.remaining_installments : (parsed.billing_type === 'parcelado' ? parsed.installments : null),
-                  current_installment: parsed.paid_installments ? parsed.paid_installments + 1 : 1,
-                };
-              }
-            } catch (e) {
-              name = trimmed;
-              price = 0;
-            }
-          } else {
-            name = trimmed;
-            price = 0;
-          }
+          const key = `${client.company_id}|${contract.name.toLowerCase()}`;
+          activeKeys.add(key);
 
-          if (!name) continue;
+          const notesObj = {
+            bank_account_id: contract.bank_account_id || null,
+            category_id: contract.category_id || null,
+            installments: contract.billing_type === 'parcelado' ? (contract.installments || 1) : null,
+            remaining_installments: contract.billing_type === 'parcelado' ? (contract.remaining_installments ?? contract.installments ?? 1) : null,
+            current_installment: contract.paid_installments ? contract.paid_installments + 1 : 1,
+          };
+          const notesStr = JSON.stringify(notesObj);
+          const price = Number(contract.price) || 0;
+          const statusVal = contract.active !== false ? 'ativo' : 'cancelado';
 
-          const key = `${client.company_id}|${name.toLowerCase()}`;
-          const existingAcc = accountsMap.get(key);
-
-          const statusVal = active ? 'ativo' : 'cancelado';
           const payload = {
             workspace_id: workspaceId,
             company_id: client.company_id,
             lead_id: client.lead_id || null,
-            service_name: name,
+            service_name: contract.name,
             service_type: 'custom',
             monthly_value: price,
-            due_day: dueDay,
+            due_day: contract.due_day || 5,
             status: statusVal,
-            start_date: startDate,
-            billing_model: billingType,
-            notes: JSON.stringify(notesObj),
+            start_date: contract.start_date || null,
+            billing_model: contract.billing_type || 'recorrente',
+            notes: notesStr,
             updated_at: new Date().toISOString()
           };
 
+          const existingAcc = accountsMap.get(key);
+
           if (existingAcc) {
-            const accountNotesStr = JSON.stringify(notesObj);
             const needsUpdate = 
               existingAcc.status !== statusVal ||
               Number(existingAcc.monthly_value) !== price ||
-              existingAcc.due_day !== dueDay ||
-              existingAcc.billing_model !== billingType ||
-              existingAcc.start_date !== startDate ||
-              existingAcc.notes !== accountNotesStr;
+              existingAcc.due_day !== (contract.due_day || 5) ||
+              existingAcc.billing_model !== (contract.billing_type || 'recorrente') ||
+              existingAcc.start_date !== (contract.start_date || null) ||
+              existingAcc.notes !== notesStr;
 
             if (needsUpdate) {
-              await supabase
+              console.log(`[backfillClientAccounts] Updating existing account ${existingAcc.id} for company: ${client.company_id}`);
+              const { error: updateErr } = await supabase
                 .from('m4_client_accounts')
                 .update(payload)
                 .eq('id', existingAcc.id);
+
+              if (updateErr) console.error(`[backfillClientAccounts] Error updating account ${existingAcc.id}:`, updateErr);
             }
           } else {
+            console.log(`[backfillClientAccounts] Enqueueing new account insertion for company: ${client.company_id}, service: ${contract.name}`);
             toInsert.push({
               ...payload,
               created_at: new Date().toISOString()
@@ -304,15 +298,43 @@ export const financeService = {
         }
       }
 
+      // 5. Insert new client accounts list
       if (toInsert.length > 0) {
         const { error: insertErr } = await supabase
           .from('m4_client_accounts')
           .insert(toInsert);
 
-        if (insertErr) throw insertErr;
+        if (insertErr) {
+          console.error('[backfillClientAccounts] Error inserting new accounts bulk:', insertErr);
+          throw insertErr;
+        }
+        console.log(`[backfillClientAccounts] Successfully inserted ${toInsert.length} new client accounts.`);
       }
+
+      // 6. Deactivate client accounts that are no longer associated or have been removed from client.services
+      if (existingAccounts) {
+        for (const existingAcc of existingAccounts) {
+          if (existingAcc.status !== 'ativo') continue;
+          const key = `${existingAcc.company_id}|${(existingAcc.service_name || '').toLowerCase()}`;
+          if (!activeKeys.has(key)) {
+            console.log(`[backfillClientAccounts] Deactivating account ${existingAcc.id} (no longer in client services)`);
+            const { error: deactivateErr } = await supabase
+              .from('m4_client_accounts')
+              .update({
+                status: 'cancelado',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingAcc.id);
+
+            if (deactivateErr) {
+              console.error(`[backfillClientAccounts] Error deactivating account ${existingAcc.id}:`, deactivateErr);
+            }
+          }
+        }
+      }
+
     } catch (err) {
-      console.error('[backfillClientAccounts] Error:', err);
+      console.error('[backfillClientAccounts] Global unexpected error:', err);
     }
   },
 

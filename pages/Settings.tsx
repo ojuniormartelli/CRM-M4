@@ -54,8 +54,7 @@ const BackupTab = () => {
     'm4_payment_methods',
     'm4_bank_accounts',
     'm4_credit_cards',
-    'm4_client_accounts',
-    'm4_transactions'
+    'm4_client_accounts'
   ];
 
   const handleExport = async () => {

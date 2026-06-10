@@ -164,13 +164,6 @@ export const clientService = {
         .eq('client_account_id', id)
         .eq('status', 'pending');
 
-      await supabase
-        .from('m4_transactions')
-        .delete()
-        .eq('workspace_id', workspaceId)
-        .eq('client_account_id', id)
-        .in('status', ['Pendente', 'A Receber', 'A Pagar']);
-
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'm4_clients');
       throw error;
