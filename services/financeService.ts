@@ -142,6 +142,12 @@ async function updateAccountBalance(accountId: string, workspaceId: string, newB
   }
 }
 
+function isPaidStatus(status: string | undefined): boolean {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === 'paid' || s === 'received';
+}
+
 export const financeService = {
   // --- Transactions ---
   async getTransactions(workspaceId: string, filters?: any): Promise<FinanceTransaction[]> {
@@ -176,6 +182,167 @@ export const financeService = {
     }
   },
 
+  async syncContracts(workspaceId: string): Promise<{ createdCount: number }> {
+    if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
+
+    try {
+      // 1. Fetch active client accounts (contracts)
+      const { data: activeAccounts, error: accountsErr } = await supabase
+        .from('m4_client_accounts')
+        .select('*, company:m4_companies(name)')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'ativo');
+
+      if (accountsErr) throw accountsErr;
+      if (!activeAccounts || activeAccounts.length === 0) {
+        return { createdCount: 0 };
+      }
+
+      // 2. Fetch active banks & categories
+      const { data: activeBanks } = await supabase
+        .from('m4_fin_bank_accounts')
+        .select('*')
+        .eq('is_active', true);
+
+      const { data: activeCats } = await supabase
+        .from('m4_fin_categories')
+        .select('*')
+        .eq('type', 'income')
+        .eq('is_active', true);
+
+      // 3. Fetch existing transactions to deduplicate
+      const accountIds = activeAccounts.map(a => a.id);
+      const { data: existingTx, error: txError } = await supabase
+        .from('m4_fin_transactions')
+        .select('*')
+        .in('client_account_id', accountIds);
+
+      if (txError) throw txError;
+
+      const listToInsert: any[] = [];
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1; // 1-12
+
+      // Find default category preferably containing "Mensalidade" or "Serviço"
+      const defaultCategory = (activeCats || []).find(c => 
+        c.name.toLowerCase().includes('mensalidade') || 
+        c.name.toLowerCase().includes('serviço') ||
+        c.name.toLowerCase().includes('receita')
+      ) || (activeCats && activeCats.length > 0 ? activeCats[0] : null);
+
+      const defaultBankId = activeBanks && activeBanks.length > 0 ? activeBanks[0].id : null;
+
+      for (const account of activeAccounts) {
+        const price = Number(account.monthly_value) || 0;
+        if (price <= 0) continue;
+
+        let accountBankId = defaultBankId;
+        let accountCatId = defaultCategory?.id || null;
+        try {
+          if (account.notes && account.notes.trim().startsWith('{')) {
+            const parsedNotes = JSON.parse(account.notes);
+            if (parsedNotes.bank_account_id && isUUID(parsedNotes.bank_account_id)) {
+              accountBankId = parsedNotes.bank_account_id;
+            }
+            if (parsedNotes.category_id && isUUID(parsedNotes.category_id)) {
+              accountCatId = parsedNotes.category_id;
+            }
+          }
+        } catch (e) {
+          // Fallback to standard
+        }
+
+        const dueDay = account.due_day || 5;
+        const dueMonthStr = String(currentMonth).padStart(2, '0');
+        const dueDateStr = `${currentYear}-${dueMonthStr}-${String(dueDay).padStart(2, '0')}`;
+
+        if (account.billing_model === 'recorrente' || !account.billing_model) {
+          // Check if transaction already exists for this account in this month
+          const alreadyExists = (existingTx || []).some(tx => {
+            if (!tx.due_date) return false;
+            const txDate = new Date(tx.due_date);
+            const txYear = txDate.getFullYear();
+            const txMonth = txDate.getMonth() + 1;
+            return tx.client_account_id === account.id && 
+                   txYear === currentYear &&
+                   txMonth === currentMonth;
+          });
+
+          if (!alreadyExists) {
+            listToInsert.push({
+              workspace_id: workspaceId,
+              description: `${account.company?.name || 'Cliente'} - Mensalidade: ${account.service_name || 'Contrato'}`,
+              amount: price,
+              type: 'income',
+              category_id: accountCatId,
+              bank_account_id: accountBankId,
+              status: 'pending',
+              issue_date: today.toISOString().split('T')[0],
+              due_date: dueDateStr,
+              competence_date: dueDateStr,
+              client_account_id: account.id,
+              notes: `Sincronização automática para recebimento de mensalidade.`
+            });
+          }
+        } else if (account.billing_model === 'parcelado') {
+          // For installment models
+          let installmentsTotal = 1;
+          let currentInstallmentNum = 1;
+          try {
+            if (account.notes && account.notes.trim().startsWith('{')) {
+              const parsedNotes = JSON.parse(account.notes);
+              if (parsedNotes.installments) installmentsTotal = Number(parsedNotes.installments) || 1;
+              if (parsedNotes.current_installment) currentInstallmentNum = Number(parsedNotes.current_installment) || 1;
+            }
+          } catch (e) {}
+
+          const installmentLabel = installmentsTotal > 1 ? ` (${currentInstallmentNum}/${installmentsTotal})` : '';
+
+          const alreadyExists = (existingTx || []).some(tx => {
+            if (!tx.due_date) return false;
+            const txDate = new Date(tx.due_date);
+            const txYear = txDate.getFullYear();
+            const txMonth = txDate.getMonth() + 1;
+            return tx.client_account_id === account.id &&
+                   txYear === currentYear &&
+                   txMonth === currentMonth;
+          });
+
+          if (!alreadyExists) {
+            listToInsert.push({
+              workspace_id: workspaceId,
+              description: `${account.company?.name || 'Cliente'} - Parcela: ${account.service_name || 'Contrato'}${installmentLabel}`,
+              amount: price,
+              type: 'income',
+              category_id: accountCatId,
+              bank_account_id: accountBankId,
+              status: 'pending',
+              issue_date: today.toISOString().split('T')[0],
+              due_date: dueDateStr,
+              competence_date: dueDateStr,
+              client_account_id: account.id,
+              notes: `Sincronização automática de parcela contratual.`
+            });
+          }
+        }
+      }
+
+      if (listToInsert.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('m4_fin_transactions')
+          .insert(listToInsert);
+
+        if (insertErr) throw insertErr;
+      }
+
+      return { createdCount: listToInsert.length };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'm4_fin_transactions');
+      throw error;
+    }
+  },
+
   async createTransaction(workspaceId: string, data: Partial<FinanceTransaction>): Promise<FinanceTransaction> {
     if (!workspaceId || !isUUID(workspaceId)) throw new Error('Workspace ID is required');
     try {
@@ -190,7 +357,7 @@ export const financeService = {
       if (error) throw error;
 
       // Update balance if created as PAID
-      if (result.status === 'paid' && result.bank_account_id) {
+      if (isPaidStatus(result.status) && result.bank_account_id) {
         const account = await getAccountBalanceFields(result.bank_account_id, workspaceId);
         if (account) {
           const amount = Number(result.amount);
@@ -257,9 +424,9 @@ export const financeService = {
       if (updateError) throw updateError;
 
       // 3. Handle Balance updates if needed
-      // Logic: If status changed to PAID or if it was PAID and values (amount/bank/type) changed
-      const wasPaid = existing.status === 'paid';
-      const isPaid = result.status === 'paid';
+      // Logic: If status changed to PAID/RECEIVED or if it was PAID/RECEIVED and values (amount/bank/type) changed
+      const wasPaid = isPaidStatus(existing.status);
+      const isPaid = isPaidStatus(result.status);
       
       const amountChanged = Number(existing.amount) !== Number(result.amount);
       const accountChanged = existing.bank_account_id !== result.bank_account_id;
@@ -311,7 +478,7 @@ export const financeService = {
         .eq('workspace_id', workspaceId)
         .single();
 
-      if (!fetchError && transaction && transaction.status === 'paid' && transaction.bank_account_id) {
+      if (!fetchError && transaction && isPaidStatus(transaction.status) && transaction.bank_account_id) {
         // Revert balance effect
         const account = await getAccountBalanceFields(transaction.bank_account_id, workspaceId);
         if (account) {
@@ -786,7 +953,7 @@ export const financeService = {
       const { data: updatedTx, error: updateError } = await supabase
         .from('m4_fin_transactions')
         .update({
-          status: transaction.type === 'income' ? 'received' : 'paid',
+          status: 'paid',
           paid_at: data.paidDate,
           bank_account_id: data.bankAccountId,
           amount: data.amount,
@@ -867,7 +1034,7 @@ export const financeService = {
       const inflowPayload = mappers.transaction({
         workspace_id: workspaceId,
         type: 'income',
-        status: 'received',
+        status: 'paid',
         description: `[TRANSFER] ${data.description}`,
         amount: data.amount,
         due_date: data.date,

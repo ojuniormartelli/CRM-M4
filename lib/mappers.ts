@@ -237,8 +237,6 @@ export const mappers = {
     if ((data as any).destination_bank_account_id !== undefined) payload.destination_bank_account_id = isUUID((data as any).destination_bank_account_id) ? (data as any).destination_bank_account_id : null;
     if ((data as any).parent_transaction_id !== undefined) payload.parent_transaction_id = isUUID((data as any).parent_transaction_id) ? (data as any).parent_transaction_id : null;
     if ((data as any).client_account_id !== undefined) payload.client_account_id = isUUID((data as any).client_account_id) ? (data as any).client_account_id : null;
-    if ((data as any).lead_id !== undefined) payload.lead_id = isUUID((data as any).lead_id) ? (data as any).lead_id : null;
-    if ((data as any).company_id !== undefined) payload.company_id = isUUID((data as any).company_id) ? (data as any).company_id : null;
     if ((data as any).cost_center_id !== undefined) payload.cost_center_id = isUUID((data as any).cost_center_id) ? (data as any).cost_center_id : null;
     if ((data as any).created_by !== undefined) payload.created_by = isUUID((data as any).created_by) ? (data as any).created_by : null;
     if ((data as any).updated_by !== undefined) payload.updated_by = isUUID((data as any).updated_by) ? (data as any).updated_by : null;

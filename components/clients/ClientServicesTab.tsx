@@ -20,6 +20,7 @@ import {
 import { taskService } from '../../services/taskService';
 import { servicesUtils, ClientServiceContract } from '../../utils/services';
 import { supabase } from '../../lib/supabase';
+import { financeService } from '../../services/financeService';
 
 interface ClientServicesTabProps {
   activeClient: M4Client;
@@ -154,127 +155,111 @@ export const ClientServicesTab: React.FC<ClientServicesTabProps> = ({
 
   const syncFinancialLaunches = async (client: M4Client, contracts: ClientServiceContract[]) => {
     try {
-      // 1. Get all existing transactions for this client (using client_account_id)
-      const { data: existingTx, error: txError } = await supabase
-        .from('m4_fin_transactions')
+      if (!client.workspace_id) return;
+
+      // 1. Fetch existing accounts on m4_client_accounts for this company
+      const { data: existingAccounts, error: accFetchError } = await supabase
+        .from('m4_client_accounts')
         .select('*')
-        .eq('client_account_id', client.id);
-      
-      if (txError) {
-        console.error('[syncFinancialLaunches] Error fetching existing:', txError);
+        .eq('company_id', client.company_id);
+
+      if (accFetchError) {
+        console.error('[syncFinancialLaunches] Error fetching m4_client_accounts:', accFetchError);
         return;
       }
 
-      const listToInsert: any[] = [];
-      const today = new Date();
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth() + 1; // 1-12
+      const activeContractsMap = new Set<string>();
 
+      // 2. Process each contract in editingContracts
       for (const contract of contracts) {
-        if (!contract.price || contract.price <= 0) continue;
+        activeContractsMap.add(contract.name.toLowerCase());
 
-        // Find bank account and category
-        const defaultBank = contract.bank_account_id || (bankAccounts.length > 0 ? bankAccounts[0].id : null);
-        let defaultCat = contract.category_id || null;
-        
-        // If no category specified, find first income category
-        if (!defaultCat && categories.length > 0) {
-          defaultCat = categories[0].id;
-        }
+        const notesObj = {
+          bank_account_id: contract.bank_account_id || null,
+          category_id: contract.category_id || null,
+          installments: contract.billing_type === 'parcelado' ? (contract.installments || 1) : null,
+          remaining_installments: contract.billing_type === 'parcelado' ? (contract.installments || 1) : null,
+          current_installment: 1,
+        };
+        const notesStr = JSON.stringify(notesObj);
 
-        if (contract.billing_type === 'recorrente') {
-          const dueDay = contract.due_day || 5;
-          
-          // Construct due date for current month
-          const dueMonthStr = String(currentMonth).padStart(2, '0');
-          const dueDateStr = `${currentYear}-${dueMonthStr}-${String(dueDay).padStart(2, '0')}`;
+        const matchedAccount = (existingAccounts || []).find(
+          acc => acc.service_name.toLowerCase() === contract.name.toLowerCase()
+        );
 
-          // Check if transaction already exists for this client, this service name, in this month and year
-          const alreadyExists = (existingTx || []).some(tx => {
-            const txDate = new Date(tx.due_date);
-            const txYear = txDate.getFullYear();
-            const txMonth = txDate.getMonth() + 1;
-            return tx.description?.toLowerCase().includes(contract.name.toLowerCase()) &&
-                   txYear === currentYear &&
-                   txMonth === currentMonth;
-          });
+        if (matchedAccount) {
+          // Update existing account
+          const { error: updateErr } = await supabase
+            .from('m4_client_accounts')
+            .update({
+              monthly_value: contract.price,
+              due_day: contract.due_day || 5,
+              status: contract.active ? 'ativo' : 'cancelado',
+              billing_model: contract.billing_type || 'recorrente',
+              start_date: contract.start_date || null,
+              notes: notesStr,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', matchedAccount.id);
 
-          if (!alreadyExists) {
-            listToInsert.push({
-              workspace_id: client.workspace_id,
-              description: `${client.company_name} - Recorrência: ${contract.name}`,
-              amount: contract.price,
-              type: 'income',
-              category_id: defaultCat,
-              bank_account_id: defaultBank,
-              status: 'pending',
-              issue_date: today.toISOString().split('T')[0],
-              due_date: dueDateStr,
-              competence_date: dueDateStr,
-              client_account_id: client.id,
-              notes: `Alocação automatizada para recebimento de mensalidade.`
-            });
+          if (updateErr) {
+            console.error('[syncFinancialLaunches] Error updating account:', updateErr);
           }
-
-        } else if (contract.billing_type === 'parcelado') {
-          const numInstallments = contract.installments || 1;
-          const installmentValue = contract.installment_value || Number((contract.price / numInstallments).toFixed(2));
-          const baseDate = contract.start_date ? new Date(contract.start_date) : new Date();
-
-          for (let i = 1; i <= numInstallments; i++) {
-            const instDueDate = new Date(baseDate);
-            // Increment month by i-1
-            instDueDate.setMonth(baseDate.getMonth() + (i - 1));
-            
-            const instDueDateStr = instDueDate.toISOString().split('T')[0];
-            const instYear = instDueDate.getFullYear();
-            const instMonth = instDueDate.getMonth() + 1;
-
-            // Check if this specific installment (e.g. "Parcela i/N") already exists
-            const alreadyExists = (existingTx || []).some(tx => {
-              const txDate = new Date(tx.due_date);
-              const txYear = txDate.getFullYear();
-              const txMonth = txDate.getMonth() + 1;
-              return tx.description?.toLowerCase().includes(contract.name.toLowerCase()) &&
-                     tx.description?.includes(`${i}/${numInstallments}`) &&
-                     txYear === instYear &&
-                     txMonth === instMonth;
-            });
-
-            if (!alreadyExists) {
-              listToInsert.push({
-                workspace_id: client.workspace_id,
-                description: `${client.company_name} - ${contract.name} (${i}/${numInstallments})`,
-                amount: installmentValue,
-                type: 'income',
-                category_id: defaultCat,
-                bank_account_id: defaultBank,
-                status: 'pending',
-                issue_date: today.toISOString().split('T')[0],
-                due_date: instDueDateStr,
-                competence_date: instDueDateStr,
-                client_account_id: client.id,
-                notes: `Alocação automatizada de parcela contratual (${i}/${numInstallments}).`
-              });
-            }
-          }
-        }
-      }
-
-      if (listToInsert.length > 0) {
-        const { error: insertErr } = await supabase
-          .from('m4_fin_transactions')
-          .insert(listToInsert);
-
-        if (insertErr) {
-          console.error('[syncFinancialLaunches] Error inserting transactions:', insertErr);
-          onShowToast('Falha ao registrar novos lançamentos automáticos.', 'error');
         } else {
-          onShowToast(`${listToInsert.length} novos lançamentos financeiros agendados no Organizador!`, 'success');
+          // Insert new account
+          const { error: insertErr } = await supabase
+            .from('m4_client_accounts')
+            .insert([{
+              workspace_id: client.workspace_id,
+              company_id: client.company_id,
+              lead_id: client.lead_id || null,
+              service_name: contract.name,
+              service_type: 'custom',
+              monthly_value: contract.price,
+              due_day: contract.due_day || 5,
+              status: contract.active ? 'ativo' : 'cancelado',
+              billing_model: contract.billing_type || 'recorrente',
+              start_date: contract.start_date || null,
+              notes: notesStr,
+            }]);
+
+          if (insertErr) {
+            console.error('[syncFinancialLaunches] Error inserting account:', insertErr);
+          }
         }
       }
+
+      // 3. Deactivate any client accounts that are no longer in active contracts
+      const removedAccounts = (existingAccounts || []).filter(
+        acc => acc.status === 'ativo' && !activeContractsMap.has(acc.service_name.toLowerCase())
+      );
+
+      for (const remAcc of removedAccounts) {
+        const { error: cancelErr } = await supabase
+          .from('m4_client_accounts')
+          .update({
+            status: 'cancelado',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', remAcc.id);
+
+        if (cancelErr) {
+          console.error('[syncFinancialLaunches] Error canceling removed account:', cancelErr);
+        }
+      }
+
+      // 4. Trigger unified financeService contract synchronization
+      const syncResult = await financeService.syncContracts(client.workspace_id);
+      
+      if (syncResult.createdCount > 0) {
+        onShowToast(`${syncResult.createdCount} novos lançamentos financeiros agendados com sucesso no Organizador!`, 'success');
+      } else {
+        onShowToast('Serviços salvos e organizador sincronizado em dia!', 'success');
+      }
+
     } catch (err) {
       console.error('[syncFinancialLaunches] Unexpected error:', err);
+      onShowToast('Ocorreu um erro ao sincronizar lançamentos contratados.', 'error');
     }
   };
 
